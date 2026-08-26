@@ -26,10 +26,18 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #safe{position:absolute;top:0;left:0;width:1px;height:var(--safe-t);visibility:hidden}
 
 /* status + calibration chips */
-.chip{position:absolute;left:12px;padding:5px 9px;border-radius:4px;background:rgba(14,26,43,.72);font:500 12px/1 var(--mono);color:var(--cream);letter-spacing:.02em;white-space:nowrap;backdrop-filter:blur(6px)}
-#status{top:calc(var(--safe-t) + 60px)}
-#calib{top:calc(var(--safe-t) + 88px);color:var(--ochre);display:none}
-#calib b{font-weight:500;text-decoration:underline;margin-left:8px;color:var(--cream)}
+.chips{position:absolute;top:calc(var(--safe-t) + 60px);left:12px;max-width:calc(100% - 80px);display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none}
+.chip{padding:5px 9px;border-radius:4px;background:rgba(14,26,43,.72);font:500 12px/1 var(--mono);color:var(--cream);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;backdrop-filter:blur(6px)}
+#calib,#filt{color:var(--ochre);display:none;pointer-events:auto}
+#calib b,#filt b{font-weight:500;text-decoration:underline;margin-left:8px;color:var(--cream)}
+#tools{position:absolute;top:calc(var(--safe-t) + 56px);right:12px;display:flex;flex-direction:column;gap:8px}
+#tools button{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.72);backdrop-filter:blur(6px)}
+#tools svg{width:19px;height:19px;stroke:var(--cream);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+#tools button:active{background:rgba(243,233,210,.2)}
+#btnFind.on{background:rgba(224,165,38,.85)}
+#btnFind.on svg{stroke:var(--ink)}
+.sec{margin-top:6px;padding:14px 0 4px;border-top:1px solid var(--line);font:700 15px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--ochre)}
+.row label em{font:500 11px var(--mono);color:var(--ochre);font-style:normal;margin-left:8px}
 
 /* bottom bar */
 #bar{position:absolute;left:0;right:0;bottom:0;padding:14px 20px calc(var(--safe-b) + 16px);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:linear-gradient(to top,rgba(14,26,43,.85),rgba(14,26,43,0))}
@@ -63,6 +71,8 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .row .val{font:500 13px var(--mono);color:var(--ochre)}
 .row input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--ochre)}
 .row input[type=checkbox]{width:22px;height:22px;accent-color:var(--ochre)}
+.row input[type=search]{grid-column:1/-1;width:100%;background:var(--ink2);border:1px solid var(--line);border-radius:3px;color:var(--cream);padding:11px 12px;font:500 15px var(--mono);-webkit-appearance:none}
+.row input[type=search]::placeholder{color:rgba(243,233,210,.4)}
 .row .hint{grid-column:1/-1;font:400 12px/1.4 var(--mono);color:rgba(243,233,210,.55)}
 #reset{grid-column:1/-1;justify-self:start;font:500 12px var(--mono);color:var(--cream);border:1px solid var(--line);padding:8px 12px;border-radius:3px;letter-spacing:.06em}
 
@@ -81,8 +91,15 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   <video id="cam" playsinline muted autoplay></video>
   <canvas id="ov"></canvas>
   <div id="safe"></div>
-  <div id="status" class="chip">En attente…</div>
-  <div id="calib" class="chip"></div>
+  <div class="chips">
+    <div id="status" class="chip">En attente…</div>
+    <div id="calib" class="chip"></div>
+    <div id="filt" class="chip"></div>
+  </div>
+  <div id="tools">
+    <button id="btnFind" aria-label="Filtrer par nom"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg></button>
+    <button id="btnFs" aria-label="Plein ecran"><svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
+  </div>
   <div id="flash"></div>
   <div id="bar">
     <button class="side" id="btnSet">Réglages</button>
@@ -93,6 +110,11 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 
 <div id="sheet">
   <h2>Réglages <button id="btnClose">FERMER</button></h2>
+  <div class="row">
+    <label for="flt">Filtrer par nom</label><span class="val" id="fltN"></span>
+    <input type="search" id="flt" placeholder="ex. Crozon, Saint-" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <span class="hint">Accents et majuscules ignores. Laissez vide pour tout afficher.</span>
+  </div>
   <div class="row">
     <label for="rad">Rayon de recherche</label><span class="val" id="radV">60 km</span>
     <input type="range" id="rad" min="10" max="200" step="5" value="60">
@@ -112,6 +134,8 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   <div class="row">
     <label for="dst">Afficher les distances</label><input type="checkbox" id="dst" checked>
   </div>
+  <div class="sec">Points de vue et reperes</div>
+  <div id="poiList"></div>
   <div class="row">
     <span class="hint">Glissez sur l'image : horizontalement pour caler le cap, verticalement pour caler l'horizon.</span>
     <button id="reset">Remettre le calage à zéro</button>
@@ -154,7 +178,18 @@ const D=Math.PI/180;
 const FD=getComputedStyle(document.body).getPropertyValue('--display'), FM=getComputedStyle(document.body).getPropertyValue('--mono');
 const CARD=['N','NE','E','SE','S','SO','O','NO'];
 const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.private.coffee/api/interpreter'];
-const S={radius:60,fov:50,hamlets:false,relief:true,showDist:true,headOff:0,pitchOff:0};
+const S={radius:60,fov:50,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,
+  poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
+const POI={
+  lighthouse:{label:'Phares, feux et balises',        max:40, q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]']},
+  cape:      {label:'Pointes, caps et sommets',       max:30, q:['nwr["natural"~"^(cape|peak)$"]']},
+  rock:      {label:'Rochers, ilots et arches',       max:20, q:['nwr["natural"~"^(rock|stone|arch)$"]','nwr["place"~"^(island|islet)$"]']},
+  view:      {label:'Points de vue et curiosites',    max:20, q:['nwr["tourism"~"^(viewpoint|attraction)$"]']},
+  heritage:  {label:'Chateaux, forts, menhirs, moulins', max:15, q:['nwr["historic"~"^(castle|fort|ruins|monument|memorial|standing_stone|archaeological_site)$"]','nwr["man_made"="windmill"]']},
+  beach:     {label:'Plages',                         max:12, q:['nwr["natural"="beach"]']}
+};
+const norm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const passFilter=(c,fq)=>!fq||norm(c.name).includes(fq);
 
 // Secours si OpenStreetMap est injoignable (Ouest + grandes villes)
 const FALLBACK=[
@@ -234,13 +269,26 @@ async function loadCities(force){
   if(!pos||loading) return;
   if(!force&&lastFetch&&source==='OSM'&&loadedR>=S.radius&&distBrg(pos,lastFetch).dist<S.radius*0.25) return;
   loading=true; setStatus('Chargement des lieux…');
-  const r=Math.round(S.radius*1000), rv=Math.min(r,30000), rh=Math.min(r,12000);
-  const q=`[out:json][timeout:25];(node["place"~"^(city|town)$"](around:${r},${pos.lat},${pos.lon});node["place"="village"](around:${rv},${pos.lat},${pos.lon});${S.hamlets?`node["place"~"^(hamlet|isolated_dwelling)$"](around:${rh},${pos.lat},${pos.lon});`:''});out body;`;
+  const r=Math.round(S.radius*1000), C=`${pos.lat},${pos.lon}`;
+  const cap=km=>Math.min(r,km*1000);
+  const parts=[`node["place"~"^(city|town)$"](around:${r},${C})`,`node["place"="village"](around:${cap(30)},${C})`];
+  if(S.hamlets) parts.push(`node["place"~"^(hamlet|isolated_dwelling)$"](around:${cap(12)},${C})`);
+  for(const k in POI) if(S.poi[k]) for(const sel of POI[k].q) parts.push(`${sel}(around:${cap(POI[k].max)},${C})`);
+  const q=`[out:json][timeout:30];(${parts.join(';')};);out center;`;
   const body='data='+encodeURIComponent(q);
   const tryEP=ep=>fetchT(ep,{method:'POST',body,headers:{'Content-Type':'application/x-www-form-urlencoded'}},12000)
     .then(res=>{ if(!res.ok) throw new Error(String(res.status)); return res.json(); })
     .then(j=>{
-      const got=j.elements.filter(n=>n.tags&&(n.tags['name:fr']||n.tags.name)).map(n=>({name:n.tags['name:fr']||n.tags.name,lat:n.lat,lon:n.lon,kind:n.tags.place,pop:+(n.tags.population||0)}));
+      const seen=new Set(), got=[];
+      for(const n of j.elements){
+        const t=n.tags; if(!t) continue;
+        const name=t['name:fr']||t.name; if(!name) continue;
+        const lat=n.lat??(n.center&&n.center.lat), lon=n.lon??(n.center&&n.center.lon);
+        if(lat==null||lon==null) continue;
+        const key=name+'@'+lat.toFixed(4)+','+lon.toFixed(4);
+        if(seen.has(key)) continue; seen.add(key);
+        got.push({name,lat,lon,kind:kindOf(t),pop:+(t.population||0)});
+      }
       if(!got.length) throw new Error('empty');
       return got;
     });
@@ -254,7 +302,22 @@ async function loadCities(force){
 }
 
 // ---------- relief : masquage des lieux cachés par le terrain ----------
-const RANK={city:0,town:1,village:2,hamlet:3,isolated_dwelling:3};
+const RANK={city:0,town:1,lighthouse:1,cape:2,peak:2,village:2,view:3,rock:3,heritage:3,beach:4,hamlet:4,isolated_dwelling:4,poi:3};
+// portee d'affichage (km) et hauteur de cible pour le calcul de relief (m)
+const MAXD={village:30,hamlet:12,isolated_dwelling:12,lighthouse:40,cape:30,peak:45,rock:20,view:20,heritage:15,beach:12,poi:15};
+const HT={lighthouse:25,peak:4,cape:4,rock:4,view:4,heritage:10,beach:1};
+const SETTLE=new Set(['city','town','village','hamlet','isolated_dwelling']);
+function kindOf(t){
+  if(t.place&&SETTLE.has(t.place)) return t.place;
+  if(t.man_made==='lighthouse'||/^light/.test(t['seamark:type']||'')) return 'lighthouse';
+  if(t.natural==='cape') return 'cape';
+  if(t.natural==='peak') return 'peak';
+  if(/^(rock|stone|arch)$/.test(t.natural||'')||/^(island|islet)$/.test(t.place||'')) return 'rock';
+  if(t.natural==='beach') return 'beach';
+  if(t.tourism) return 'view';
+  if(t.historic||t.man_made==='windmill') return 'heritage';
+  return 'poi';
+}
 let reliefState='—', reliefAt=null, reliefBusy=false;
 async function elevations(pts){
   const out=new Array(pts.length).fill(null);
@@ -281,7 +344,7 @@ async function computeRelief(){
     if(el.some(v=>v==null)) throw new Error('incomplet');
     const Reff=6371000*1.13, h0=(el[0]||0)+1.6, base=1+T.length*N;
     T.forEach((c,ci)=>{
-      const Dm=c.dist*1000, y1=(el[base+ci]||0)+12-Dm*Dm/(2*Reff);
+      const Dm=c.dist*1000, y1=(el[base+ci]||0)+(HT[c.kind]??12)-Dm*Dm/(2*Reff);
       let blocked=false;
       for(let i=1;i<=N;i++){
         const f=i/(N+1), d=Dm*f, t=el[1+ci*N+(i-1)];
@@ -297,10 +360,9 @@ async function computeRelief(){
 function visibleCities(){
   return cities.filter(c=>{
     if(c.dist==null||c.dist>S.radius) return false;
-    if(c.kind==='village') return c.dist<=30;
-    if(c.kind==='hamlet'||c.kind==='isolated_dwelling') return c.dist<=12;
+    const m=MAXD[c.kind]; if(m!=null&&c.dist>m) return false;
     return true;
-  }).sort((a,b)=>(RANK[a.kind]??2)-(RANK[b.kind]??2)||a.dist-b.dist);
+  }).sort((a,b)=>(RANK[a.kind]??3)-(RANK[b.kind]??3)||a.dist-b.dist);
 }
 
 // ---------- rendu ----------
@@ -315,6 +377,7 @@ window.addEventListener('resize',()=>setTimeout(resize,80));
 function draw(){
   const {heading,pitch,roll}=pose();
   const fh=(W/2)/Math.tan(S.fov/2*D);
+  const fq=S.filter?norm(S.filter):'';
   const list=visibleCities();
   ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
 
@@ -332,12 +395,15 @@ function draw(){
   ctx.textBaseline='alphabetic'; ctx.textAlign='left'; ctx.lineJoin='round';
   for(const c of list){
     if(S.relief&&c.hidden) continue;
+    if(!passFilter(c,fq)) continue;
     const dB=wrap(c.brg-heading);
     if(Math.abs(dB)>Math.min(80,S.fov*0.8)) continue;
     const x=W/2+fh*Math.tan(dB*D);
     if(x<-40||x>W+40) continue;
-    const size=c.kind==='city'?18:c.kind==='town'?16:c.kind==='village'?14:12;
-    const alpha=(c.kind==='village'||c.kind==='hamlet')?.75:.65;
+    const poi=!SETTLE.has(c.kind);
+    const size=c.kind==='city'?18:c.kind==='town'?16:c.kind==='village'?14:poi?13:12;
+    const alpha=SETTLE.has(c.kind)?(c.kind==='city'||c.kind==='town'?1:.8):.9;
+    const tint=poi?'224,165,38':'243,233,210';
     ctx.font=`700 ${size}px ${FD}`;
     const nw=ctx.measureText(c.name).width;
     const dtxt=S.showDist?(c.dist<10?c.dist.toFixed(1):Math.round(c.dist))+' km':'';
@@ -348,12 +414,12 @@ function draw(){
     if(k>=maxLanes) continue;
     (lanes[k]=lanes[k]||[]).push([x0,x1]);
     const ly=hy-26-k*22;
-    ctx.strokeStyle=`rgba(255,255,255,${.85*alpha})`; ctx.lineWidth=1;
+    ctx.strokeStyle=poi?`rgba(224,165,38,${.8*alpha})`:`rgba(255,255,255,${.85*alpha})`; ctx.lineWidth=1;
     ctx.beginPath(); ctx.moveTo(x,hy); ctx.lineTo(x,ly+3); ctx.stroke();
-    ctx.fillStyle='rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(x,hy,2.2,0,7); ctx.fill();
+    ctx.fillStyle=poi?'rgba(224,165,38,.95)':'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(x,hy,2.2,0,7); ctx.fill();
     ctx.font=`700 ${size}px ${FD}`;
     ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.lineWidth=3.5;
-    ctx.strokeText(c.name,x+6,ly); ctx.fillStyle=`rgba(243,233,210,${alpha})`; ctx.fillText(c.name,x+6,ly);
+    ctx.strokeText(c.name,x+6,ly); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,x+6,ly);
     if(dtxt){ ctx.font=`500 11px ${FM}`;
       ctx.lineWidth=3; ctx.strokeText(dtxt,x+6+nw+7,ly); ctx.fillStyle='#E0A526'; ctx.fillText(dtxt,x+6+nw+7,ly); }
   }
@@ -375,8 +441,8 @@ function draw(){
     ctx.beginPath(); ctx.moveTo(x,top+rh); ctx.lineTo(x,top+rh-len); ctx.stroke();
     if(card){ ctx.fillStyle='#F3E9D2'; ctx.font=`700 13px ${FD}`; ctx.fillText(CARD[n/45],x,top+rh-len-5); }
   }
-  for(const c of list){ if(S.relief&&c.hidden) continue; const dB=wrap(c.brg-heading); if(Math.abs(dB)>S.fov/2+6) continue;
-    ctx.fillStyle=c.kind==='city'?'#F3E9D2':'rgba(243,233,210,.6)';
+  for(const c of list){ if(S.relief&&c.hidden) continue; if(!passFilter(c,fq)) continue; const dB=wrap(c.brg-heading); if(Math.abs(dB)>S.fov/2+6) continue;
+    ctx.fillStyle=!SETTLE.has(c.kind)?'#E0A526':c.kind==='city'?'#F3E9D2':'rgba(243,233,210,.6)';
     ctx.beginPath(); ctx.arc(W/2+dB*ppd,top+9,c.kind==='city'?2.6:1.8,0,7); ctx.fill(); }
   ctx.fillStyle='#E0A526'; ctx.fillRect(W/2-1,top+rh-20,2,20);
   ctx.font=`500 12px ${FM}`;
@@ -389,11 +455,15 @@ function draw(){
 
   // statut
   const g=pos?`GPS ±${Math.round(acc||0)} m`:'GPS —';
-  const shown=S.relief?list.filter(c=>!c.hidden).length:list.length;
+  const shown=list.filter(c=>(!S.relief||!c.hidden)&&passFilter(c,fq)).length;
   setStatus(`${g} · ${shown} lieux · ${source}${S.relief?' · relief '+reliefState:''}${sensor?'':' · boussole —'}`);
   const cal=$('calib');
   if(S.headOff||S.pitchOff){ cal.style.display='block'; cal.innerHTML=`cap ${S.headOff>0?'+':''}${S.headOff.toFixed(0)}° · horizon ${S.pitchOff>0?'+':''}${S.pitchOff.toFixed(0)}°<b>remettre</b>`; }
   else cal.style.display='none';
+  const fc=$('filt');
+  if(S.filter){ fc.style.display='block'; fc.innerHTML=`filtre : ${S.filter.replace(/[<&]/g,'')}<b>effacer</b>`; }
+  else fc.style.display='none';
+  $('btnFind').classList.toggle('on',!!S.filter);
   requestAnimationFrame(draw);
 }
 
@@ -414,6 +484,35 @@ $('rad').oninput=e=>{S.radius=+e.target.value;$('radV').textContent=S.radius+' k
 $('fov').oninput=e=>{S.fov=+e.target.value;$('fovV').textContent=S.fov+'°';};
 $('vil').onchange=e=>{S.hamlets=e.target.checked;loadCities(true);};
 $('rel').onchange=e=>{S.relief=e.target.checked;if(S.relief)computeRelief();};
+function setFilter(v){ S.filter=v; if($('flt').value!==v) $('flt').value=v;
+  const n=$('fltN'); if(v){ const fq=norm(v); n.textContent=visibleCities().filter(c=>passFilter(c,fq)).length+' trouve(s)'; } else n.textContent=''; }
+$('flt').oninput=e=>setFilter(e.target.value.trim());
+$('btnFind').onclick=()=>{ $('sheet').classList.add('open'); $('sheet').scrollTop=0; setTimeout(()=>$('flt').focus(),260); };
+
+// cases a cocher des categories de reperes
+Object.keys(POI).forEach(k=>{
+  const d=document.createElement('div'); d.className='row';
+  const id='poi_'+k;
+  d.innerHTML=`<label for="${id}">${POI[k].label}<em>&le; ${POI[k].max} km</em></label><input type="checkbox" id="${id}"${S.poi[k]?' checked':''}>`;
+  $('poiList').appendChild(d);
+  d.querySelector('input').onchange=e=>{ S.poi[k]=e.target.checked; reliefAt=null; loadCities(true); };
+});
+$('filt').addEventListener('click',()=>setFilter(''));
+
+// plein ecran
+const FSel=document.documentElement;
+const fsReq=FSel.requestFullscreen||FSel.webkitRequestFullscreen;
+const fsExit=document.exitFullscreen||document.webkitExitFullscreen;
+const fsOn=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
+async function toggleFS(){ try{ if(fsOn()) await fsExit.call(document); else await fsReq.call(FSel); }catch(e){} }
+if(!fsReq) $('btnFs').style.display='none';
+$('btnFs').onclick=toggleFS;
+const onFsChange=()=>{ $('btnFs').innerHTML=fsOn()
+  ? '<svg viewBox="0 0 24 24"><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"/></svg>'
+  : '<svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>';
+  setTimeout(resize,120); };
+document.addEventListener('fullscreenchange',onFsChange);
+document.addEventListener('webkitfullscreenchange',onFsChange);
 $('dst').onchange=e=>{S.showDist=e.target.checked;};
 $('btnReload').onclick=()=>{reliefAt=null;loadCities(true);};
 
