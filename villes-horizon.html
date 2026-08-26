@@ -134,6 +134,14 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   <div class="row">
     <label for="dst">Afficher les distances</label><input type="checkbox" id="dst" checked>
   </div>
+  <div class="sec">Trafic en direct</div>
+  <div class="row">
+    <label for="air">Avions<em>OpenSky &le; 120 km</em></label><input type="checkbox" id="air">
+  </div>
+  <div class="row">
+    <label for="sea">Bateaux<em>AISStream &le; 40 km</em></label><input type="checkbox" id="sea">
+    <span class="hint" id="seaHint">Necessite une cle gratuite aisstream.io a renseigner dans le fichier (CONFIG.aisKey).</span>
+  </div>
   <div class="sec">Points de vue et reperes</div>
   <div id="poiList"></div>
   <div class="row">
@@ -178,7 +186,16 @@ const D=Math.PI/180;
 const FD=getComputedStyle(document.body).getPropertyValue('--display'), FM=getComputedStyle(document.body).getPropertyValue('--mono');
 const CARD=['N','NE','E','SE','S','SO','O','NO'];
 const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.private.coffee/api/interpreter'];
-const S={radius:60,fov:50,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,
+
+/* ============================================================
+   CLES D'API — a remplir si besoin, voir notes en fin de fichier
+   - aisKey     : cle gratuite aisstream.io (OBLIGATOIRE pour les bateaux)
+   - openskyId / openskySecret : facultatif, augmente le quota avions.
+     ATTENTION : sur un depot GitHub public, ces valeurs sont lisibles
+     par tous. Laisser vide = acces anonyme OpenSky (~100 requetes/jour).
+   ============================================================ */
+const CONFIG={ aisKey:'', openskyId:'', openskySecret:'' };
+const S={radius:60,fov:50,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
   lighthouse:{label:'Phares, feux et balises',        max:40, q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]']},
@@ -299,6 +316,7 @@ async function loadCities(force){
   }
   lastFetch={...pos}; loadedR=S.radius; recompute(); loading=false;
   if(S.relief) computeRelief();
+  else elevations([pos]).then(e=>{ if(e[0]!=null) obsElev=e[0]; }).catch(()=>{});
 }
 
 // ---------- relief : masquage des lieux cachés par le terrain ----------
@@ -342,7 +360,8 @@ async function computeRelief(){
     for(const c of T) pts.push({lat:c.lat,lon:c.lon});
     const el=await elevations(pts);
     if(el.some(v=>v==null)) throw new Error('incomplet');
-    const Reff=6371000*1.13, h0=(el[0]||0)+1.6, base=1+T.length*N;
+    obsElev=el[0]||0;
+    const Reff=6371000*1.13, h0=obsElev+1.6, base=1+T.length*N;
     T.forEach((c,ci)=>{
       const Dm=c.dist*1000, y1=(el[base+ci]||0)+(HT[c.kind]??12)-Dm*Dm/(2*Reff);
       let blocked=false;
@@ -355,6 +374,95 @@ async function computeRelief(){
     reliefState='ok'; reliefAt=here;
   }catch(e){ reliefState='indispo'; }
   reliefBusy=false;
+}
+
+// ---------- trafic en direct : avions (OpenSky) et bateaux (AISStream) ----------
+let planes=[], ships=new Map(), obsElev=0, tMsg={air:'',sea:''};
+let airTimer=null, airTok=null, airTokExp=0, ws=null;
+
+function bbox(km){
+  const dLat=km/111, dLon=km/(111*Math.max(0.2,Math.cos(pos.lat*D)));
+  return {la1:pos.lat-dLat,la2:pos.lat+dLat,lo1:pos.lon-dLon,lo2:pos.lon+dLon};
+}
+// extrapolation entre deux relevés, a partir du cap et de la vitesse
+function dr(o){
+  const dt=Math.min(600,(Date.now()-o.t)/1000), d=o.vel*dt, b=o.trk*D;
+  return { lat:o.lat+d*Math.cos(b)/111320,
+           lon:o.lon+d*Math.sin(b)/(111320*Math.max(0.2,Math.cos(o.lat*D))),
+           alt:(o.alt||0)+(o.vr||0)*dt };
+}
+async function airAuth(){
+  if(!CONFIG.openskyId||!CONFIG.openskySecret) return null;
+  if(airTok&&Date.now()<airTokExp) return airTok;
+  const r=await fetchT('https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token',
+    {method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+     body:`grant_type=client_credentials&client_id=${encodeURIComponent(CONFIG.openskyId)}&client_secret=${encodeURIComponent(CONFIG.openskySecret)}`},10000);
+  if(!r.ok) throw new Error('auth '+r.status);
+  const j=await r.json(); airTok=j.access_token; airTokExp=Date.now()+((j.expires_in||300)-60)*1000;
+  return airTok;
+}
+async function pollAir(){
+  if(!S.air||!pos||document.hidden) return;
+  const b=bbox(S.airMax);
+  try{
+    const t=await airAuth().catch(()=>null);
+    const r=await fetchT(`https://opensky-network.org/api/states/all?lamin=${b.la1.toFixed(3)}&lomin=${b.lo1.toFixed(3)}&lamax=${b.la2.toFixed(3)}&lomax=${b.lo2.toFixed(3)}`,
+      t?{headers:{Authorization:'Bearer '+t}}:{},12000);
+    if(r.status===429){ tMsg.air='quota'; return; }
+    if(!r.ok) throw new Error(r.status);
+    const j=await r.json(), now=Date.now();
+    planes=(j.states||[]).filter(v=>v[5]!=null&&v[6]!=null&&!v[8]).map(v=>({
+      name:((v[1]||'').trim()||v[0]||'?'), lat:v[6], lon:v[5],
+      alt:(v[13]!=null?v[13]:(v[7]||0)), trk:v[10]||0, vel:v[9]||0, vr:v[11]||0, t:now }));
+    tMsg.air=planes.length+' av.';
+  }catch(e){ tMsg.air='indispo'; }
+}
+function openAIS(){
+  if(!S.sea||!pos) return;
+  if(!CONFIG.aisKey){ tMsg.sea='cle requise'; return; }
+  try{ if(ws) ws.close(); }catch(e){}
+  const b=bbox(S.seaMax);
+  tMsg.sea='connexion…';
+  ws=new WebSocket('wss://stream.aisstream.io/v0/stream');
+  ws.onopen=()=>{ tMsg.sea='en ligne';
+    ws.send(JSON.stringify({APIKey:CONFIG.aisKey,BoundingBoxes:[[[b.la2,b.lo1],[b.la1,b.lo2]]],FilterMessageTypes:['PositionReport']})); };
+  ws.onmessage=ev=>{ try{
+    const m=JSON.parse(ev.data); if(m.MessageType!=='PositionReport') return;
+    const md=m.MetaData||{}, pr=(m.Message&&m.Message.PositionReport)||{};
+    const id=md.MMSI!=null?md.MMSI:md.ShipId; if(id==null) return;
+    const la=md.latitude!=null?md.latitude:md.Latitude, lo=md.longitude!=null?md.longitude:md.Longitude;
+    if(la==null||lo==null) return;
+    ships.set(String(id),{name:((md.ShipName||'').trim()||'MMSI '+id),lat:la,lon:lo,
+      trk:(pr.Cog!=null?pr.Cog:0), vel:(pr.Sog||0)*0.5144, alt:0, vr:0, t:Date.now()});
+    tMsg.sea=ships.size+' bat.';
+  }catch(e){} };
+  ws.onerror=()=>{ tMsg.sea='erreur'; };
+  ws.onclose=()=>{ if(S.sea&&tMsg.sea!=='cle requise') tMsg.sea='hors ligne'; };
+}
+function syncTraffic(){
+  clearInterval(airTimer); airTimer=null;
+  if(S.air){ pollAir(); airTimer=setInterval(pollAir,60000); } else { planes=[]; tMsg.air=''; }
+  if(S.sea) openAIS(); else { try{ if(ws) ws.close(); }catch(e){} ws=null; ships.clear(); tMsg.sea=''; }
+}
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){ clearInterval(airTimer); airTimer=null; }
+  else if(S.air&&!airTimer){ pollAir(); airTimer=setInterval(pollAir,60000); }
+});
+function mobiles(){
+  if(!pos) return [];
+  const out=[], now=Date.now();
+  if(S.air) for(const p of planes){
+    const s=dr(p), r=distBrg(pos,{lat:s.lat,lon:s.lon});
+    if(r.dist>S.airMax) continue;
+    out.push({name:p.name,kind:'plane',dist:r.dist,brg:r.brg,alt:s.alt,trk:p.trk,vel:p.vel});
+  }
+  if(S.sea) for(const [id,v] of ships){
+    if(now-v.t>900000){ ships.delete(id); continue; }
+    const s=dr(v), r=distBrg(pos,{lat:s.lat,lon:s.lon});
+    if(r.dist>S.seaMax) continue;
+    out.push({name:v.name,kind:'ship',dist:r.dist,brg:r.brg,alt:0,trk:v.trk,vel:v.vel});
+  }
+  return out.sort((a,b)=>a.dist-b.dist).slice(0,60);
 }
 
 function visibleCities(){
@@ -423,6 +531,32 @@ function draw(){
     if(dtxt){ ctx.font=`500 11px ${FM}`;
       ctx.lineWidth=3; ctx.strokeText(dtxt,x+6+nw+7,ly); ctx.fillStyle='#E0A526'; ctx.fillText(dtxt,x+6+nw+7,ly); }
   }
+  // --- mobiles : avions et bateaux, places a leur hauteur angulaire reelle ---
+  const Reff=6371000*1.13, h0=obsElev+1.6;
+  const hzA=-Math.sqrt(2*Math.max(0.5,h0)/Reff)/D; // angle de l'horizon visible
+  for(const m of mobiles()){
+    if(!passFilter(m,fq)) continue;
+    const dB=wrap(m.brg-heading);
+    if(Math.abs(dB)>Math.min(80,S.fov*0.8)) continue;
+    const x=W/2+fh*Math.tan(dB*D);
+    if(x<-40||x>W+40) continue;
+    const Dm=m.dist*1000;
+    // hauteur utile : altitude barometrique pour un avion, superstructure pour un navire
+    const elev=Math.atan2((m.kind==='plane'?m.alt:12)-h0-Dm*Dm/(2*Reff),Dm)/D;
+    if(elev<hzA) continue; // masque par la rotondite de la Terre
+    const y=Math.max(-60,Math.min(H+60,H/2+fh*Math.tan((pitch-elev)*D)));
+    const air=m.kind==='plane', col=air?'#8FD3FF':'#7FE3C4';
+    ctx.save(); ctx.translate(x,y); ctx.rotate(wrap(m.trk-heading)*D);
+    ctx.fillStyle=col; ctx.strokeStyle='rgba(14,26,43,.85)'; ctx.lineWidth=2.5;
+    ctx.beginPath();
+    if(air){ ctx.moveTo(0,-8); ctx.lineTo(6,7); ctx.lineTo(0,4); ctx.lineTo(-6,7); }
+    else { ctx.moveTo(0,-7); ctx.lineTo(4.5,2); ctx.lineTo(3,6); ctx.lineTo(-3,6); ctx.lineTo(-4.5,2); }
+    ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore();
+    const lab=m.name+(air?'  '+Math.round(m.alt*3.281/100)*100+' ft':'  '+Math.round(m.vel*1.944)+' nd');
+    ctx.font=`500 11px ${FM}`; ctx.textAlign='left';
+    ctx.lineWidth=3; ctx.strokeStyle='rgba(14,26,43,.9)';
+    ctx.strokeText(lab,x+11,y+4); ctx.fillStyle=col; ctx.fillText(lab,x+11,y+4);
+  }
   ctx.restore();
 
   // --- ruban de cap (repère écran) ---
@@ -456,7 +590,8 @@ function draw(){
   // statut
   const g=pos?`GPS ±${Math.round(acc||0)} m`:'GPS —';
   const shown=list.filter(c=>(!S.relief||!c.hidden)&&passFilter(c,fq)).length;
-  setStatus(`${g} · ${shown} lieux · ${source}${S.relief?' · relief '+reliefState:''}${sensor?'':' · boussole —'}`);
+  const tr=(S.air&&tMsg.air?' · '+tMsg.air:'')+(S.sea&&tMsg.sea?' · '+tMsg.sea:'');
+  setStatus(`${g} · ${shown} lieux · ${source}${S.relief?' · relief '+reliefState:''}${tr}${sensor?'':' · boussole —'}`);
   const cal=$('calib');
   if(S.headOff||S.pitchOff){ cal.style.display='block'; cal.innerHTML=`cap ${S.headOff>0?'+':''}${S.headOff.toFixed(0)}° · horizon ${S.pitchOff>0?'+':''}${S.pitchOff.toFixed(0)}°<b>remettre</b>`; }
   else cal.style.display='none';
@@ -487,6 +622,8 @@ $('rel').onchange=e=>{S.relief=e.target.checked;if(S.relief)computeRelief();};
 function setFilter(v){ S.filter=v; if($('flt').value!==v) $('flt').value=v;
   const n=$('fltN'); if(v){ const fq=norm(v); n.textContent=visibleCities().filter(c=>passFilter(c,fq)).length+' trouve(s)'; } else n.textContent=''; }
 $('flt').oninput=e=>setFilter(e.target.value.trim());
+$('air').onchange=e=>{S.air=e.target.checked;syncTraffic();};
+$('sea').onchange=e=>{S.sea=e.target.checked;syncTraffic();};
 $('btnFind').onclick=()=>{ $('sheet').classList.add('open'); $('sheet').scrollTop=0; setTimeout(()=>$('flt').focus(),260); };
 
 // cases a cocher des categories de reperes
