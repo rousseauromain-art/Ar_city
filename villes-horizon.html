@@ -230,24 +230,32 @@ async function loadCities(force){
   if(!pos||loading) return;
   if(!force&&lastFetch&&source==='OSM'&&loadedR>=S.radius&&distBrg(pos,lastFetch).dist<S.radius*0.25) return;
   loading=true; setStatus('Chargement des lieux…');
-  const r=Math.round(S.radius*1000), rv=Math.min(r,20000);
-  const q=`[out:json][timeout:20];(node["place"~"^(city|town)$"](around:${r},${pos.lat},${pos.lon});${S.villages?`node["place"="village"](around:${rv},${pos.lat},${pos.lon});`:''});out body;`;
-  let ok=false;
-  for(const ep of ENDPOINTS){
-    try{
-      const res=await fetchT(ep,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}},9000);
-      if(!res.ok) throw new Error(res.status);
-      const j=await res.json();
+  const r=Math.round(S.radius*1000), rh=Math.min(r,12000);
+  const kinds=S.villages?'city|town|village':'city|town';
+  const q=`[out:json][timeout:20];(node["place"~"^(${kinds})$"](around:${r},${pos.lat},${pos.lon});${S.villages?`node["place"="hamlet"](around:${rh},${pos.lat},${pos.lon});`:''});out body;`;
+  const body='data='+encodeURIComponent(q);
+  const tryEP=ep=>fetchT(ep,{method:'POST',body,headers:{'Content-Type':'application/x-www-form-urlencoded'}},12000)
+    .then(res=>{ if(!res.ok) throw new Error(String(res.status)); return res.json(); })
+    .then(j=>{
       const got=j.elements.filter(n=>n.tags&&(n.tags['name:fr']||n.tags.name)).map(n=>({name:n.tags['name:fr']||n.tags.name,lat:n.lat,lon:n.lon,kind:n.tags.place,pop:+(n.tags.population||0)}));
-      if(got.length){ cities=got; source='OSM'; ok=true; break; }
-    }catch(e){}
+      if(!got.length) throw new Error('empty');
+      return got;
+    });
+  try{
+    cities=await Promise.any(ENDPOINTS.map(tryEP)); source='OSM';
+  }catch(e){
+    if(source!=='OSM'){ cities=FALLBACK.slice(); source='liste intégrée (hors ligne)'; }
   }
-  if(!ok && source!=='OSM'){ cities=FALLBACK.slice(); source='liste intégrée'; }
   lastFetch={...pos}; loadedR=S.radius; recompute(); loading=false;
 }
 
 function visibleCities(){
-  return cities.filter(c=>c.dist!=null&&c.dist<=S.radius&&(c.kind!=='village'||c.dist<=20)).sort((a,b)=>a.dist-b.dist);
+  return cities.filter(c=>{
+    if(c.dist==null||c.dist>S.radius) return false;
+    if(c.kind==='village') return c.dist<=20;
+    if(c.kind==='hamlet') return c.dist<=12;
+    return true;
+  }).sort((a,b)=>a.dist-b.dist);
 }
 
 // ---------- rendu ----------
@@ -282,8 +290,8 @@ function draw(){
     if(Math.abs(dB)>Math.min(80,S.fov*0.8)) continue;
     const x=W/2+fh*Math.tan(dB*D);
     if(x<-40||x>W+40) continue;
-    const size=c.kind==='city'?18:c.kind==='town'?15:13;
-    const alpha=c.kind==='village'?.75:1;
+    const size=c.kind==='city'?18:c.kind==='town'?15:c.kind==='village'?13:12;
+    const alpha=(c.kind==='village'||c.kind==='hamlet')?.75:.65;
     ctx.font=`700 ${size}px ${FD}`;
     const nw=ctx.measureText(c.name).width;
     const dtxt=S.showDist?(c.dist<10?c.dist.toFixed(1):Math.round(c.dist))+' km':'';
