@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0E1A2B">
+<title>Villes à l'horizon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0E1A2B; --ink2:#182A42; --cream:#F3E9D2; --ochre:#E0A526; --line:rgba(243,233,210,.22);
+  --display:"Barlow Condensed","Roboto Condensed","Avenir Next Condensed","Arial Narrow",sans-serif;
+  --mono:"IBM Plex Mono","SF Mono",Menlo,Consolas,monospace;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--ink);color:var(--cream);font-family:var(--display);overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+#stage{position:fixed;inset:0;background:#000}
+video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#ov{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+#safe{position:absolute;top:0;left:0;width:1px;height:var(--safe-t);visibility:hidden}
+
+/* status + calibration chips */
+.chip{position:absolute;left:12px;padding:5px 9px;border-radius:4px;background:rgba(14,26,43,.72);font:500 12px/1 var(--mono);color:var(--cream);letter-spacing:.02em;white-space:nowrap;backdrop-filter:blur(6px)}
+#status{top:calc(var(--safe-t) + 60px)}
+#calib{top:calc(var(--safe-t) + 88px);color:var(--ochre);display:none}
+#calib b{font-weight:500;text-decoration:underline;margin-left:8px;color:var(--cream)}
+
+/* bottom bar */
+#bar{position:absolute;left:0;right:0;bottom:0;padding:14px 20px calc(var(--safe-b) + 16px);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:linear-gradient(to top,rgba(14,26,43,.85),rgba(14,26,43,0))}
+.side{font:700 14px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;padding:11px 12px;border:1px solid var(--line);border-radius:3px;justify-self:center;color:var(--cream)}
+.side:active{background:rgba(243,233,210,.12)}
+#shutter{width:70px;height:70px;border-radius:50%;border:3px solid var(--cream);padding:4px;justify-self:center}
+#shutter i{display:block;width:100%;height:100%;border-radius:50%;background:var(--cream);transition:transform .1s}
+#shutter:active i{transform:scale(.85)}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
+
+/* start panel */
+#start{position:absolute;inset:0;background:var(--ink);display:flex;flex-direction:column;justify-content:flex-end;padding:0 26px calc(var(--safe-b) + 32px);z-index:5}
+#start .eyebrow{font:500 12px/1 var(--mono);color:var(--ochre);letter-spacing:.18em;text-transform:uppercase;margin-bottom:14px}
+#start h1{font:700 52px/.95 var(--display);letter-spacing:-.01em;text-transform:uppercase;margin-bottom:18px}
+#start p{font:500 18px/1.35 var(--display);color:rgba(243,233,210,.8);max-width:34ch;margin-bottom:22px}
+#start ul{list-style:none;margin-bottom:28px;border-top:1px solid var(--line)}
+#start li{padding:10px 0;border-bottom:1px solid var(--line);font:500 15px/1.3 var(--display);display:flex;gap:12px}
+#start li span{font:500 11px/1.6 var(--mono);color:var(--ochre);min-width:58px;letter-spacing:.06em}
+#go{background:var(--cream);color:var(--ink);font:700 20px/1 var(--display);letter-spacing:.1em;text-transform:uppercase;padding:18px;border-radius:3px;width:100%}
+#go:active{background:var(--ochre)}
+#start small{display:block;margin-top:14px;font:400 12px/1.4 var(--mono);color:rgba(243,233,210,.5)}
+#rose{position:absolute;top:calc(var(--safe-t) + 24px);right:22px;width:120px;height:120px;opacity:.9}
+
+/* settings sheet */
+#sheet{position:absolute;left:0;right:0;bottom:0;background:var(--ink);border-top:1px solid var(--line);padding:18px 22px calc(var(--safe-b) + 22px);transform:translateY(105%);transition:transform .25s;z-index:4}
+#sheet.open{transform:none}
+#sheet h2{font:700 22px/1 var(--display);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+#sheet h2 button{font:500 12px var(--mono);color:var(--ochre);letter-spacing:.1em}
+.row{display:grid;grid-template-columns:1fr auto;gap:8px 14px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.row label{font:700 16px/1 var(--display);letter-spacing:.04em}
+.row .val{font:500 13px var(--mono);color:var(--ochre)}
+.row input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--ochre)}
+.row input[type=checkbox]{width:22px;height:22px;accent-color:var(--ochre)}
+.row .hint{grid-column:1/-1;font:400 12px/1.4 var(--mono);color:rgba(243,233,210,.55)}
+#reset{grid-column:1/-1;justify-self:start;font:500 12px var(--mono);color:var(--cream);border:1px solid var(--line);padding:8px 12px;border-radius:3px;letter-spacing:.06em}
+
+/* photo preview */
+#shot{position:absolute;inset:0;background:var(--ink);display:none;flex-direction:column;z-index:6}
+#shot.open{display:flex}
+#shot img{flex:1;min-height:0;object-fit:contain;background:#000}
+#shot .acts{display:flex;gap:10px;padding:14px 16px calc(var(--safe-b) + 16px)}
+#shot .acts button{flex:1;padding:14px;border:1px solid var(--line);border-radius:3px;font:700 15px/1 var(--display);letter-spacing:.12em;text-transform:uppercase}
+#shot .acts .pri{background:var(--cream);color:var(--ink);border-color:var(--cream)}
+@media (prefers-reduced-motion:reduce){#sheet,#flash,#shutter i{transition:none}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <video id="cam" playsinline muted autoplay></video>
+  <canvas id="ov"></canvas>
+  <div id="safe"></div>
+  <div id="status" class="chip">En attente…</div>
+  <div id="calib" class="chip"></div>
+  <div id="flash"></div>
+  <div id="bar">
+    <button class="side" id="btnSet">Réglages</button>
+    <button id="shutter" aria-label="Prendre la photo"><i></i></button>
+    <button class="side" id="btnReload">Recharger</button>
+  </div>
+</div>
+
+<div id="sheet">
+  <h2>Réglages <button id="btnClose">FERMER</button></h2>
+  <div class="row">
+    <label for="rad">Rayon de recherche</label><span class="val" id="radV">60 km</span>
+    <input type="range" id="rad" min="10" max="200" step="5" value="60">
+  </div>
+  <div class="row">
+    <label for="fov">Champ de la caméra</label><span class="val" id="fovV">50°</span>
+    <input type="range" id="fov" min="30" max="90" step="1" value="50">
+    <span class="hint">Si deux villes connues s'affichent trop écartées ou trop serrées, ajustez ici.</span>
+  </div>
+  <div class="row">
+    <label for="vil">Villages (≤ 20 km)</label><input type="checkbox" id="vil">
+  </div>
+  <div class="row">
+    <label for="dst">Afficher les distances</label><input type="checkbox" id="dst" checked>
+  </div>
+  <div class="row">
+    <span class="hint">Glissez sur l'image : horizontalement pour caler le cap, verticalement pour caler l'horizon.</span>
+    <button id="reset">Remettre le calage à zéro</button>
+  </div>
+</div>
+
+<div id="shot">
+  <img id="shotImg" alt="Photo avec les villes à l'horizon">
+  <div class="acts">
+    <button id="shotClose">Fermer</button>
+    <button id="shotSave">Enregistrer</button>
+    <button id="shotShare" class="pri">Partager</button>
+  </div>
+</div>
+
+<div id="start">
+  <svg id="rose" viewBox="0 0 120 120" fill="none" stroke="#F3E9D2" stroke-width="1">
+    <circle cx="60" cy="60" r="56" opacity=".35"/><circle cx="60" cy="60" r="44" opacity=".2"/>
+    <path d="M60 6 L66 60 L60 114 L54 60 Z" fill="#E0A526" stroke="none"/>
+    <path d="M6 60 L60 54 L114 60 L60 66 Z" fill="#F3E9D2" stroke="none" opacity=".85"/>
+    <text x="60" y="30" fill="#0E1A2B" font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700" font-size="11" text-anchor="middle">N</text>
+  </svg>
+  <div class="eyebrow">Table d'orientation de poche</div>
+  <h1>Villes à<br>l'horizon</h1>
+  <p>Pointez la caméra vers le paysage : les villes et bourgs voisins s'inscrivent au-dessus de l'horizon, avec leur distance. Puis prenez la photo.</p>
+  <ul>
+    <li><span>ACCÈS</span>Caméra arrière, position GPS et boussole — demandés au démarrage.</li>
+    <li><span>DONNÉES</span>Lieux OpenStreetMap chargés autour de vous (liste intégrée en secours).</li>
+    <li><span>CALAGE</span>Glissez sur l'image pour aligner le cap et l'horizon.</li>
+  </ul>
+  <button id="go">Ouvrir la caméra</button>
+  <small>Nécessite une page en HTTPS (Safari ou Chrome). Tenez le téléphone en portrait, à la verticale.</small>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const video=$('cam'), ov=$('ov'), ctx=ov.getContext('2d');
+const D=Math.PI/180;
+const FD=getComputedStyle(document.body).getPropertyValue('--display'), FM=getComputedStyle(document.body).getPropertyValue('--mono');
+const CARD=['N','NE','E','SE','S','SO','O','NO'];
+const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.private.coffee/api/interpreter'];
+const S={radius:60,fov:50,villages:false,showDist:true,headOff:0,pitchOff:0};
+
+// Secours si OpenStreetMap est injoignable (Ouest + grandes villes)
+const FALLBACK=[
+['Rennes',48.1173,-1.6778,'city'],['Nantes',47.2184,-1.5536,'city'],['Brest',48.3904,-4.4861,'city'],['Saint-Malo',48.6493,-2.0257,'town'],
+['Vannes',47.6582,-2.7608,'town'],['Lorient',47.7483,-3.3702,'town'],['Quimper',47.9960,-4.1024,'town'],['Saint-Brieuc',48.5142,-2.7650,'town'],
+['Laval',48.0704,-0.7734,'town'],['Le Mans',48.0061,0.1996,'city'],['Angers',47.4784,-0.5632,'city'],['Caen',49.1829,-0.3707,'city'],
+['Rouen',49.4432,1.0993,'city'],['Tours',47.3941,0.6848,'city'],['Orléans',47.9029,1.9093,'city'],['Paris',48.8566,2.3522,'city'],
+['Fougères',48.3520,-1.2044,'town'],['Vitré',48.1244,-1.2100,'town'],['Redon',47.6510,-2.0851,'town'],['Dinan',48.4547,-2.0466,'town'],
+['Morlaix',48.5776,-3.8286,'town'],['Lannion',48.7326,-3.4591,'town'],['Pontivy',48.0685,-2.9622,'town'],['Châteaubriant',47.7167,-1.3760,'town'],
+['Avranches',48.6847,-1.3567,'town'],['Granville',48.8378,-1.5972,'town'],['Cherbourg',49.6337,-1.6222,'town'],['Saint-Lô',49.1157,-1.0904,'town'],
+['Alençon',48.4327,0.0919,'town'],['Saint-Nazaire',47.2735,-2.2138,'town'],['Cholet',47.0603,-0.8804,'town'],['La Rochelle',46.1603,-1.1511,'town'],
+['Niort',46.3237,-0.4648,'town'],['Poitiers',46.5802,0.3404,'city'],['Le Havre',49.4944,0.1079,'city'],['Chartres',48.4439,1.4890,'town'],
+['Lille',50.6292,3.0573,'city'],['Amiens',49.8941,2.2958,'city'],['Reims',49.2583,4.0317,'city'],['Strasbourg',48.5734,7.7521,'city'],
+['Nancy',48.6921,6.1844,'city'],['Metz',49.1193,6.1757,'city'],['Dijon',47.3220,5.0415,'city'],['Lyon',45.7640,4.8357,'city'],
+['Grenoble',45.1885,5.7245,'city'],['Clermont-Ferrand',45.7772,3.0870,'city'],['Limoges',45.8336,1.2611,'city'],['Bordeaux',44.8378,-0.5792,'city'],
+['Toulouse',43.6047,1.4442,'city'],['Montpellier',43.6108,3.8767,'city'],['Marseille',43.2965,5.3698,'city'],['Nice',43.7102,7.2620,'city'],
+['Toulon',43.1242,5.9280,'city'],['Perpignan',42.6887,2.8948,'city'],['Bayonne',43.4929,-1.4748,'town'],['Pau',43.2951,-0.3708,'town'],
+['Besançon',47.2378,6.0241,'city'],['Mulhouse',47.7508,7.3359,'city'],['Bourges',47.0810,2.3988,'town'],['Angoulême',45.6484,0.1562,'town'],
+['Saint-Hélier (Jersey)',49.1868,-2.1068,'town'],['Saint-Pierre-Port (Guernesey)',49.4548,-2.5363,'town'],['Bruxelles',50.8503,4.3517,'city'],['Londres',51.5074,-0.1278,'city']
+].map(c=>({name:c[0],lat:c[1],lon:c[2],kind:c[3],pop:0}));
+
+let pos=null, acc=null, cities=[], source='—', lastFetch=null, loadedR=0, loading=false;
+let sensor=false, sv=null, sr=null, camOK=false, camErr='';
+let shotBlob=null, shotURL=null;
+
+// ---------- géométrie ----------
+const wrap=a=>((a+540)%360)-180;
+function distBrg(a,b){
+  const la1=a.lat*D,la2=b.lat*D,dl=(b.lon-a.lon)*D;
+  const y=Math.sin(dl)*Math.cos(la2), x=Math.cos(la1)*Math.sin(la2)-Math.sin(la1)*Math.cos(la2)*Math.cos(dl);
+  const brg=(Math.atan2(y,x)/D+360)%360;
+  const h=Math.sin((la2-la1)/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dl/2)**2;
+  return {dist:6371*2*Math.asin(Math.sqrt(h)),brg};
+}
+function recompute(){ if(!pos) return; for(const c of cities){ const r=distBrg(pos,c); c.dist=r.dist; c.brg=r.brg; } }
+
+// ---------- capteurs d'orientation ----------
+let gotAbs=false;
+function onOrient(e,abs){
+  if(e.alpha==null||e.beta==null||e.gamma==null) return;
+  let alpha=e.alpha;
+  if(typeof e.webkitCompassHeading==='number'&&!isNaN(e.webkitCompassHeading)){ alpha=360-e.webkitCompassHeading; abs=true; }
+  if(abs) gotAbs=true; else if(gotAbs) return;
+  const a=alpha*D,b=e.beta*D,g=e.gamma*D;
+  const cA=Math.cos(a),sA=Math.sin(a),cB=Math.cos(b),sB=Math.sin(b),cG=Math.cos(g),sG=Math.sin(g);
+  // colonnes = axes de l'appareil exprimés dans le repère Est/Nord/Haut
+  const x=[cA*cG-sA*sB*sG, cG*sA+cA*sB*sG, -cB*sG];
+  const y=[-cB*sA, cA*cB, sB];
+  const z=[cG*sA*sB+cA*sG, sA*sG-cA*cG*sB, cB*cG];
+  const v=[-z[0],-z[1],-z[2]]; // axe de la caméra arrière
+  const ang=(screen.orientation&&screen.orientation.angle)??window.orientation??0;
+  const r= ang===90?y : (ang===270||ang===-90)?y.map(k=>-k) : ang===180?x.map(k=>-k) : x; // axe "droite de l'écran"
+  const k=0.18;
+  sv=sv?sv.map((p,i)=>p+(v[i]-p)*k):v; sr=sr?sr.map((p,i)=>p+(r[i]-p)*k):r;
+  sensor=true;
+}
+window.addEventListener('deviceorientationabsolute',e=>onOrient(e,true));
+window.addEventListener('deviceorientation',e=>onOrient(e,e.absolute===true));
+
+function pose(){
+  if(!sensor) return {heading:(S.headOff+360)%360,pitch:S.pitchOff,roll:0};
+  const n=Math.hypot(...sv)||1, v=sv.map(k=>k/n);
+  const heading=(Math.atan2(v[0],v[1])/D+S.headOff+360)%360;
+  const pitch=Math.asin(Math.max(-1,Math.min(1,v[2])))/D+S.pitchOff;
+  const nr=Math.hypot(...sr)||1;
+  const roll=Math.asin(Math.max(-1,Math.min(1,sr[2]/nr)))/D;
+  return {heading,pitch,roll};
+}
+
+// ---------- données ----------
+function setStatus(t){ $('status').textContent=t; }
+async function loadCities(force){
+  if(!pos||loading) return;
+  if(!force&&lastFetch&&cities.length&&loadedR>=S.radius&&distBrg(pos,lastFetch).dist<S.radius*0.25) return;
+  loading=true; setStatus('Chargement des lieux…');
+  const r=Math.round(S.radius*1000), rv=Math.min(r,20000);
+  const q=`[out:json][timeout:30];(node["place"~"^(city|town)$"](around:${r},${pos.lat},${pos.lon});${S.villages?`node["place"="village"](around:${rv},${pos.lat},${pos.lon});`:''});out body;`;
+  let ok=false;
+  for(const ep of ENDPOINTS){
+    try{
+      const res=await fetch(ep,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+      if(!res.ok) throw new Error(res.status);
+      const j=await res.json();
+      cities=j.elements.filter(n=>n.tags&&(n.tags['name:fr']||n.tags.name)).map(n=>({name:n.tags['name:fr']||n.tags.name,lat:n.lat,lon:n.lon,kind:n.tags.place,pop:+(n.tags.population||0)}));
+      source='OSM'; ok=true; break;
+    }catch(e){}
+  }
+  if(!ok){ cities=FALLBACK.slice(); source='liste intégrée'; }
+  lastFetch={...pos}; loadedR=S.radius; recompute(); loading=false;
+}
+
+function visibleCities(){
+  return cities.filter(c=>c.dist!=null&&c.dist<=S.radius&&(c.kind!=='village'||c.dist<=20)).sort((a,b)=>a.dist-b.dist);
+}
+
+// ---------- rendu ----------
+let W=0,H=0,dpr=1,safeT=0;
+function resize(){
+  dpr=Math.min(window.devicePixelRatio||1,3); W=window.innerWidth; H=window.innerHeight;
+  ov.width=Math.round(W*dpr); ov.height=Math.round(H*dpr);
+  safeT=$('safe').getBoundingClientRect().height||0;
+}
+window.addEventListener('resize',()=>setTimeout(resize,80));
+
+function draw(){
+  const {heading,pitch,roll}=pose();
+  const fh=(W/2)/Math.tan(S.fov/2*D);
+  const list=visibleCities();
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+
+  // --- scène (repère redressé du roulis) ---
+  ctx.save();
+  ctx.translate(W/2,H/2); ctx.rotate(roll*D); ctx.translate(-W/2,-H/2);
+  const hy=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan(Math.max(-80,Math.min(80,pitch))*D)));
+  ctx.setLineDash([3,7]); ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(-W,hy); ctx.lineTo(2*W,hy); ctx.stroke(); ctx.setLineDash([]);
+  // réticule
+  ctx.strokeStyle='#E0A526'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(W/2,hy-9); ctx.lineTo(W/2,hy+9); ctx.moveTo(W/2-9,hy); ctx.lineTo(W/2+9,hy); ctx.stroke();
+
+  const lanes=[]; const maxLanes=9;
+  ctx.textBaseline='alphabetic'; ctx.textAlign='left'; ctx.lineJoin='round';
+  for(const c of list){
+    const dB=wrap(c.brg-heading);
+    if(Math.abs(dB)>Math.min(80,S.fov*0.8)) continue;
+    const x=W/2+fh*Math.tan(dB*D);
+    if(x<-40||x>W+40) continue;
+    const size=c.kind==='city'?18:c.kind==='town'?15:13;
+    const alpha=c.kind==='village'?.75:1;
+    ctx.font=`700 ${size}px ${FD}`;
+    const nw=ctx.measureText(c.name).width;
+    const dtxt=S.showDist?(c.dist<10?c.dist.toFixed(1):Math.round(c.dist))+' km':'';
+    ctx.font=`500 11px ${FM}`;
+    const dw=dtxt?ctx.measureText(dtxt).width+7:0;
+    const x0=x-2, x1=x+6+nw+dw+4;
+    let k=0; while(k<maxLanes&&(lanes[k]||[]).some(iv=>x0<iv[1]+8&&x1>iv[0]-8)) k++;
+    if(k>=maxLanes) continue;
+    (lanes[k]=lanes[k]||[]).push([x0,x1]);
+    const ly=hy-26-k*22;
+    ctx.strokeStyle=`rgba(255,255,255,${.85*alpha})`; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x,hy); ctx.lineTo(x,ly+3); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(x,hy,2.2,0,7); ctx.fill();
+    ctx.font=`700 ${size}px ${FD}`;
+    ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.lineWidth=3.5;
+    ctx.strokeText(c.name,x+6,ly); ctx.fillStyle=`rgba(243,233,210,${alpha})`; ctx.fillText(c.name,x+6,ly);
+    if(dtxt){ ctx.font=`500 11px ${FM}`;
+      ctx.lineWidth=3; ctx.strokeText(dtxt,x+6+nw+7,ly); ctx.fillStyle='#E0A526'; ctx.fillText(dtxt,x+6+nw+7,ly); }
+  }
+  ctx.restore();
+
+  // --- ruban de cap (repère écran) ---
+  const rh=48, top=safeT;
+  ctx.fillStyle='rgba(14,26,43,.78)'; ctx.fillRect(0,0,W,top+rh);
+  ctx.fillStyle='rgba(243,233,210,.25)'; ctx.fillRect(0,top+rh,W,1);
+  const ppd=W/S.fov;
+  ctx.textAlign='center';
+  const base=Math.round(heading);
+  for(let dd=-Math.ceil(S.fov/2)-6; dd<=Math.ceil(S.fov/2)+6; dd++){
+    const deg=base+dd, n=((deg%360)+360)%360; if(n%5) continue;
+    const x=W/2+(deg-heading)*ppd;
+    const card=n%45===0;
+    const len=n%90===0?15:card?12:n%15===0?9:4;
+    ctx.strokeStyle=card?'rgba(243,233,210,.95)':'rgba(243,233,210,.5)'; ctx.lineWidth=card?1.5:1;
+    ctx.beginPath(); ctx.moveTo(x,top+rh); ctx.lineTo(x,top+rh-len); ctx.stroke();
+    if(card){ ctx.fillStyle='#F3E9D2'; ctx.font=`700 13px ${FD}`; ctx.fillText(CARD[n/45],x,top+rh-len-5); }
+  }
+  for(const c of list){ const dB=wrap(c.brg-heading); if(Math.abs(dB)>S.fov/2+6) continue;
+    ctx.fillStyle=c.kind==='city'?'#F3E9D2':'rgba(243,233,210,.6)';
+    ctx.beginPath(); ctx.arc(W/2+dB*ppd,top+9,c.kind==='city'?2.6:1.8,0,7); ctx.fill(); }
+  ctx.fillStyle='#E0A526'; ctx.fillRect(W/2-1,top+rh-20,2,20);
+  ctx.font=`500 12px ${FM}`;
+  ctx.fillStyle='#E0A526'; ctx.fillText(`${Math.round(heading)}°`,W/2,top+16);
+
+  // --- messages ---
+  ctx.textAlign='center'; ctx.font=`500 15px ${FM}`;
+  const msg=camErr?camErr:!pos?'En attente du GPS…':!cities.length?'':!list.length?`Aucun lieu dans un rayon de ${S.radius} km`:!sensor?'Pas de boussole : glissez pour tourner':'';
+  if(msg){ ctx.lineWidth=4; ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.strokeText(msg,W/2,H*0.62); ctx.fillStyle='#F3E9D2'; ctx.fillText(msg,W/2,H*0.62); }
+
+  // statut
+  const g=pos?`GPS ±${Math.round(acc||0)} m`:'GPS —';
+  setStatus(`${g} · ${list.length} lieux · ${source}${sensor?'':' · boussole —'}`);
+  const cal=$('calib');
+  if(S.headOff||S.pitchOff){ cal.style.display='block'; cal.innerHTML=`cap ${S.headOff>0?'+':''}${S.headOff.toFixed(0)}° · horizon ${S.pitchOff>0?'+':''}${S.pitchOff.toFixed(0)}°<b>remettre</b>`; }
+  else cal.style.display='none';
+  requestAnimationFrame(draw);
+}
+
+// ---------- calage au doigt ----------
+let drag=null;
+ov.addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,h:S.headOff,p:S.pitchOff}; ov.setPointerCapture(e.pointerId); });
+ov.addEventListener('pointermove',e=>{ if(!drag) return; const fh=(W/2)/Math.tan(S.fov/2*D);
+  S.headOff=drag.h-Math.atan((e.clientX-drag.x)/fh)/D; S.pitchOff=drag.p+Math.atan((e.clientY-drag.y)/fh)/D; });
+ov.addEventListener('pointerup',()=>drag=null); ov.addEventListener('pointercancel',()=>drag=null);
+$('calib').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;});
+$('reset').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;});
+
+// ---------- réglages ----------
+$('btnSet').onclick=()=>$('sheet').classList.add('open');
+$('btnClose').onclick=()=>$('sheet').classList.remove('open');
+let radT;
+$('rad').oninput=e=>{S.radius=+e.target.value;$('radV').textContent=S.radius+' km';clearTimeout(radT);radT=setTimeout(()=>loadCities(false),900);};
+$('fov').oninput=e=>{S.fov=+e.target.value;$('fovV').textContent=S.fov+'°';};
+$('vil').onchange=e=>{S.villages=e.target.checked;loadCities(true);};
+$('dst').onchange=e=>{S.showDist=e.target.checked;};
+$('btnReload').onclick=()=>loadCities(true);
+
+// ---------- photo ----------
+$('shutter').onclick=()=>{
+  const fl=$('flash'); fl.style.opacity=.9; setTimeout(()=>fl.style.opacity=0,60);
+  const c=document.createElement('canvas'); c.width=Math.round(W*dpr); c.height=Math.round(H*dpr);
+  const x=c.getContext('2d'); x.scale(dpr,dpr);
+  if(camOK&&video.videoWidth){ const s=Math.max(W/video.videoWidth,H/video.videoHeight), dw=video.videoWidth*s, dh=video.videoHeight*s;
+    x.drawImage(video,(W-dw)/2,(H-dh)/2,dw,dh); } else { x.fillStyle='#000'; x.fillRect(0,0,W,H); }
+  x.drawImage(ov,0,0,W,H);
+  // légende
+  const near=visibleCities()[0]; const {heading}=pose();
+  const cap=`${near?'Près de '+near.name+' · ':''}${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} · cap ${Math.round(heading)}°`;
+  x.font=`500 12px ${FM}`; x.textAlign='left'; x.textBaseline='alphabetic';
+  const tw=x.measureText(cap).width; const by=H-parseFloat(getComputedStyle($('bar')).paddingBottom)-90;
+  x.fillStyle='rgba(14,26,43,.75)'; x.fillRect(12,by-18,tw+18,26); x.fillStyle='#F3E9D2'; x.fillText(cap,21,by);
+  c.toBlob(b=>{ shotBlob=b; if(shotURL) URL.revokeObjectURL(shotURL); shotURL=URL.createObjectURL(b); $('shotImg').src=shotURL; $('shot').classList.add('open'); },'image/jpeg',.92);
+};
+const shotName=()=>'horizon-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.jpg';
+$('shotClose').onclick=()=>$('shot').classList.remove('open');
+$('shotSave').onclick=()=>{ const a=document.createElement('a'); a.href=shotURL; a.download=shotName(); document.body.appendChild(a); a.click(); a.remove(); };
+$('shotShare').onclick=async()=>{
+  const f=new File([shotBlob],shotName(),{type:'image/jpeg'});
+  if(navigator.canShare&&navigator.canShare({files:[f]})){ try{ await navigator.share({files:[f],title:"Villes à l'horizon"}); }catch(e){} }
+  else $('shotSave').click();
+};
+
+// ---------- démarrage ----------
+$('go').onclick=async()=>{
+  try{ if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function') await DeviceOrientationEvent.requestPermission(); }catch(e){}
+  resize();
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ camErr='Caméra indisponible : ouvrez la page en HTTPS'; }
+  else{
+    try{ const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
+      video.srcObject=st; await video.play(); camOK=true; }
+    catch(e){ camErr='Caméra refusée ou indisponible'; }
+  }
+  if(navigator.geolocation){
+    navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); },
+      err=>{ setStatus('GPS refusé : '+err.message); }, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+  } else setStatus('GPS indisponible');
+  $('start').style.display='none';
+  try{ await document.fonts.ready; }catch(e){}
+  resize(); requestAnimationFrame(draw);
+};
+resize();
+})();
+</script>
+</body>
+</html>
