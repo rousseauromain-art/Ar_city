@@ -103,7 +103,11 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <span class="hint">Si deux villes connues s'affichent trop écartées ou trop serrées, ajustez ici.</span>
   </div>
   <div class="row">
-    <label for="vil">Villages (≤ 20 km)</label><input type="checkbox" id="vil">
+    <label for="vil">Hameaux et lieux-dits</label><input type="checkbox" id="vil">
+  </div>
+  <div class="row">
+    <label for="rel">Masquer ce qui est caché par le relief</label><input type="checkbox" id="rel" checked>
+    <span class="hint">Compare l'altitude du terrain le long de la ligne de visée (données Copernicus) en tenant compte de la courbure terrestre.</span>
   </div>
   <div class="row">
     <label for="dst">Afficher les distances</label><input type="checkbox" id="dst" checked>
@@ -150,7 +154,7 @@ const D=Math.PI/180;
 const FD=getComputedStyle(document.body).getPropertyValue('--display'), FM=getComputedStyle(document.body).getPropertyValue('--mono');
 const CARD=['N','NE','E','SE','S','SO','O','NO'];
 const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.private.coffee/api/interpreter'];
-const S={radius:60,fov:50,villages:false,showDist:true,headOff:0,pitchOff:0};
+const S={radius:60,fov:50,hamlets:false,relief:true,showDist:true,headOff:0,pitchOff:0};
 
 // Secours si OpenStreetMap est injoignable (Ouest + grandes villes)
 const FALLBACK=[
@@ -230,9 +234,8 @@ async function loadCities(force){
   if(!pos||loading) return;
   if(!force&&lastFetch&&source==='OSM'&&loadedR>=S.radius&&distBrg(pos,lastFetch).dist<S.radius*0.25) return;
   loading=true; setStatus('Chargement des lieux…');
-  const r=Math.round(S.radius*1000), rh=Math.min(r,12000);
-  const kinds=S.villages?'city|town|village':'city|town';
-  const q=`[out:json][timeout:20];(node["place"~"^(${kinds})$"](around:${r},${pos.lat},${pos.lon});${S.villages?`node["place"="hamlet"](around:${rh},${pos.lat},${pos.lon});`:''});out body;`;
+  const r=Math.round(S.radius*1000), rv=Math.min(r,30000), rh=Math.min(r,12000);
+  const q=`[out:json][timeout:25];(node["place"~"^(city|town)$"](around:${r},${pos.lat},${pos.lon});node["place"="village"](around:${rv},${pos.lat},${pos.lon});${S.hamlets?`node["place"~"^(hamlet|isolated_dwelling)$"](around:${rh},${pos.lat},${pos.lon});`:''});out body;`;
   const body='data='+encodeURIComponent(q);
   const tryEP=ep=>fetchT(ep,{method:'POST',body,headers:{'Content-Type':'application/x-www-form-urlencoded'}},12000)
     .then(res=>{ if(!res.ok) throw new Error(String(res.status)); return res.json(); })
@@ -247,15 +250,57 @@ async function loadCities(force){
     if(source!=='OSM'){ cities=FALLBACK.slice(); source='liste intégrée (hors ligne)'; }
   }
   lastFetch={...pos}; loadedR=S.radius; recompute(); loading=false;
+  if(S.relief) computeRelief();
+}
+
+// ---------- relief : masquage des lieux cachés par le terrain ----------
+const RANK={city:0,town:1,village:2,hamlet:3,isolated_dwelling:3};
+let reliefState='—', reliefAt=null, reliefBusy=false;
+async function elevations(pts){
+  const out=new Array(pts.length).fill(null);
+  for(let i=0;i<pts.length;i+=100){
+    const b=pts.slice(i,i+100);
+    const url='https://api.open-meteo.com/v1/elevation?latitude='+b.map(p=>p.lat.toFixed(5)).join(',')+'&longitude='+b.map(p=>p.lon.toFixed(5)).join(',');
+    const r=await fetchT(url,{},12000);
+    if(!r.ok) throw new Error(String(r.status));
+    const j=await r.json();
+    (j.elevation||[]).forEach((e,k)=>out[i+k]=e);
+  }
+  return out;
+}
+async function computeRelief(){
+  if(!pos||reliefBusy) return;
+  const here={...pos}; reliefBusy=true; reliefState='calcul…';
+  try{
+    const T=visibleCities().filter(c=>c.dist>2).slice(0,40);
+    if(!T.length){ reliefState='ok'; reliefAt=here; reliefBusy=false; return; }
+    const N=12, pts=[{lat:here.lat,lon:here.lon}];
+    for(const c of T) for(let i=1;i<=N;i++){ const f=i/(N+1); pts.push({lat:here.lat+(c.lat-here.lat)*f,lon:here.lon+(c.lon-here.lon)*f}); }
+    for(const c of T) pts.push({lat:c.lat,lon:c.lon});
+    const el=await elevations(pts);
+    if(el.some(v=>v==null)) throw new Error('incomplet');
+    const Reff=6371000*1.13, h0=(el[0]||0)+1.6, base=1+T.length*N;
+    T.forEach((c,ci)=>{
+      const Dm=c.dist*1000, y1=(el[base+ci]||0)+12-Dm*Dm/(2*Reff);
+      let blocked=false;
+      for(let i=1;i<=N;i++){
+        const f=i/(N+1), d=Dm*f, t=el[1+ci*N+(i-1)];
+        if(t-d*d/(2*Reff) > h0+(y1-h0)*f+5){ blocked=true; break; }
+      }
+      c.hidden=blocked;
+    });
+    reliefState='ok'; reliefAt=here;
+  }catch(e){ reliefState='indispo'; }
+  reliefBusy=false;
 }
 
 function visibleCities(){
   return cities.filter(c=>{
     if(c.dist==null||c.dist>S.radius) return false;
-    if(c.kind==='village') return c.dist<=20;
-    if(c.kind==='hamlet') return c.dist<=12;
+    if(c.kind==='village') return c.dist<=30;
+    if(c.kind==='hamlet'||c.kind==='isolated_dwelling') return c.dist<=12;
     return true;
-  }).sort((a,b)=>a.dist-b.dist);
+  }).sort((a,b)=>(RANK[a.kind]??2)-(RANK[b.kind]??2)||a.dist-b.dist);
 }
 
 // ---------- rendu ----------
@@ -286,11 +331,12 @@ function draw(){
   const lanes=[]; const maxLanes=9;
   ctx.textBaseline='alphabetic'; ctx.textAlign='left'; ctx.lineJoin='round';
   for(const c of list){
+    if(S.relief&&c.hidden) continue;
     const dB=wrap(c.brg-heading);
     if(Math.abs(dB)>Math.min(80,S.fov*0.8)) continue;
     const x=W/2+fh*Math.tan(dB*D);
     if(x<-40||x>W+40) continue;
-    const size=c.kind==='city'?18:c.kind==='town'?15:c.kind==='village'?13:12;
+    const size=c.kind==='city'?18:c.kind==='town'?16:c.kind==='village'?14:12;
     const alpha=(c.kind==='village'||c.kind==='hamlet')?.75:.65;
     ctx.font=`700 ${size}px ${FD}`;
     const nw=ctx.measureText(c.name).width;
@@ -329,7 +375,7 @@ function draw(){
     ctx.beginPath(); ctx.moveTo(x,top+rh); ctx.lineTo(x,top+rh-len); ctx.stroke();
     if(card){ ctx.fillStyle='#F3E9D2'; ctx.font=`700 13px ${FD}`; ctx.fillText(CARD[n/45],x,top+rh-len-5); }
   }
-  for(const c of list){ const dB=wrap(c.brg-heading); if(Math.abs(dB)>S.fov/2+6) continue;
+  for(const c of list){ if(S.relief&&c.hidden) continue; const dB=wrap(c.brg-heading); if(Math.abs(dB)>S.fov/2+6) continue;
     ctx.fillStyle=c.kind==='city'?'#F3E9D2':'rgba(243,233,210,.6)';
     ctx.beginPath(); ctx.arc(W/2+dB*ppd,top+9,c.kind==='city'?2.6:1.8,0,7); ctx.fill(); }
   ctx.fillStyle='#E0A526'; ctx.fillRect(W/2-1,top+rh-20,2,20);
@@ -343,7 +389,8 @@ function draw(){
 
   // statut
   const g=pos?`GPS ±${Math.round(acc||0)} m`:'GPS —';
-  setStatus(`${g} · ${list.length} lieux · ${source}${sensor?'':' · boussole —'}`);
+  const shown=S.relief?list.filter(c=>!c.hidden).length:list.length;
+  setStatus(`${g} · ${shown} lieux · ${source}${S.relief?' · relief '+reliefState:''}${sensor?'':' · boussole —'}`);
   const cal=$('calib');
   if(S.headOff||S.pitchOff){ cal.style.display='block'; cal.innerHTML=`cap ${S.headOff>0?'+':''}${S.headOff.toFixed(0)}° · horizon ${S.pitchOff>0?'+':''}${S.pitchOff.toFixed(0)}°<b>remettre</b>`; }
   else cal.style.display='none';
@@ -365,9 +412,10 @@ $('btnClose').onclick=()=>$('sheet').classList.remove('open');
 let radT;
 $('rad').oninput=e=>{S.radius=+e.target.value;$('radV').textContent=S.radius+' km';clearTimeout(radT);radT=setTimeout(()=>loadCities(false),900);};
 $('fov').oninput=e=>{S.fov=+e.target.value;$('fovV').textContent=S.fov+'°';};
-$('vil').onchange=e=>{S.villages=e.target.checked;loadCities(true);};
+$('vil').onchange=e=>{S.hamlets=e.target.checked;loadCities(true);};
+$('rel').onchange=e=>{S.relief=e.target.checked;if(S.relief)computeRelief();};
 $('dst').onchange=e=>{S.showDist=e.target.checked;};
-$('btnReload').onclick=()=>loadCities(true);
+$('btnReload').onclick=()=>{reliefAt=null;loadCities(true);};
 
 // ---------- photo ----------
 $('shutter').onclick=()=>{
@@ -405,7 +453,7 @@ $('go').onclick=async()=>{
     catch(e){ camErr='Caméra refusée ou indisponible'; }
   }
   if(navigator.geolocation){
-    navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); },
+    navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); if(S.relief&&reliefAt&&distBrg(pos,reliefAt).dist>1) computeRelief(); },
       err=>{ setStatus('GPS refusé : '+err.message); }, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
   } else setStatus('GPS indisponible');
   $('start').style.display='none';
