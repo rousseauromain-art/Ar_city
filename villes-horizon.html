@@ -54,9 +54,9 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #rose{position:absolute;top:calc(var(--safe-t) + 24px);right:22px;width:120px;height:120px;opacity:.9}
 
 /* settings sheet */
-#sheet{position:absolute;left:0;right:0;bottom:0;background:var(--ink);border-top:1px solid var(--line);padding:18px 22px calc(var(--safe-b) + 22px);transform:translateY(105%);transition:transform .25s;z-index:4}
+#sheet{position:absolute;left:0;right:0;bottom:0;max-height:calc(100% - 10px);overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--ink);border-top:1px solid var(--line);padding:0 22px calc(var(--safe-b) + 22px);transform:translateY(105%);transition:transform .25s;z-index:4}
 #sheet.open{transform:none}
-#sheet h2{font:700 22px/1 var(--display);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+#sheet h2{position:sticky;top:0;background:var(--ink);padding:16px 0 12px;font:700 22px/1 var(--display);text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center}
 #sheet h2 button{font:500 12px var(--mono);color:var(--ochre);letter-spacing:.1em}
 .row{display:grid;grid-template-columns:1fr auto;gap:8px 14px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
 .row label{font:700 16px/1 var(--display);letter-spacing:.04em}
@@ -172,7 +172,7 @@ const FALLBACK=[
 ['Saint-Hélier (Jersey)',49.1868,-2.1068,'town'],['Saint-Pierre-Port (Guernesey)',49.4548,-2.5363,'town'],['Bruxelles',50.8503,4.3517,'city'],['Londres',51.5074,-0.1278,'city']
 ].map(c=>({name:c[0],lat:c[1],lon:c[2],kind:c[3],pop:0}));
 
-let pos=null, acc=null, cities=[], source='—', lastFetch=null, loadedR=0, loading=false;
+let pos=null, acc=null, cities=FALLBACK.slice(), source='liste intégrée', lastFetch=null, loadedR=0, loading=false;
 let sensor=false, sv=null, sr=null, camOK=false, camErr='';
 let shotBlob=null, shotURL=null;
 
@@ -222,23 +222,27 @@ function pose(){
 
 // ---------- données ----------
 function setStatus(t){ $('status').textContent=t; }
+function fetchT(url,opts,ms){
+  const ctrl=new AbortController(); const id=setTimeout(()=>ctrl.abort(),ms);
+  return fetch(url,{...opts,signal:ctrl.signal}).finally(()=>clearTimeout(id));
+}
 async function loadCities(force){
   if(!pos||loading) return;
-  if(!force&&lastFetch&&cities.length&&loadedR>=S.radius&&distBrg(pos,lastFetch).dist<S.radius*0.25) return;
+  if(!force&&lastFetch&&source==='OSM'&&loadedR>=S.radius&&distBrg(pos,lastFetch).dist<S.radius*0.25) return;
   loading=true; setStatus('Chargement des lieux…');
   const r=Math.round(S.radius*1000), rv=Math.min(r,20000);
-  const q=`[out:json][timeout:30];(node["place"~"^(city|town)$"](around:${r},${pos.lat},${pos.lon});${S.villages?`node["place"="village"](around:${rv},${pos.lat},${pos.lon});`:''});out body;`;
+  const q=`[out:json][timeout:20];(node["place"~"^(city|town)$"](around:${r},${pos.lat},${pos.lon});${S.villages?`node["place"="village"](around:${rv},${pos.lat},${pos.lon});`:''});out body;`;
   let ok=false;
   for(const ep of ENDPOINTS){
     try{
-      const res=await fetch(ep,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+      const res=await fetchT(ep,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}},9000);
       if(!res.ok) throw new Error(res.status);
       const j=await res.json();
-      cities=j.elements.filter(n=>n.tags&&(n.tags['name:fr']||n.tags.name)).map(n=>({name:n.tags['name:fr']||n.tags.name,lat:n.lat,lon:n.lon,kind:n.tags.place,pop:+(n.tags.population||0)}));
-      source='OSM'; ok=true; break;
+      const got=j.elements.filter(n=>n.tags&&(n.tags['name:fr']||n.tags.name)).map(n=>({name:n.tags['name:fr']||n.tags.name,lat:n.lat,lon:n.lon,kind:n.tags.place,pop:+(n.tags.population||0)}));
+      if(got.length){ cities=got; source='OSM'; ok=true; break; }
     }catch(e){}
   }
-  if(!ok){ cities=FALLBACK.slice(); source='liste intégrée'; }
+  if(!ok && source!=='OSM'){ cities=FALLBACK.slice(); source='liste intégrée'; }
   lastFetch={...pos}; loadedR=S.radius; recompute(); loading=false;
 }
 
