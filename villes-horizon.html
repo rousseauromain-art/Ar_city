@@ -297,7 +297,9 @@ function fetchT(url,opts,ms){
   const ctrl=new AbortController(); const id=setTimeout(()=>ctrl.abort(),ms);
   return fetch(url,{...opts,signal:ctrl.signal}).finally(()=>clearTimeout(id));
 }
-// une requete Overpass = un groupe de clauses ; echec d'un groupe n'affecte pas les autres
+// une seule requete Overpass a la fois, jamais en parallele : c'est ce qui declenche le 429
+// ("vous ne devriez obtenir une erreur 429 que si vous soumettez plus d'une requete en
+// parallele" — dev Overpass API). Une file simple serialise tous les appels.
 function parseOverpass(j){
   const seen=new Set(), got=[];
   for(const n of j.elements){
@@ -311,35 +313,42 @@ function parseOverpass(j){
   }
   return got;
 }
-function fetchGroup(clauses,ms){
-  const q=`[out:json][timeout:25];(${clauses.join(';')};);out center;`;
-  const body='data='+encodeURIComponent(q);
-  const tryEP=ep=>fetchT(ep,{method:'POST',body,headers:{'Content-Type':'application/x-www-form-urlencoded'}},ms)
-    .then(res=>{ if(!res.ok) throw new Error(String(res.status)); return res.json(); })
-    .then(parseOverpass);
-  return Promise.any(ENDPOINTS.map(tryEP));
+let overpassChain=Promise.resolve();
+function overpassQuery(q,ms){
+  const run=async()=>{
+    let lastErr;
+    for(const ep of ENDPOINTS){
+      try{
+        const res=await fetchT(ep,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'}},ms);
+        if(!res.ok) throw new Error(String(res.status));
+        return parseOverpass(await res.json());
+      }catch(e){ lastErr=e; }
+    }
+    throw lastErr||new Error('echec');
+  };
+  const p=overpassChain.then(run,run); // toujours executer, meme si la requete precedente a echoue
+  overpassChain=p.then(()=>{},()=>{});  // la chaine continue meme apres une erreur
+  return p;
 }
-function settleClauses(pos,r,hamlets){
+function clausesFor(pos,r,hamlets,poiSet,poiCap){
   const C=`${pos.lat},${pos.lon}`, cap=km=>Math.min(r,km*1000);
   const cl=[`node["place"~"^(city|town)$"](around:${r},${C})`,`node["place"="village"](around:${cap(30)},${C})`];
   if(hamlets) cl.push(`node["place"~"^(hamlet|isolated_dwelling)$"](around:${cap(12)},${C})`);
+  for(const k in POI) if(poiSet[k]) for(const sel of POI[k].q) cl.push(`${sel}(around:${poiCap(POI[k].max)},${C})`);
   return cl;
 }
 async function loadCities(force){
   if(!pos||loading) return;
   if(!force&&lastFetch&&source==='OSM'&&loadedR>=S.radius&&distBrg(pos,lastFetch).dist<S.radius*0.25) return;
   loading=true; setStatus('Chargement des lieux…');
-  const r=Math.round(S.radius*1000), C=`${pos.lat},${pos.lon}`, cap=km=>Math.min(r,km*1000);
-  const activePOI=Object.keys(POI).filter(k=>S.poi[k]);
-  const groups=[fetchGroup(settleClauses(pos,r,S.hamlets),12000).catch(()=>null)];
-  for(const k of activePOI) groups.push(fetchGroup(POI[k].q.map(sel=>`${sel}(around:${cap(POI[k].max)},${C})`),10000).catch(()=>null));
-  const results=await Promise.all(groups);
-  const settleOK=results[0]!==null;
-  if(settleOK){
-    cities=[].concat(...results.filter(Boolean));
-    source=(activePOI.length&&results.slice(1).some(x=>x===null))?'OSM (partiel)':'OSM';
-  } else if(source!=='OSM'){
-    if(!useZoneCache()){ cities=FALLBACK.slice(); source='liste intégrée (hors ligne)'; }
+  const r=Math.round(S.radius*1000), cap=km=>Math.min(r,km*1000);
+  const cl=clausesFor(pos,r,S.hamlets,S.poi,cap);
+  const q=`[out:json][timeout:25];(${cl.join(';')};);out center;`;
+  try{
+    const got=await overpassQuery(q,20000);
+    cities=got; source='OSM';
+  }catch(e){
+    if(source!=='OSM'){ if(!useZoneCache()){ cities=FALLBACK.slice(); source='liste intégrée (hors ligne)'; } }
   }
   lastFetch={...pos}; loadedR=S.radius; recompute(); loading=false;
   if(S.relief) computeRelief();
@@ -364,19 +373,18 @@ function updateZoneInfo(){
 async function downloadZone(){
   if(!pos) return;
   const btn=$('btnZoneDL'); if(!btn) return; const orig=btn.textContent;
-  btn.disabled=true; btn.textContent='Telechargement…';
+  btn.disabled=true; btn.textContent='Telechargement… (peut prendre 30-60 s)';
   try{
-    const DR=150000, C=`${pos.lat},${pos.lon}`;
-    const cl=[`node["place"~"^(city|town)$"](around:${DR},${C})`,`node["place"="village"](around:${DR},${C})`,`node["place"~"^(hamlet|isolated_dwelling)$"](around:20000,${C})`];
-    const groups=[fetchGroup(cl,20000).catch(()=>[])];
-    for(const k in POI) groups.push(fetchGroup(POI[k].q.map(sel=>`${sel}(around:${POI[k].max*1000},${C})`),15000).catch(()=>[]));
-    const merged=[].concat(...(await Promise.all(groups)).filter(Boolean));
-    if(!merged.length) throw new Error('vide');
-    zone={c:{lat:pos.lat,lon:pos.lon},r:150,saved:Date.now(),items:merged};
-    btn.textContent=saveZone(zone)?`${merged.length} lieux enregistres`:'Stockage plein — echec';
+    const allPoi=Object.fromEntries(Object.keys(POI).map(k=>[k,true]));
+    const cl=clausesFor(pos,150000,true,allPoi,km=>km*1000);
+    const q=`[out:json][timeout:50];(${cl.join(';')};);out center;`;
+    const got=await overpassQuery(q,60000);
+    if(!got.length) throw new Error('vide');
+    zone={c:{lat:pos.lat,lon:pos.lon},r:150,saved:Date.now(),items:got};
+    btn.textContent=saveZone(zone)?`${got.length} lieux enregistres`:'Stockage plein — echec';
     updateZoneInfo();
-  }catch(e){ btn.textContent='Echec — reessayer plus tard'; }
-  setTimeout(()=>{ btn.disabled=false; btn.textContent=orig; },2500);
+  }catch(e){ btn.textContent='Echec — reessayer dans une minute'; }
+  setTimeout(()=>{ btn.disabled=false; btn.textContent=orig; },3000);
 }
 
 // ---------- relief : masquage des lieux cachés par le terrain ----------
