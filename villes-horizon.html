@@ -38,6 +38,11 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #btnFind.on svg{stroke:var(--ink)}
 .sec{margin-top:6px;padding:14px 0 4px;border-top:1px solid var(--line);font:700 15px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--ochre)}
 .row label em{font:500 11px var(--mono);color:var(--ochre);font-style:normal;margin-left:8px}
+.zbtns{grid-template-columns:1fr auto;gap:10px}
+.zbtns button{padding:11px 14px;border:1px solid var(--line);border-radius:3px;font:700 13px/1 var(--display);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+#btnZoneDL{flex:1;background:rgba(224,165,38,.15);border-color:rgba(224,165,38,.5);color:var(--ochre)}
+#btnZoneDL:disabled{opacity:.6}
+#btnZoneDel{color:#E08787;border-color:rgba(224,135,135,.35);display:none}
 
 /* bottom bar */
 #bar{position:absolute;left:0;right:0;bottom:0;padding:14px 20px calc(var(--safe-b) + 16px);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:linear-gradient(to top,rgba(14,26,43,.85),rgba(14,26,43,0))}
@@ -134,6 +139,14 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   <div class="row">
     <label for="dst">Afficher les distances</label><input type="checkbox" id="dst" checked>
   </div>
+  <div class="sec">Donnees hors-ligne</div>
+  <div class="row">
+    <span class="hint" id="zoneInfo">—</span>
+  </div>
+  <div class="row zbtns">
+    <button id="btnZoneDL">Telecharger cette zone (150 km)</button>
+    <button id="btnZoneDel">Supprimer</button>
+  </div>
   <div class="sec">Trafic en direct</div>
   <div class="row">
     <label for="air">Avions<em>OpenSky &le; 120 km</em></label><input type="checkbox" id="air">
@@ -178,6 +191,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   <small>Nécessite une page en HTTPS (Safari ou Chrome). Tenez le téléphone en portrait, à la verticale.</small>
 </div>
 
+<script src="config.js" onerror="void 0"></script>
 <script>
 (() => {
 const $ = id => document.getElementById(id);
@@ -187,14 +201,10 @@ const FD=getComputedStyle(document.body).getPropertyValue('--display'), FM=getCo
 const CARD=['N','NE','E','SE','S','SO','O','NO'];
 const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.private.coffee/api/interpreter'];
 
-/* ============================================================
-   CLES D'API — a remplir si besoin, voir notes en fin de fichier
-   - aisKey     : cle gratuite aisstream.io (OBLIGATOIRE pour les bateaux)
-   - openskyId / openskySecret : facultatif, augmente le quota avions.
-     ATTENTION : sur un depot GitHub public, ces valeurs sont lisibles
-     par tous. Laisser vide = acces anonyme OpenSky (~100 requetes/jour).
-   ============================================================ */
-const CONFIG={ aisKey:'', openskyId:'', openskySecret:'' };
+/* Cles d'API : voir config.js (fichier separe, non ecrase par les mises a jour).
+   Si config.js est absent, les avions restent disponibles en acces anonyme
+   OpenSky ; seuls les bateaux necessitent une cle. */
+const CONFIG=Object.assign({aisKey:'',openskyId:'',openskySecret:''},window.APP_CONFIG||{});
 const S={radius:60,fov:50,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
@@ -228,7 +238,12 @@ const FALLBACK=[
 ['Saint-Hélier (Jersey)',49.1868,-2.1068,'town'],['Saint-Pierre-Port (Guernesey)',49.4548,-2.5363,'town'],['Bruxelles',50.8503,4.3517,'city'],['Londres',51.5074,-0.1278,'city']
 ].map(c=>({name:c[0],lat:c[1],lon:c[2],kind:c[3],pop:0}));
 
-let pos=null, acc=null, cities=FALLBACK.slice(), source='liste intégrée', lastFetch=null, loadedR=0, loading=false;
+const ZKEY='vh_zone_v1';
+function loadZone(){ try{ const raw=localStorage.getItem(ZKEY); return raw?JSON.parse(raw):null; }catch(e){ return null; } }
+function saveZone(z){ try{ localStorage.setItem(ZKEY,JSON.stringify(z)); return true; }catch(e){ return false; } }
+function clearZone(){ try{ localStorage.removeItem(ZKEY); }catch(e){} }
+let zone=loadZone();
+let pos=null, acc=null, cities=(zone?zone.items.slice():FALLBACK.slice()), source=(zone?`zone hors-ligne (${new Date(zone.saved).toLocaleDateString('fr-FR')})`:'liste intégrée'), lastFetch=null, loadedR=0, loading=false;
 let sensor=false, sv=null, sr=null, camOK=false, camErr='';
 let shotBlob=null, shotURL=null;
 
@@ -282,41 +297,86 @@ function fetchT(url,opts,ms){
   const ctrl=new AbortController(); const id=setTimeout(()=>ctrl.abort(),ms);
   return fetch(url,{...opts,signal:ctrl.signal}).finally(()=>clearTimeout(id));
 }
+// une requete Overpass = un groupe de clauses ; echec d'un groupe n'affecte pas les autres
+function parseOverpass(j){
+  const seen=new Set(), got=[];
+  for(const n of j.elements){
+    const t=n.tags; if(!t) continue;
+    const name=t['name:fr']||t.name; if(!name) continue;
+    const lat=n.lat??(n.center&&n.center.lat), lon=n.lon??(n.center&&n.center.lon);
+    if(lat==null||lon==null) continue;
+    const key=name+'@'+lat.toFixed(4)+','+lon.toFixed(4);
+    if(seen.has(key)) continue; seen.add(key);
+    got.push({name,lat,lon,kind:kindOf(t),pop:+(t.population||0)});
+  }
+  return got;
+}
+function fetchGroup(clauses,ms){
+  const q=`[out:json][timeout:25];(${clauses.join(';')};);out center;`;
+  const body='data='+encodeURIComponent(q);
+  const tryEP=ep=>fetchT(ep,{method:'POST',body,headers:{'Content-Type':'application/x-www-form-urlencoded'}},ms)
+    .then(res=>{ if(!res.ok) throw new Error(String(res.status)); return res.json(); })
+    .then(parseOverpass);
+  return Promise.any(ENDPOINTS.map(tryEP));
+}
+function settleClauses(pos,r,hamlets){
+  const C=`${pos.lat},${pos.lon}`, cap=km=>Math.min(r,km*1000);
+  const cl=[`node["place"~"^(city|town)$"](around:${r},${C})`,`node["place"="village"](around:${cap(30)},${C})`];
+  if(hamlets) cl.push(`node["place"~"^(hamlet|isolated_dwelling)$"](around:${cap(12)},${C})`);
+  return cl;
+}
 async function loadCities(force){
   if(!pos||loading) return;
   if(!force&&lastFetch&&source==='OSM'&&loadedR>=S.radius&&distBrg(pos,lastFetch).dist<S.radius*0.25) return;
   loading=true; setStatus('Chargement des lieux…');
-  const r=Math.round(S.radius*1000), C=`${pos.lat},${pos.lon}`;
-  const cap=km=>Math.min(r,km*1000);
-  const parts=[`node["place"~"^(city|town)$"](around:${r},${C})`,`node["place"="village"](around:${cap(30)},${C})`];
-  if(S.hamlets) parts.push(`node["place"~"^(hamlet|isolated_dwelling)$"](around:${cap(12)},${C})`);
-  for(const k in POI) if(S.poi[k]) for(const sel of POI[k].q) parts.push(`${sel}(around:${cap(POI[k].max)},${C})`);
-  const q=`[out:json][timeout:30];(${parts.join(';')};);out center;`;
-  const body='data='+encodeURIComponent(q);
-  const tryEP=ep=>fetchT(ep,{method:'POST',body,headers:{'Content-Type':'application/x-www-form-urlencoded'}},12000)
-    .then(res=>{ if(!res.ok) throw new Error(String(res.status)); return res.json(); })
-    .then(j=>{
-      const seen=new Set(), got=[];
-      for(const n of j.elements){
-        const t=n.tags; if(!t) continue;
-        const name=t['name:fr']||t.name; if(!name) continue;
-        const lat=n.lat??(n.center&&n.center.lat), lon=n.lon??(n.center&&n.center.lon);
-        if(lat==null||lon==null) continue;
-        const key=name+'@'+lat.toFixed(4)+','+lon.toFixed(4);
-        if(seen.has(key)) continue; seen.add(key);
-        got.push({name,lat,lon,kind:kindOf(t),pop:+(t.population||0)});
-      }
-      if(!got.length) throw new Error('empty');
-      return got;
-    });
-  try{
-    cities=await Promise.any(ENDPOINTS.map(tryEP)); source='OSM';
-  }catch(e){
-    if(source!=='OSM'){ cities=FALLBACK.slice(); source='liste intégrée (hors ligne)'; }
+  const r=Math.round(S.radius*1000), C=`${pos.lat},${pos.lon}`, cap=km=>Math.min(r,km*1000);
+  const activePOI=Object.keys(POI).filter(k=>S.poi[k]);
+  const groups=[fetchGroup(settleClauses(pos,r,S.hamlets),12000).catch(()=>null)];
+  for(const k of activePOI) groups.push(fetchGroup(POI[k].q.map(sel=>`${sel}(around:${cap(POI[k].max)},${C})`),10000).catch(()=>null));
+  const results=await Promise.all(groups);
+  const settleOK=results[0]!==null;
+  if(settleOK){
+    cities=[].concat(...results.filter(Boolean));
+    source=(activePOI.length&&results.slice(1).some(x=>x===null))?'OSM (partiel)':'OSM';
+  } else if(source!=='OSM'){
+    if(!useZoneCache()){ cities=FALLBACK.slice(); source='liste intégrée (hors ligne)'; }
   }
   lastFetch={...pos}; loadedR=S.radius; recompute(); loading=false;
   if(S.relief) computeRelief();
   else elevations([pos]).then(e=>{ if(e[0]!=null) obsElev=e[0]; }).catch(()=>{});
+}
+
+// ---------- zone hors-ligne : cache local pour continuer a fonctionner sans reseau ----------
+function useZoneCache(){
+  if(!zone||!pos) return false;
+  if(distBrg(pos,zone.c).dist>zone.r*0.9) return false;
+  cities=zone.items.slice(); source=`zone hors-ligne (${new Date(zone.saved).toLocaleDateString('fr-FR')})`;
+  return true;
+}
+function updateZoneInfo(){
+  const el=$('zoneInfo'), del=$('btnZoneDel'); if(!el) return;
+  if(!zone){ el.textContent='Aucune zone telechargee : en cas de panne reseau, seule une petite liste de grandes villes reste disponible.'; if(del) del.style.display='none'; return; }
+  const age=new Date(zone.saved).toLocaleDateString('fr-FR');
+  const d=pos?Math.round(distBrg(pos,zone.c).dist):null;
+  el.textContent=`${zone.items.length} lieux enregistres le ${age}, rayon ${zone.r} km`+(d!=null?` — vous en etes a ${d} km`:'');
+  if(del) del.style.display='inline-block';
+}
+async function downloadZone(){
+  if(!pos) return;
+  const btn=$('btnZoneDL'); if(!btn) return; const orig=btn.textContent;
+  btn.disabled=true; btn.textContent='Telechargement…';
+  try{
+    const DR=150000, C=`${pos.lat},${pos.lon}`;
+    const cl=[`node["place"~"^(city|town)$"](around:${DR},${C})`,`node["place"="village"](around:${DR},${C})`,`node["place"~"^(hamlet|isolated_dwelling)$"](around:20000,${C})`];
+    const groups=[fetchGroup(cl,20000).catch(()=>[])];
+    for(const k in POI) groups.push(fetchGroup(POI[k].q.map(sel=>`${sel}(around:${POI[k].max*1000},${C})`),15000).catch(()=>[]));
+    const merged=[].concat(...(await Promise.all(groups)).filter(Boolean));
+    if(!merged.length) throw new Error('vide');
+    zone={c:{lat:pos.lat,lon:pos.lon},r:150,saved:Date.now(),items:merged};
+    btn.textContent=saveZone(zone)?`${merged.length} lieux enregistres`:'Stockage plein — echec';
+    updateZoneInfo();
+  }catch(e){ btn.textContent='Echec — reessayer plus tard'; }
+  setTimeout(()=>{ btn.disabled=false; btn.textContent=orig; },2500);
 }
 
 // ---------- relief : masquage des lieux cachés par le terrain ----------
@@ -612,7 +672,10 @@ $('calib').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;});
 $('reset').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;});
 
 // ---------- réglages ----------
-$('btnSet').onclick=()=>$('sheet').classList.add('open');
+$('btnSet').onclick=()=>{ $('sheet').classList.add('open'); updateZoneInfo(); };
+$('btnZoneDL').onclick=downloadZone;
+$('btnZoneDel').onclick=()=>{ clearZone(); zone=null; updateZoneInfo();
+  if(source.startsWith('zone hors-ligne')){ cities=FALLBACK.slice(); source='liste intégrée'; recompute(); } };
 $('btnClose').onclick=()=>$('sheet').classList.remove('open');
 let radT;
 $('rad').oninput=e=>{S.radius=+e.target.value;$('radV').textContent=S.radius+' km';clearTimeout(radT);radT=setTimeout(()=>loadCities(false),900);};
