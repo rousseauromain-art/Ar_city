@@ -44,6 +44,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #btnZoneDL:disabled{opacity:.6}
 #btnZoneDel{color:#E08787;border-color:rgba(224,135,135,.35);display:none}
 #btnDbg{grid-column:1/-1;background:rgba(224,165,38,.15);border-color:rgba(224,165,38,.5);color:var(--ochre)}
+#btnDbgRetry{grid-column:1/-1;background:rgba(224,165,38,.15);border-color:rgba(224,165,38,.5);color:var(--ochre);font:700 12px var(--mono);padding:9px 12px;border-radius:3px;text-transform:uppercase;letter-spacing:.06em}
 
 /* bottom bar */
 #bar{position:absolute;left:0;right:0;bottom:0;padding:14px 20px calc(var(--safe-b) + 16px);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:linear-gradient(to top,rgba(14,26,43,.85),rgba(14,26,43,0))}
@@ -422,6 +423,19 @@ function kindCounts(){
   const c={}; for(const it of cities) c[it.kind]=(c[it.kind]||0)+1;
   return c;
 }
+function friendlyErr(e){
+  const m=(e&&e.message)||String(e);
+  if(e&&e.name==='AbortError'||/aborted/i.test(m)) return 'delai depasse (serveur trop lent)';
+  return m;
+}
+let retryTimer=null, retryDelay=15000, nextRetryAt=null;
+function scheduleRetry(){
+  clearTimeout(retryTimer);
+  nextRetryAt=Date.now()+retryDelay;
+  retryTimer=setTimeout(()=>{ nextRetryAt=null; retryTimer=null; if(pos) loadCities(true); },retryDelay);
+  retryDelay=Math.min(Math.round(retryDelay*1.5),60000); // recul progressif, plafonne a 60s
+}
+function stopRetry(){ clearTimeout(retryTimer); retryTimer=null; nextRetryAt=null; retryDelay=15000; }
 async function loadCities(force){
   if(!pos||loading) return;
   if(!force&&lastFetch&&source==='OSM'&&loadedR>=S.radius&&distBrg(pos,lastFetch).dist<S.radius*0.25) return;
@@ -430,15 +444,17 @@ async function loadCities(force){
   const cl=clausesFor(pos,r,S.hamlets,S.poi,cap);
   const q=`[out:json][timeout:25];(${cl.join(';')};);out center;`;
   try{
-    const got=await overpassQuery(q,20000);
+    const got=await overpassQuery(q,8000); // par miroir ; 3 miroirs en sequentiel poli = 24s max
     cities=got; source='OSM'; lastOSMAt=Date.now();
     logNet('OSM',true,`${got.length} lieux, rayon ${S.radius} km`);
+    stopRetry();
   }catch(e){
-    logNet('OSM',false,e.message||String(e));
+    logNet('OSM',false,friendlyErr(e));
     if(source!=='OSM'){
       if(useZoneCache()) logNet('repli',true,`atlas local (${cities.length} lieux)`);
       else { cities=FALLBACK.slice(); source='liste intégrée (hors ligne)'; logNet('repli',false,`liste integree (${cities.length} lieux)`); }
     } else logNet('repli',true,`conservation des ${cities.length} lieux deja charges`);
+    scheduleRetry();
   }
   lastFetch={...pos}; loadedR=S.radius; recompute(); loading=false;
   if(S.relief) computeRelief();
@@ -865,6 +881,7 @@ function renderDebug(){
   const kc=kindCounts();
   const kcTxt=Object.entries(kc).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${k} : ${n}`).join('<br>')||'—';
   const lastOSMTxt=lastOSMAt?new Date(lastOSMAt).toLocaleTimeString('fr-FR')+' ('+Math.max(0,Math.round((Date.now()-lastOSMAt)/60000))+' min)':'jamais dans cette session';
+  const retryTxt=loading?'Requete en cours…':nextRetryAt?`Prochaine tentative automatique dans ${Math.max(0,Math.ceil((nextRetryAt-Date.now())/1000))}s`:(source==='OSM'?'A jour, aucune relance necessaire':'Aucune relance programmee');
   const nAtlas=Object.keys(atlas.items).length;
   const zoneTxt=nAtlas?`${nAtlas} lieux au total, ${atlas.zones.length} telechargement(s)`:'aucune';
   const zonesHtml=atlas.zones.length?atlas.zones.slice().reverse().map(z=>
@@ -878,6 +895,10 @@ function renderDebug(){
     <div class="dbgline">${kcTxt}</div>
     <div class="dbgsec">Dernier succes OpenStreetMap en direct</div>
     <div class="dbgline">${lastOSMTxt}</div>
+    <div class="dbgline">${retryTxt}</div>
+    <div class="row zbtns" style="padding:8px 0 0">
+      <button id="btnDbgRetry">Reessayer maintenant</button>
+    </div>
     <div class="dbgsec">Atlas local hors-ligne</div>
     <div class="dbgline">${zoneTxt}</div>
     ${zonesHtml}
@@ -888,6 +909,7 @@ function renderDebug(){
     <div class="dbgsec">Journal reseau (${netLog.length} entrees)</div>
     ${logHtml}
   `;
+  const rb=$('btnDbgRetry'); if(rb) rb.onclick=()=>{ stopRetry(); if(pos) loadCities(true); else rb.textContent='GPS indisponible'; };
 }
 $('btnDbg').onclick=()=>{ $('sheet').classList.remove('open'); $('dbg').classList.add('open'); dbgOpen=true; renderDebug();
   dbgTimer=setInterval(renderDebug,1000); };
