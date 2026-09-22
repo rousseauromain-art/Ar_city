@@ -43,6 +43,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #btnZoneDL{flex:1;background:rgba(224,165,38,.15);border-color:rgba(224,165,38,.5);color:var(--ochre)}
 #btnZoneDL:disabled{opacity:.6}
 #btnZoneDel{color:#E08787;border-color:rgba(224,135,135,.35);display:none}
+#btnDbg{grid-column:1/-1;background:rgba(224,165,38,.15);border-color:rgba(224,165,38,.5);color:var(--ochre)}
 
 /* bottom bar */
 #bar{position:absolute;left:0;right:0;bottom:0;padding:14px 20px calc(var(--safe-b) + 16px);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:linear-gradient(to top,rgba(14,26,43,.85),rgba(14,26,43,0))}
@@ -68,6 +69,19 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 
 /* settings sheet */
 #sheet{position:absolute;left:0;right:0;bottom:0;max-height:calc(100% - 10px);overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--ink);border-top:1px solid var(--line);padding:0 22px calc(var(--safe-b) + 22px);transform:translateY(105%);transition:transform .25s;z-index:4}
+#dbg{position:absolute;inset:0;background:var(--ink);z-index:8;display:none;flex-direction:column}
+#dbg.open{display:flex}
+#dbg h2{position:sticky;top:0;background:var(--ink);padding:calc(var(--safe-t) + 16px) 22px 14px;font:700 22px/1 var(--display);text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+#dbg h2 button{font:500 12px var(--mono);color:var(--ochre);letter-spacing:.1em}
+#dbgBody{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 22px calc(var(--safe-b) + 22px);font:400 12px/1.5 var(--mono)}
+.dbgsec{margin-top:18px;font:700 12px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--ochre)}
+.dbgline{color:rgba(243,233,210,.9);word-break:break-word}
+.dbgrow{display:grid;grid-template-columns:auto auto 1fr;gap:8px;padding:6px 0;border-top:1px solid var(--line);align-items:baseline}
+.dbgrow span:first-child{color:rgba(243,233,210,.5)}
+.dbgrow b{text-transform:uppercase;letter-spacing:.04em}
+.dbgrow.ok b{color:#8FD3FF}
+.dbgrow.ko b{color:#E08787}
+.dbgrow span:last-child{color:rgba(243,233,210,.8)}
 #sheet.open{transform:none}
 #sheet h2{position:sticky;top:0;background:var(--ink);padding:16px 0 12px;font:700 22px/1 var(--display);text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center}
 #sheet h2 button{font:500 12px var(--mono);color:var(--ochre);letter-spacing:.1em}
@@ -137,6 +151,14 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <span class="hint">Compare l'altitude du terrain le long de la ligne de visée (données Copernicus) en tenant compte de la courbure terrestre.</span>
   </div>
   <div class="row">
+    <label for="sky">Ligne d'horizon (aide au calage)</label><input type="checkbox" id="sky">
+    <span class="hint" id="skyInfo">Dessine la silhouette théorique du relief : comparez-la à l'horizon réel pour caler, utile face à une île ou une côte sans repère net.</span>
+  </div>
+  <div class="row zbtns">
+    <button id="btnSky">Calculer la ligne d'horizon</button>
+    <button id="btnAutoAlign">Caler auto</button>
+  </div>
+  <div class="row">
     <label for="dst">Afficher les distances</label><input type="checkbox" id="dst" checked>
   </div>
   <div class="sec">Donnees hors-ligne</div>
@@ -146,6 +168,13 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   <div class="row zbtns">
     <button id="btnZoneDL">Telecharger cette zone (150 km)</button>
     <button id="btnZoneDel">Supprimer</button>
+  </div>
+  <div class="sec">Diagnostic</div>
+  <div class="row">
+    <span class="hint">Etat du cache, source des donnees et journal des requetes — utile pour verifier ce qui a bien ete recupere avant de partir sans reseau.</span>
+  </div>
+  <div class="row zbtns">
+    <button id="btnDbg">Ouvrir le diagnostic</button>
   </div>
   <div class="sec">Trafic en direct</div>
   <div class="row">
@@ -161,6 +190,11 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <span class="hint">Glissez sur l'image : horizontalement pour caler le cap, verticalement pour caler l'horizon.</span>
     <button id="reset">Remettre le calage à zéro</button>
   </div>
+</div>
+
+<div id="dbg">
+  <h2>Diagnostic <button id="dbgClose">FERMER</button></h2>
+  <div id="dbgBody"></div>
 </div>
 
 <div id="shot">
@@ -205,7 +239,7 @@ const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kum
    Si config.js est absent, les avions restent disponibles en acces anonyme
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({aisKey:'',openskyId:'',openskySecret:''},window.APP_CONFIG||{});
-const S={radius:60,fov:50,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,
+const S={radius:60,fov:50,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
   lighthouse:{label:'Phares, feux et balises',        max:40, q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]']},
@@ -217,6 +251,29 @@ const POI={
 };
 const norm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const passFilter=(c,fq)=>!fq||norm(c.name).includes(fq);
+
+// ---------- persistance des reglages et du calage (localStorage) ----------
+const PKEY='vh_settings_v2';
+function loadSettings(){
+  try{
+    const raw=localStorage.getItem(PKEY); if(!raw) return;
+    const saved=JSON.parse(raw);
+    for(const k of ['radius','fov','hamlets','relief','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline'])
+      if(saved[k]!==undefined) S[k]=saved[k];
+    if(saved.poi) Object.assign(S.poi,saved.poi);
+  }catch(e){}
+}
+let saveSettingsT=null;
+function saveSettings(){
+  clearTimeout(saveSettingsT);
+  saveSettingsT=setTimeout(()=>{
+    try{
+      const {radius,fov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,poi}=S;
+      localStorage.setItem(PKEY,JSON.stringify({radius,fov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,poi}));
+    }catch(e){}
+  },300);
+}
+loadSettings();
 
 // Secours si OpenStreetMap est injoignable (Ouest + grandes villes)
 const FALLBACK=[
@@ -238,12 +295,29 @@ const FALLBACK=[
 ['Saint-Hélier (Jersey)',49.1868,-2.1068,'town'],['Saint-Pierre-Port (Guernesey)',49.4548,-2.5363,'town'],['Bruxelles',50.8503,4.3517,'city'],['Londres',51.5074,-0.1278,'city']
 ].map(c=>({name:c[0],lat:c[1],lon:c[2],kind:c[3],pop:0}));
 
-const ZKEY='vh_zone_v1';
-function loadZone(){ try{ const raw=localStorage.getItem(ZKEY); return raw?JSON.parse(raw):null; }catch(e){ return null; } }
-function saveZone(z){ try{ localStorage.setItem(ZKEY,JSON.stringify(z)); return true; }catch(e){ return false; } }
-function clearZone(){ try{ localStorage.removeItem(ZKEY); }catch(e){} }
-let zone=loadZone();
-let pos=null, acc=null, cities=(zone?zone.items.slice():FALLBACK.slice()), source=(zone?`zone hors-ligne (${new Date(zone.saved).toLocaleDateString('fr-FR')})`:'liste intégrée'), lastFetch=null, loadedR=0, loading=false;
+// atlas local cumulatif : chaque telechargement de zone s'ajoute au precedent au lieu
+// de l'ecraser. Cle dediee ; migration silencieuse depuis l'ancien format mono-zone.
+const ZKEY='vh_atlas_v1', ZKEY_OLD='vh_zone_v1';
+function itemKey(it){ return it.name+'@'+it.lat.toFixed(3)+','+it.lon.toFixed(3); }
+function loadAtlas(){
+  try{
+    const raw=localStorage.getItem(ZKEY);
+    if(raw){ const a=JSON.parse(raw); if(a&&a.items&&a.zones) return a; }
+  }catch(e){}
+  try{
+    const old=localStorage.getItem(ZKEY_OLD);
+    if(old){
+      const z=JSON.parse(old), items={};
+      for(const it of z.items) items[itemKey(it)]=it;
+      return {zones:[{c:z.c,r:z.r,saved:z.saved,count:z.items.length}],items};
+    }
+  }catch(e){}
+  return {zones:[],items:{}};
+}
+function saveAtlas(){ try{ localStorage.setItem(ZKEY,JSON.stringify(atlas)); return true; }catch(e){ return false; } }
+function clearAtlas(){ try{ localStorage.removeItem(ZKEY); localStorage.removeItem(ZKEY_OLD); }catch(e){} atlas={zones:[],items:{}}; }
+let atlas=loadAtlas();
+let pos=null, acc=null, cities=(Object.keys(atlas.items).length?Object.values(atlas.items):FALLBACK.slice()), source=(Object.keys(atlas.items).length?`atlas local (${Object.keys(atlas.items).length} lieux)`:'liste intégrée'), lastFetch=null, loadedR=0, loading=false;
 let sensor=false, sv=null, sr=null, camOK=false, camErr='';
 let shotBlob=null, shotURL=null;
 
@@ -256,7 +330,7 @@ function distBrg(a,b){
   const h=Math.sin((la2-la1)/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dl/2)**2;
   return {dist:6371*2*Math.asin(Math.sqrt(h)),brg};
 }
-function recompute(){ if(!pos) return; for(const c of cities){ const r=distBrg(pos,c); c.dist=r.dist; c.brg=r.brg; } }
+function recompute(){ if(!pos) return; for(const c of cities){ const r=distBrg(pos,c); c.dist=r.dist; c.brg=r.brg; } citiesVer++; }
 
 // ---------- capteurs d'orientation ----------
 let gotAbs=false;
@@ -337,6 +411,17 @@ function clausesFor(pos,r,hamlets,poiSet,poiCap){
   for(const k in POI) if(poiSet[k]) for(const sel of POI[k].q) cl.push(`${sel}(around:${poiCap(POI[k].max)},${C})`);
   return cl;
 }
+// ---------- journal reseau : pour le panneau de diagnostic ----------
+let netLog=[], lastOSMAt=null, lastShown=0;
+function logNet(kind,ok,detail){
+  netLog.unshift({t:Date.now(),kind,ok,detail:detail||''});
+  if(netLog.length>40) netLog.length=40;
+  if(dbgOpen) renderDebug();
+}
+function kindCounts(){
+  const c={}; for(const it of cities) c[it.kind]=(c[it.kind]||0)+1;
+  return c;
+}
 async function loadCities(force){
   if(!pos||loading) return;
   if(!force&&lastFetch&&source==='OSM'&&loadedR>=S.radius&&distBrg(pos,lastFetch).dist<S.radius*0.25) return;
@@ -346,28 +431,34 @@ async function loadCities(force){
   const q=`[out:json][timeout:25];(${cl.join(';')};);out center;`;
   try{
     const got=await overpassQuery(q,20000);
-    cities=got; source='OSM';
+    cities=got; source='OSM'; lastOSMAt=Date.now();
+    logNet('OSM',true,`${got.length} lieux, rayon ${S.radius} km`);
   }catch(e){
-    if(source!=='OSM'){ if(!useZoneCache()){ cities=FALLBACK.slice(); source='liste intégrée (hors ligne)'; } }
+    logNet('OSM',false,e.message||String(e));
+    if(source!=='OSM'){
+      if(useZoneCache()) logNet('repli',true,`atlas local (${cities.length} lieux)`);
+      else { cities=FALLBACK.slice(); source='liste intégrée (hors ligne)'; logNet('repli',false,`liste integree (${cities.length} lieux)`); }
+    } else logNet('repli',true,`conservation des ${cities.length} lieux deja charges`);
   }
   lastFetch={...pos}; loadedR=S.radius; recompute(); loading=false;
   if(S.relief) computeRelief();
   else elevations([pos]).then(e=>{ if(e[0]!=null) obsElev=e[0]; }).catch(()=>{});
 }
 
-// ---------- zone hors-ligne : cache local pour continuer a fonctionner sans reseau ----------
+// ---------- atlas local hors-ligne : cache cumulatif pour continuer a fonctionner sans reseau ----------
 function useZoneCache(){
-  if(!zone||!pos) return false;
-  if(distBrg(pos,zone.c).dist>zone.r*0.9) return false;
-  cities=zone.items.slice(); source=`zone hors-ligne (${new Date(zone.saved).toLocaleDateString('fr-FR')})`;
+  const n=Object.keys(atlas.items).length;
+  if(!n) return false;
+  cities=Object.values(atlas.items); source=`atlas local (${n} lieux)`;
   return true;
 }
 function updateZoneInfo(){
   const el=$('zoneInfo'), del=$('btnZoneDel'); if(!el) return;
-  if(!zone){ el.textContent='Aucune zone telechargee : en cas de panne reseau, seule une petite liste de grandes villes reste disponible.'; if(del) del.style.display='none'; return; }
-  const age=new Date(zone.saved).toLocaleDateString('fr-FR');
-  const d=pos?Math.round(distBrg(pos,zone.c).dist):null;
-  el.textContent=`${zone.items.length} lieux enregistres le ${age}, rayon ${zone.r} km`+(d!=null?` — vous en etes a ${d} km`:'');
+  const n=Object.keys(atlas.items).length;
+  if(!n){ el.textContent='Aucune zone telechargee : en cas de panne reseau, seule une petite liste de grandes villes reste disponible.'; if(del) del.style.display='none'; return; }
+  const last=atlas.zones[atlas.zones.length-1];
+  const lastTxt=last?`, derniere le ${new Date(last.saved).toLocaleDateString('fr-FR')}`:'';
+  el.textContent=`${n} lieux enregistres au total, sur ${atlas.zones.length} zone(s) telechargee(s)${lastTxt}. Chaque telechargement s'ajoute aux precedents, rien n'est ecrase.`;
   if(del) del.style.display='inline-block';
 }
 async function downloadZone(){
@@ -380,12 +471,18 @@ async function downloadZone(){
     const q=`[out:json][timeout:50];(${cl.join(';')};);out center;`;
     const got=await overpassQuery(q,60000);
     if(!got.length) throw new Error('vide');
-    zone={c:{lat:pos.lat,lon:pos.lon},r:150,saved:Date.now(),items:got};
-    btn.textContent=saveZone(zone)?`${got.length} lieux enregistres`:'Stockage plein — echec';
+    let added=0;
+    for(const it of got){ const k=itemKey(it); if(!atlas.items[k]) added++; atlas.items[k]=it; }
+    atlas.zones.push({c:{lat:pos.lat,lon:pos.lon},r:150,saved:Date.now(),count:got.length});
+    const total=Object.keys(atlas.items).length;
+    const okSave=saveAtlas();
+    btn.textContent=okSave?`+${added} nouveaux (${total} au total)`:'Stockage plein — echec';
+    logNet('Telechargement zone',okSave,`${got.length} recus, ${added} nouveaux, ${total} au total`);
     updateZoneInfo();
-  }catch(e){ btn.textContent='Echec — reessayer dans une minute'; }
+  }catch(e){ btn.textContent='Echec — reessayer dans une minute'; logNet('Telechargement zone',false,e.message||String(e)); }
   setTimeout(()=>{ btn.disabled=false; btn.textContent=orig; },3000);
 }
+
 
 // ---------- relief : masquage des lieux cachés par le terrain ----------
 const RANK={city:0,town:1,lighthouse:1,cape:2,peak:2,village:2,view:3,rock:3,heritage:3,beach:4,hamlet:4,isolated_dwelling:4,poi:3};
@@ -422,7 +519,7 @@ async function computeRelief(){
   const here={...pos}; reliefBusy=true; reliefState='calcul…';
   try{
     const T=visibleCities().filter(c=>c.dist>2).slice(0,40);
-    if(!T.length){ reliefState='ok'; reliefAt=here; reliefBusy=false; return; }
+    if(!T.length){ reliefState='ok'; reliefAt=here; reliefBusy=false; logNet('Relief',true,'aucune cible a verifier'); return; }
     const N=12, pts=[{lat:here.lat,lon:here.lon}];
     for(const c of T) for(let i=1;i<=N;i++){ const f=i/(N+1); pts.push({lat:here.lat+(c.lat-here.lat)*f,lon:here.lon+(c.lon-here.lon)*f}); }
     for(const c of T) pts.push({lat:c.lat,lon:c.lon});
@@ -430,6 +527,7 @@ async function computeRelief(){
     if(el.some(v=>v==null)) throw new Error('incomplet');
     obsElev=el[0]||0;
     const Reff=6371000*1.13, h0=obsElev+1.6, base=1+T.length*N;
+    let hidden=0;
     T.forEach((c,ci)=>{
       const Dm=c.dist*1000, y1=(el[base+ci]||0)+(HT[c.kind]??12)-Dm*Dm/(2*Reff);
       let blocked=false;
@@ -437,11 +535,60 @@ async function computeRelief(){
         const f=i/(N+1), d=Dm*f, t=el[1+ci*N+(i-1)];
         if(t-d*d/(2*Reff) > h0+(y1-h0)*f+5){ blocked=true; break; }
       }
-      c.hidden=blocked;
+      c.hidden=blocked; if(blocked) hidden++;
     });
     reliefState='ok'; reliefAt=here;
-  }catch(e){ reliefState='indispo'; }
+    logNet('Relief',true,`${T.length} cibles verifiees, ${hidden} masquees`);
+  }catch(e){ reliefState='indispo'; logNet('Relief',false,e.message||String(e)); }
   reliefBusy=false;
+}
+
+// ---------- ligne d'horizon (silhouette du relief) : aide au calage manuel et a l'auto-alignement ----------
+let skyline=null, skylineBusy=false, skylineState='—';
+async function computeSkyline(){
+  if(!pos||skylineBusy) return;
+  skylineBusy=true; skylineState='calcul…';
+  try{
+    const {heading}=pose();
+    const half=Math.min(90,Math.max(45,Math.round(S.fov*1.2)));
+    const dists=[3,6,12,25,50,Math.min(90,Math.max(30,S.radius))];
+    const rels=[]; for(let d=-half; d<=half; d+=2) rels.push(d);
+    const pts=[];
+    for(const rel of rels){
+      const b=((heading+rel)%360+360)%360*D;
+      for(const dk of dists){
+        const Dm=dk*1000;
+        pts.push({lat:pos.lat+Dm*Math.cos(b)/111320, lon:pos.lon+Dm*Math.sin(b)/(111320*Math.max(0.2,Math.cos(pos.lat*D)))});
+      }
+    }
+    const el=await elevations(pts);
+    if(el.some(v=>v==null)) throw new Error('incomplet');
+    const Reff=6371000*1.13, h0=obsElev+1.6;
+    const profile=rels.map((rel,ri)=>{
+      let maxA=-90;
+      for(let di=0;di<dists.length;di++){
+        const Dm=dists[di]*1000, t=el[ri*dists.length+di];
+        const a=Math.atan2(t-h0-Dm*Dm/(2*Reff),Dm)/D;
+        if(a>maxA) maxA=a;
+      }
+      return {rel,elev:maxA};
+    });
+    skyline={heading0:heading,half,profile,at:{...pos}};
+    skylineState='ok';
+    logNet('Horizon',true,`${profile.length} points, arc ${half*2}°`);
+  }catch(e){ skylineState='indispo'; logNet('Horizon',false,e.message||String(e)); }
+  skylineBusy=false;
+}
+function skylineElevAt(brg){
+  if(!skyline) return null;
+  const rel=wrap(brg-skyline.heading0);
+  if(rel<-skyline.half||rel>skyline.half) return null;
+  const P=skyline.profile;
+  for(let i=0;i<P.length-1;i++) if(rel>=P[i].rel&&rel<=P[i+1].rel){
+    const f=(rel-P[i].rel)/(P[i+1].rel-P[i].rel);
+    return P[i].elev+(P[i+1].elev-P[i].elev)*f;
+  }
+  return P[P.length-1].elev;
 }
 
 // ---------- trafic en direct : avions (OpenSky) et bateaux (AISStream) ----------
@@ -476,23 +623,24 @@ async function pollAir(){
     const t=await airAuth().catch(()=>null);
     const r=await fetchT(`https://opensky-network.org/api/states/all?lamin=${b.la1.toFixed(3)}&lomin=${b.lo1.toFixed(3)}&lamax=${b.la2.toFixed(3)}&lomax=${b.lo2.toFixed(3)}`,
       t?{headers:{Authorization:'Bearer '+t}}:{},12000);
-    if(r.status===429){ tMsg.air='quota'; return; }
+    if(r.status===429){ tMsg.air='quota'; logNet('OpenSky',false,'quota atteint (429)'); return; }
     if(!r.ok) throw new Error(r.status);
     const j=await r.json(), now=Date.now();
     planes=(j.states||[]).filter(v=>v[5]!=null&&v[6]!=null&&!v[8]).map(v=>({
       name:((v[1]||'').trim()||v[0]||'?'), lat:v[6], lon:v[5],
       alt:(v[13]!=null?v[13]:(v[7]||0)), trk:v[10]||0, vel:v[9]||0, vr:v[11]||0, t:now }));
     tMsg.air=planes.length+' av.';
-  }catch(e){ tMsg.air='indispo'; }
+    logNet('OpenSky',true,`${planes.length} avions dans un rayon de ${S.airMax} km`);
+  }catch(e){ tMsg.air='indispo'; logNet('OpenSky',false,e.message||String(e)); }
 }
 function openAIS(){
   if(!S.sea||!pos) return;
-  if(!CONFIG.aisKey){ tMsg.sea='cle requise'; return; }
+  if(!CONFIG.aisKey){ tMsg.sea='cle requise'; logNet('AISStream',false,'cle API absente (config.js)'); return; }
   try{ if(ws) ws.close(); }catch(e){}
   const b=bbox(S.seaMax);
   tMsg.sea='connexion…';
   ws=new WebSocket('wss://stream.aisstream.io/v0/stream');
-  ws.onopen=()=>{ tMsg.sea='en ligne';
+  ws.onopen=()=>{ tMsg.sea='en ligne'; logNet('AISStream',true,'connecte, rayon '+S.seaMax+' km');
     ws.send(JSON.stringify({APIKey:CONFIG.aisKey,BoundingBoxes:[[[b.la2,b.lo1],[b.la1,b.lo2]]],FilterMessageTypes:['PositionReport']})); };
   ws.onmessage=ev=>{ try{
     const m=JSON.parse(ev.data); if(m.MessageType!=='PositionReport') return;
@@ -504,8 +652,8 @@ function openAIS(){
       trk:(pr.Cog!=null?pr.Cog:0), vel:(pr.Sog||0)*0.5144, alt:0, vr:0, t:Date.now()});
     tMsg.sea=ships.size+' bat.';
   }catch(e){} };
-  ws.onerror=()=>{ tMsg.sea='erreur'; };
-  ws.onclose=()=>{ if(S.sea&&tMsg.sea!=='cle requise') tMsg.sea='hors ligne'; };
+  ws.onerror=()=>{ tMsg.sea='erreur'; logNet('AISStream',false,'erreur de connexion'); };
+  ws.onclose=()=>{ if(S.sea&&tMsg.sea!=='cle requise'){ tMsg.sea='hors ligne'; logNet('AISStream',false,'deconnecte'); } };
 }
 function syncTraffic(){
   clearInterval(airTimer); airTimer=null;
@@ -516,9 +664,14 @@ document.addEventListener('visibilitychange',()=>{
   if(document.hidden){ clearInterval(airTimer); airTimer=null; }
   else if(S.air&&!airTimer){ pollAir(); airTimer=setInterval(pollAir,60000); }
 });
+// mobiles() re-scanne/trie planes+ships ; throttle a ~2.5 fois/s, largement assez fluide
+// pour du dead-reckoning, evite de refaire ce travail a 60 fps
+let _mobCache=[], _mobCacheAt=0;
 function mobiles(){
   if(!pos) return [];
-  const out=[], now=Date.now();
+  const now=Date.now();
+  if(now-_mobCacheAt<400) return _mobCache;
+  const out=[];
   if(S.air) for(const p of planes){
     const s=dr(p), r=distBrg(pos,{lat:s.lat,lon:s.lon});
     if(r.dist>S.airMax) continue;
@@ -530,15 +683,22 @@ function mobiles(){
     if(r.dist>S.seaMax) continue;
     out.push({name:v.name,kind:'ship',dist:r.dist,brg:r.brg,alt:0,trk:v.trk,vel:v.vel});
   }
-  return out.sort((a,b)=>a.dist-b.dist).slice(0,60);
+  _mobCache=out.sort((a,b)=>a.dist-b.dist).slice(0,60); _mobCacheAt=now;
+  return _mobCache;
 }
 
+// visibleCities() trie la liste ; ne recalculer que quand les donnees (citiesVer) ou
+// le rayon ont change, pas a chaque frame — c'etait la principale cause de lag
+let citiesVer=0, _visCache=[], _visVer=-1, _visRad=null;
 function visibleCities(){
-  return cities.filter(c=>{
+  if(_visVer===citiesVer&&_visRad===S.radius) return _visCache;
+  _visCache=cities.filter(c=>{
     if(c.dist==null||c.dist>S.radius) return false;
     const m=MAXD[c.kind]; if(m!=null&&c.dist>m) return false;
     return true;
   }).sort((a,b)=>(RANK[a.kind]??3)-(RANK[b.kind]??3)||a.dist-b.dist);
+  _visVer=citiesVer; _visRad=S.radius;
+  return _visCache;
 }
 
 // ---------- rendu ----------
@@ -550,7 +710,10 @@ function resize(){
 }
 window.addEventListener('resize',()=>setTimeout(resize,80));
 
-function draw(){
+let lastFrameT=0;
+function draw(ts){
+  if(ts!=null&&ts-lastFrameT<32){ requestAnimationFrame(draw); return; } // plafond ~30 im/s
+  lastFrameT=ts||0;
   const {heading,pitch,roll}=pose();
   const fh=(W/2)/Math.tan(S.fov/2*D);
   const fq=S.filter?norm(S.filter):'';
@@ -566,6 +729,19 @@ function draw(){
   // réticule
   ctx.strokeStyle='#E0A526'; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.moveTo(W/2,hy-9); ctx.lineTo(W/2,hy+9); ctx.moveTo(W/2-9,hy); ctx.lineTo(W/2+9,hy); ctx.stroke();
+
+  // ligne d'horizon calculee (aide au calage) : silhouette du relief theorique
+  if(S.skyline&&skyline){
+    ctx.beginPath(); let started=false;
+    for(let x=-40;x<=W+40;x+=6){
+      const dB=Math.atan((x-W/2)/fh)/D, brg=(heading+dB+360)%360;
+      const e=skylineElevAt(brg);
+      if(e==null){ started=false; continue; }
+      const y=H/2+fh*Math.tan((pitch-e)*D);
+      if(!started){ ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle='rgba(224,165,38,.9)'; ctx.lineWidth=2; ctx.setLineDash([]); ctx.stroke();
+  }
 
   const lanes=[]; const maxLanes=9;
   ctx.textBaseline='alphabetic'; ctx.textAlign='left'; ctx.lineJoin='round';
@@ -658,6 +834,7 @@ function draw(){
   // statut
   const g=pos?`GPS ±${Math.round(acc||0)} m`:'GPS —';
   const shown=list.filter(c=>(!S.relief||!c.hidden)&&passFilter(c,fq)).length;
+  lastShown=shown;
   const tr=(S.air&&tMsg.air?' · '+tMsg.air:'')+(S.sea&&tMsg.sea?' · '+tMsg.sea:'');
   setStatus(`${g} · ${shown} lieux · ${source}${S.relief?' · relief '+reliefState:''}${tr}${sensor?'':' · boussole —'}`);
   const cal=$('calib');
@@ -675,26 +852,126 @@ let drag=null;
 ov.addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,h:S.headOff,p:S.pitchOff}; ov.setPointerCapture(e.pointerId); });
 ov.addEventListener('pointermove',e=>{ if(!drag) return; const fh=(W/2)/Math.tan(S.fov/2*D);
   S.headOff=drag.h-Math.atan((e.clientX-drag.x)/fh)/D; S.pitchOff=drag.p+Math.atan((e.clientY-drag.y)/fh)/D; });
-ov.addEventListener('pointerup',()=>drag=null); ov.addEventListener('pointercancel',()=>drag=null);
-$('calib').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;});
-$('reset').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;});
+ov.addEventListener('pointerup',()=>{drag=null;saveSettings();}); ov.addEventListener('pointercancel',()=>drag=null);
+$('calib').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;saveSettings();});
+$('reset').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;saveSettings();});
 
 // ---------- réglages ----------
 $('btnSet').onclick=()=>{ $('sheet').classList.add('open'); updateZoneInfo(); };
+
+// ---------- panneau de diagnostic ----------
+let dbgOpen=false, dbgTimer=null;
+function renderDebug(){
+  const kc=kindCounts();
+  const kcTxt=Object.entries(kc).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${k} : ${n}`).join('<br>')||'—';
+  const lastOSMTxt=lastOSMAt?new Date(lastOSMAt).toLocaleTimeString('fr-FR')+' ('+Math.max(0,Math.round((Date.now()-lastOSMAt)/60000))+' min)':'jamais dans cette session';
+  const nAtlas=Object.keys(atlas.items).length;
+  const zoneTxt=nAtlas?`${nAtlas} lieux au total, ${atlas.zones.length} telechargement(s)`:'aucune';
+  const zonesHtml=atlas.zones.length?atlas.zones.slice().reverse().map(z=>
+    `<div class="dbgline">${new Date(z.saved).toLocaleString('fr-FR')} — ${z.count} lieux recus, rayon ${z.r} km`+
+    (pos?`, a ${Math.round(distBrg(pos,z.c).dist)} km d'ici`:'')+`</div>`).join(''):'';
+  const logHtml=netLog.length?netLog.map(e=>`<div class="dbgrow ${e.ok?'ok':'ko'}"><span>${new Date(e.t).toLocaleTimeString('fr-FR')}</span><b>${e.kind}</b><span>${e.detail}</span></div>`).join(''):'<div class="dbgline">vide</div>';
+  $('dbgBody').innerHTML=`
+    <div class="dbgsec">A l'ecran maintenant</div>
+    <div class="dbgline">${lastShown} lieux affiches (source : ${source})</div>
+    <div class="dbgsec">En memoire (${cities.length} au total)</div>
+    <div class="dbgline">${kcTxt}</div>
+    <div class="dbgsec">Dernier succes OpenStreetMap en direct</div>
+    <div class="dbgline">${lastOSMTxt}</div>
+    <div class="dbgsec">Atlas local hors-ligne</div>
+    <div class="dbgline">${zoneTxt}</div>
+    ${zonesHtml}
+    <div class="dbgsec">Relief / ligne d'horizon</div>
+    <div class="dbgline">relief : ${reliefState} · horizon : ${skylineState}</div>
+    <div class="dbgsec">Trafic en direct</div>
+    <div class="dbgline">avions : ${tMsg.air||'desactive'} · bateaux : ${tMsg.sea||'desactive'}</div>
+    <div class="dbgsec">Journal reseau (${netLog.length} entrees)</div>
+    ${logHtml}
+  `;
+}
+$('btnDbg').onclick=()=>{ $('sheet').classList.remove('open'); $('dbg').classList.add('open'); dbgOpen=true; renderDebug();
+  dbgTimer=setInterval(renderDebug,1000); };
+$('dbgClose').onclick=()=>{ $('dbg').classList.remove('open'); dbgOpen=false; clearInterval(dbgTimer); };
 $('btnZoneDL').onclick=downloadZone;
-$('btnZoneDel').onclick=()=>{ clearZone(); zone=null; updateZoneInfo();
-  if(source.startsWith('zone hors-ligne')){ cities=FALLBACK.slice(); source='liste intégrée'; recompute(); } };
+$('btnZoneDel').onclick=()=>{ clearAtlas(); updateZoneInfo();
+  if(source.startsWith('atlas local')){ cities=FALLBACK.slice(); source='liste intégrée'; recompute(); } };
 $('btnClose').onclick=()=>$('sheet').classList.remove('open');
 let radT;
-$('rad').oninput=e=>{S.radius=+e.target.value;$('radV').textContent=S.radius+' km';clearTimeout(radT);radT=setTimeout(()=>loadCities(false),900);};
-$('fov').oninput=e=>{S.fov=+e.target.value;$('fovV').textContent=S.fov+'°';};
-$('vil').onchange=e=>{S.hamlets=e.target.checked;loadCities(true);};
-$('rel').onchange=e=>{S.relief=e.target.checked;if(S.relief)computeRelief();};
+$('rad').oninput=e=>{S.radius=+e.target.value;$('radV').textContent=S.radius+' km';clearTimeout(radT);radT=setTimeout(()=>loadCities(false),900);saveSettings();};
+$('fov').oninput=e=>{S.fov=+e.target.value;$('fovV').textContent=S.fov+'°';saveSettings();};
+$('vil').onchange=e=>{S.hamlets=e.target.checked;loadCities(true);saveSettings();};
+$('rel').onchange=e=>{S.relief=e.target.checked;if(S.relief)computeRelief();saveSettings();};
+$('sky').onchange=e=>{S.skyline=e.target.checked;saveSettings();if(S.skyline&&!skyline)computeSkyline();};
+$('btnSky').onclick=async()=>{
+  const b=$('btnSky'); const orig=b.textContent; b.disabled=true; b.textContent='Calcul…';
+  await computeSkyline();
+  b.textContent=skylineState==='ok'?'Ligne d\'horizon prête':'Échec — réessayer';
+  setTimeout(()=>{ b.disabled=false; b.textContent=orig; },2000);
+};
+
+// ---------- calage automatique : detecte le contour ciel/terre par gradient de nettete
+// (transition la plus marquee sur chaque colonne) et cherche le decalage de cap/horizon
+// qui fait le mieux correspondre ce contour observe a la silhouette calculee (skyline) ----------
+function extractObservedHorizon(){
+  const cw=240, ch=Math.max(60,Math.round(cw*H/W));
+  const oc=document.createElement('canvas'); oc.width=cw; oc.height=ch;
+  const octx=oc.getContext('2d',{willReadFrequently:true});
+  octx.drawImage(video,0,0,cw,ch);
+  let img; try{ img=octx.getImageData(0,0,cw,ch).data; }catch(e){ return []; }
+  const lum=(x,y)=>{ const i=(y*cw+x)*4; return 0.299*img[i]+0.587*img[i+1]+0.114*img[i+2]; };
+  const top=Math.max(1,Math.round(ch*0.12)), bot=Math.min(ch-2,Math.round(ch*0.88));
+  const pts=[];
+  for(let x=2;x<cw-2;x+=3){
+    let bestY=-1,bestG=-1;
+    for(let y=top;y<bot;y++){
+      const g=Math.abs(lum(x,y+1)-lum(x,y-1)); // nettete de la transition verticale locale
+      if(g>bestG){ bestG=g; bestY=y; }
+    }
+    if(bestG>12) pts.push({xReal:x/cw*W, yReal:bestY/ch*H});
+  }
+  return pts;
+}
+async function autoAlign(){
+  const b=$('btnAutoAlign'); const orig=b.textContent;
+  if(!camOK){ b.textContent='Caméra indispo'; setTimeout(()=>b.textContent=orig,2000); return; }
+  if(!pos){ b.textContent='GPS indispo'; setTimeout(()=>b.textContent=orig,2000); return; }
+  b.disabled=true; b.textContent='Analyse…';
+  try{
+    if(!skyline||distBrg(pos,skyline.at).dist>2) await computeSkyline();
+    if(!skyline||skylineState!=='ok') throw new Error('pas de ligne d\'horizon');
+    const {heading,pitch}=pose(), fh=(W/2)/Math.tan(S.fov/2*D);
+    const raw=extractObservedHorizon();
+    if(raw.length<15) throw new Error('contraste insuffisant');
+    const obs=raw.map(p=>({
+      brgBase:(heading+Math.atan((p.xReal-W/2)/fh)/D+360)%360,
+      elevBase:pitch-Math.atan((p.yReal-H/2)/fh)/D
+    }));
+    function scoreFor(dHead){
+      const diffs=[];
+      for(const o of obs){
+        const m=skylineElevAt((o.brgBase+dHead+360)%360);
+        if(m!=null) diffs.push(m-o.elevBase);
+      }
+      if(diffs.length<10) return {score:Infinity,mean:0};
+      const mean=diffs.reduce((a,v)=>a+v,0)/diffs.length;
+      const score=diffs.reduce((a,v)=>a+(v-mean)*(v-mean),0)/diffs.length;
+      return {score,mean};
+    }
+    let best={dHead:0,score:Infinity,mean:0};
+    for(let d=-20;d<=20;d+=1){ const r=scoreFor(d); if(r.score<best.score) best={dHead:d,...r}; }
+    for(let d=best.dHead-1.5;d<=best.dHead+1.5;d+=0.1){ const r=scoreFor(d); if(r.score<best.score) best={dHead:d,...r}; }
+    if(!isFinite(best.score)) throw new Error('correspondance introuvable');
+    S.headOff+=best.dHead; S.pitchOff+=best.mean; saveSettings();
+    b.textContent=`Ajusté (${best.dHead>=0?'+':''}${best.dHead.toFixed(1)}°)`;
+  }catch(e){ b.textContent='Échec — essayez le calage manuel'; }
+  setTimeout(()=>{ b.disabled=false; b.textContent=orig; },2500);
+}
+$('btnAutoAlign').onclick=autoAlign;
 function setFilter(v){ S.filter=v; if($('flt').value!==v) $('flt').value=v;
   const n=$('fltN'); if(v){ const fq=norm(v); n.textContent=visibleCities().filter(c=>passFilter(c,fq)).length+' trouve(s)'; } else n.textContent=''; }
 $('flt').oninput=e=>setFilter(e.target.value.trim());
-$('air').onchange=e=>{S.air=e.target.checked;syncTraffic();};
-$('sea').onchange=e=>{S.sea=e.target.checked;syncTraffic();};
+$('air').onchange=e=>{S.air=e.target.checked;syncTraffic();saveSettings();};
+$('sea').onchange=e=>{S.sea=e.target.checked;syncTraffic();saveSettings();};
 $('btnFind').onclick=()=>{ $('sheet').classList.add('open'); $('sheet').scrollTop=0; setTimeout(()=>$('flt').focus(),260); };
 
 // cases a cocher des categories de reperes
@@ -703,7 +980,7 @@ Object.keys(POI).forEach(k=>{
   const id='poi_'+k;
   d.innerHTML=`<label for="${id}">${POI[k].label}<em>&le; ${POI[k].max} km</em></label><input type="checkbox" id="${id}"${S.poi[k]?' checked':''}>`;
   $('poiList').appendChild(d);
-  d.querySelector('input').onchange=e=>{ S.poi[k]=e.target.checked; reliefAt=null; loadCities(true); };
+  d.querySelector('input').onchange=e=>{ S.poi[k]=e.target.checked; reliefAt=null; loadCities(true); saveSettings(); };
 });
 $('filt').addEventListener('click',()=>setFilter(''));
 
@@ -721,8 +998,16 @@ const onFsChange=()=>{ $('btnFs').innerHTML=fsOn()
   setTimeout(resize,120); };
 document.addEventListener('fullscreenchange',onFsChange);
 document.addEventListener('webkitfullscreenchange',onFsChange);
-$('dst').onchange=e=>{S.showDist=e.target.checked;};
+$('dst').onchange=e=>{S.showDist=e.target.checked;saveSettings();};
 $('btnReload').onclick=()=>{reliefAt=null;loadCities(true);};
+
+// reflete les reglages charges (localStorage) sur les controles au demarrage
+(function syncControlsFromS(){
+  $('rad').value=S.radius; $('radV').textContent=S.radius+' km';
+  $('fov').value=S.fov; $('fovV').textContent=S.fov+'°';
+  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('dst').checked=S.showDist; $('sky').checked=S.skyline;
+  $('air').checked=S.air; $('sea').checked=S.sea;
+})();
 
 // ---------- photo ----------
 $('shutter').onclick=()=>{
