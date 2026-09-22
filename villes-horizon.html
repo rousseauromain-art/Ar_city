@@ -534,9 +534,12 @@ async function computeRelief(){
   if(!pos||reliefBusy) return;
   const here={...pos}; reliefBusy=true; reliefState='calcul…';
   try{
-    const T=visibleCities().filter(c=>c.dist>2).slice(0,40);
+    // trie par distance reelle (pas par categorie) : dans une zone dense en sommets nommes,
+    // c'est la proximite qui determine ce qui a besoin d'etre verifie, pas le type de lieu
+    const T=visibleCities().filter(c=>c.dist>2).sort((a,b)=>a.dist-b.dist).slice(0,90);
+    const untested=visibleCities().filter(c=>c.dist>2).length-T.length;
     if(!T.length){ reliefState='ok'; reliefAt=here; reliefBusy=false; logNet('Relief',true,'aucune cible a verifier'); return; }
-    const N=12, pts=[{lat:here.lat,lon:here.lon}];
+    const N=8, pts=[{lat:here.lat,lon:here.lon}];
     for(const c of T) for(let i=1;i<=N;i++){ const f=i/(N+1); pts.push({lat:here.lat+(c.lat-here.lat)*f,lon:here.lon+(c.lon-here.lon)*f}); }
     for(const c of T) pts.push({lat:c.lat,lon:c.lon});
     const el=await elevations(pts);
@@ -554,7 +557,7 @@ async function computeRelief(){
       c.hidden=blocked; if(blocked) hidden++;
     });
     reliefState='ok'; reliefAt=here;
-    logNet('Relief',true,`${T.length} cibles verifiees, ${hidden} masquees`);
+    logNet('Relief',true,`${T.length} cibles verifiees, ${hidden} masquees`+(untested>0?`, ${untested} non verifiees (trop lointaines)`:''));
   }catch(e){ reliefState='indispo'; logNet('Relief',false,e.message||String(e)); }
   reliefBusy=false;
 }
@@ -567,7 +570,9 @@ async function computeSkyline(){
   try{
     const {heading}=pose();
     const half=Math.min(90,Math.max(45,Math.round(S.fov*1.2)));
-    const dists=[3,6,12,25,50,Math.min(90,Math.max(30,S.radius))];
+    // echantillonnage resserre pres de l'observateur : c'est la ou un relief accidente
+    // (collines nombreuses et rapprochees) a le plus besoin de finesse
+    const dists=[2,4,7,11,16,25,40,Math.min(90,Math.max(45,S.radius))];
     const rels=[]; for(let d=-half; d<=half; d+=2) rels.push(d);
     const pts=[];
     for(const rel of rels){
