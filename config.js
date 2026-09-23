@@ -14,6 +14,6 @@ window.APP_CONFIG = {
   // Adresse de votre relais Cloudflare Worker, par exemple :
   // relay: 'https://villes-horizon-relais.votre-sous-domaine.workers.dev',
   // Vide = avions en acces anonyme direct (quota reduit), pas de bateaux.
-  relay: 'https://villes-horizon-relais.rousseau-romain.workers.dev'
+  relay: ''
 
 };

@@ -29,13 +29,14 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .chips{position:absolute;top:calc(var(--safe-t) + 60px);left:12px;max-width:calc(100% - 80px);display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none}
 .chip{padding:5px 9px;border-radius:4px;background:rgba(14,26,43,.72);font:500 12px/1 var(--mono);color:var(--cream);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;backdrop-filter:blur(6px)}
 #calib,#filt{color:var(--ochre);display:none;pointer-events:auto}
+#note{display:none;color:var(--ochre);white-space:normal;line-height:1.35}
 #calib b,#filt b{font-weight:500;text-decoration:underline;margin-left:8px;color:var(--cream)}
 #tools{position:absolute;top:calc(var(--safe-t) + 56px);right:12px;display:flex;flex-direction:column;gap:8px}
 #tools button{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.72);backdrop-filter:blur(6px)}
 #tools svg{width:19px;height:19px;stroke:var(--cream);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 #tools button:active{background:rgba(243,233,210,.2)}
-#btnFind.on,#btnBeyond.on{background:rgba(224,165,38,.85)}
-#btnFind.on svg,#btnBeyond.on svg{stroke:var(--ink)}
+#btnFind.on,#btnBeyond.on,#btnAlign.on{background:rgba(224,165,38,.85)}
+#btnFind.on svg,#btnBeyond.on svg,#btnAlign.on svg{stroke:var(--ink)}
 .sec{margin-top:6px;padding:14px 0 4px;border-top:1px solid var(--line);font:700 15px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--ochre)}
 .row label em{font:500 11px var(--mono);color:var(--ochre);font-style:normal;margin-left:8px}
 .zbtns{grid-template-columns:1fr auto;gap:10px}
@@ -116,10 +117,12 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <div id="status" class="chip">En attente…</div>
     <div id="calib" class="chip"></div>
     <div id="filt" class="chip"></div>
+    <div id="note" class="chip"></div>
   </div>
   <div id="tools">
     <button id="btnFind" aria-label="Filtrer par nom"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg></button>
     <button id="btnBeyond" aria-label="Voir au-dela du relief"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+    <button id="btnAlign" aria-label="Calage automatique"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg></button>
     <button id="btnFs" aria-label="Plein ecran"><svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
   </div>
   <div id="flash"></div>
@@ -142,9 +145,9 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <input type="range" id="rad" min="10" max="200" step="5" value="60">
   </div>
   <div class="row">
-    <label for="fov">Champ de la caméra</label><span class="val" id="fovV">50°</span>
-    <input type="range" id="fov" min="30" max="90" step="1" value="50">
-    <span class="hint">Si deux villes connues s'affichent trop écartées ou trop serrées, ajustez ici.</span>
+    <label for="fov">Champ de la caméra</label><span class="val" id="fovV">67°</span>
+    <input type="range" id="fov" min="45" max="100" step="0.5" value="67">
+    <span class="hint">Angle du côté large du capteur (~67° pour un objectif principal standard). L'app en déduit le champ réellement affiché selon l'orientation et le recadrage. Le calage auto l'ajuste ; sinon, si deux lieux connus paraissent trop écartés ou trop serrés, corrigez ici.</span>
   </div>
   <div class="row">
     <label for="vil">Hameaux et lieux-dits</label><input type="checkbox" id="vil">
@@ -195,7 +198,12 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   </div>
   <div class="row">
     <label for="sea">Bateaux<em>AISStream &le; 40 km</em></label><input type="checkbox" id="sea">
-    <span class="hint" id="seaHint">Passe par votre relais Cloudflare (config.js : relay), qui détient la clé AISStream. Mise à jour toutes les 30 s ; les navires au mouillage, qui émettent rarement, apparaissent au fil des minutes.</span>
+    <span class="hint" id="seaHint">Passe par votre relais Cloudflare (config.js : relay), qui détient la clé AISStream. Mise à jour toutes les 30 s. La fraîcheur dépend surtout de la couverture radio AIS locale (stations terrestres) : un navire peut apparaître avec plusieurs dizaines de minutes de retard même sur MarineTraffic — ce n'est pas propre à cette app.</span>
+  </div>
+  <div class="sec" style="color:#E85A5A">Pylônes &amp; points hauts télécom</div>
+  <div class="row">
+    <label for="tel">Afficher (en rouge)<em>ANFR &le; 8 km</em></label><input type="checkbox" id="tel">
+    <span class="hint">France uniquement (source ANFR, via le relais). Propriétaire du support et opérateurs présents en appuyant sur une étiquette. Un pylône lointain peut mettre quelques secondes à apparaître.</span>
   </div>
   <div class="sec">Points de vue et reperes</div>
   <div id="poiList"></div>
@@ -209,7 +217,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 </div>
 
 <div id="dbg">
-  <h2>Diagnostic <button id="dbgClose">FERMER</button></h2>
+  <h2><span id="dbgTitle">Diagnostic</span> <button id="dbgClose">FERMER</button></h2>
   <div id="dbgBody"></div>
 </div>
 
@@ -256,8 +264,8 @@ const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kum
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-09-23 · relief 360° · relais trafic';
-const S={radius:60,fov:50,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,
+const APP_VERSION='2026-09-23 · relief 360° · pylônes ANFR';
+const S={radius:60,camFov:67,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
   lighthouse:{label:'Phares, feux et balises',        max:40, q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]']},
@@ -276,7 +284,7 @@ function loadSettings(){
   try{
     const raw=localStorage.getItem(PKEY); if(!raw) return;
     const saved=JSON.parse(raw);
-    for(const k of ['radius','fov','hamlets','relief','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','beyond'])
+    for(const k of ['radius','camFov','hamlets','relief','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','beyond','telecom','telecomMax'])
       if(saved[k]!==undefined) S[k]=saved[k];
     if(saved.poi) Object.assign(S.poi,saved.poi);
   }catch(e){}
@@ -286,8 +294,8 @@ function saveSettings(){
   clearTimeout(saveSettingsT);
   saveSettingsT=setTimeout(()=>{
     try{
-      const {radius,fov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,poi}=S;
-      localStorage.setItem(PKEY,JSON.stringify({radius,fov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,poi}));
+      const {radius,camFov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,poi}=S;
+      localStorage.setItem(PKEY,JSON.stringify({radius,camFov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,poi}));
     }catch(e){}
   },300);
 }
@@ -348,7 +356,7 @@ function distBrg(a,b){
   const h=Math.sin((la2-la1)/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dl/2)**2;
   return {dist:6371*2*Math.asin(Math.sqrt(h)),brg};
 }
-function recompute(){ if(!pos) return; for(const c of cities){ const r=distBrg(pos,c); c.dist=r.dist; c.brg=r.brg; } citiesVer++; applyOcclusion(false); }
+function recompute(){ if(!pos) return; for(const c of cities){ const r=distBrg(pos,c); c.dist=r.dist; c.brg=r.brg; } for(const t of telecomSites){ const r=distBrg(pos,t); t.dist=r.dist; t.brg=r.brg; } citiesVer++; applyOcclusion(false); }
 
 // ---------- capteurs d'orientation ----------
 let gotAbs=false;
@@ -677,7 +685,10 @@ function skylineElevAt(brg){ return terrain?maskFrom(terrain.pm,brg,1e9):null; }
 // ---------- trafic en direct : avions (OpenSky) et bateaux (AISStream) ----------
 let planes=[], ships=new Map(), obsElev=0, tMsg={air:'',sea:''};
 let airTimer=null, seaTimer=null, airPauseUntil=0;
-const relayBase=()=>(CONFIG.relay||'').trim().replace(/\/+$/,'');
+const relayBase=()=>{ let r=(CONFIG.relay||'').trim(); if(!r) return '';
+  if(!/^https?:\/\//i.test(r)) r='https://'+r;
+  try{ return new URL(r).origin; }catch(e){ return r.replace(/\/+$/,''); } };
+const relayHasPath=()=>{ try{ const u=new URL(/^https?:/i.test(CONFIG.relay||'')?CONFIG.relay:'https://'+CONFIG.relay); return u.pathname.length>1; }catch(e){ return false; } };
 
 function bbox(km){
   const dLat=km/111, dLon=km/(111*Math.max(0.2,Math.cos(pos.lat*D)));
@@ -734,22 +745,66 @@ async function pollSea(){
     logNet('AISStream',!j.error,`${(j.ships||[]).length} navires recus (${j.received||0} messages en ${Math.round((j.listenMs||0)/1000)} s)`+(j.error?` — ${j.error}`:''));
   }catch(e){ tMsg.sea='indispo'; logNet('AISStream',false,'relais : '+friendlyErr(e)); }
 }
+// ---------- pylones et points hauts telecom (France uniquement, source ANFR via le relais) ----------
+let telecomSites=[], telecomAt=null, telecomBusy=false, tMsg2={telecom:''}, telecomHits=[];
+async function pollTelecom(){
+  if(!S.telecom||!pos||document.hidden) return;
+  if(!relayBase()){ tMsg2.telecom='relais requis'; return; }
+  if(telecomAt&&distBrg(pos,telecomAt).dist<Math.max(1,S.telecomMax*0.3)) return; // deja couvert
+  telecomBusy=true; tMsg2.telecom='recherche…';
+  try{
+    const r=await fetchT(`${relayBase()}/telecom?lat=${pos.lat.toFixed(5)}&lon=${pos.lon.toFixed(5)}&radius_km=${S.telecomMax}`,{},20000);
+    let j={}; try{ j=await r.json(); }catch(e){}
+    if(!r.ok||j.anfrOk===false) throw new Error(j.error||('HTTP '+r.status));
+    if(j.hors_france){ telecomSites=[]; telecomAt={...pos}; tMsg2.telecom='hors de France (ANFR)';
+      logNet('ANFR',true,'position hors de France : aucune donnee disponible ici'); return; }
+    telecomSites=(j.sites||[]).map(s=>({
+      name:s.name||s.address||('Support '+s.sup_id), kind:/pylône|mât|tour|fût/i.test(s.nature||'')?'telecom_pylone':'telecom_toit',
+      lat:s.lat, lon:s.lon, sup_id:s.sup_id, anfr:s.anfr, address:s.address, cp:s.cp,
+      height_m:s.height_m, owner:s.owner, nature:s.nature, operators:s.operators
+    }));
+    recompute(); telecomAt={...pos}; tMsg2.telecom=telecomSites.length+' site(s)';
+    logNet('ANFR',true,`${telecomSites.length} site(s) telecom, ${(j.communes||[]).length} commune(s), rayon ${S.telecomMax} km`+(j.cache?' (cache relais)':''));
+  }catch(e){ tMsg2.telecom='indispo'; logNet('ANFR',false,friendlyErr(e)); }
+  telecomBusy=false;
+}
+
 function startTraffic(){
   clearInterval(airTimer); clearInterval(seaTimer); airTimer=seaTimer=null;
   if(S.air){ pollAir(); airTimer=setInterval(pollAir,relayBase()?20000:60000); }
   if(S.sea){ pollSea(); seaTimer=setInterval(pollSea,30000); }
+  if(S.telecom) pollTelecom();
 }
 function syncTraffic(){
   if(!S.air){ planes=[]; tMsg.air=''; }
   if(!S.sea){ ships.clear(); tMsg.sea=''; }
+  if(!S.telecom){ telecomSites=[]; telecomAt=null; tMsg2.telecom=''; }
   startTraffic();
 }
 async function testRelay(){
   if(!relayBase()){ logNet('Relais',false,'aucun relais dans config.js (champ relay)'); return; }
+  logNet('Relais',true,'test en cours (jusqu\'a 10 s)…');
   try{
-    const r=await fetchT(`${relayBase()}/health`,{},10000), j=await r.json();
-    logNet('Relais',!!(j.ok&&j.ais&&j.opensky),`joignable · cle AIS : ${j.ais?'ok':'absente'} · OpenSky : ${j.opensky?'identifiants ok':'absents (anonyme)'}`);
+    const r=await fetchT(`${relayBase()}/check`,{},25000); let j={}; try{ j=await r.json(); }catch(e){}
+    if(!j.relais){ logNet('Relais',false,`reponse inattendue (HTTP ${r.status}) : le code du relais est-il a jour ? (route /check)`); return; }
+    logNet('Relais · OpenSky',/^ok/.test(j.opensky||''),j.opensky||'?');
+    logNet('Relais · AIS',/^ok/.test(j.ais||''),j.ais||'?');
   }catch(e){ logNet('Relais',false,'injoignable : '+friendlyErr(e)); }
+}
+// verifie que la chaine OpenSky (+ relais eventuel) fonctionne reellement, sans dependre d'avoir
+// un avion au-dessus de soi : interroge une zone toujours tres frequentee (bassin parisien)
+async function testPlanesBusy(){
+  const q='lamin=48.30&lomin=0.90&lamax=49.40&lomax=3.20';
+  logNet('Test avions',true,'zone Paris/CDG/Orly, requete en cours…');
+  const viaRelay=!!relayBase();
+  try{
+    const r=await fetchT(viaRelay?`${relayBase()}/planes?${q}`:`https://opensky-network.org/api/states/all?${q}`,{},15000);
+    let j={}; try{ j=await r.json(); }catch(e){}
+    if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+    const n=(j.states||[]).length;
+    logNet('Test avions',n>0,`${n} avion(s) detectes sur Paris (${viaRelay?'via relais':'direct'})`+
+      (n===0?' — 0 est suspect sur cette zone : la chaine a peut-etre un probleme meme si aucune erreur n\'est remontee':', la chaine fonctionne'));
+  }catch(e){ logNet('Test avions',false,(viaRelay?'relais : ':'direct : ')+friendlyErr(e)); }
 }
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){ clearInterval(airTimer); clearInterval(seaTimer); airTimer=seaTimer=null; }
@@ -788,12 +843,30 @@ function visibleCities(){
     const m=MAXD[c.kind]; if(m!=null&&c.dist>m) return false;
     return true;
   }).sort((a,b)=>(RANK[a.kind]??3)-(RANK[b.kind]??3)||a.dist-b.dist);
+  // OSM decrit parfois un meme lieu par plusieurs objets (ile + sommet, commune + centre...) :
+  // on garde le plus significatif (deja trie en tete) et on ecarte les homonymes a moins de 2 km
+  { const seen=new Map(), out=[];
+    for(const c of _visCache){ const k=norm(c.name), g=seen.get(k);
+      if(g&&g.some(o=>distBrg(o,c).dist<2)) continue;
+      if(g) g.push(c); else seen.set(k,[c]); out.push(c); }
+    _visCache=out; }
   _visVer=citiesVer; _visRad=S.radius;
   return _visCache;
 }
 
 // ---------- rendu ----------
 let W=0,H=0,dpr=1,safeT=0;
+// champ horizontal reellement affiche : l'image est recadree (object-fit: cover) et, en portrait,
+// la largeur de l'ecran correspond au petit cote du capteur -> environ 65° en paysage, 35° en portrait
+function vFovFor(camFov){
+  const vw=video.videoWidth, vh=video.videoHeight, tL=Math.tan(camFov/2*D);
+  if(!vw||!vh||!W||!H){ const r=W>H?0.93:0.52; return 2*Math.atan(tL*r)/D; } // repli avant le flux
+  const tW=tL*(vw/Math.max(vw,vh)), sc=Math.max(W/vw,H/vh);
+  return 2*Math.atan(tW*(W/sc)/vw)/D;
+}
+const vFov=()=>vFovFor(S.camFov);
+function showFov(){ const e=$('fovV'); if(e) e.textContent=`${S.camFov}° · affiché ${Math.round(vFov())}°`; }
+video.addEventListener('loadedmetadata',()=>showFov());
 function resize(){
   dpr=Math.min(window.devicePixelRatio||1,3); W=window.innerWidth; H=window.innerHeight;
   ov.width=Math.round(W*dpr); ov.height=Math.round(H*dpr);
@@ -806,7 +879,7 @@ function draw(ts){
   if(ts!=null&&ts-lastFrameT<32){ requestAnimationFrame(draw); return; } // plafond ~30 im/s
   lastFrameT=ts||0;
   const {heading,pitch,roll}=pose();
-  const fh=(W/2)/Math.tan(S.fov/2*D);
+  const FOVH=vFov(), fh=(W/2)/Math.tan(FOVH/2*D);
   const fq=S.filter?norm(S.filter):'';
   const list=visibleCities();
   ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
@@ -844,7 +917,7 @@ function draw(ts){
     if(ghost&&!S.beyond) continue;
     if(!passFilter(c,fq)) continue;
     const dB=wrap(c.brg-heading);
-    if(Math.abs(dB)>Math.min(80,S.fov*0.8)) continue;
+    if(Math.abs(dB)>Math.min(80,FOVH*0.8)) continue;
     const x=W/2+fh*Math.tan(dB*D);
     if(x<-40||x>W+40) continue;
     let aA=0;
@@ -879,13 +952,50 @@ function draw(ts){
     if(dtxt){ ctx.font=`500 11px ${FM}`;
       ctx.lineWidth=3; ctx.strokeText(dtxt,x+6+nw+7,ly); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,x+6+nw+7,ly); }
   }
+  // --- pylones et points hauts telecom (rouge) : ancrage simple sur l'horizon, sans correction
+  // de relief (on ne dispose pas de l'altitude du terrain a l'emplacement exact du support) ---
+  telecomHits.length=0;
+  if(S.telecom&&telecomSites.length) for(const t of telecomSites){
+    if(t.dist==null||t.dist>S.telecomMax) continue;
+    const dB=wrap(t.brg-heading);
+    if(Math.abs(dB)>Math.min(80,FOVH*0.8)) continue;
+    const x=W/2+fh*Math.tan(dB*D);
+    if(x<-40||x>W+40) continue;
+    const size=13;
+    ctx.font=`700 ${size}px ${FD}`;
+    const nw=ctx.measureText(t.name).width;
+    const dtxt=(t.dist<10?t.dist.toFixed(1):Math.round(t.dist))+' km';
+    ctx.font=`500 11px ${FM}`;
+    const dw=ctx.measureText(dtxt).width+7;
+    const x0=x-2, x1=x+6+nw+dw+4;
+    let ly=null;
+    for(let k=0;k<maxLanes;k++){
+      const cand=hy-24-k*22;
+      if(cand<topLimit) break;
+      if(!placed.some(r=>x0<r[1]+8&&x1>r[0]-8&&cand-size-2<r[3]&&cand+4>r[2])){ ly=cand; break; }
+    }
+    if(ly==null) continue;
+    placed.push([x0,x1,ly-size-2,ly+4]);
+    ctx.strokeStyle='rgba(224,90,90,.85)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x,hy); ctx.lineTo(x,ly+3); ctx.stroke();
+    ctx.fillStyle='rgba(224,90,90,.95)'; ctx.beginPath(); ctx.arc(x,hy,2.6,0,7); ctx.fill();
+    ctx.font=`700 ${size}px ${FD}`;
+    ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.lineWidth=3.5;
+    ctx.strokeText(t.name,x+6,ly); ctx.fillStyle='#E85A5A'; ctx.fillText(t.name,x+6,ly);
+    ctx.font=`500 11px ${FM}`; ctx.lineWidth=3;
+    ctx.strokeText(dtxt,x+6+nw+7,ly); ctx.fillStyle='rgba(224,90,90,.85)'; ctx.fillText(dtxt,x+6+nw+7,ly);
+    // zone tactile enregistree dans le repere local (avant compensation de roulis) : convertie
+    // au moment du tap, voir hitTelecom()
+    telecomHits.push({t,roll,x0,x1,y0:ly-size-2,y1:ly+4});
+  }
+
   // --- mobiles : avions et bateaux, places a leur hauteur angulaire reelle ---
   const Reff=6371000*1.13, h0=obsElev+1.6;
   const hzA=-Math.sqrt(2*Math.max(0.5,h0)/Reff)/D; // angle de l'horizon visible
   for(const m of mobiles()){
     if(!passFilter(m,fq)) continue;
     const dB=wrap(m.brg-heading);
-    if(Math.abs(dB)>Math.min(80,S.fov*0.8)) continue;
+    if(Math.abs(dB)>Math.min(80,FOVH*0.8)) continue;
     const x=W/2+fh*Math.tan(dB*D);
     if(x<-40||x>W+40) continue;
     const Dm=m.dist*1000;
@@ -911,10 +1021,10 @@ function draw(ts){
   const rh=48, top=safeT;
   ctx.fillStyle='rgba(14,26,43,.78)'; ctx.fillRect(0,0,W,top+rh);
   ctx.fillStyle='rgba(243,233,210,.25)'; ctx.fillRect(0,top+rh,W,1);
-  const ppd=W/S.fov;
+  const ppd=W/FOVH;
   ctx.textAlign='center';
   const base=Math.round(heading);
-  for(let dd=-Math.ceil(S.fov/2)-6; dd<=Math.ceil(S.fov/2)+6; dd++){
+  for(let dd=-Math.ceil(FOVH/2)-6; dd<=Math.ceil(FOVH/2)+6; dd++){
     const deg=base+dd, n=((deg%360)+360)%360; if(n%5) continue;
     const x=W/2+(deg-heading)*ppd;
     const card=n%45===0;
@@ -923,7 +1033,7 @@ function draw(ts){
     ctx.beginPath(); ctx.moveTo(x,top+rh); ctx.lineTo(x,top+rh-len); ctx.stroke();
     if(card){ ctx.fillStyle='#F3E9D2'; ctx.font=`700 13px ${FD}`; ctx.fillText(CARD[n/45],x,top+rh-len-5); }
   }
-  for(const c of list){ if(useRelief&&c.hidden&&!S.beyond) continue; if(!passFilter(c,fq)) continue; const dB=wrap(c.brg-heading); if(Math.abs(dB)>S.fov/2+6) continue;
+  for(const c of list){ if(useRelief&&c.hidden&&!S.beyond) continue; if(!passFilter(c,fq)) continue; const dB=wrap(c.brg-heading); if(Math.abs(dB)>FOVH/2+6) continue;
     ctx.fillStyle=!SETTLE.has(c.kind)?'#E0A526':c.kind==='city'?'#F3E9D2':'rgba(243,233,210,.6)';
     ctx.beginPath(); ctx.arc(W/2+dB*ppd,top+9,c.kind==='city'?2.6:1.8,0,7); ctx.fill(); }
   ctx.fillStyle='#E0A526'; ctx.fillRect(W/2-1,top+rh-20,2,20);
@@ -954,10 +1064,48 @@ function draw(ts){
 
 // ---------- calage au doigt ----------
 let drag=null;
-ov.addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,h:S.headOff,p:S.pitchOff}; ov.setPointerCapture(e.pointerId); });
-ov.addEventListener('pointermove',e=>{ if(!drag) return; const fh=(W/2)/Math.tan(S.fov/2*D);
+ov.addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,t:Date.now(),h:S.headOff,p:S.pitchOff,moved:false}; ov.setPointerCapture(e.pointerId); });
+ov.addEventListener('pointermove',e=>{ if(!drag) return; const fh=(W/2)/Math.tan(vFov()/2*D);
+  if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>8) drag.moved=true;
   S.headOff=drag.h-Math.atan((e.clientX-drag.x)/fh)/D; S.pitchOff=drag.p+Math.atan((e.clientY-drag.y)/fh)/D; });
-ov.addEventListener('pointerup',()=>{drag=null;saveSettings();}); ov.addEventListener('pointercancel',()=>drag=null);
+ov.addEventListener('pointerup',e=>{
+  if(drag&&!drag.moved&&Date.now()-drag.t<450){ S.headOff=drag.h; S.pitchOff=drag.p; showTelecomDetail(e.clientX,e.clientY); }
+  else saveSettings();
+  drag=null;
+});
+ov.addEventListener('pointercancel',()=>drag=null);
+// une case tactile est enregistree dans le repere compense du roulis (voir la boucle de rendu) :
+// on y ramene le point tape avant de tester les intersections
+function hitTelecom(px,py){
+  for(let i=telecomHits.length-1;i>=0;i--){
+    const h=telecomHits[i], cx=W/2, cy=H/2, dx=px-cx, dy=py-cy, r=h.roll*D;
+    const lx=cx+dx*Math.cos(r)+dy*Math.sin(r), ly=cy-dx*Math.sin(r)+dy*Math.cos(r);
+    if(lx>=h.x0-6&&lx<=h.x1+6&&ly>=h.y0-6&&ly<=h.y1+6) return h.t;
+  }
+  return null;
+}
+function showTelecomDetail(px,py){
+  const t=hitTelecom(px,py); if(!t) return;
+  const ops=(t.operators||[]).map(o=>{
+    const sys=o.systems.map(s=>`${s.system} (${s.status}${s.date?', '+s.date.slice(0,4):''})`).join(', ');
+    return `<div class="dbgline"><b style="color:#F3E9D2">${o.name}</b><br>${sys}</div>`;
+  }).join('');
+  $('dbgBody').innerHTML=`
+    <div class="dbgsec">Support telecom</div>
+    <div class="dbgline" style="font-size:16px;color:#E85A5A;font-weight:700">${t.name}</div>
+    <div class="dbgline">${t.nature||'nature inconnue'}${t.height_m?`, ${t.height_m} m`:''} · a ${t.dist.toFixed(1)} km</div>
+    <div class="dbgsec">Proprietaire du support</div>
+    <div class="dbgline">${t.owner||'inconnu'}</div>
+    <div class="dbgsec">Adresse</div>
+    <div class="dbgline">${t.address||'—'}${t.cp?' · '+t.cp:''}</div>
+    <div class="dbgsec">Identifiants</div>
+    <div class="dbgline">ANFR ${t.anfr||'—'} · support ANFR n°${t.sup_id}</div>
+    <div class="dbgsec">Operateurs presents (${(t.operators||[]).length})</div>
+    ${ops||'<div class="dbgline">aucun</div>'}
+  `;
+  $('dbgTitle').textContent='Support telecom';
+  $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null;
+}
 $('calib').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;saveSettings();});
 $('reset').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;saveSettings();});
 
@@ -1008,16 +1156,19 @@ function renderDebug(){
     <div class="dbgsec">Trafic en direct</div>
     <div class="dbgline">avions : ${S.air?(tMsg.air||'en attente'):'desactive (Reglages → Avions)'}</div>
     <div class="dbgline">bateaux : ${S.sea?(tMsg.sea||'en attente'):'desactive (Reglages → Bateaux)'}</div>
-    <div class="dbgline">config.js : ${CONFIG_LOADED?'charge':'introuvable (a placer a cote du fichier HTML)'} · relais : ${relayBase()?relayBase().replace(/^https?:\/\//,''):'aucun'}</div>
+    <div class="dbgline">pylônes telecom : ${S.telecom?(tMsg2.telecom||'en attente')+` (${telecomSites.length} en memoire)`:'desactive (Reglages → Pylônes)'}</div>
+    <div class="dbgline">config.js : ${CONFIG_LOADED?'charge':'introuvable (a placer a cote du fichier HTML)'} · relais : ${relayBase()?relayBase().replace(/^https?:\/\//,''):'aucun'}${relayHasPath()?' (chemin en trop dans config.js, ignore)':''}</div>
     ${(CONFIG.aisKey||CONFIG.openskySecret)?'<div class="dbgline" style="color:#E08787">Attention : config.js contient encore des secrets, visibles publiquement — a retirer (ils vont dans le relais)</div>':''}
     <div class="row zbtns" style="padding:8px 0 0"><button id="btnDbgRelay">Tester le relais</button></div>
+    <div class="row zbtns" style="padding:8px 0 0"><button id="btnDbgPlanes">Tester avions (zone Paris, très fréquentée)</button></div>
     <div class="dbgsec">Journal reseau (${netLog.length} entrees)</div>
     ${logHtml}
   `;
   const tb=$('btnDbgRelay'); if(tb) tb.onclick=testRelay;
+  const pb=$('btnDbgPlanes'); if(pb) pb.onclick=testPlanesBusy;
   const rb=$('btnDbgRetry'); if(rb) rb.onclick=()=>{ stopRetry(); if(pos) loadCities(true); else rb.textContent='GPS indisponible'; };
 }
-$('btnDbg').onclick=()=>{ $('sheet').classList.remove('open'); $('dbg').classList.add('open'); dbgOpen=true; refreshStoreEst(); renderDebug();
+$('btnDbg').onclick=()=>{ $('sheet').classList.remove('open'); $('dbgTitle').textContent='Diagnostic'; $('dbg').classList.add('open'); dbgOpen=true; refreshStoreEst(); renderDebug();
   dbgTimer=setInterval(renderDebug,1000); };
 $('dbgClose').onclick=()=>{ $('dbg').classList.remove('open'); dbgOpen=false; clearInterval(dbgTimer); };
 $('btnZoneDL').onclick=downloadZone;
@@ -1026,7 +1177,7 @@ $('btnZoneDel').onclick=()=>{ clearAtlas(); updateZoneInfo();
 $('btnClose').onclick=()=>$('sheet').classList.remove('open');
 let radT;
 $('rad').oninput=e=>{S.radius=+e.target.value;$('radV').textContent=S.radius+' km';clearTimeout(radT);radT=setTimeout(()=>loadCities(false),900);saveSettings();};
-$('fov').oninput=e=>{S.fov=+e.target.value;$('fovV').textContent=S.fov+'°';saveSettings();};
+$('fov').oninput=e=>{S.camFov=+e.target.value;showFov();saveSettings();};
 $('vil').onchange=e=>{S.hamlets=e.target.checked;loadCities(true);saveSettings();};
 $('rel').onchange=e=>{S.relief=e.target.checked;if(S.relief)computeTerrain(false);saveSettings();};
 $('sky').onchange=e=>{S.skyline=e.target.checked;saveSettings();if(S.skyline)computeTerrain(false);};
@@ -1037,69 +1188,117 @@ $('btnSky').onclick=async()=>{
   setTimeout(()=>{ b.disabled=false; b.textContent=orig; },2000);
 };
 
-// ---------- calage automatique : detecte le contour ciel/terre par gradient de nettete
-// (transition la plus marquee sur chaque colonne) et cherche le decalage de cap/horizon
-// qui fait le mieux correspondre ce contour observe a la silhouette calculee (skyline) ----------
-function extractObservedHorizon(){
-  const cw=240, ch=Math.max(60,Math.round(cw*H/W));
-  const oc=document.createElement('canvas'); oc.width=cw; oc.height=ch;
-  const octx=oc.getContext('2d',{willReadFrequently:true});
-  octx.drawImage(video,0,0,cw,ch);
-  let img; try{ img=octx.getImageData(0,0,cw,ch).data; }catch(e){ return []; }
-  const lum=(x,y)=>{ const i=(y*cw+x)*4; return 0.299*img[i]+0.587*img[i+1]+0.114*img[i+2]; };
-  const top=Math.max(1,Math.round(ch*0.12)), bot=Math.min(ch-2,Math.round(ch*0.88));
-  const pts=[];
-  for(let x=2;x<cw-2;x+=3){
-    let bestY=-1,bestG=-1;
-    for(let y=top;y<bot;y++){
-      const g=Math.abs(lum(x,y+1)-lum(x,y-1)); // nettete de la transition verticale locale
-      if(g>bestG){ bestG=g; bestY=y; }
+// ---------- calage automatique sur l'image camera ----------
+// 1) image reduite, recadree EXACTEMENT comme a l'ecran (object-fit: cover)
+// 2) dans chaque colonne, transition ciel (clair, au-dessus) -> sol/mer (plus sombre), cherchee
+//    seulement dans la bande ou peut se trouver l'horizon calcule : ecarte balustrades et premiers plans
+// 3) ajuste le cap et l'horizon ; cout robuste (ecart median), insensible aux poteaux ou palmiers
+//    isoles. Quelques dizaines de ms sur un telephone.
+/*CALAGE-CORE-START*/
+function skyTable(){ const t=new Float32Array(NB); for(let i=0;i<NB;i++) t[i]=maskFrom(terrain.pm,i*BSTEP,1e9); return t; }
+function skyAtT(t,b){ const f=(((b%360)+360)%360)/BSTEP, i=Math.floor(f)%NB, u=f-Math.floor(f); return t[i]*(1-u)+t[(i+1)%NB]*u; }
+function observeHorizon(fr,P,fh,eLo,eHi){ // fr = {L,cw,ch} luminance ; P = {heading,pitch,roll}
+  const {L,cw,ch}=fr, k=cw/W, cx=W/2, cy=H/2, cr=Math.cos(P.roll*D), sr=Math.sin(P.roll*D);
+  const y0=cy+fh*Math.tan((P.pitch-eHi)*D), y1=cy+fh*Math.tan((P.pitch-eLo)*D), step=1/k, pts=[];
+  const lum=(xs,ys)=>{ // point du repere de la scene -> ecran (roulis) -> pixel capture
+    const dx=xs-cx, dy=ys-cy, px=Math.round((cx+dx*cr-dy*sr)*k), py=Math.round((cy+dx*sr+dy*cr)*k);
+    return (px<0||py<0||px>=cw||py>=ch)?NaN:L[py*cw+px];
+  };
+  for(let xs=W*0.03; xs<=W*0.97; xs+=W/110){
+    const prof=[]; for(let ys=y0; ys<=y1; ys+=step) prof.push(lum(xs,ys));
+    let best=-1, bi=-1;
+    for(let i=3;i<prof.length-3;i++){
+      const a=(prof[i-3]+prof[i-2]+prof[i-1])/3, b=(prof[i+1]+prof[i+2]+prof[i+3])/3, s=a-b;
+      if(s===s&&s>best){ best=s; bi=i; }
     }
-    if(bestG>12) pts.push({xReal:x/cw*W, yReal:bestY/ch*H});
+    if(best>=8&&bi>4&&bi<prof.length-5) pts.push({x:xs,y:y0+bi*step,s:best});
   }
   return pts;
 }
-async function autoAlign(){
-  const b=$('btnAutoAlign'); const orig=b.textContent;
-  if(!camOK){ b.textContent='Caméra indispo'; setTimeout(()=>b.textContent=orig,2000); return; }
-  if(!pos){ b.textContent='GPS indispo'; setTimeout(()=>b.textContent=orig,2000); return; }
-  b.disabled=true; b.textContent='Analyse…';
+function fitHorizon(pts,P,cam0,tab){
+  const cx=W/2, cy=H/2, r=new Float64Array(pts.length), dev=new Float64Array(pts.length);
+  function cost(dh,cam){
+    const fh=(W/2)/Math.tan(vFovFor(cam)/2*D);
+    for(let i=0;i<pts.length;i++){ const p=pts[i];
+      r[i]=skyAtT(tab,P.heading+dh+Math.atan((p.x-cx)/fh)/D)-(P.pitch-Math.atan((p.y-cy)/fh)/D); }
+    // ecart quadratique moyen sur les 70 % de colonnes les mieux ajustees : robuste aux poteaux,
+    // reflets et palmiers (30 % ecartes), mais exploite bien plus d'information que la simple mediane
+    const s=Float64Array.from(r).sort(), med=s[s.length>>1];
+    for(let i=0;i<s.length;i++) dev[i]=(s[i]-med)*(s[i]-med);
+    const d=Float64Array.from(dev).sort(), m=Math.max(3,Math.floor(d.length*0.7));
+    let acc=0, sum=0; for(let i=0;i<m;i++){ acc+=d[i]; }
+    // horizon : moyenne des residus de ces memes colonnes (plus precise que la mediane seule)
+    const keep=[]; for(let i=0;i<s.length;i++) if((s[i]-med)*(s[i]-med)<=d[m-1]) keep.push(s[i]);
+    for(const v of keep) sum+=v;
+    return {cost:Math.sqrt(acc/m),dp:sum/keep.length};
+  }
+  // relief present dans le champ ? sans relief (mer seule), le cap et le champ sont indetermines
+  const half=vFovFor(cam0)/2+20; let lo=90, hi=-90;
+  for(let b=-half;b<=half;b+=1){ const e=skyAtT(tab,P.heading+b); if(e<lo) lo=e; if(e>hi) hi=e; }
+  const relief=hi-lo;
+  const base=cost(0,cam0);
+  if(relief<0.25) return {dh:0,dp:base.dp,cam:cam0,cost:base.cost,flat:true,n:pts.length,relief};
+  // seuls le cap et l'horizon sont ajustes : sur une seule image, le champ de la camera n'est pas
+  // mesurable de facon fiable (une colline aux formes douces s'ajuste aussi bien etiree que comprimee)
+  let b={cost:Infinity};
+  for(let dh=-20;dh<=20;dh+=0.5){ const c=cost(dh,cam0); if(c.cost<b.cost) b={...c,dh}; }
+  const c0=b.dh;
+  for(let dh=c0-0.75;dh<=c0+0.75;dh+=0.05){ const c=cost(dh,cam0); if(c.cost<b.cost) b={...c,dh}; }
+  return {dh:b.dh,dp:b.dp,cam:cam0,cost:b.cost,flat:false,n:pts.length,relief,base:base.cost};
+}
+/*CALAGE-CORE-END*/
+function grabFrame(cw){
+  const vw=video.videoWidth, vh=video.videoHeight; if(!vw||!vh) return null;
+  const ch=Math.max(60,Math.round(cw*H/W));
+  const oc=document.createElement('canvas'); oc.width=cw; oc.height=ch;
+  const x=oc.getContext('2d',{willReadFrequently:true});
+  const sc=Math.max(cw/vw,ch/vh), dw=vw*sc, dh=vh*sc;
+  x.drawImage(video,(cw-dw)/2,(ch-dh)/2,dw,dh); // meme recadrage que l'ecran
+  let d; try{ d=x.getImageData(0,0,cw,ch).data; }catch(e){ return null; }
+  const L=new Float32Array(cw*ch);
+  for(let i=0,j=0;j<L.length;i+=4,j++) L[j]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+  return {L,cw,ch};
+}
+let noteT=null;
+function note(msg,ms){ const n=$('note'); if(!n) return; n.textContent=msg; n.style.display='block'; clearTimeout(noteT); noteT=setTimeout(()=>{ n.style.display='none'; },ms||4500); }
+let aligning=false;
+async function runAutoAlign(){
+  if(aligning) return 'calage deja en cours';
+  if(!camOK) return 'caméra indisponible';
+  if(!pos) return 'GPS indisponible';
+  aligning=true;
   try{
     if(!terrain||distBrg(pos,terrain.c).dist>0.3) await computeTerrain(false);
-    if(!terrain) throw new Error('pas de relief');
-    const {heading,pitch}=pose(), fh=(W/2)/Math.tan(S.fov/2*D);
-    const raw=extractObservedHorizon();
-    if(raw.length<15) throw new Error('contraste insuffisant');
-    const obs=raw.map(p=>({
-      brgBase:(heading+Math.atan((p.xReal-W/2)/fh)/D+360)%360,
-      elevBase:pitch-Math.atan((p.yReal-H/2)/fh)/D
-    }));
-    function scoreFor(dHead){
-      const diffs=[];
-      for(const o of obs){
-        const m=skylineElevAt((o.brgBase+dHead+360)%360);
-        if(m!=null) diffs.push(m-o.elevBase);
-      }
-      if(diffs.length<10) return {score:Infinity,mean:0};
-      const mean=diffs.reduce((a,v)=>a+v,0)/diffs.length;
-      const score=diffs.reduce((a,v)=>a+(v-mean)*(v-mean),0)/diffs.length;
-      return {score,mean};
-    }
-    let best={dHead:0,score:Infinity,mean:0};
-    for(let d=-20;d<=20;d+=1){ const r=scoreFor(d); if(r.score<best.score) best={dHead:d,...r}; }
-    for(let d=best.dHead-1.5;d<=best.dHead+1.5;d+=0.1){ const r=scoreFor(d); if(r.score<best.score) best={dHead:d,...r}; }
-    if(!isFinite(best.score)) throw new Error('correspondance introuvable');
-    S.headOff+=best.dHead; S.pitchOff+=best.mean; saveSettings();
-    b.textContent=`Ajusté (${best.dHead>=0?'+':''}${best.dHead.toFixed(1)}°)`;
-  }catch(e){ b.textContent='Échec — essayez le calage manuel'; }
-  setTimeout(()=>{ b.disabled=false; b.textContent=orig; },2500);
+    if(!terrain) return 'relief indisponible (réseau ?)';
+    const P=pose(), cam0=S.camFov, fh=(W/2)/Math.tan(vFov()/2*D), tab=skyTable();
+    let lo=90, hi=-90; const half=vFov()/2+22;
+    for(let b=-half;b<=half;b+=1){ const e=skyAtT(tab,P.heading+b); if(e<lo) lo=e; if(e>hi) hi=e; }
+    const fr=grabFrame(320); if(!fr) return 'image caméra illisible';
+    const pts=observeHorizon(fr,P,fh,lo-4,hi+4);
+    if(pts.length<25) return `horizon peu visible (${pts.length} colonnes exploitables) : visez un horizon dégagé`;
+    const R=fitHorizon(pts,P,cam0,tab);
+    if(R.cost>0.6) return `correspondance incertaine (écart ${R.cost.toFixed(2)}°) : calage inchangé`;
+    S.headOff+=R.dh; S.pitchOff+=R.dp; saveSettings();
+    const f=v=>(v>=0?'+':'')+v.toFixed(1)+'°';
+    logNet('Calage',true,`${R.n} colonnes, relief ${R.relief.toFixed(1)}°, cap ${f(R.dh)}, horizon ${f(R.dp)}, champ ${S.camFov}° (fixe), ecart median ${R.cost.toFixed(2)}°`);
+    if(R.flat) return `horizon calé (${f(R.dp)}) · cap inchangé : pas assez de relief visible`;
+    return `calé : cap ${f(R.dh)} · horizon ${f(R.dp)} · précision ±${R.cost.toFixed(2)}°`;
+  }catch(e){ return 'échec du calage : '+friendlyErr(e); }
+  finally{ aligning=false; }
+}
+async function autoAlign(){
+  const b=$('btnAutoAlign'); const orig=b.textContent; b.disabled=true; b.textContent='Analyse…';
+  const msg=await runAutoAlign(); b.textContent=msg.length>34?msg.slice(0,32)+'…':msg; note(msg);
+  setTimeout(()=>{ b.disabled=false; b.textContent=orig; },3500);
 }
 $('btnAutoAlign').onclick=autoAlign;
+$('btnAlign').onclick=async()=>{ const b=$('btnAlign'); b.classList.add('on'); note('Calage en cours…',20000); note(await runAutoAlign(),6000); b.classList.remove('on'); };
 function setFilter(v){ S.filter=v; if($('flt').value!==v) $('flt').value=v;
   const n=$('fltN'); if(v){ const fq=norm(v); n.textContent=visibleCities().filter(c=>passFilter(c,fq)).length+' trouve(s)'; } else n.textContent=''; }
 $('flt').oninput=e=>setFilter(e.target.value.trim());
 $('air').onchange=e=>{S.air=e.target.checked;syncTraffic();saveSettings();};
 $('sea').onchange=e=>{S.sea=e.target.checked;syncTraffic();saveSettings();};
+$('tel').onchange=e=>{S.telecom=e.target.checked;telecomAt=null;syncTraffic();saveSettings();};
 $('btnFind').onclick=()=>{ $('sheet').classList.add('open'); $('sheet').scrollTop=0; setTimeout(()=>$('flt').focus(),260); };
 
 // cases a cocher des categories de reperes
@@ -1150,9 +1349,9 @@ $('btnReload').onclick=()=>{loadCities(true);computeTerrain(true);};
 // reflete les reglages charges (localStorage) sur les controles au demarrage
 (function syncControlsFromS(){
   $('rad').value=S.radius; $('radV').textContent=S.radius+' km';
-  $('fov').value=S.fov; $('fovV').textContent=S.fov+'°';
+  $('fov').value=S.camFov; showFov();
   $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('dst').checked=S.showDist; $('sky').checked=S.skyline;
-  $('air').checked=S.air; $('sea').checked=S.sea;
+  $('air').checked=S.air; $('sea').checked=S.sea; $('tel').checked=S.telecom;
 })();
 
 // ---------- photo ----------
@@ -1164,7 +1363,7 @@ $('shutter').onclick=()=>{
     x.drawImage(video,(W-dw)/2,(H-dh)/2,dw,dh); } else { x.fillStyle='#000'; x.fillRect(0,0,W,H); }
   x.drawImage(ov,0,0,W,H);
   // légende
-  const near=visibleCities()[0]; const {heading}=pose();
+  const near=visibleCities().filter(c=>SETTLE.has(c.kind)).reduce((a,c)=>(!a||c.dist<a.dist)?c:a,null); const {heading}=pose();
   const cap=`${near?'Près de '+near.name+' · ':''}${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} · cap ${Math.round(heading)}°`;
   x.font=`500 12px ${FM}`; x.textAlign='left'; x.textBaseline='alphabetic';
   const tw=x.measureText(cap).width; const by=H-parseFloat(getComputedStyle($('bar')).paddingBottom)-90;
@@ -1219,7 +1418,7 @@ $('go').onclick=async()=>{
   appStarted=true;
   await startCamera();
   if(navigator.geolocation){
-    navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); computeTerrain(false); },
+    navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); computeTerrain(false); if(S.telecom) pollTelecom(); },
       err=>{ setStatus('GPS refusé : '+err.message); }, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
   } else setStatus('GPS indisponible');
   startTraffic();
