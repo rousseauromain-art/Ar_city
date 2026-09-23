@@ -1,30 +1,19 @@
 /* =====================================================================
    Villes a l'horizon — configuration
    ---------------------------------------------------------------------
-   Ce fichier n'est PAS ecrase quand la page principale est mise a jour :
-   les valeurs restent en place d'une version a l'autre.
+   Ce fichier n'est PAS ecrase quand la page principale est mise a jour.
    A placer a cote de villes-horizon.html, a la racine du depot.
 
-   IMPORTANT — ceci n'est pas un secret. Tout fichier servi par GitHub
-   Pages est telechargeable par n'importe qui, y compris celui-ci.
+   Il ne contient AUCUN secret : il est public, comme tout le site.
+   Les cles (AISStream, OpenSky) sont stockees dans le relais Cloudflare,
+   en tant que « secrets » du Worker, invisibles depuis l'exterieur.
    ===================================================================== */
 
 window.APP_CONFIG = {
 
-  // Bateaux — AISStream REFUSE les connexions directes depuis un navigateur
-  // (voir leur documentation). La cle seule ne suffit donc pas : il faut un
-  // relais serveur (ex. Cloudflare Worker) qui detient la cle et retransmet
-  // le flux. Renseignez ici l'adresse wss:// de ce relais une fois en place.
-  aisProxy: '',
-
-  // Cle AISStream : a mettre dans le RELAIS, pas ici (elle y serait publique).
-  // Conservee uniquement pour information dans le diagnostic.
-  aisKey: '',
-
-  // Avions — facultatif. Vide = acces anonyme OpenSky (~100 requetes/jour).
-  // A NE PAS REMPLIR sur un depot public : ces identifiants donnent acces
-  // a votre compte OpenSky.
-  openskyId: '',
-  openskySecret: ''
+  // Adresse de votre relais Cloudflare Worker, par exemple :
+  // relay: 'https://villes-horizon-relais.votre-sous-domaine.workers.dev',
+  // Vide = avions en acces anonyme direct (quota reduit), pas de bateaux.
+  relay: 'https://villes-horizon-relais.rousseau-romain.workers.dev/health'
 
 };
