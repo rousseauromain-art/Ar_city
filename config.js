@@ -14,7 +14,7 @@ window.APP_CONFIG = {
 
   // Bateaux — cle gratuite a creer sur https://aisstream.io
   // Sans elle, la couche bateaux affiche « cle requise ».
-  aisKey: '',
+  aisKey: '83a73aa3a630f47ceec49ff714f3d4287e9c8481',
 
   // Avions — facultatif. Vide = acces anonyme OpenSky (~100 requetes/jour),
   // ce qui suffit pour un usage occasionnel.
