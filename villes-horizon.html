@@ -43,6 +43,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #btnZoneDL{flex:1;background:rgba(224,165,38,.15);border-color:rgba(224,165,38,.5);color:var(--ochre)}
 #btnZoneDL:disabled{opacity:.6}
 #btnZoneDel{color:#E08787;border-color:rgba(224,135,135,.35);display:none}
+#btnCacheClr{grid-column:1/-1;color:#E08787;border-color:rgba(224,135,135,.35)}
 #btnDbg{grid-column:1/-1;background:rgba(224,165,38,.15);border-color:rgba(224,165,38,.5);color:var(--ochre)}
 #btnDbgRetry{grid-column:1/-1;background:rgba(224,165,38,.15);border-color:rgba(224,165,38,.5);color:var(--ochre);font:700 12px var(--mono);padding:9px 12px;border-radius:3px;text-transform:uppercase;letter-spacing:.06em}
 
@@ -153,6 +154,10 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <span class="hint">Calcule, pour chaque direction, la crête la plus haute devant chaque lieu (tuiles d'altitude SRTM ~30 m, courbure terrestre incluse). Les lieux cachés derrière une colline disparaissent ; l'œil en haut à droite les affiche en transparence.</span>
   </div>
   <div class="row">
+    <label for="bey">Voir au-delà du relief</label><input type="checkbox" id="bey">
+    <span class="hint">Affiche en transparence, avec un trait pointillé, les lieux cachés derrière une colline. Raccourci : l'icône œil, en haut à droite de l'écran caméra.</span>
+  </div>
+  <div class="row">
     <label for="sky">Ligne d'horizon (aide au calage)</label><input type="checkbox" id="sky">
     <span class="hint" id="skyInfo">Dessine la silhouette théorique du relief : comparez-la à l'horizon réel pour caler, utile face à une île ou une côte sans repère net.</span>
   </div>
@@ -171,6 +176,12 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <button id="btnZoneDL">Telecharger cette zone (150 km)</button>
     <button id="btnZoneDel">Supprimer</button>
   </div>
+  <div class="row zbtns">
+    <button id="btnCacheClr">Vider le cache</button>
+  </div>
+  <div class="row">
+    <span class="hint">Supprime les tuiles de relief et l'atlas hors-ligne. Les réglages et le calage sont conservés.</span>
+  </div>
   <div class="sec">Diagnostic</div>
   <div class="row">
     <span class="hint">Etat du cache, source des donnees et journal des requetes — utile pour verifier ce qui a bien ete recupere avant de partir sans reseau.</span>
@@ -184,13 +195,16 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   </div>
   <div class="row">
     <label for="sea">Bateaux<em>AISStream &le; 40 km</em></label><input type="checkbox" id="sea">
-    <span class="hint" id="seaHint">Necessite une cle gratuite aisstream.io a renseigner dans le fichier (CONFIG.aisKey).</span>
+    <span class="hint" id="seaHint">AISStream refuse les connexions directes depuis un navigateur : il faut un petit relais serveur (ex. Cloudflare Worker) qui detient la cle. Sans relais, cette couche reste inactive.</span>
   </div>
   <div class="sec">Points de vue et reperes</div>
   <div id="poiList"></div>
   <div class="row">
     <span class="hint">Glissez sur l'image : horizontalement pour caler le cap, verticalement pour caler l'horizon.</span>
     <button id="reset">Remettre le calage à zéro</button>
+  </div>
+  <div class="row">
+    <span class="hint" id="verInfo"></span>
   </div>
 </div>
 
@@ -240,7 +254,9 @@ const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kum
 /* Cles d'API : voir config.js (fichier separe, non ecrase par les mises a jour).
    Si config.js est absent, les avions restent disponibles en acces anonyme
    OpenSky ; seuls les bateaux necessitent une cle. */
-const CONFIG=Object.assign({aisKey:'',openskyId:'',openskySecret:''},window.APP_CONFIG||{});
+const CONFIG=Object.assign({aisKey:'',aisProxy:'',openskyId:'',openskySecret:''},window.APP_CONFIG||{});
+const CONFIG_LOADED=!!window.APP_CONFIG;
+const APP_VERSION='2026-09-23 · relief 360°';
 const S={radius:60,fov:50,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
@@ -595,7 +611,9 @@ function assessPlace(T,c,ht){ // angles du lieu et verdict de visibilite
 }
 /*TERRAIN-CORE-END*/
 
-let terrain=null, terrainBusy=false, reliefState='—', skylineState='—';
+let terrain=null, terrainBusy=false, reliefState='—', skylineState='—', terrainRetryT=null;
+// tuile "niveau de la mer" (encodage Terrarium : R=128,V=0,B=0 -> 0 m)
+const SEA_TILE=(()=>{ const t=new Uint8ClampedArray(256*256*4); for(let i=0;i<t.length;i+=4){ t[i]=128; t[i+3]=255; } return t; })();
 let reliefStats={checked:0,hidden:0,unknown:0};
 async function loadTileData(z,x,y){
   const url=TILE_URL(z,x,y);
@@ -603,6 +621,7 @@ async function loadTileData(z,x,y){
   try{ if(window.caches){ cache=await caches.open(TCACHE); resp=await cache.match(url); if(resp) fromCache=true; } }catch(e){}
   if(!resp){
     resp=await fetchT(url,{mode:'cors'},15000);
+    if(resp.status===403||resp.status===404) return {data:SEA_TILE,fromCache:false,missing:true};
     if(!resp.ok) throw new Error('tuile '+resp.status);
     if(cache) try{ await cache.put(url,resp.clone()); }catch(e){}
   }
@@ -617,24 +636,25 @@ async function loadTileData(z,x,y){
 }
 async function computeTerrain(force){
   if(!pos||terrainBusy) return;
-  if(!force&&terrain&&distBrg(pos,terrain.c).dist<0.3) return;
+  if(!force&&terrain&&distBrg(pos,terrain.c).dist<0.3&&!(terrain.partial&&Date.now()-terrain.at>30000)) return; // tuiles manquantes : nouvel essai au plus toutes les 30 s
   terrainBusy=true; const t0=performance.now(), c={lat:pos.lat,lon:pos.lon};
   try{
     const bands=bandsFor(c), jobs=[];
     bands.forEach(b=>{ for(let iy=0;iy<b.ny;iy++) for(let ix=0;ix<b.nx;ix++) jobs.push({b,idx:iy*b.nx+ix,x:b.tx0+ix,y:b.ty0+iy}); });
-    let next=0, done=0, cached=0, failed=0;
+    let next=0, done=0, cached=0, failed=0, missing=0;
     const worker=async()=>{ while(next<jobs.length){ const j=jobs[next++];
-      try{ const r=await loadTileData(j.b.z,j.x,j.y); j.b.tiles[j.idx]=r.data; if(r.fromCache) cached++; }catch(e){ failed++; }
+      try{ const r=await loadTileData(j.b.z,j.x,j.y); j.b.tiles[j.idx]=r.data; if(r.fromCache) cached++; if(r.missing) missing++; }catch(e){ failed++; }
       done++; reliefState=skylineState=`tuiles ${done}/${jobs.length}`; } };
     await Promise.all([worker(),worker(),worker(),worker()]);
     if(failed===jobs.length) throw new Error('aucune tuile d\'altitude disponible (reseau ?)');
     reliefState=skylineState='calcul…';
     const e0=elevAt(bands,c.lat,c.lon,0), h0=(e0===e0?e0:0)+1.6, pm=new Array(NB);
     for(let bi=0;bi<NB;bi++){ pm[bi]=maskRow(bands,c,h0,bi); if(bi%90===89) await new Promise(r=>setTimeout(r,0)); }
-    terrain={c,h0,bands,pm,at:Date.now()};
+    terrain={c,h0,bands,pm,at:Date.now(),partial:failed>0};
+    clearTimeout(terrainRetryT); if(failed) terrainRetryT=setTimeout(()=>computeTerrain(false),30000);
     obsElev=h0-1.6;
     reliefState=skylineState='ok';
-    logNet('Terrain',true,`${jobs.length} tuiles (${cached} en cache${failed?`, ${failed} en echec`:''}), ${Math.round(performance.now()-t0)} ms, observateur a ${Math.round(obsElev)} m`);
+    logNet('Terrain',!failed,`${jobs.length} tuiles (${cached} en cache${missing?`, ${missing} en mer`:''}${failed?`, ${failed} en echec — nouvel essai dans 30 s`:''}), ${Math.round(performance.now()-t0)} ms, observateur a ${Math.round(obsElev)} m`);
     applyOcclusion(true);
   }catch(e){ reliefState=skylineState='indispo'; logNet('Terrain',false,friendlyErr(e)); }
   terrainBusy=false;
@@ -698,15 +718,17 @@ async function pollAir(){
 }
 function openAIS(){
   if(!S.sea||!pos) return;
-  if(!CONFIG.aisKey){ tMsg.sea='cle requise'; logNet('AISStream',false,'cle API absente (config.js)'); return; }
+  // AISStream refuse les connexions directes depuis un navigateur (documentation officielle) :
+  // il faut un relais serveur qui detient la cle et retransmet le flux. Sans relais, on l'indique.
+  if(!CONFIG.aisProxy){ tMsg.sea='relais serveur requis'; logNet('AISStream',false,'connexion directe navigateur refusee par AISStream : relais serveur requis (config.js : aisProxy)'); return; }
   try{ if(ws) ws.close(); }catch(e){}
   const b=bbox(S.seaMax);
   tMsg.sea='connexion…';
-  ws=new WebSocket('wss://stream.aisstream.io/v0/stream');
-  ws.onopen=()=>{ tMsg.sea='en ligne'; logNet('AISStream',true,'connecte, rayon '+S.seaMax+' km');
-    ws.send(JSON.stringify({APIKey:CONFIG.aisKey,BoundingBoxes:[[[b.la2,b.lo1],[b.la1,b.lo2]]],FilterMessageTypes:['PositionReport']})); };
-  ws.onmessage=ev=>{ try{
-    const m=JSON.parse(ev.data); if(m.MessageType!=='PositionReport') return;
+  ws=new WebSocket(CONFIG.aisProxy);
+  ws.onopen=()=>{ tMsg.sea='en ligne'; logNet('AISStream',true,'connecte via le relais, rayon '+S.seaMax+' km');
+    ws.send(JSON.stringify({BoundingBoxes:[[[b.la2,b.lo1],[b.la1,b.lo2]]],FilterMessageTypes:['PositionReport']})); };
+  const handle=txt=>{ try{
+    const m=JSON.parse(txt); if(m.MessageType!=='PositionReport') return;
     const md=m.MetaData||{}, pr=(m.Message&&m.Message.PositionReport)||{};
     const id=md.MMSI!=null?md.MMSI:md.ShipId; if(id==null) return;
     const la=md.latitude!=null?md.latitude:md.Latitude, lo=md.longitude!=null?md.longitude:md.Longitude;
@@ -715,8 +737,13 @@ function openAIS(){
       trk:(pr.Cog!=null?pr.Cog:0), vel:(pr.Sog||0)*0.5144, alt:0, vr:0, t:Date.now()});
     tMsg.sea=ships.size+' bat.';
   }catch(e){} };
-  ws.onerror=()=>{ tMsg.sea='erreur'; logNet('AISStream',false,'erreur de connexion'); };
-  ws.onclose=()=>{ if(S.sea&&tMsg.sea!=='cle requise'){ tMsg.sea='hors ligne'; logNet('AISStream',false,'deconnecte'); } };
+  // le flux AIS arrive en trames binaires (JSON UTF-8) : on decode avant de parser
+  ws.onmessage=ev=>{ const d=ev.data;
+    if(typeof d==='string') handle(d);
+    else if(d&&d.text) d.text().then(handle);
+    else if(d instanceof ArrayBuffer) handle(new TextDecoder().decode(d)); };
+  ws.onerror=()=>{ tMsg.sea='erreur'; logNet('AISStream',false,'erreur de connexion au relais'); };
+  ws.onclose=()=>{ if(S.sea){ tMsg.sea='hors ligne'; logNet('AISStream',false,'deconnecte'); } };
 }
 function syncTraffic(){
   clearInterval(airTimer); airTimer=null;
@@ -937,7 +964,14 @@ $('reset').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;saveSettings()
 $('btnSet').onclick=()=>{ $('sheet').classList.add('open'); updateZoneInfo(); };
 
 // ---------- panneau de diagnostic ----------
-let dbgOpen=false, dbgTimer=null;
+let dbgOpen=false, dbgTimer=null, storeEst='—';
+function refreshStoreEst(){
+  const parts=[];
+  const done=()=>{ storeEst=parts.join(' · ')||'—'; };
+  const p1=(navigator.storage&&navigator.storage.estimate)?navigator.storage.estimate().then(e=>parts.push(`${(e.usage/1048576).toFixed(1)} Mo utilises`)).catch(()=>{}):Promise.resolve();
+  const p2=window.caches?caches.open(TCACHE).then(c=>c.keys()).then(k=>parts.push(`${k.length} tuiles de relief en cache`)).catch(()=>{}):Promise.resolve();
+  Promise.all([p1,p2]).then(done);
+}
 function renderDebug(){
   const kc=kindCounts();
   const kcTxt=Object.entries(kc).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${k} : ${n}`).join('<br>')||'—';
@@ -950,6 +984,10 @@ function renderDebug(){
     (pos?`, a ${Math.round(distBrg(pos,z.c).dist)} km d'ici`:'')+`</div>`).join(''):'';
   const logHtml=netLog.length?netLog.map(e=>`<div class="dbgrow ${e.ok?'ok':'ko'}"><span>${new Date(e.t).toLocaleTimeString('fr-FR')}</span><b>${e.kind}</b><span>${e.detail}</span></div>`).join(''):'<div class="dbgline">vide</div>';
   $('dbgBody').innerHTML=`
+    <div class="dbgsec">Version</div>
+    <div class="dbgline">${APP_VERSION}</div>
+    <div class="dbgsec">Stockage</div>
+    <div class="dbgline">${storeEst}</div>
     <div class="dbgsec">A l'ecran maintenant</div>
     <div class="dbgline">${lastShown} lieux affiches (source : ${source})</div>
     <div class="dbgsec">En memoire (${cities.length} au total)</div>
@@ -967,13 +1005,15 @@ function renderDebug(){
     <div class="dbgline">relief : ${reliefState}${terrain?` · observateur a ${Math.round(obsElev)} m`:''}</div>
     <div class="dbgline">${reliefStats.checked} lieux verifies, ${reliefStats.hidden} masques${reliefStats.unknown?`, ${reliefStats.unknown} hors couverture`:''} · voir au-dela : ${S.beyond?'oui':'non'}</div>
     <div class="dbgsec">Trafic en direct</div>
-    <div class="dbgline">avions : ${tMsg.air||'desactive'} · bateaux : ${tMsg.sea||'desactive'}</div>
+    <div class="dbgline">avions : ${S.air?(tMsg.air||'en attente'):'desactive (Reglages → Avions)'}</div>
+    <div class="dbgline">bateaux : ${S.sea?(tMsg.sea||'en attente'):'desactive (Reglages → Bateaux)'}</div>
+    <div class="dbgline">config.js : ${CONFIG_LOADED?'charge':'introuvable (a placer a cote du fichier HTML)'} · cle AIS : ${CONFIG.aisKey?'presente':'absente'} · relais AIS : ${CONFIG.aisProxy?'configure':'aucun'}</div>
     <div class="dbgsec">Journal reseau (${netLog.length} entrees)</div>
     ${logHtml}
   `;
   const rb=$('btnDbgRetry'); if(rb) rb.onclick=()=>{ stopRetry(); if(pos) loadCities(true); else rb.textContent='GPS indisponible'; };
 }
-$('btnDbg').onclick=()=>{ $('sheet').classList.remove('open'); $('dbg').classList.add('open'); dbgOpen=true; renderDebug();
+$('btnDbg').onclick=()=>{ $('sheet').classList.remove('open'); $('dbg').classList.add('open'); dbgOpen=true; refreshStoreEst(); renderDebug();
   dbgTimer=setInterval(renderDebug,1000); };
 $('dbgClose').onclick=()=>{ $('dbg').classList.remove('open'); dbgOpen=false; clearInterval(dbgTimer); };
 $('btnZoneDL').onclick=downloadZone;
@@ -1076,8 +1116,24 @@ const fsOn=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
 async function toggleFS(){ try{ if(fsOn()) await fsExit.call(document); else await fsReq.call(FSel); }catch(e){} }
 if(!fsReq) $('btnFs').style.display='none';
 $('btnFs').onclick=toggleFS;
-$('btnBeyond').onclick=()=>{ S.beyond=!S.beyond; $('btnBeyond').classList.toggle('on',S.beyond); saveSettings(); };
-$('btnBeyond').classList.toggle('on',S.beyond);
+function setBeyond(v){ S.beyond=v; $('btnBeyond').classList.toggle('on',v); $('bey').checked=v; saveSettings(); }
+$('btnBeyond').onclick=()=>setBeyond(!S.beyond);
+$('bey').onchange=e=>setBeyond(e.target.checked);
+$('btnBeyond').classList.toggle('on',S.beyond); $('bey').checked=S.beyond;
+$('verInfo').textContent='Version '+APP_VERSION;
+async function clearAllCache(){
+  if(!confirm("Supprimer les tuiles de relief et l'atlas hors-ligne ?\nLes réglages et le calage sont conservés.")) return;
+  let nt=0;
+  try{ if(window.caches){ const c=await caches.open(TCACHE); nt=(await c.keys()).length; await caches.delete(TCACHE); } }catch(e){}
+  const na=Object.keys(atlas.items).length;
+  clearAtlas(); terrain=null; reliefState=skylineState='—'; reliefStats={checked:0,hidden:0,unknown:0};
+  for(const c of cities){ c.hidden=false; c.aG=null; c.demT=null; }
+  if(source.startsWith('atlas local')){ cities=FALLBACK.slice(); source='liste intégrée'; recompute(); }
+  updateZoneInfo(); refreshStoreEst();
+  logNet('Cache',true,`vide : ${nt} tuiles de relief, ${na} lieux de l'atlas (reglages conserves)`);
+  const b=$('btnCacheClr'); b.textContent='Cache vidé'; setTimeout(()=>{ b.textContent='Vider le cache'; },2500);
+}
+$('btnCacheClr').onclick=clearAllCache;
 const onFsChange=()=>{ $('btnFs').innerHTML=fsOn()
   ? '<svg viewBox="0 0 24 24"><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"/></svg>'
   : '<svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>';
@@ -1121,15 +1177,43 @@ $('shotShare').onclick=async()=>{
 };
 
 // ---------- démarrage ----------
+// camera : liberee quand l'app passe en arriere-plan (le navigateur coupe le flux de toute facon),
+// puis redemandee au retour — evite l'image figee qui obligeait a recharger la page
+let camStream=null, camStarting=false, appStarted=false;
+function stopCamera(){
+  if(camStream){ camStream.getTracks().forEach(t=>{ try{ t.stop(); }catch(e){} }); camStream=null; }
+  video.srcObject=null; camOK=false;
+}
+async function startCamera(){
+  if(camStarting) return;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ camErr='Caméra indisponible : ouvrez la page en HTTPS'; return; }
+  camStarting=true;
+  try{
+    stopCamera();
+    const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
+    camStream=st; video.srcObject=st; await video.play(); camOK=true; camErr='';
+    const tr=st.getVideoTracks()[0];
+    if(tr) tr.addEventListener('ended',()=>{ if(appStarted&&!document.hidden&&camStream===st) startCamera(); });
+  }catch(e){ camErr='Caméra refusée ou indisponible'; }
+  camStarting=false;
+}
+function cameraAlive(){
+  const tr=camStream&&camStream.getVideoTracks()[0];
+  return !!(tr&&tr.readyState==='live'&&!video.paused);
+}
+document.addEventListener('visibilitychange',()=>{
+  if(!appStarted) return;
+  if(document.hidden) stopCamera();
+  else if(!cameraAlive()) startCamera();
+});
+window.addEventListener('pageshow',e=>{ if(appStarted&&e.persisted&&!cameraAlive()) startCamera(); });
+window.addEventListener('focus',()=>{ if(appStarted&&!document.hidden&&!cameraAlive()) startCamera(); });
+
 $('go').onclick=async()=>{
   try{ if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function') await DeviceOrientationEvent.requestPermission(); }catch(e){}
   resize();
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ camErr='Caméra indisponible : ouvrez la page en HTTPS'; }
-  else{
-    try{ const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
-      video.srcObject=st; await video.play(); camOK=true; }
-    catch(e){ camErr='Caméra refusée ou indisponible'; }
-  }
+  appStarted=true;
+  await startCamera();
   if(navigator.geolocation){
     navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); computeTerrain(false); },
       err=>{ setStatus('GPS refusé : '+err.message); }, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
