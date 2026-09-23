@@ -34,8 +34,8 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #tools button{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.72);backdrop-filter:blur(6px)}
 #tools svg{width:19px;height:19px;stroke:var(--cream);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 #tools button:active{background:rgba(243,233,210,.2)}
-#btnFind.on{background:rgba(224,165,38,.85)}
-#btnFind.on svg{stroke:var(--ink)}
+#btnFind.on,#btnBeyond.on{background:rgba(224,165,38,.85)}
+#btnFind.on svg,#btnBeyond.on svg{stroke:var(--ink)}
 .sec{margin-top:6px;padding:14px 0 4px;border-top:1px solid var(--line);font:700 15px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--ochre)}
 .row label em{font:500 11px var(--mono);color:var(--ochre);font-style:normal;margin-left:8px}
 .zbtns{grid-template-columns:1fr auto;gap:10px}
@@ -118,6 +118,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   </div>
   <div id="tools">
     <button id="btnFind" aria-label="Filtrer par nom"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg></button>
+    <button id="btnBeyond" aria-label="Voir au-dela du relief"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
     <button id="btnFs" aria-label="Plein ecran"><svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
   </div>
   <div id="flash"></div>
@@ -149,14 +150,14 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   </div>
   <div class="row">
     <label for="rel">Masquer ce qui est caché par le relief</label><input type="checkbox" id="rel" checked>
-    <span class="hint">Compare l'altitude du terrain le long de la ligne de visée (données Copernicus) en tenant compte de la courbure terrestre.</span>
+    <span class="hint">Calcule, pour chaque direction, la crête la plus haute devant chaque lieu (tuiles d'altitude SRTM ~30 m, courbure terrestre incluse). Les lieux cachés derrière une colline disparaissent ; l'œil en haut à droite les affiche en transparence.</span>
   </div>
   <div class="row">
     <label for="sky">Ligne d'horizon (aide au calage)</label><input type="checkbox" id="sky">
     <span class="hint" id="skyInfo">Dessine la silhouette théorique du relief : comparez-la à l'horizon réel pour caler, utile face à une île ou une côte sans repère net.</span>
   </div>
   <div class="row zbtns">
-    <button id="btnSky">Calculer la ligne d'horizon</button>
+    <button id="btnSky">Recalculer le relief</button>
     <button id="btnAutoAlign">Caler auto</button>
   </div>
   <div class="row">
@@ -240,7 +241,7 @@ const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kum
    Si config.js est absent, les avions restent disponibles en acces anonyme
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({aisKey:'',openskyId:'',openskySecret:''},window.APP_CONFIG||{});
-const S={radius:60,fov:50,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,
+const S={radius:60,fov:50,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
   lighthouse:{label:'Phares, feux et balises',        max:40, q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]']},
@@ -259,7 +260,7 @@ function loadSettings(){
   try{
     const raw=localStorage.getItem(PKEY); if(!raw) return;
     const saved=JSON.parse(raw);
-    for(const k of ['radius','fov','hamlets','relief','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline'])
+    for(const k of ['radius','fov','hamlets','relief','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','beyond'])
       if(saved[k]!==undefined) S[k]=saved[k];
     if(saved.poi) Object.assign(S.poi,saved.poi);
   }catch(e){}
@@ -269,8 +270,8 @@ function saveSettings(){
   clearTimeout(saveSettingsT);
   saveSettingsT=setTimeout(()=>{
     try{
-      const {radius,fov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,poi}=S;
-      localStorage.setItem(PKEY,JSON.stringify({radius,fov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,poi}));
+      const {radius,fov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,poi}=S;
+      localStorage.setItem(PKEY,JSON.stringify({radius,fov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,poi}));
     }catch(e){}
   },300);
 }
@@ -331,7 +332,7 @@ function distBrg(a,b){
   const h=Math.sin((la2-la1)/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dl/2)**2;
   return {dist:6371*2*Math.asin(Math.sqrt(h)),brg};
 }
-function recompute(){ if(!pos) return; for(const c of cities){ const r=distBrg(pos,c); c.dist=r.dist; c.brg=r.brg; } citiesVer++; }
+function recompute(){ if(!pos) return; for(const c of cities){ const r=distBrg(pos,c); c.dist=r.dist; c.brg=r.brg; } citiesVer++; applyOcclusion(false); }
 
 // ---------- capteurs d'orientation ----------
 let gotAbs=false;
@@ -384,7 +385,8 @@ function parseOverpass(j){
     if(lat==null||lon==null) continue;
     const key=name+'@'+lat.toFixed(4)+','+lon.toFixed(4);
     if(seen.has(key)) continue; seen.add(key);
-    got.push({name,lat,lon,kind:kindOf(t),pop:+(t.population||0)});
+    const ev=parseFloat(t.ele);
+    got.push({name,lat,lon,kind:kindOf(t),pop:+(t.population||0),ele:isFinite(ev)?ev:null});
   }
   return got;
 }
@@ -457,8 +459,8 @@ async function loadCities(force){
     scheduleRetry();
   }
   lastFetch={...pos}; loadedR=S.radius; recompute(); loading=false;
-  if(S.relief) computeRelief();
-  else elevations([pos]).then(e=>{ if(e[0]!=null) obsElev=e[0]; }).catch(()=>{});
+  if(terrain) applyOcclusion(true);
+  computeTerrain(false);
 }
 
 // ---------- atlas local hors-ligne : cache cumulatif pour continuer a fonctionner sans reseau ----------
@@ -495,6 +497,7 @@ async function downloadZone(){
     btn.textContent=okSave?`+${added} nouveaux (${total} au total)`:'Stockage plein — echec';
     logNet('Telechargement zone',okSave,`${got.length} recus, ${added} nouveaux, ${total} au total`);
     updateZoneInfo();
+    computeTerrain(true); // tuiles de relief mises en cache pour un usage hors-ligne ici
   }catch(e){ btn.textContent='Echec — reessayer dans une minute'; logNet('Telechargement zone',false,e.message||String(e)); }
   setTimeout(()=>{ btn.disabled=false; btn.textContent=orig; },3000);
 }
@@ -517,100 +520,139 @@ function kindOf(t){
   if(t.historic||t.man_made==='windmill') return 'heritage';
   return 'poi';
 }
-let reliefState='—', reliefAt=null, reliefBusy=false;
-async function elevations(pts){
-  const out=new Array(pts.length).fill(null);
-  for(let i=0;i<pts.length;i+=100){
-    const b=pts.slice(i,i+100);
-    const url='https://api.open-meteo.com/v1/elevation?latitude='+b.map(p=>p.lat.toFixed(5)).join(',')+'&longitude='+b.map(p=>p.lon.toFixed(5)).join(',');
-    const r=await fetchT(url,{},12000);
-    if(!r.ok) throw new Error(String(r.status));
-    const j=await r.json();
-    (j.elevation||[]).forEach((e,k)=>out[i+k]=e);
+// ---------- relief par tuiles d'altitude (AWS Terrain Tiles, Terrarium, source SRTM ~30 m) ----------
+// Principe (viewshed radial) : pour chaque relevement (pas de 0,5°), on parcourt le terrain du plus
+// proche au plus lointain en gardant l'angle d'elevation maximal rencontre jusque-la : le "masque".
+// Un lieu n'est visible que si son propre angle depasse le masque calcule JUSQU'A sa distance.
+// Tout est calcule localement : aucune requete par point, seulement ~20 tuiles mises en cache.
+const TILE_URL=(z,x,y)=>`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
+const TCACHE='vh-terrain-v1';
+/*TERRAIN-CORE-START*/
+const BANDS=[{z:11,max:12},{z:10,max:30},{z:9,max:60}]; // resolution fine pres de l'observateur
+const BSTEP=0.5, NB=720, REFF=6371000*1.13;
+const TDIST=(()=>{ const a=[]; let d=0.08; while(d<=60){ a.push(d); d+=Math.max(0.05,d*0.018); } return Float32Array.from(a); })();
+function lonLatToPix(z,lat,lon){
+  const n=256*Math.pow(2,z), s=Math.sin(lat*D);
+  return [(lon+180)/360*n,(0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*n];
+}
+function bandsFor(c){ // tuiles necessaires, par bande de resolution
+  return BANDS.map(b=>{
+    const dLat=b.max/111.32, dLon=b.max/(111.32*Math.max(0.2,Math.cos(c.lat*D)));
+    const [x0,y0]=lonLatToPix(b.z,c.lat+dLat,c.lon-dLon), [x1,y1]=lonLatToPix(b.z,c.lat-dLat,c.lon+dLon);
+    const tx0=Math.floor(x0/256), ty0=Math.floor(y0/256), tx1=Math.floor(x1/256), ty1=Math.floor(y1/256);
+    return {z:b.z,max:b.max,tx0,ty0,nx:tx1-tx0+1,ny:ty1-ty0+1,tiles:new Array((tx1-tx0+1)*(ty1-ty0+1)).fill(null)};
+  });
+}
+function pixElev(band,gx,gy){
+  const ix=(gx>>8)-band.tx0, iy=(gy>>8)-band.ty0;
+  if(ix<0||iy<0||ix>=band.nx||iy>=band.ny) return NaN;
+  const t=band.tiles[iy*band.nx+ix]; if(!t) return NaN;
+  const i=(((gy&255)<<8)+(gx&255))<<2;
+  const e=t[i]*256+t[i+1]+t[i+2]/256-32768;
+  return e>0?e:0; // la bathymetrie (negative) compte comme le niveau de la mer
+}
+function elevAt(bands,lat,lon,dKm){
+  let band=null; for(const b of bands) if(dKm<=b.max){ band=b; break; }
+  if(!band) return NaN;
+  const p=lonLatToPix(band.z,lat,lon), fx=p[0]-0.5, fy=p[1]-0.5, x0=Math.floor(fx), y0=Math.floor(fy), ax=fx-x0, ay=fy-y0;
+  const a=pixElev(band,x0,y0), b=pixElev(band,x0+1,y0), c=pixElev(band,x0,y0+1), d=pixElev(band,x0+1,y0+1);
+  if(a!==a||b!==b||c!==c||d!==d) return pixElev(band,Math.floor(p[0]),Math.floor(p[1]));
+  return (a*(1-ax)+b*ax)*(1-ay)+(c*(1-ax)+d*ax)*ay;
+}
+function maskRow(bands,c,h0,bi){ // masque cumule (angle max rencontre) le long d'un relevement
+  const b=bi*BSTEP*D, sb=Math.sin(b), cb=Math.cos(b), cosL=Math.cos(c.lat*D), K=TDIST.length;
+  const row=new Float32Array(K); let mx=-90;
+  for(let k=0;k<K;k++){
+    const d=TDIST[k], e=elevAt(bands,c.lat+d*cb/111.32,c.lon+d*sb/(111.32*cosL),d);
+    if(e===e){ const dm=d*1000, a=Math.atan2(e-h0-dm*dm/(2*REFF),dm)/D; if(a>mx) mx=a; }
+    row[k]=mx;
   }
-  return out;
+  return row;
 }
-async function computeRelief(){
-  if(!pos||reliefBusy) return;
-  const here={...pos}; reliefBusy=true; reliefState='calcul…';
-  try{
-    // trie par distance reelle (pas par categorie) : dans une zone dense en sommets nommes,
-    // c'est la proximite qui determine ce qui a besoin d'etre verifie, pas le type de lieu
-    const T=visibleCities().filter(c=>c.dist>2).sort((a,b)=>a.dist-b.dist).slice(0,90);
-    const untested=visibleCities().filter(c=>c.dist>2).length-T.length;
-    if(!T.length){ reliefState='ok'; reliefAt=here; reliefBusy=false; logNet('Relief',true,'aucune cible a verifier'); return; }
-    const N=8, pts=[{lat:here.lat,lon:here.lon}];
-    for(const c of T) for(let i=1;i<=N;i++){ const f=i/(N+1); pts.push({lat:here.lat+(c.lat-here.lat)*f,lon:here.lon+(c.lon-here.lon)*f}); }
-    for(const c of T) pts.push({lat:c.lat,lon:c.lon});
-    const el=await elevations(pts);
-    if(el.some(v=>v==null)) throw new Error('incomplet');
-    obsElev=el[0]||0;
-    const Reff=6371000*1.13, h0=obsElev+1.6, base=1+T.length*N;
-    let hidden=0;
-    T.forEach((c,ci)=>{
-      const Dm=c.dist*1000, y1=(el[base+ci]||0)+(HT[c.kind]??12)-Dm*Dm/(2*Reff);
-      let blocked=false;
-      for(let i=1;i<=N;i++){
-        const f=i/(N+1), d=Dm*f, t=el[1+ci*N+(i-1)];
-        if(t-d*d/(2*Reff) > h0+(y1-h0)*f+5){ blocked=true; break; }
-      }
-      c.hidden=blocked; if(blocked) hidden++;
-    });
-    reliefState='ok'; reliefAt=here;
-    logNet('Relief',true,`${T.length} cibles verifiees, ${hidden} masquees`+(untested>0?`, ${untested} non verifiees (trop lointaines)`:''));
-  }catch(e){ reliefState='indispo'; logNet('Relief',false,e.message||String(e)); }
-  reliefBusy=false;
+function kIndex(dKm){ // dernier indice k tel que TDIST[k] < dKm
+  if(TDIST[0]>=dKm) return -1;
+  let lo=0, hi=TDIST.length-1;
+  while(lo<hi){ const m=(lo+hi+1)>>1; if(TDIST[m]<dKm) lo=m; else hi=m-1; }
+  return lo;
 }
+function maskFrom(pm,brg,dKm){
+  const k=kIndex(dKm); if(k<0) return -90;
+  const f=(((brg%360)+360)%360)/BSTEP, i0=Math.floor(f)%NB, i1=(i0+1)%NB, t=f-Math.floor(f);
+  return pm[i0][k]*(1-t)+pm[i1][k]*t;
+}
+function assessPlace(T,c,ht){ // angles du lieu et verdict de visibilite
+  const peak=c.kind==='peak'||c.kind==='cape';
+  let eP=c.dem;
+  if(c.ele!=null&&(peak||eP==null)) eP=Math.max(c.ele,eP==null?-1e9:eP);
+  const unknown=eP==null; if(unknown) eP=0;
+  const Dm=c.dist*1000, drop=Dm*Dm/(2*REFF);
+  const aG=Math.atan2(eP-T.h0-drop,Dm)/D, aP=Math.atan2(eP+ht-T.h0-drop,Dm)/D;
+  const mask=maskFrom(T.pm,c.brg,c.dist-Math.max(0.25,c.dist*(peak?0.07:0.03)));
+  // sommets : tolerance ~0,12° (≈12 m a 6 km) car sur une colline arrondie l'epaulement plus proche
+  // masque geometriquement le point culminant, alors que c'est bien ce sommet que l'on voit
+  const hidden=c.dist>0.3&&aP+(peak?0.12:0.02)<mask;
+  return {aG,aP,mask,hidden,unknown};
+}
+/*TERRAIN-CORE-END*/
 
-// ---------- ligne d'horizon (silhouette du relief) : aide au calage manuel et a l'auto-alignement ----------
-let skyline=null, skylineBusy=false, skylineState='—';
-async function computeSkyline(){
-  if(!pos||skylineBusy) return;
-  skylineBusy=true; skylineState='calcul…';
-  try{
-    const {heading}=pose();
-    const half=Math.min(90,Math.max(45,Math.round(S.fov*1.2)));
-    // echantillonnage resserre pres de l'observateur : c'est la ou un relief accidente
-    // (collines nombreuses et rapprochees) a le plus besoin de finesse
-    const dists=[2,4,7,11,16,25,40,Math.min(90,Math.max(45,S.radius))];
-    const rels=[]; for(let d=-half; d<=half; d+=2) rels.push(d);
-    const pts=[];
-    for(const rel of rels){
-      const b=((heading+rel)%360+360)%360*D;
-      for(const dk of dists){
-        const Dm=dk*1000;
-        pts.push({lat:pos.lat+Dm*Math.cos(b)/111320, lon:pos.lon+Dm*Math.sin(b)/(111320*Math.max(0.2,Math.cos(pos.lat*D)))});
-      }
-    }
-    const el=await elevations(pts);
-    if(el.some(v=>v==null)) throw new Error('incomplet');
-    const Reff=6371000*1.13, h0=obsElev+1.6;
-    const profile=rels.map((rel,ri)=>{
-      let maxA=-90;
-      for(let di=0;di<dists.length;di++){
-        const Dm=dists[di]*1000, t=el[ri*dists.length+di];
-        const a=Math.atan2(t-h0-Dm*Dm/(2*Reff),Dm)/D;
-        if(a>maxA) maxA=a;
-      }
-      return {rel,elev:maxA};
-    });
-    skyline={heading0:heading,half,profile,at:{...pos}};
-    skylineState='ok';
-    logNet('Horizon',true,`${profile.length} points, arc ${half*2}°`);
-  }catch(e){ skylineState='indispo'; logNet('Horizon',false,e.message||String(e)); }
-  skylineBusy=false;
-}
-function skylineElevAt(brg){
-  if(!skyline) return null;
-  const rel=wrap(brg-skyline.heading0);
-  if(rel<-skyline.half||rel>skyline.half) return null;
-  const P=skyline.profile;
-  for(let i=0;i<P.length-1;i++) if(rel>=P[i].rel&&rel<=P[i+1].rel){
-    const f=(rel-P[i].rel)/(P[i+1].rel-P[i].rel);
-    return P[i].elev+(P[i+1].elev-P[i].elev)*f;
+let terrain=null, terrainBusy=false, reliefState='—', skylineState='—';
+let reliefStats={checked:0,hidden:0,unknown:0};
+async function loadTileData(z,x,y){
+  const url=TILE_URL(z,x,y);
+  let resp=null, fromCache=false, cache=null;
+  try{ if(window.caches){ cache=await caches.open(TCACHE); resp=await cache.match(url); if(resp) fromCache=true; } }catch(e){}
+  if(!resp){
+    resp=await fetchT(url,{mode:'cors'},15000);
+    if(!resp.ok) throw new Error('tuile '+resp.status);
+    if(cache) try{ await cache.put(url,resp.clone()); }catch(e){}
   }
-  return P[P.length-1].elev;
+  const blob=await resp.blob();
+  let bmp;
+  try{ bmp=await createImageBitmap(blob,{colorSpaceConversion:'none',premultiplyAlpha:'none'}); } // valeurs brutes, sans gestion de couleur
+  catch(e){ bmp=await createImageBitmap(blob); }
+  const cv=document.createElement('canvas'); cv.width=256; cv.height=256;
+  const cx=cv.getContext('2d',{willReadFrequently:true}); cx.drawImage(bmp,0,0);
+  if(bmp.close) bmp.close();
+  return {data:cx.getImageData(0,0,256,256).data,fromCache};
 }
+async function computeTerrain(force){
+  if(!pos||terrainBusy) return;
+  if(!force&&terrain&&distBrg(pos,terrain.c).dist<0.3) return;
+  terrainBusy=true; const t0=performance.now(), c={lat:pos.lat,lon:pos.lon};
+  try{
+    const bands=bandsFor(c), jobs=[];
+    bands.forEach(b=>{ for(let iy=0;iy<b.ny;iy++) for(let ix=0;ix<b.nx;ix++) jobs.push({b,idx:iy*b.nx+ix,x:b.tx0+ix,y:b.ty0+iy}); });
+    let next=0, done=0, cached=0, failed=0;
+    const worker=async()=>{ while(next<jobs.length){ const j=jobs[next++];
+      try{ const r=await loadTileData(j.b.z,j.x,j.y); j.b.tiles[j.idx]=r.data; if(r.fromCache) cached++; }catch(e){ failed++; }
+      done++; reliefState=skylineState=`tuiles ${done}/${jobs.length}`; } };
+    await Promise.all([worker(),worker(),worker(),worker()]);
+    if(failed===jobs.length) throw new Error('aucune tuile d\'altitude disponible (reseau ?)');
+    reliefState=skylineState='calcul…';
+    const e0=elevAt(bands,c.lat,c.lon,0), h0=(e0===e0?e0:0)+1.6, pm=new Array(NB);
+    for(let bi=0;bi<NB;bi++){ pm[bi]=maskRow(bands,c,h0,bi); if(bi%90===89) await new Promise(r=>setTimeout(r,0)); }
+    terrain={c,h0,bands,pm,at:Date.now()};
+    obsElev=h0-1.6;
+    reliefState=skylineState='ok';
+    logNet('Terrain',true,`${jobs.length} tuiles (${cached} en cache${failed?`, ${failed} en echec`:''}), ${Math.round(performance.now()-t0)} ms, observateur a ${Math.round(obsElev)} m`);
+    applyOcclusion(true);
+  }catch(e){ reliefState=skylineState='indispo'; logNet('Terrain',false,friendlyErr(e)); }
+  terrainBusy=false;
+}
+function applyOcclusion(log){
+  if(!terrain||!pos){ for(const c of cities){ c.hidden=false; c.aG=null; } return; }
+  let checked=0, hidden=0, unknown=0;
+  for(const c of cities){
+    if(c.dist==null) continue;
+    if(c.demT!==terrain.at){ const e=elevAt(terrain.bands,c.lat,c.lon,c.dist); c.dem=e===e?e:null; c.demT=terrain.at; }
+    const r=assessPlace(terrain,c,HT[c.kind]??12);
+    c.aG=r.aG; c.aP=r.aP; c.mask=r.mask; c.hidden=r.hidden;
+    checked++; if(r.hidden) hidden++; if(r.unknown) unknown++;
+  }
+  reliefStats={checked,hidden,unknown};
+  if(log) logNet('Relief',true,`${checked} lieux verifies, ${hidden} masques par le relief`+(unknown?`, ${unknown} hors couverture (altitude supposee 0 m)`:''));
+}
+function skylineElevAt(brg){ return terrain?maskFrom(terrain.pm,brg,1e9):null; }
 
 // ---------- trafic en direct : avions (OpenSky) et bateaux (AISStream) ----------
 let planes=[], ships=new Map(), obsElev=0, tMsg={air:'',sea:''};
@@ -752,30 +794,37 @@ function draw(ts){
   ctx.beginPath(); ctx.moveTo(W/2,hy-9); ctx.lineTo(W/2,hy+9); ctx.moveTo(W/2-9,hy); ctx.lineTo(W/2+9,hy); ctx.stroke();
 
   // ligne d'horizon calculee (aide au calage) : silhouette du relief theorique
-  if(S.skyline&&skyline){
+  if(S.skyline&&terrain){
     ctx.beginPath(); let started=false;
     for(let x=-40;x<=W+40;x+=6){
       const dB=Math.atan((x-W/2)/fh)/D, brg=(heading+dB+360)%360;
       const e=skylineElevAt(brg);
-      if(e==null){ started=false; continue; }
+      if(e==null||e<-10){ started=false; continue; }
       const y=H/2+fh*Math.tan((pitch-e)*D);
       if(!started){ ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y);
     }
     ctx.strokeStyle='rgba(224,165,38,.9)'; ctx.lineWidth=2; ctx.setLineDash([]); ctx.stroke();
   }
 
-  const lanes=[]; const maxLanes=9;
+  // --- lieux : ancres sur le relief (sol du lieu, ou crete qui le laisse entrevoir) ---
+  // les lieux masques ne sont traces qu'en mode "voir au-dela", en fantome, apres les visibles
+  const useRelief=S.relief&&!!terrain, placed=[], topLimit=safeT+48+16, maxLanes=9;
+  const order=useRelief&&S.beyond?list.filter(c=>!c.hidden).concat(list.filter(c=>c.hidden)):list;
   ctx.textBaseline='alphabetic'; ctx.textAlign='left'; ctx.lineJoin='round';
-  for(const c of list){
-    if(S.relief&&c.hidden) continue;
+  for(const c of order){
+    const ghost=useRelief&&c.hidden;
+    if(ghost&&!S.beyond) continue;
     if(!passFilter(c,fq)) continue;
     const dB=wrap(c.brg-heading);
     if(Math.abs(dB)>Math.min(80,S.fov*0.8)) continue;
     const x=W/2+fh*Math.tan(dB*D);
     if(x<-40||x>W+40) continue;
+    let aA=0;
+    if(useRelief&&c.aG!=null) aA=ghost?c.aG:Math.max(c.aG,Math.min(c.mask,c.aP));
+    const ay=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-aA)*D)));
     const poi=!SETTLE.has(c.kind);
     const size=c.kind==='city'?18:c.kind==='town'?16:c.kind==='village'?14:poi?13:12;
-    const alpha=SETTLE.has(c.kind)?(c.kind==='city'||c.kind==='town'?1:.8):.9;
+    const alpha=(SETTLE.has(c.kind)?(c.kind==='city'||c.kind==='town'?1:.8):.9)*(ghost?.5:1);
     const tint=poi?'224,165,38':'243,233,210';
     ctx.font=`700 ${size}px ${FD}`;
     const nw=ctx.measureText(c.name).width;
@@ -783,18 +832,24 @@ function draw(ts){
     ctx.font=`500 11px ${FM}`;
     const dw=dtxt?ctx.measureText(dtxt).width+7:0;
     const x0=x-2, x1=x+6+nw+dw+4;
-    let k=0; while(k<maxLanes&&(lanes[k]||[]).some(iv=>x0<iv[1]+8&&x1>iv[0]-8)) k++;
-    if(k>=maxLanes) continue;
-    (lanes[k]=lanes[k]||[]).push([x0,x1]);
-    const ly=hy-26-k*22;
+    let ly=null;
+    for(let k=0;k<maxLanes;k++){ // premiere place libre au-dessus de l'ancre
+      const cand=ay-24-k*22;
+      if(cand<topLimit) break;
+      if(!placed.some(r=>x0<r[1]+8&&x1>r[0]-8&&cand-size-2<r[3]&&cand+4>r[2])){ ly=cand; break; }
+    }
+    if(ly==null) continue;
+    placed.push([x0,x1,ly-size-2,ly+4]);
     ctx.strokeStyle=poi?`rgba(224,165,38,${.8*alpha})`:`rgba(255,255,255,${.85*alpha})`; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(x,hy); ctx.lineTo(x,ly+3); ctx.stroke();
-    ctx.fillStyle=poi?'rgba(224,165,38,.95)':'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(x,hy,2.2,0,7); ctx.fill();
+    if(ghost) ctx.setLineDash([2,3]);
+    ctx.beginPath(); ctx.moveTo(x,ay); ctx.lineTo(x,ly+3); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=poi?`rgba(224,165,38,${.95*alpha})`:`rgba(255,255,255,${.9*alpha})`;
+    ctx.beginPath(); ctx.arc(x,ay,ghost?1.8:2.4,0,7); ctx.fill();
     ctx.font=`700 ${size}px ${FD}`;
-    ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.lineWidth=3.5;
+    ctx.strokeStyle=`rgba(14,26,43,${ghost?.6:.9})`; ctx.lineWidth=3.5;
     ctx.strokeText(c.name,x+6,ly); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,x+6,ly);
     if(dtxt){ ctx.font=`500 11px ${FM}`;
-      ctx.lineWidth=3; ctx.strokeText(dtxt,x+6+nw+7,ly); ctx.fillStyle='#E0A526'; ctx.fillText(dtxt,x+6+nw+7,ly); }
+      ctx.lineWidth=3; ctx.strokeText(dtxt,x+6+nw+7,ly); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,x+6+nw+7,ly); }
   }
   // --- mobiles : avions et bateaux, places a leur hauteur angulaire reelle ---
   const Reff=6371000*1.13, h0=obsElev+1.6;
@@ -840,7 +895,7 @@ function draw(ts){
     ctx.beginPath(); ctx.moveTo(x,top+rh); ctx.lineTo(x,top+rh-len); ctx.stroke();
     if(card){ ctx.fillStyle='#F3E9D2'; ctx.font=`700 13px ${FD}`; ctx.fillText(CARD[n/45],x,top+rh-len-5); }
   }
-  for(const c of list){ if(S.relief&&c.hidden) continue; if(!passFilter(c,fq)) continue; const dB=wrap(c.brg-heading); if(Math.abs(dB)>S.fov/2+6) continue;
+  for(const c of list){ if(useRelief&&c.hidden&&!S.beyond) continue; if(!passFilter(c,fq)) continue; const dB=wrap(c.brg-heading); if(Math.abs(dB)>S.fov/2+6) continue;
     ctx.fillStyle=!SETTLE.has(c.kind)?'#E0A526':c.kind==='city'?'#F3E9D2':'rgba(243,233,210,.6)';
     ctx.beginPath(); ctx.arc(W/2+dB*ppd,top+9,c.kind==='city'?2.6:1.8,0,7); ctx.fill(); }
   ctx.fillStyle='#E0A526'; ctx.fillRect(W/2-1,top+rh-20,2,20);
@@ -854,10 +909,11 @@ function draw(ts){
 
   // statut
   const g=pos?`GPS ±${Math.round(acc||0)} m`:'GPS —';
-  const shown=list.filter(c=>(!S.relief||!c.hidden)&&passFilter(c,fq)).length;
+  const shown=list.filter(c=>(!useRelief||!c.hidden)&&passFilter(c,fq)).length;
+  const nHidden=useRelief?list.filter(c=>c.hidden&&passFilter(c,fq)).length:0;
   lastShown=shown;
   const tr=(S.air&&tMsg.air?' · '+tMsg.air:'')+(S.sea&&tMsg.sea?' · '+tMsg.sea:'');
-  setStatus(`${g} · ${shown} lieux · ${source}${S.relief?' · relief '+reliefState:''}${tr}${sensor?'':' · boussole —'}`);
+  setStatus(`${g} · ${shown} lieux${nHidden?` (+${nHidden} masqués${S.beyond?', affichés':''})`:''} · ${source}${S.relief?' · relief '+reliefState:''}${tr}${sensor?'':' · boussole —'}`);
   const cal=$('calib');
   if(S.headOff||S.pitchOff){ cal.style.display='block'; cal.innerHTML=`cap ${S.headOff>0?'+':''}${S.headOff.toFixed(0)}° · horizon ${S.pitchOff>0?'+':''}${S.pitchOff.toFixed(0)}°<b>remettre</b>`; }
   else cal.style.display='none';
@@ -908,7 +964,8 @@ function renderDebug(){
     <div class="dbgline">${zoneTxt}</div>
     ${zonesHtml}
     <div class="dbgsec">Relief / ligne d'horizon</div>
-    <div class="dbgline">relief : ${reliefState} · horizon : ${skylineState}</div>
+    <div class="dbgline">relief : ${reliefState}${terrain?` · observateur a ${Math.round(obsElev)} m`:''}</div>
+    <div class="dbgline">${reliefStats.checked} lieux verifies, ${reliefStats.hidden} masques${reliefStats.unknown?`, ${reliefStats.unknown} hors couverture`:''} · voir au-dela : ${S.beyond?'oui':'non'}</div>
     <div class="dbgsec">Trafic en direct</div>
     <div class="dbgline">avions : ${tMsg.air||'desactive'} · bateaux : ${tMsg.sea||'desactive'}</div>
     <div class="dbgsec">Journal reseau (${netLog.length} entrees)</div>
@@ -927,12 +984,12 @@ let radT;
 $('rad').oninput=e=>{S.radius=+e.target.value;$('radV').textContent=S.radius+' km';clearTimeout(radT);radT=setTimeout(()=>loadCities(false),900);saveSettings();};
 $('fov').oninput=e=>{S.fov=+e.target.value;$('fovV').textContent=S.fov+'°';saveSettings();};
 $('vil').onchange=e=>{S.hamlets=e.target.checked;loadCities(true);saveSettings();};
-$('rel').onchange=e=>{S.relief=e.target.checked;if(S.relief)computeRelief();saveSettings();};
-$('sky').onchange=e=>{S.skyline=e.target.checked;saveSettings();if(S.skyline&&!skyline)computeSkyline();};
+$('rel').onchange=e=>{S.relief=e.target.checked;if(S.relief)computeTerrain(false);saveSettings();};
+$('sky').onchange=e=>{S.skyline=e.target.checked;saveSettings();if(S.skyline)computeTerrain(false);};
 $('btnSky').onclick=async()=>{
   const b=$('btnSky'); const orig=b.textContent; b.disabled=true; b.textContent='Calcul…';
-  await computeSkyline();
-  b.textContent=skylineState==='ok'?'Ligne d\'horizon prête':'Échec — réessayer';
+  await computeTerrain(true);
+  b.textContent=skylineState==='ok'?'Relief recalculé':'Échec — réessayer';
   setTimeout(()=>{ b.disabled=false; b.textContent=orig; },2000);
 };
 
@@ -964,8 +1021,8 @@ async function autoAlign(){
   if(!pos){ b.textContent='GPS indispo'; setTimeout(()=>b.textContent=orig,2000); return; }
   b.disabled=true; b.textContent='Analyse…';
   try{
-    if(!skyline||distBrg(pos,skyline.at).dist>2) await computeSkyline();
-    if(!skyline||skylineState!=='ok') throw new Error('pas de ligne d\'horizon');
+    if(!terrain||distBrg(pos,terrain.c).dist>0.3) await computeTerrain(false);
+    if(!terrain) throw new Error('pas de relief');
     const {heading,pitch}=pose(), fh=(W/2)/Math.tan(S.fov/2*D);
     const raw=extractObservedHorizon();
     if(raw.length<15) throw new Error('contraste insuffisant');
@@ -1007,7 +1064,7 @@ Object.keys(POI).forEach(k=>{
   const id='poi_'+k;
   d.innerHTML=`<label for="${id}">${POI[k].label}<em>&le; ${POI[k].max} km</em></label><input type="checkbox" id="${id}"${S.poi[k]?' checked':''}>`;
   $('poiList').appendChild(d);
-  d.querySelector('input').onchange=e=>{ S.poi[k]=e.target.checked; reliefAt=null; loadCities(true); saveSettings(); };
+  d.querySelector('input').onchange=e=>{ S.poi[k]=e.target.checked; loadCities(true); saveSettings(); };
 });
 $('filt').addEventListener('click',()=>setFilter(''));
 
@@ -1019,6 +1076,8 @@ const fsOn=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
 async function toggleFS(){ try{ if(fsOn()) await fsExit.call(document); else await fsReq.call(FSel); }catch(e){} }
 if(!fsReq) $('btnFs').style.display='none';
 $('btnFs').onclick=toggleFS;
+$('btnBeyond').onclick=()=>{ S.beyond=!S.beyond; $('btnBeyond').classList.toggle('on',S.beyond); saveSettings(); };
+$('btnBeyond').classList.toggle('on',S.beyond);
 const onFsChange=()=>{ $('btnFs').innerHTML=fsOn()
   ? '<svg viewBox="0 0 24 24"><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"/></svg>'
   : '<svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>';
@@ -1026,7 +1085,7 @@ const onFsChange=()=>{ $('btnFs').innerHTML=fsOn()
 document.addEventListener('fullscreenchange',onFsChange);
 document.addEventListener('webkitfullscreenchange',onFsChange);
 $('dst').onchange=e=>{S.showDist=e.target.checked;saveSettings();};
-$('btnReload').onclick=()=>{reliefAt=null;loadCities(true);};
+$('btnReload').onclick=()=>{loadCities(true);computeTerrain(true);};
 
 // reflete les reglages charges (localStorage) sur les controles au demarrage
 (function syncControlsFromS(){
@@ -1072,7 +1131,7 @@ $('go').onclick=async()=>{
     catch(e){ camErr='Caméra refusée ou indisponible'; }
   }
   if(navigator.geolocation){
-    navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); if(S.relief&&reliefAt&&distBrg(pos,reliefAt).dist>1) computeRelief(); },
+    navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); computeTerrain(false); },
       err=>{ setStatus('GPS refusé : '+err.message); }, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
   } else setStatus('GPS indisponible');
   $('start').style.display='none';
