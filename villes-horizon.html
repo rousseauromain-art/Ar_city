@@ -26,12 +26,16 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #safe{position:absolute;top:0;left:0;width:1px;height:var(--safe-t);visibility:hidden}
 
 /* status + calibration chips */
-.chips{position:absolute;top:calc(var(--safe-t) + 60px);left:12px;max-width:calc(100% - 80px);display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none}
+.chips{position:absolute;top:calc(var(--safe-t) + 34px);left:12px;max-width:calc(100% - 80px);display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none}
 .chip{padding:5px 9px;border-radius:4px;background:rgba(14,26,43,.72);font:500 12px/1 var(--mono);color:var(--cream);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;backdrop-filter:blur(6px)}
 #calib,#filt{color:var(--ochre);display:none;pointer-events:auto}
 #note{display:none;color:var(--ochre);white-space:normal;line-height:1.35}
 #calib b,#filt b{font-weight:500;text-decoration:underline;margin-left:8px;color:var(--cream)}
-#tools{position:absolute;top:calc(var(--safe-t) + 56px);right:12px;display:flex;flex-direction:column;gap:8px}
+#status{pointer-events:auto;cursor:pointer;padding-right:22px;position:relative}
+#status::after{content:'▾';position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:9px;color:var(--ochre);transition:transform .15s}
+.chips.folded #status::after{transform:translateY(-50%) rotate(-90deg)}
+.chips.folded #calib,.chips.folded #filt,.chips.folded #note{display:none!important}
+#tools{position:absolute;top:calc(var(--safe-t) + 34px);right:12px;display:flex;flex-direction:column;gap:8px}
 #tools button{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.72);backdrop-filter:blur(6px)}
 #tools svg{width:19px;height:19px;stroke:var(--cream);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 #tools button:active{background:rgba(243,233,210,.2)}
@@ -150,6 +154,11 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <span class="hint">Angle du côté large du capteur (~67° pour un objectif principal standard). L'app en déduit le champ réellement affiché selon l'orientation et le recadrage. Le calage auto l'ajuste ; sinon, si deux lieux connus paraissent trop écartés ou trop serrés, corrigez ici.</span>
   </div>
   <div class="row">
+    <label for="maxlab">Nombre de noms max</label><span class="val" id="maxlabV">22</span>
+    <input type="range" id="maxlab" min="8" max="40" step="1" value="22">
+    <span class="hint">Limite le nombre d'étiquettes affichées à la fois, en gardant en priorité les villes puis les lieux remarquables les plus proches. Réduisez si l'écran est trop chargé.</span>
+  </div>
+  <div class="row">
     <label for="vil">Hameaux et lieux-dits</label><input type="checkbox" id="vil">
   </div>
   <div class="row">
@@ -264,8 +273,8 @@ const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kum
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-09-23 · relief 360° · pylônes ANFR';
-const S={radius:60,camFov:67,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,
+const APP_VERSION='2026-09-25 · lisibilité (noms 45°, bandeau replié)';
+const S={radius:60,camFov:67,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,maxLabels:22,chipsFold:false,
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
   lighthouse:{label:'Phares, feux et balises',        max:40, q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]']},
@@ -284,7 +293,7 @@ function loadSettings(){
   try{
     const raw=localStorage.getItem(PKEY); if(!raw) return;
     const saved=JSON.parse(raw);
-    for(const k of ['radius','camFov','hamlets','relief','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','beyond','telecom','telecomMax'])
+    for(const k of ['radius','camFov','hamlets','relief','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','beyond','telecom','telecomMax','maxLabels','chipsFold'])
       if(saved[k]!==undefined) S[k]=saved[k];
     if(saved.poi) Object.assign(S.poi,saved.poi);
   }catch(e){}
@@ -294,8 +303,8 @@ function saveSettings(){
   clearTimeout(saveSettingsT);
   saveSettingsT=setTimeout(()=>{
     try{
-      const {radius,camFov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,poi}=S;
-      localStorage.setItem(PKEY,JSON.stringify({radius,camFov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,poi}));
+      const {radius,camFov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,maxLabels,chipsFold,poi}=S;
+      localStorage.setItem(PKEY,JSON.stringify({radius,camFov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,maxLabels,chipsFold,poi}));
     }catch(e){}
   },300);
 }
@@ -909,10 +918,18 @@ function draw(ts){
 
   // --- lieux : ancres sur le relief (sol du lieu, ou crete qui le laisse entrevoir) ---
   // les lieux masques ne sont traces qu'en mode "voir au-dela", en fantome, apres les visibles
-  const useRelief=S.relief&&!!terrain, placed=[], topLimit=safeT+48+16, maxLanes=9;
+  // etiquettes inclinees a ~52° (facon PeakFinder), avec altitude si connue ; nombre total
+  // plafonne a S.maxLabels, dans l'ordre de priorite deja fourni par visibleCities() (RANK puis distance)
+  // etiquettes en eventail : celles a gauche du cap penchent vers le haut-gauche, celles a
+  // droite vers le haut-droite (comme PeakFinder) — evite que tout le monde derive du meme
+  // cote et se bloque mutuellement quand plusieurs lieux sont proches en relevement
+  const useRelief=S.relief&&!!terrain, placed=[], topLimit=safeT+24+14, maxLanes=9;
   const order=useRelief&&S.beyond?list.filter(c=>!c.hidden).concat(list.filter(c=>c.hidden)):list;
-  ctx.textBaseline='alphabetic'; ctx.textAlign='left'; ctx.lineJoin='round';
+  const ANG_LBL=52*D, cAL=Math.cos(ANG_LBL), sAL=Math.sin(ANG_LBL);
+  ctx.textBaseline='alphabetic'; ctx.lineJoin='round';
+  let shownCount=0;
   for(const c of order){
+    if(shownCount>=S.maxLabels) break;
     const ghost=useRelief&&c.hidden;
     if(ghost&&!S.beyond) continue;
     if(!passFilter(c,fq)) continue;
@@ -920,6 +937,7 @@ function draw(ts){
     if(Math.abs(dB)>Math.min(80,FOVH*0.8)) continue;
     const x=W/2+fh*Math.tan(dB*D);
     if(x<-40||x>W+40) continue;
+    const sgn=x<W/2?-1:1; // sens de l'eventail : gauche/droite de l'ecran
     let aA=0;
     if(useRelief&&c.aG!=null) aA=ghost?c.aG:Math.max(c.aG,Math.min(c.mask,c.aP));
     const ay=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-aA)*D)));
@@ -929,28 +947,40 @@ function draw(ts){
     const tint=poi?'224,165,38':'243,233,210';
     ctx.font=`700 ${size}px ${FD}`;
     const nw=ctx.measureText(c.name).width;
-    const dtxt=S.showDist?(c.dist<10?c.dist.toFixed(1):Math.round(c.dist))+' km':'';
+    const altTxt=c.ele!=null?Math.round(c.ele)+' m':'';
+    const distTxt=S.showDist?(c.dist<10?c.dist.toFixed(1):Math.round(c.dist))+' km':'';
+    const dtxt=[altTxt,distTxt].filter(Boolean).join(' · ');
     ctx.font=`500 11px ${FM}`;
     const dw=dtxt?ctx.measureText(dtxt).width+7:0;
-    const x0=x-2, x1=x+6+nw+dw+4;
-    let ly=null;
-    for(let k=0;k<maxLanes;k++){ // premiere place libre au-dessus de l'ancre
-      const cand=ay-24-k*22;
-      if(cand<topLimit) break;
-      if(!placed.some(r=>x0<r[1]+8&&x1>r[0]-8&&cand-size-2<r[3]&&cand+4>r[2])){ ly=cand; break; }
+    const totalLen=nw+dw+4, padTop=size+2, padBot=3;
+    let lx=null, ly=null;
+    for(let k=0;k<maxLanes;k++){ // premiere place libre le long de la diagonale montante
+      const diag=26+k*22, lsx=x+diag*sgn*cAL, lsy=ay-diag*sAL;
+      // boite englobante (axis-aligned) de l'etiquette inclinee, dans le repere ecran
+      // (px,py) parcourt les 4 coins locaux ; px va de 0 (ancrage) a sgn*totalLen (bout du texte)
+      let bx0=Infinity,bx1=-Infinity,by0=Infinity,by1=-Infinity;
+      for(const px of [0,sgn*totalLen]) for(const py of [-padTop,padBot]){
+        const sx=lsx+px*cAL+py*sgn*sAL, sy=lsy-sgn*px*sAL+py*cAL;
+        if(sx<bx0)bx0=sx; if(sx>bx1)bx1=sx; if(sy<by0)by0=sy; if(sy>by1)by1=sy;
+      }
+      if(by0<topLimit) break;
+      if(!placed.some(r=>bx0<r[1]+8&&bx1>r[0]-8&&by0<r[3]+6&&by1>r[2]-6)){ lx=lsx; ly=lsy; placed.push([bx0,bx1,by0,by1]); break; }
     }
     if(ly==null) continue;
-    placed.push([x0,x1,ly-size-2,ly+4]);
+    shownCount++;
     ctx.strokeStyle=poi?`rgba(224,165,38,${.8*alpha})`:`rgba(255,255,255,${.85*alpha})`; ctx.lineWidth=1;
     if(ghost) ctx.setLineDash([2,3]);
-    ctx.beginPath(); ctx.moveTo(x,ay); ctx.lineTo(x,ly+3); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(x,ay); ctx.lineTo(lx,ly); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle=poi?`rgba(224,165,38,${.95*alpha})`:`rgba(255,255,255,${.9*alpha})`;
     ctx.beginPath(); ctx.arc(x,ay,ghost?1.8:2.4,0,7); ctx.fill();
+    ctx.save(); ctx.translate(lx,ly); ctx.rotate(-sgn*ANG_LBL); ctx.textAlign=sgn>0?'left':'right';
     ctx.font=`700 ${size}px ${FD}`;
     ctx.strokeStyle=`rgba(14,26,43,${ghost?.6:.9})`; ctx.lineWidth=3.5;
-    ctx.strokeText(c.name,x+6,ly); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,x+6,ly);
+    ctx.strokeText(c.name,0,0); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,0,0);
     if(dtxt){ ctx.font=`500 11px ${FM}`;
-      ctx.lineWidth=3; ctx.strokeText(dtxt,x+6+nw+7,ly); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,x+6+nw+7,ly); }
+      const dx=sgn*(nw+7);
+      ctx.lineWidth=3; ctx.strokeText(dtxt,dx,0); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,dx,0); }
+    ctx.restore();
   }
   // --- pylones et points hauts telecom (rouge) : ancrage simple sur l'horizon, sans correction
   // de relief (on ne dispose pas de l'altitude du terrain a l'emplacement exact du support) ---
@@ -1017,8 +1047,8 @@ function draw(ts){
   }
   ctx.restore();
 
-  // --- ruban de cap (repère écran) ---
-  const rh=48, top=safeT;
+  // --- ruban de cap (repère écran) : hauteur réduite, sans pastilles de lieux ---
+  const rh=24, top=safeT;
   ctx.fillStyle='rgba(14,26,43,.78)'; ctx.fillRect(0,0,W,top+rh);
   ctx.fillStyle='rgba(243,233,210,.25)'; ctx.fillRect(0,top+rh,W,1);
   const ppd=W/FOVH;
@@ -1028,16 +1058,13 @@ function draw(ts){
     const deg=base+dd, n=((deg%360)+360)%360; if(n%5) continue;
     const x=W/2+(deg-heading)*ppd;
     const card=n%45===0;
-    const len=n%90===0?15:card?12:n%15===0?9:4;
+    const len=n%90===0?11:card?9:n%15===0?6:3;
     ctx.strokeStyle=card?'rgba(243,233,210,.95)':'rgba(243,233,210,.5)'; ctx.lineWidth=card?1.5:1;
     ctx.beginPath(); ctx.moveTo(x,top+rh); ctx.lineTo(x,top+rh-len); ctx.stroke();
-    if(card){ ctx.fillStyle='#F3E9D2'; ctx.font=`700 13px ${FD}`; ctx.fillText(CARD[n/45],x,top+rh-len-5); }
+    if(card){ ctx.fillStyle='#F3E9D2'; ctx.font=`700 11px ${FD}`; ctx.fillText(CARD[n/45],x,top+rh-len-4); }
   }
-  for(const c of list){ if(useRelief&&c.hidden&&!S.beyond) continue; if(!passFilter(c,fq)) continue; const dB=wrap(c.brg-heading); if(Math.abs(dB)>FOVH/2+6) continue;
-    ctx.fillStyle=!SETTLE.has(c.kind)?'#E0A526':c.kind==='city'?'#F3E9D2':'rgba(243,233,210,.6)';
-    ctx.beginPath(); ctx.arc(W/2+dB*ppd,top+9,c.kind==='city'?2.6:1.8,0,7); ctx.fill(); }
-  ctx.fillStyle='#E0A526'; ctx.fillRect(W/2-1,top+rh-20,2,20);
-  ctx.font=`500 12px ${FM}`;
+  ctx.fillStyle='#E0A526'; ctx.fillRect(W/2-1,top+rh-14,2,14);
+  ctx.font=`500 11px ${FM}`;
   ctx.fillStyle='#E0A526'; ctx.fillText(`${Math.round(heading)}°`,W/2,top+16);
 
   // --- messages ---
@@ -1178,6 +1205,7 @@ $('btnClose').onclick=()=>$('sheet').classList.remove('open');
 let radT;
 $('rad').oninput=e=>{S.radius=+e.target.value;$('radV').textContent=S.radius+' km';clearTimeout(radT);radT=setTimeout(()=>loadCities(false),900);saveSettings();};
 $('fov').oninput=e=>{S.camFov=+e.target.value;showFov();saveSettings();};
+$('maxlab').oninput=e=>{S.maxLabels=+e.target.value;$('maxlabV').textContent=S.maxLabels;saveSettings();};
 $('vil').onchange=e=>{S.hamlets=e.target.checked;loadCities(true);saveSettings();};
 $('rel').onchange=e=>{S.relief=e.target.checked;if(S.relief)computeTerrain(false);saveSettings();};
 $('sky').onchange=e=>{S.skyline=e.target.checked;saveSettings();if(S.skyline)computeTerrain(false);};
@@ -1350,9 +1378,12 @@ $('btnReload').onclick=()=>{loadCities(true);computeTerrain(true);};
 (function syncControlsFromS(){
   $('rad').value=S.radius; $('radV').textContent=S.radius+' km';
   $('fov').value=S.camFov; showFov();
+  $('maxlab').value=S.maxLabels; $('maxlabV').textContent=S.maxLabels;
   $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('dst').checked=S.showDist; $('sky').checked=S.skyline;
   $('air').checked=S.air; $('sea').checked=S.sea; $('tel').checked=S.telecom;
+  document.querySelector('.chips').classList.toggle('folded',S.chipsFold);
 })();
+$('status').addEventListener('click',()=>{ S.chipsFold=!S.chipsFold; document.querySelector('.chips').classList.toggle('folded',S.chipsFold); saveSettings(); });
 
 // ---------- photo ----------
 $('shutter').onclick=()=>{
