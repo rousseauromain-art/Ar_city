@@ -174,6 +174,10 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <span class="hint">Calcule, pour chaque direction, la crête la plus haute devant chaque lieu (tuiles d'altitude Mapterhorn — IGN ~1 m à proximité en France, Copernicus ~30 m au-delà —, courbure terrestre incluse). Les lieux cachés derrière une colline disparaissent ; l'œil en haut à droite les affiche en transparence.</span>
   </div>
   <div class="row">
+    <label for="relv1">Mode v1 (ancien, comparaison)</label><input type="checkbox" id="relv1">
+    <span class="hint">Bascule sur l'ancien relief (tuiles AWS/SRTM ~30 m, tolérance de masquage d'origine) et l'ancien style d'étiquette (droite, empilée au-dessus du repère), pour comparer avec le nouvel affichage (v2, actif par défaut : relief Mapterhorn plus précis, étiquettes inclinées façon PeakFinder).</span>
+  </div>
+  <div class="row">
     <label for="bey">Voir au-delà du relief</label><input type="checkbox" id="bey">
     <span class="hint">Affiche en transparence, avec un trait pointillé, les lieux cachés derrière une colline. Raccourci : l'icône œil, en haut à droite de l'écran caméra.</span>
   </div>
@@ -284,8 +288,8 @@ const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kum
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-09-25 · oeil utile en scene dense, diagnostic recherche par nom';
-const S={radius:60,camFov:67,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,maxLabels:22,chipsFold:false,
+const APP_VERSION='2026-09-25 · mode v1/v2 : relief et style d\'etiquette comparables';
+const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,maxLabels:22,chipsFold:false,
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
   lighthouse:{label:'Phares, feux et balises',        max:40, q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]']},
@@ -304,7 +308,7 @@ function loadSettings(){
   try{
     const raw=localStorage.getItem(PKEY); if(!raw) return;
     const saved=JSON.parse(raw);
-    for(const k of ['radius','camFov','hamlets','relief','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','beyond','telecom','telecomMax','maxLabels','chipsFold'])
+    for(const k of ['radius','camFov','hamlets','relief','reliefV1','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','beyond','telecom','telecomMax','maxLabels','chipsFold'])
       if(saved[k]!==undefined) S[k]=saved[k];
     if(saved.poi) Object.assign(S.poi,saved.poi);
   }catch(e){}
@@ -314,8 +318,8 @@ function saveSettings(){
   clearTimeout(saveSettingsT);
   saveSettingsT=setTimeout(()=>{
     try{
-      const {radius,camFov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,maxLabels,chipsFold,poi}=S;
-      localStorage.setItem(PKEY,JSON.stringify({radius,camFov,hamlets,relief,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,maxLabels,chipsFold,poi}));
+      const {radius,camFov,hamlets,relief,reliefV1,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,maxLabels,chipsFold,poi}=S;
+      localStorage.setItem(PKEY,JSON.stringify({radius,camFov,hamlets,relief,reliefV1,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,maxLabels,chipsFold,poi}));
     }catch(e){}
   },300);
 }
@@ -641,7 +645,7 @@ function maskFrom(pm,brg,dKm){
   const f=(((brg%360)+360)%360)/BSTEP, i0=Math.floor(f)%NB, i1=(i0+1)%NB, t=f-Math.floor(f);
   return pm[i0][k]*(1-t)+pm[i1][k]*t;
 }
-function assessPlace(T,c,ht){ // angles du lieu et verdict de visibilite
+function assessPlace(T,c,ht,tol){ // angles du lieu et verdict de visibilite
   const peak=c.kind==='peak'||c.kind==='cape';
   let eP=c.dem;
   if(c.ele!=null&&(peak||eP==null)) eP=Math.max(c.ele,eP==null?-1e9:eP);
@@ -651,10 +655,12 @@ function assessPlace(T,c,ht){ // angles du lieu et verdict de visibilite
   const mask=maskFrom(T.pm,c.brg,c.dist-Math.max(0.25,c.dist*(peak?0.07:0.03)));
   // sommets : tolerance ~0,12° (≈12 m a 6 km) car sur une colline arrondie l'epaulement plus proche
   // masque geometriquement le point culminant, alors que c'est bien ce sommet que l'on voit.
-  // autres lieux : ~0,06° (relief fin Mapterhorn ~1 m — une tolerance a 0,02°, qui passait
-  // inapercue avec les tuiles SRTM ~30 m lissees, masquait a tort beaucoup de lieux des qu'un
-  // relief reel mais mineur (haie, talus, leger vallonnement) apparaissait sur le profil)
-  const hidden=c.dist>0.3&&aP+(peak?0.12:0.06)<mask;
+  // autres lieux : tolerance passee en parametre (0,06° par defaut, moteur v2/Mapterhorn — un
+  // relief fin ~1 m rend visibles des irregularites qui passaient inapercues avec les tuiles
+  // SRTM ~30 m lissees ; l'appelant peut repasser a 0,02°, la tolerance d'origine du moteur v1,
+  // pour une comparaison a l'identique)
+  if(tol==null) tol=0.06;
+  const hidden=c.dist>0.3&&aP+(peak?0.12:tol)<mask;
   return {aG,aP,mask,hidden,unknown};
 }
 // altitude de l'observateur : moyenne (mediane) sur un petit voisinage plutot qu'un seul pixel.
@@ -709,7 +715,8 @@ async function computeTerrain(force){
   if(!pos||terrainBusy) return;
   if(!force&&terrain&&distBrg(pos,terrain.c).dist<0.3&&!(terrain.partial&&Date.now()-terrain.at>30000)) return; // tuiles manquantes : nouvel essai au plus toutes les 30 s
   terrainBusy=true; const t0=performance.now(), c={lat:pos.lat,lon:pos.lon};
-  const cfg=hrDown?BANDS_LEGACY:BANDS_HR, urlFn=hrDown?TILE_URL_LEGACY:TILE_URL_HR;
+  const useLegacy=S.reliefV1||hrDown; // v1 (comparaison manuelle) ou repli auto (Mapterhorn injoignable) : memes tuiles historiques
+  const cfg=useLegacy?BANDS_LEGACY:BANDS_HR, urlFn=useLegacy?TILE_URL_LEGACY:TILE_URL_HR;
   try{
     const bands=bandsFor(cfg,c), jobs=[];
     bands.forEach(b=>{ for(let iy=0;iy<b.ny;iy++) for(let ix=0;ix<b.nx;ix++) jobs.push({b,idx:iy*b.nx+ix,x:b.tx0+ix,y:b.ty0+iy}); });
@@ -724,8 +731,10 @@ async function computeTerrain(force){
       done++; reliefState=skylineState=`tuiles ${done}/${jobs.length}`; } };
     await Promise.all([worker(),worker(),worker(),worker()]);
     // Mapterhorn totalement injoignable (echec sur toutes les tuiles a couverture garantie) : on
-    // bascule pour la session sur les tuiles historiques AWS et on relance immediatement avec elles
-    if(!hrDown&&nGuaranteed>0&&failedGuaranteed===nGuaranteed){
+    // bascule pour la session sur les tuiles historiques AWS et on relance immediatement avec elles.
+    // Ne s'applique pas si les tuiles legacy ont ete demandees volontairement (moteur v1) : un echec
+    // dans ce cas est un probleme AWS, pas Mapterhorn, et ne doit pas etre journalise comme tel.
+    if(!useLegacy&&!hrDown&&nGuaranteed>0&&failedGuaranteed===nGuaranteed){
       hrDown=true; terrainBusy=false;
       logNet('Terrain',false,'Mapterhorn injoignable — repli sur les tuiles historiques (AWS/SRTM, ~30 m)');
       return computeTerrain(force);
@@ -734,11 +743,12 @@ async function computeTerrain(force){
     reliefState=skylineState='calcul…';
     const e0=localGroundElev(bands,c), h0=(e0===e0?e0:0)+1.6, pm=new Array(NB);
     for(let bi=0;bi<NB;bi++){ pm[bi]=maskRow(bands,c,h0,bi); if(bi%90===89) await new Promise(r=>setTimeout(r,0)); }
-    terrain={c,h0,bands,pm,at:Date.now(),partial:failed>0,src:hrDown?'legacy':'mapterhorn'};
+    const src=S.reliefV1?'v1':(hrDown?'legacy':'mapterhorn');
+    terrain={c,h0,bands,pm,at:Date.now(),partial:failed>0,src};
     clearTimeout(terrainRetryT); if(failed) terrainRetryT=setTimeout(()=>computeTerrain(false),30000);
     obsElev=h0-1.6;
     reliefState=skylineState='ok';
-    const srcTxt=hrDown?'AWS/SRTM ~30 m (repli)':'Mapterhorn (IGN ~1 m proche, Copernicus 30 m au-dela)';
+    const srcTxt=S.reliefV1?'AWS/SRTM ~30 m (moteur v1, comparaison)':(hrDown?'AWS/SRTM ~30 m (repli)':'Mapterhorn (IGN ~1 m proche, Copernicus 30 m au-dela)');
     const gapsTxt=[missingSea?`${missingSea} en mer`:'',missingHR?`${missingHR} hors couverture regionale (repli local)`:''].filter(Boolean).join(', ');
     logNet('Terrain',!failed,`${jobs.length} tuiles ${srcTxt} (${cached} en cache${gapsTxt?`, ${gapsTxt}`:''}${failed?`, ${failed} en echec — nouvel essai dans 30 s`:''}), ${Math.round(performance.now()-t0)} ms, observateur a ${Math.round(obsElev)} m`);
     applyOcclusion(true);
@@ -748,10 +758,11 @@ async function computeTerrain(force){
 function applyOcclusion(log){
   if(!terrain||!pos){ for(const c of cities){ c.hidden=false; c.aG=null; } return; }
   let checked=0, hidden=0, unknown=0;
+  const tol=S.reliefV1?0.02:0.06; // v1 (comparaison) : tolerance d'origine, avant l'assouplissement du passage a Mapterhorn
   for(const c of cities){
     if(c.dist==null) continue;
     if(c.demT!==terrain.at){ const e=elevAt(terrain.bands,c.lat,c.lon,c.dist); c.dem=e===e?e:null; c.demT=terrain.at; }
-    const r=assessPlace(terrain,c,HT[c.kind]??12);
+    const r=assessPlace(terrain,c,HT[c.kind]??12,tol);
     c.aG=r.aG; c.aP=r.aP; c.mask=r.mask; c.hidden=r.hidden;
     checked++; if(r.hidden) hidden++; if(r.unknown) unknown++;
   }
@@ -1025,6 +1036,10 @@ function draw(ts){
   // droite vers le haut-droite (comme PeakFinder) — evite que tout le monde derive du meme
   // cote et se bloque mutuellement quand plusieurs lieux sont proches en relevement
   const useRelief=S.relief&&!!terrain, placed=[], topLimit=safeT+24+14, maxLanes=9;
+  // v1 (comparaison) : ancien style d'etiquette, droite (non inclinee) et empilee verticalement
+  // au-dessus du point d'ancrage — comme l'affichage d'avant l'eventail incline actuel (v2). Ne
+  // change que l'apparence : meme liste de candidats, meme plafond S.maxLabels, meme priorite.
+  const oldLabelStyle=S.reliefV1;
   // mode "voir au-dela" (oeil) : les lieux masques sont intercales parmi les visibles (environ 1
   // pour 3) plutot que places tout a la fin de la liste — sinon, des qu'une scene compte plus de
   // lieux visibles que S.maxLabels, le plafond etait deja atteint avant que le moindre fantome ne
@@ -1042,7 +1057,7 @@ function draw(ts){
     if(Math.abs(dB)>Math.min(80,FOVH*0.8)) continue;
     const x=W/2+fh*Math.tan(dB*D);
     if(x<-40||x>W+40) continue;
-    const sgn=x<W/2?-1:1; // sens de l'eventail : gauche/droite de l'ecran
+    const sgn=x<W/2?-1:1; // sens de l'eventail : gauche/droite de l'ecran (v2 uniquement)
     let aA=0;
     if(useRelief&&c.aG!=null) aA=ghost?c.aG:Math.max(c.aG,Math.min(c.mask,c.aP));
     const ay=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-aA)*D)));
@@ -1056,36 +1071,59 @@ function draw(ts){
     const distTxt=S.showDist?(c.dist<10?c.dist.toFixed(1):Math.round(c.dist))+' km':'';
     const dtxt=[altTxt,distTxt].filter(Boolean).join(' · ');
     ctx.font=`500 11px ${FM}`;
-    const dw=dtxt?ctx.measureText(dtxt).width+7:0;
-    const totalLen=nw+dw+4, padTop=size+2, padBot=3;
+    const dw=dtxt?ctx.measureText(dtxt).width:0;
     let lx=null, ly=null;
-    for(let k=0;k<maxLanes;k++){ // premiere place libre le long de la diagonale montante
-      const diag=26+k*22, lsx=x+diag*sgn*cAL, lsy=ay-diag*sAL;
-      // boite englobante (axis-aligned) de l'etiquette inclinee, dans le repere ecran
-      // (px,py) parcourt les 4 coins locaux ; px va de 0 (ancrage) a sgn*totalLen (bout du texte)
-      let bx0=Infinity,bx1=-Infinity,by0=Infinity,by1=-Infinity;
-      for(const px of [0,sgn*totalLen]) for(const py of [-padTop,padBot]){
-        const sx=lsx+px*cAL+py*sgn*sAL, sy=lsy-sgn*px*sAL+py*cAL;
-        if(sx<bx0)bx0=sx; if(sx>bx1)bx1=sx; if(sy<by0)by0=sy; if(sy>by1)by1=sy;
+    if(oldLabelStyle){
+      // ancien style : bloc droit centre sur x, nom au-dessus de la distance/altitude, empile
+      // vers le haut au-dessus de l'ancre (premiere position verticale libre)
+      const boxW=Math.max(nw,dw)+8, blockH=dtxt?size+18:size+6;
+      for(let k=0;k<maxLanes;k++){
+        const cy=ay-12-k*(blockH+6); // baseline de la ligne du bas (distance, ou nom si pas de distance)
+        const by0=cy-blockH, by1=cy+4;
+        if(by0<topLimit) break;
+        const bx0=x-boxW/2, bx1=x+boxW/2;
+        if(!placed.some(r=>bx0<r[1]+6&&bx1>r[0]-6&&by0<r[3]+4&&by1>r[2]-4)){ lx=x; ly=cy; placed.push([bx0,bx1,by0,by1]); break; }
       }
-      if(by0<topLimit) break;
-      if(!placed.some(r=>bx0<r[1]+8&&bx1>r[0]-8&&by0<r[3]+6&&by1>r[2]-6)){ lx=lsx; ly=lsy; placed.push([bx0,bx1,by0,by1]); break; }
+    } else {
+      const totalLen=nw+(dtxt?dw+7:0)+4, padTop=size+2, padBot=3;
+      for(let k=0;k<maxLanes;k++){ // premiere place libre le long de la diagonale montante
+        const diag=26+k*22, lsx=x+diag*sgn*cAL, lsy=ay-diag*sAL;
+        // boite englobante (axis-aligned) de l'etiquette inclinee, dans le repere ecran
+        // (px,py) parcourt les 4 coins locaux ; px va de 0 (ancrage) a sgn*totalLen (bout du texte)
+        let bx0=Infinity,bx1=-Infinity,by0=Infinity,by1=-Infinity;
+        for(const px of [0,sgn*totalLen]) for(const py of [-padTop,padBot]){
+          const sx=lsx+px*cAL+py*sgn*sAL, sy=lsy-sgn*px*sAL+py*cAL;
+          if(sx<bx0)bx0=sx; if(sx>bx1)bx1=sx; if(sy<by0)by0=sy; if(sy>by1)by1=sy;
+        }
+        if(by0<topLimit) break;
+        if(!placed.some(r=>bx0<r[1]+8&&bx1>r[0]-8&&by0<r[3]+6&&by1>r[2]-6)){ lx=lsx; ly=lsy; placed.push([bx0,bx1,by0,by1]); break; }
+      }
     }
     if(ly==null) continue;
     shownCount++;
     ctx.strokeStyle=poi?`rgba(224,165,38,${.8*alpha})`:`rgba(255,255,255,${.85*alpha})`; ctx.lineWidth=1;
     if(ghost) ctx.setLineDash([2,3]);
-    ctx.beginPath(); ctx.moveTo(x,ay); ctx.lineTo(lx,ly); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(x,ay); ctx.lineTo(oldLabelStyle?x:lx,oldLabelStyle?ly+4:ly); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle=poi?`rgba(224,165,38,${.95*alpha})`:`rgba(255,255,255,${.9*alpha})`;
     ctx.beginPath(); ctx.arc(x,ay,ghost?1.8:2.4,0,7); ctx.fill();
-    ctx.save(); ctx.translate(lx,ly); ctx.rotate(-sgn*ANG_LBL); ctx.textAlign=sgn>0?'left':'right';
-    ctx.font=`700 ${size}px ${FD}`;
-    ctx.strokeStyle=`rgba(14,26,43,${ghost?.6:.9})`; ctx.lineWidth=3.5;
-    ctx.strokeText(c.name,0,0); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,0,0);
-    if(dtxt){ ctx.font=`500 11px ${FM}`;
-      const dx=sgn*(nw+7);
-      ctx.lineWidth=3; ctx.strokeText(dtxt,dx,0); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,dx,0); }
-    ctx.restore();
+    if(oldLabelStyle){
+      ctx.textAlign='center';
+      ctx.font=`700 ${size}px ${FD}`;
+      ctx.strokeStyle=`rgba(14,26,43,${ghost?.6:.9})`; ctx.lineWidth=3.5;
+      const nameY=dtxt?ly-14:ly;
+      ctx.strokeText(c.name,x,nameY); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,x,nameY);
+      if(dtxt){ ctx.font=`500 11px ${FM}`;
+        ctx.lineWidth=3; ctx.strokeText(dtxt,x,ly); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,x,ly); }
+    } else {
+      ctx.save(); ctx.translate(lx,ly); ctx.rotate(-sgn*ANG_LBL); ctx.textAlign=sgn>0?'left':'right';
+      ctx.font=`700 ${size}px ${FD}`;
+      ctx.strokeStyle=`rgba(14,26,43,${ghost?.6:.9})`; ctx.lineWidth=3.5;
+      ctx.strokeText(c.name,0,0); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,0,0);
+      if(dtxt){ ctx.font=`500 11px ${FM}`;
+        const dx=sgn*(nw+7);
+        ctx.lineWidth=3; ctx.strokeText(dtxt,dx,0); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,dx,0); }
+      ctx.restore();
+    }
   }
   // --- pylones et points hauts telecom (rouge) : ancrage simple sur l'horizon, sans correction
   // de relief (on ne dispose pas de l'altitude du terrain a l'emplacement exact du support) ---
@@ -1284,7 +1322,7 @@ function renderDebug(){
     ${zonesHtml}
     <div class="dbgsec">Relief / ligne d'horizon</div>
     <div class="dbgline">relief : ${reliefState}${terrain?` · observateur a ${Math.round(obsElev)} m`:''}</div>
-    <div class="dbgline">source : ${terrain?(terrain.src==='legacy'?'AWS/SRTM ~30 m (repli — Mapterhorn injoignable)':'Mapterhorn (IGN ~1 m proche, Copernicus 30 m au-delà)'):'—'}</div>
+    <div class="dbgline">source : ${terrain?(terrain.src==='v1'?'AWS/SRTM ~30 m (moteur v1, comparaison manuelle)':terrain.src==='legacy'?'AWS/SRTM ~30 m (repli — Mapterhorn injoignable)':'Mapterhorn (IGN ~1 m proche, Copernicus 30 m au-delà)'):'—'}</div>
     <div class="dbgline">${reliefStats.checked} lieux verifies, ${reliefStats.hidden} masques${reliefStats.unknown?`, ${reliefStats.unknown} hors couverture`:''} · voir au-dela : ${S.beyond?'oui':'non'}</div>
     <div class="dbgsec">Trafic en direct</div>
     <div class="dbgline">avions : ${S.air?(tMsg.air||'en attente'):'desactive (Reglages → Avions)'}</div>
@@ -1314,6 +1352,7 @@ $('fov').oninput=e=>{S.camFov=+e.target.value;showFov();saveSettings();};
 $('maxlab').oninput=e=>{S.maxLabels=+e.target.value;$('maxlabV').textContent=S.maxLabels;saveSettings();};
 $('vil').onchange=e=>{S.hamlets=e.target.checked;loadCities(true);saveSettings();};
 $('rel').onchange=e=>{S.relief=e.target.checked;if(S.relief)computeTerrain(false);saveSettings();};
+$('relv1').onchange=e=>{S.reliefV1=e.target.checked;saveSettings();computeTerrain(true);};
 $('sky').onchange=e=>{S.skyline=e.target.checked;saveSettings();if(S.skyline)computeTerrain(false);};
 $('btnSky').onclick=async()=>{
   const b=$('btnSky'); const orig=b.textContent; b.disabled=true; b.textContent='Calcul…';
@@ -1491,7 +1530,7 @@ $('btnReload').onclick=()=>{loadCities(true);computeTerrain(true);};
   $('rad').value=S.radius; $('radV').textContent=S.radius+' km';
   $('fov').value=S.camFov; showFov();
   $('maxlab').value=S.maxLabels; $('maxlabV').textContent=S.maxLabels;
-  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('dst').checked=S.showDist; $('sky').checked=S.skyline;
+  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('relv1').checked=S.reliefV1; $('dst').checked=S.showDist; $('sky').checked=S.skyline;
   $('air').checked=S.air; $('sea').checked=S.sea; $('tel').checked=S.telecom;
   document.querySelector('.chips').classList.toggle('folded',S.chipsFold);
 })();
