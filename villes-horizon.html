@@ -283,7 +283,7 @@ const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kum
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-09-25 · bouton de repli visible, relief Mapterhorn (IGN ~1 m)';
+const APP_VERSION='2026-09-25 · retrait surimpression horizon, tolerance relief ajustee';
 const S={radius:60,camFov:67,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,maxLabels:22,chipsFold:false,
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
@@ -649,9 +649,25 @@ function assessPlace(T,c,ht){ // angles du lieu et verdict de visibilite
   const aG=Math.atan2(eP-T.h0-drop,Dm)/D, aP=Math.atan2(eP+ht-T.h0-drop,Dm)/D;
   const mask=maskFrom(T.pm,c.brg,c.dist-Math.max(0.25,c.dist*(peak?0.07:0.03)));
   // sommets : tolerance ~0,12° (≈12 m a 6 km) car sur une colline arrondie l'epaulement plus proche
-  // masque geometriquement le point culminant, alors que c'est bien ce sommet que l'on voit
-  const hidden=c.dist>0.3&&aP+(peak?0.12:0.02)<mask;
+  // masque geometriquement le point culminant, alors que c'est bien ce sommet que l'on voit.
+  // autres lieux : ~0,06° (relief fin Mapterhorn ~1 m — une tolerance a 0,02°, qui passait
+  // inapercue avec les tuiles SRTM ~30 m lissees, masquait a tort beaucoup de lieux des qu'un
+  // relief reel mais mineur (haie, talus, leger vallonnement) apparaissait sur le profil)
+  const hidden=c.dist>0.3&&aP+(peak?0.12:0.06)<mask;
   return {aG,aP,mask,hidden,unknown};
+}
+// altitude de l'observateur : moyenne (mediane) sur un petit voisinage plutot qu'un seul pixel.
+// Avec des donnees fines (~1 m en France), un seul point peut tomber sur un trottoir, un fosse
+// ou une legere ondulation locale et biaiser tout le masque de relief — la precision GPS
+// (quelques metres) ne justifie pas d'etre aussi precis exactement a cet endroit.
+function localGroundElev(bands,c){
+  const dLat=15/111320, dLon=dLat/Math.max(0.2,Math.cos(c.lat*D)); // ~15 m
+  const pts=[[0,0],[dLat,0],[-dLat,0],[0,dLon],[0,-dLon]];
+  const vals=[];
+  for(const [oLat,oLon] of pts){ const e=elevAt(bands,c.lat+oLat,c.lon+oLon,0); if(e===e) vals.push(e); }
+  if(!vals.length) return NaN;
+  vals.sort((a,b)=>a-b);
+  return vals[Math.floor(vals.length/2)];
 }
 /*TERRAIN-CORE-END*/
 
@@ -715,7 +731,7 @@ async function computeTerrain(force){
     }
     if(failed===jobs.length) throw new Error('aucune tuile d\'altitude disponible (reseau ?)');
     reliefState=skylineState='calcul…';
-    const e0=elevAt(bands,c.lat,c.lon,0), h0=(e0===e0?e0:0)+1.6, pm=new Array(NB);
+    const e0=localGroundElev(bands,c), h0=(e0===e0?e0:0)+1.6, pm=new Array(NB);
     for(let bi=0;bi<NB;bi++){ pm[bi]=maskRow(bands,c,h0,bi); if(bi%90===89) await new Promise(r=>setTimeout(r,0)); }
     terrain={c,h0,bands,pm,at:Date.now(),partial:failed>0,src:hrDown?'legacy':'mapterhorn'};
     clearTimeout(terrainRetryT); if(failed) terrainRetryT=setTimeout(()=>computeTerrain(false),30000);
@@ -955,31 +971,17 @@ function draw(ts){
   ctx.strokeStyle='#E0A526'; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.moveTo(W/2,hy-9); ctx.lineTo(W/2,hy+9); ctx.moveTo(W/2-9,hy); ctx.lineTo(W/2+9,hy); ctx.stroke();
 
-  // ligne d'horizon calculee (aide au calage) : silhouette remplie du relief theorique (crete/cote),
-  // facon profil de montagne — plus lisible qu'un simple trait pour juger de la forme du relief
+  // ligne d'horizon calculee (aide au calage) : silhouette du relief theorique (trait seul —
+  // un remplissage jusqu'au bas de l'ecran recouvrait le premier plan de la camera, retire)
   if(S.skyline&&terrain){
-    const pts=[];
+    ctx.beginPath(); let started=false;
     for(let x=-40;x<=W+40;x+=6){
       const dB=Math.atan((x-W/2)/fh)/D, brg=(heading+dB+360)%360;
       const e=skylineElevAt(brg);
-      pts.push(e==null||e<-10?null:[x,H/2+fh*Math.tan((pitch-e)*D)]);
+      if(e==null||e<-10){ started=false; continue; }
+      const y=H/2+fh*Math.tan((pitch-e)*D);
+      if(!started){ ctx.moveTo(x,y); started=true; } else ctx.lineTo(x,y);
     }
-    // remplissage par segments continus (ne relie pas au travers d'un trou de couverture)
-    ctx.fillStyle='rgba(224,165,38,.16)';
-    let seg=[];
-    const flushFill=()=>{
-      if(seg.length>1){
-        ctx.beginPath(); ctx.moveTo(seg[0][0],H+40);
-        for(const p of seg) ctx.lineTo(p[0],p[1]);
-        ctx.lineTo(seg[seg.length-1][0],H+40); ctx.closePath(); ctx.fill();
-      }
-      seg=[];
-    };
-    for(const p of pts){ if(p) seg.push(p); else flushFill(); }
-    flushFill();
-    // ligne de crete nette par-dessus, pour le calage fin
-    ctx.beginPath(); let started=false;
-    for(const p of pts){ if(!p){ started=false; continue; } if(!started){ ctx.moveTo(p[0],p[1]); started=true; } else ctx.lineTo(p[0],p[1]); }
     ctx.strokeStyle='rgba(224,165,38,.9)'; ctx.lineWidth=2; ctx.setLineDash([]); ctx.stroke();
   }
 
