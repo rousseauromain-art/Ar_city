@@ -149,6 +149,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   <div class="row">
     <label for="flt">Filtrer par nom</label><span class="val" id="fltN"></span>
     <input type="search" id="flt" placeholder="ex. Crozon, Saint-" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <span class="hint" id="fltDiag" style="display:none;color:var(--ochre)"></span>
     <span class="hint">Accents et majuscules ignores. Laissez vide pour tout afficher.</span>
   </div>
   <div class="row">
@@ -283,7 +284,7 @@ const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kum
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-09-25 · retrait surimpression horizon, tolerance relief ajustee';
+const APP_VERSION='2026-09-25 · oeil utile en scene dense, diagnostic recherche par nom';
 const S={radius:60,camFov:67,hamlets:false,relief:true,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,maxLabels:22,chipsFold:false,
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
@@ -930,6 +931,37 @@ function visibleCities(){
   _visVer=citiesVer; _visRad=S.radius;
   return _visCache;
 }
+// intercale les lieux masques (b) parmi les visibles (a), environ 1 pour "ratio" — utilise par le
+// mode "voir au-dela" pour que les fantomes ne soient pas tous relegues apres le plafond S.maxLabels
+function interleaveGhosts(a,b,ratio=3){
+  if(!b.length) return a;
+  const out=[]; let bi=0;
+  for(let i=0;i<a.length;i++){
+    out.push(a[i]);
+    if((i+1)%ratio===0&&bi<b.length) out.push(b[bi++]);
+  }
+  while(bi<b.length) out.push(b[bi++]);
+  return out;
+}
+// diagnostic "pourquoi ce lieu n'apparait pas" pour la recherche par nom : explique la premiere
+// raison rencontree (hameau non affiche, hors de portee, masque par le relief, doublon...) plutot
+// que de simplement renvoyer "0 trouve(s)"
+function whyAbsent(c){
+  if((c.kind==='hamlet'||c.kind==='isolated_dwelling')&&!S.hamlets) return 'hameau/lieu-dit non chargé (case "Hameaux et lieux-dits" décochée dans Réglages)';
+  if(c.dist==null) return 'distance non calculée';
+  if(c.dist>S.radius) return `hors du rayon affiché (${c.dist.toFixed(1)} km, réglage actuel ${S.radius} km)`;
+  const m=MAXD[c.kind];
+  if(m!=null&&c.dist>m) return `trop loin pour ce type de lieu (${c.dist.toFixed(1)} km, max ${m} km pour "${c.kind}")`;
+  if(S.relief&&terrain&&c.hidden) return 'masqué par le relief (bouton œil "voir au-delà du relief" pour l\'afficher quand même)';
+  return null;
+}
+function diagnoseFilter(fq){
+  const raw=cities.filter(c=>passFilter(c,fq));
+  if(!raw.length) return "aucun lieu de ce nom dans les données chargées (hors de la zone récupérée, ou absent d'OpenStreetMap ici)";
+  raw.sort((a,b)=>(a.dist??1e9)-(b.dist??1e9));
+  const reason=whyAbsent(raw[0])||"écarté comme doublon d'un lieu proche du même nom (homonymes à moins de 2 km fusionnés)";
+  return reason+(raw.length>1?` (+${raw.length-1} résultat(s) similaire(s))`:'');
+}
 
 // ---------- rendu ----------
 let W=0,H=0,dpr=1,safeT=0;
@@ -993,7 +1025,11 @@ function draw(ts){
   // droite vers le haut-droite (comme PeakFinder) — evite que tout le monde derive du meme
   // cote et se bloque mutuellement quand plusieurs lieux sont proches en relevement
   const useRelief=S.relief&&!!terrain, placed=[], topLimit=safeT+24+14, maxLanes=9;
-  const order=useRelief&&S.beyond?list.filter(c=>!c.hidden).concat(list.filter(c=>c.hidden)):list;
+  // mode "voir au-dela" (oeil) : les lieux masques sont intercales parmi les visibles (environ 1
+  // pour 3) plutot que places tout a la fin de la liste — sinon, des qu'une scene compte plus de
+  // lieux visibles que S.maxLabels, le plafond etait deja atteint avant que le moindre fantome ne
+  // soit tente, et l'oeil semblait ne rien faire
+  const order=useRelief&&S.beyond?interleaveGhosts(list.filter(c=>!c.hidden),list.filter(c=>c.hidden)):list;
   const ANG_LBL=52*D, cAL=Math.cos(ANG_LBL), sAL=Math.sin(ANG_LBL);
   ctx.textBaseline='alphabetic'; ctx.lineJoin='round';
   let shownCount=0;
@@ -1393,7 +1429,12 @@ async function autoAlign(){
 $('btnAutoAlign').onclick=autoAlign;
 $('btnAlign').onclick=async()=>{ const b=$('btnAlign'); b.classList.add('on'); note('Calage en cours…',20000); note(await runAutoAlign(),6000); b.classList.remove('on'); };
 function setFilter(v){ S.filter=v; if($('flt').value!==v) $('flt').value=v;
-  const n=$('fltN'); if(v){ const fq=norm(v); n.textContent=visibleCities().filter(c=>passFilter(c,fq)).length+' trouve(s)'; } else n.textContent=''; }
+  const n=$('fltN'), d=$('fltDiag');
+  if(!v){ n.textContent=''; d.style.display='none'; return; }
+  const fq=norm(v), nShown=visibleCities().filter(c=>passFilter(c,fq)).length;
+  if(nShown){ n.textContent=nShown+' trouve(s)'; d.style.display='none'; }
+  else{ n.textContent='0 trouve(s)'; d.textContent=diagnoseFilter(fq); d.style.display='block'; }
+}
 $('flt').oninput=e=>setFilter(e.target.value.trim());
 $('air').onchange=e=>{S.air=e.target.checked;syncTraffic();saveSettings();};
 $('sea').onchange=e=>{S.sea=e.target.checked;syncTraffic();saveSettings();};
