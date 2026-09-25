@@ -43,6 +43,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #tools button{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.72);backdrop-filter:blur(6px)}
 #tools svg{width:19px;height:19px;stroke:var(--cream);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 #tools button:active{background:rgba(243,233,210,.2)}
+#btnFind.holding{background:rgba(224,165,38,.55);transition:background .15s}
 #btnFind.on,#btnBeyond.on,#btnAlign.on{background:rgba(224,165,38,.85)}
 #btnFind.on svg,#btnBeyond.on svg,#btnAlign.on svg{stroke:var(--ink)}
 .sec{margin-top:6px;padding:14px 0 4px;border-top:1px solid var(--line);font:700 15px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--ochre)}
@@ -104,6 +105,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .row input[type=search]{grid-column:1/-1;width:100%;background:var(--ink2);border:1px solid var(--line);border-radius:3px;color:var(--cream);padding:11px 12px;font:500 15px var(--mono);-webkit-appearance:none}
 .row input[type=search]::placeholder{color:rgba(243,233,210,.4)}
 .row .hint{grid-column:1/-1;font:400 12px/1.4 var(--mono);color:rgba(243,233,210,.55)}
+.fltSugg{display:inline;background:none;border:0;border-bottom:1px dotted var(--ochre);color:var(--ochre);font:inherit;padding:0;cursor:pointer}
 #reset{grid-column:1/-1;justify-self:start;font:500 12px var(--mono);color:var(--cream);border:1px solid var(--line);padding:8px 12px;border-radius:3px;letter-spacing:.06em}
 
 /* photo preview */
@@ -131,7 +133,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <div id="note" class="chip"></div>
   </div>
   <div id="tools">
-    <button id="btnFind" aria-label="Filtrer par nom"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg></button>
+    <button id="btnFind" aria-label="Filtrer par nom (maintenir)" title="Maintenir pour ouvrir"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg></button>
     <button id="btnBeyond" aria-label="Voir au-dela du relief"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
     <button id="btnAlign" aria-label="Calage automatique"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg></button>
     <button id="btnFs" aria-label="Plein ecran"><svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
@@ -174,8 +176,12 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <span class="hint">Calcule, pour chaque direction, la crête la plus haute devant chaque lieu (tuiles d'altitude Mapterhorn — IGN ~1 m à proximité en France, Copernicus ~30 m au-delà —, courbure terrestre incluse). Les lieux cachés derrière une colline disparaissent ; l'œil en haut à droite les affiche en transparence.</span>
   </div>
   <div class="row">
-    <label for="relv1">Mode v1 (ancien, comparaison)</label><input type="checkbox" id="relv1">
-    <span class="hint">Bascule sur l'ancien relief (tuiles AWS/SRTM ~30 m, tolérance de masquage d'origine) et l'ancien style d'étiquette (droite, empilée au-dessus du repère), pour comparer avec le nouvel affichage (v2, actif par défaut : relief Mapterhorn plus précis, étiquettes inclinées façon PeakFinder).</span>
+    <label for="relv1">Ancien relief (v1, comparaison)</label><input type="checkbox" id="relv1">
+    <span class="hint">Bascule sur l'ancien relief (tuiles AWS/SRTM ~30 m, tolérance de masquage d'origine) pour comparer avec le nouveau (v2, Mapterhorn, plus précis, actif par défaut). Ce réglage change quels lieux sont masqués : c'est volontairement l'objet de la comparaison, donc la liste des noms peut différer entre v1 et v2 ici.</span>
+  </div>
+  <div class="row">
+    <label for="lblv1">Ancien style d'étiquette (v1, comparaison)</label><input type="checkbox" id="lblv1">
+    <span class="hint">Bascule sur l'ancien affichage des noms (texte droit, empilé au-dessus du repère) au lieu de l'éventail incliné actuel (v2). Réglage indépendant du relief ci-dessus : seule l'apparence change, les mêmes lieux restent affichés dans les deux styles.</span>
   </div>
   <div class="row">
     <label for="bey">Voir au-delà du relief</label><input type="checkbox" id="bey">
@@ -288,8 +294,8 @@ const ENDPOINTS=['https://overpass-api.de/api/interpreter','https://overpass.kum
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-09-25 · mode v1/v2 : relief et style d\'etiquette comparables';
-const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,maxLabels:22,chipsFold:false,
+const APP_VERSION='2026-09-26 · style v1/v2 decouple du relief (mêmes lieux dans les deux styles)';
+const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,labelV1:false,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,maxLabels:22,chipsFold:false,
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
   lighthouse:{label:'Phares, feux et balises',        max:40, q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]']},
@@ -301,6 +307,45 @@ const POI={
 };
 const norm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const passFilter=(c,fq)=>!fq||norm(c.name).includes(fq);
+const fmtKm=km=>km==null?'':(km<10?km.toFixed(1):Math.round(km))+' km';
+// distance d'edition (Levenshtein) : sert uniquement au repli flou de la recherche par nom
+// (jamais sur le chemin d'affichage par image, donc pas de contrainte de performance forte)
+function levenshtein(a,b){
+  const m=a.length,n=b.length; if(!m) return n; if(!n) return m;
+  let prev=new Array(n+1); for(let j=0;j<=n;j++) prev[j]=j;
+  for(let i=1;i<=m;i++){
+    const cur=[i];
+    for(let j=1;j<=n;j++) cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    prev=cur;
+  }
+  return prev[n];
+}
+// plus petite distance d'edition entre fq et une fenetre glissante du nom (evite de penaliser
+// une recherche courte plongee dans un nom bien plus long, ex. "toma" dans "tagomago")
+function fuzzyDist(name,fq){
+  const maxDist=fq.length<=4?1:2, wMin=Math.max(1,fq.length-1), wMax=fq.length+2;
+  let best=Infinity;
+  for(let w=wMin;w<=wMax;w++) for(let i=0;i+w<=name.length;i++){
+    const d=levenshtein(fq,name.slice(i,i+w));
+    if(d<best) best=d; if(best===0) return 0;
+  }
+  return best<=maxDist?best:null;
+}
+// suggestions "vouliez-vous dire" quand la recherche exacte ne trouve rien (faute de frappe/lettre
+// manquante) : repli flou, calcule seulement a la saisie (pas par image, donc peu couteux)
+function fuzzySuggest(fq,limit){
+  limit=limit||3;
+  if(fq.length<3) return []; // trop court : le flou produirait trop de faux positifs
+  const scored=[], seen=new Set();
+  for(const c of cities){
+    const n=norm(c.name);
+    if(n.includes(fq)||seen.has(c.name)) continue;
+    const d=fuzzyDist(n,fq);
+    if(d!=null){ scored.push({c,d}); seen.add(c.name); }
+  }
+  scored.sort((a,b)=>a.d-b.d||(a.c.dist??1e9)-(b.c.dist??1e9));
+  return scored.slice(0,limit).map(s=>s.c);
+}
 
 // ---------- persistance des reglages et du calage (localStorage) ----------
 const PKEY='vh_settings_v2';
@@ -308,7 +353,7 @@ function loadSettings(){
   try{
     const raw=localStorage.getItem(PKEY); if(!raw) return;
     const saved=JSON.parse(raw);
-    for(const k of ['radius','camFov','hamlets','relief','reliefV1','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','beyond','telecom','telecomMax','maxLabels','chipsFold'])
+    for(const k of ['radius','camFov','hamlets','relief','reliefV1','labelV1','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','beyond','telecom','telecomMax','maxLabels','chipsFold'])
       if(saved[k]!==undefined) S[k]=saved[k];
     if(saved.poi) Object.assign(S.poi,saved.poi);
   }catch(e){}
@@ -318,8 +363,8 @@ function saveSettings(){
   clearTimeout(saveSettingsT);
   saveSettingsT=setTimeout(()=>{
     try{
-      const {radius,camFov,hamlets,relief,reliefV1,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,maxLabels,chipsFold,poi}=S;
-      localStorage.setItem(PKEY,JSON.stringify({radius,camFov,hamlets,relief,reliefV1,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,maxLabels,chipsFold,poi}));
+      const {radius,camFov,hamlets,relief,reliefV1,labelV1,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,maxLabels,chipsFold,poi}=S;
+      localStorage.setItem(PKEY,JSON.stringify({radius,camFov,hamlets,relief,reliefV1,labelV1,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,maxLabels,chipsFold,poi}));
     }catch(e){}
   },300);
 }
@@ -966,9 +1011,16 @@ function whyAbsent(c){
   if(S.relief&&terrain&&c.hidden) return 'masqué par le relief (bouton œil "voir au-delà du relief" pour l\'afficher quand même)';
   return null;
 }
+const NO_MATCH_MSG="aucun lieu de ce nom dans les données chargées (hors de la zone récupérée, ou absent d'OpenStreetMap ici)";
 function diagnoseFilter(fq){
   const raw=cities.filter(c=>passFilter(c,fq));
-  if(!raw.length) return "aucun lieu de ce nom dans les données chargées (hors de la zone récupérée, ou absent d'OpenStreetMap ici)";
+  if(!raw.length){
+    // recherche exacte infructueuse : tente un repli flou (faute de frappe, lettre manquante —
+    // ex. "toma" pour "Tagomago") avant de conclure a une absence pure et simple des donnees
+    const sugg=fuzzySuggest(fq,3);
+    if(!sugg.length) return NO_MATCH_MSG;
+    return NO_MATCH_MSG+` — peut-être : ${sugg.map(c=>c.name+(c.dist!=null?` (${fmtKm(c.dist)})`:'')).join(', ')} ?`;
+  }
   raw.sort((a,b)=>(a.dist??1e9)-(b.dist??1e9));
   const reason=whyAbsent(raw[0])||"écarté comme doublon d'un lieu proche du même nom (homonymes à moins de 2 km fusionnés)";
   return reason+(raw.length>1?` (+${raw.length-1} résultat(s) similaire(s))`:'');
@@ -1037,9 +1089,11 @@ function draw(ts){
   // cote et se bloque mutuellement quand plusieurs lieux sont proches en relevement
   const useRelief=S.relief&&!!terrain, placed=[], topLimit=safeT+24+14, maxLanes=9;
   // v1 (comparaison) : ancien style d'etiquette, droite (non inclinee) et empilee verticalement
-  // au-dessus du point d'ancrage — comme l'affichage d'avant l'eventail incline actuel (v2). Ne
-  // change que l'apparence : meme liste de candidats, meme plafond S.maxLabels, meme priorite.
-  const oldLabelStyle=S.reliefV1;
+  // au-dessus du point d'ancrage — comme l'affichage d'avant l'eventail incline actuel (v2).
+  // Reglage INDEPENDANT de S.reliefV1 (moteur de relief) : ce dernier peut legitimement changer
+  // quels lieux sont masques (c'est le but de cette comparaison-la), mais le style d'etiquette,
+  // lui, ne doit jamais a lui seul faire apparaitre/disparaitre un nom — seule l'apparence change.
+  const oldLabelStyle=S.labelV1;
   // mode "voir au-dela" (oeil) : les lieux masques sont intercales parmi les visibles (environ 1
   // pour 3) plutot que places tout a la fin de la liste — sinon, des qu'une scene compte plus de
   // lieux visibles que S.maxLabels, le plafond etait deja atteint avant que le moindre fantome ne
@@ -1353,6 +1407,7 @@ $('maxlab').oninput=e=>{S.maxLabels=+e.target.value;$('maxlabV').textContent=S.m
 $('vil').onchange=e=>{S.hamlets=e.target.checked;loadCities(true);saveSettings();};
 $('rel').onchange=e=>{S.relief=e.target.checked;if(S.relief)computeTerrain(false);saveSettings();};
 $('relv1').onchange=e=>{S.reliefV1=e.target.checked;saveSettings();computeTerrain(true);};
+$('lblv1').onchange=e=>{S.labelV1=e.target.checked;saveSettings();}; // apparence seule : pas de recalcul de relief necessaire
 $('sky').onchange=e=>{S.skyline=e.target.checked;saveSettings();if(S.skyline)computeTerrain(false);};
 $('btnSky').onclick=async()=>{
   const b=$('btnSky'); const orig=b.textContent; b.disabled=true; b.textContent='Calcul…';
@@ -1469,16 +1524,50 @@ $('btnAutoAlign').onclick=autoAlign;
 $('btnAlign').onclick=async()=>{ const b=$('btnAlign'); b.classList.add('on'); note('Calage en cours…',20000); note(await runAutoAlign(),6000); b.classList.remove('on'); };
 function setFilter(v){ S.filter=v; if($('flt').value!==v) $('flt').value=v;
   const n=$('fltN'), d=$('fltDiag');
-  if(!v){ n.textContent=''; d.style.display='none'; return; }
-  const fq=norm(v), nShown=visibleCities().filter(c=>passFilter(c,fq)).length;
-  if(nShown){ n.textContent=nShown+' trouve(s)'; d.style.display='none'; }
-  else{ n.textContent='0 trouve(s)'; d.textContent=diagnoseFilter(fq); d.style.display='block'; }
+  if(!v){ n.textContent=''; d.style.display='none'; d.textContent=''; return; }
+  const fq=norm(v), raw=cities.filter(c=>passFilter(c,fq)), nShown=visibleCities().filter(c=>passFilter(c,fq)).length;
+  if(nShown){ n.textContent=nShown+' trouve(s)'; d.style.display='none'; d.textContent=''; return; }
+  n.textContent='0 trouve(s)'; d.style.display='block';
+  if(raw.length){ d.textContent=diagnoseFilter(fq); return; } // match exact trouve mais ecarte : texte simple
+  // aucun match exact : diagnostic + suggestions "vouliez-vous dire" cliquables (repli flou),
+  // pour retrouver un lieu comme "Tagomago" cherche via une saisie approximative ("toma")
+  const sugg=fuzzySuggest(fq,3);
+  if(!sugg.length){ d.textContent=NO_MATCH_MSG; return; }
+  d.textContent='';
+  d.appendChild(document.createTextNode(NO_MATCH_MSG+' — peut-être : '));
+  sugg.forEach((c,i)=>{
+    if(i) d.appendChild(document.createTextNode(', '));
+    const b=document.createElement('button');
+    b.type='button'; b.className='fltSugg';
+    b.textContent=c.name+(c.dist!=null?` (${fmtKm(c.dist)})`:'');
+    b.onclick=()=>{ $('flt').value=c.name; $('flt').focus(); setFilter(c.name); };
+    d.appendChild(b);
+  });
+  d.appendChild(document.createTextNode(' ?'));
 }
 $('flt').oninput=e=>setFilter(e.target.value.trim());
 $('air').onchange=e=>{S.air=e.target.checked;syncTraffic();saveSettings();};
 $('sea').onchange=e=>{S.sea=e.target.checked;syncTraffic();saveSettings();};
 $('tel').onchange=e=>{S.telecom=e.target.checked;telecomAt=null;syncTraffic();saveSettings();};
-$('btnFind').onclick=()=>{ $('sheet').classList.add('open'); $('sheet').scrollTop=0; setTimeout(()=>$('flt').focus(),260); };
+// #btnFind : ouverture sur appui LONG plutot que sur simple tap. En paysage, ce bouton (coin
+// haut-droit) se trouve pile la ou les doigts reposent en tenant le telephone : un simple tap
+// s'ouvrait donc par accident. Un appui bref (frolement) n'ouvre plus rien ; il faut maintenir.
+(function(){
+  const btn=$('btnFind'), HOLD_MS=320;
+  const openSearch=()=>{ $('sheet').classList.add('open'); $('sheet').scrollTop=0; setTimeout(()=>$('flt').focus(),260); };
+  let downAt=0, glowT=null;
+  const start=e=>{ e.preventDefault(); downAt=Date.now(); clearTimeout(glowT); glowT=setTimeout(()=>btn.classList.add('holding'),90); };
+  const cancel=()=>{ clearTimeout(glowT); btn.classList.remove('holding'); downAt=0; };
+  const end=()=>{
+    if(!downAt) return;
+    const held=Date.now()-downAt; clearTimeout(glowT); btn.classList.remove('holding'); downAt=0;
+    if(held>=HOLD_MS) openSearch();
+  };
+  btn.addEventListener('pointerdown',start);
+  btn.addEventListener('pointerup',end);
+  btn.addEventListener('pointercancel',cancel);
+  btn.addEventListener('pointerleave',cancel);
+})();
 
 // cases a cocher des categories de reperes
 Object.keys(POI).forEach(k=>{
@@ -1530,7 +1619,7 @@ $('btnReload').onclick=()=>{loadCities(true);computeTerrain(true);};
   $('rad').value=S.radius; $('radV').textContent=S.radius+' km';
   $('fov').value=S.camFov; showFov();
   $('maxlab').value=S.maxLabels; $('maxlabV').textContent=S.maxLabels;
-  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('relv1').checked=S.reliefV1; $('dst').checked=S.showDist; $('sky').checked=S.skyline;
+  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('relv1').checked=S.reliefV1; $('lblv1').checked=S.labelV1; $('dst').checked=S.showDist; $('sky').checked=S.skyline;
   $('air').checked=S.air; $('sea').checked=S.sea; $('tel').checked=S.telecom;
   document.querySelector('.chips').classList.toggle('folded',S.chipsFold);
 })();
