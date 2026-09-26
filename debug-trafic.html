@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Débug trafic — avions &amp; bateaux</title>
+<style>
+  :root{ --ink:#0E1A2B; --ink2:#182A42; --cream:#F3E9D2; --ochre:#E0A526; --line:rgba(243,233,210,.22);
+    --ok:#6FCF97; --bad:#E85A5A; --sea:#7AA7E0; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--cream);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:16px;max-width:920px;margin:0 auto}
+  h1{font-size:20px;margin:8px 0 2px}
+  p.lead{color:rgba(243,233,210,.7);margin:0 0 18px;font-size:13.5px}
+  .card{background:var(--ink2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:14px}
+  .card h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 10px;color:var(--ochre)}
+  .card h2.sea{color:var(--sea)}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+  label{font-size:12.5px;color:rgba(243,233,210,.75);display:block;margin-bottom:3px}
+  .field{display:flex;flex-direction:column;flex:1 1 120px;min-width:100px}
+  input[type=text],input[type=number]{background:var(--ink);border:1px solid var(--line);color:var(--cream);border-radius:4px;padding:7px 8px;font:13px/1 monospace;width:100%}
+  button{background:rgba(224,165,38,.16);border:1px solid rgba(224,165,38,.5);color:var(--ochre);border-radius:4px;padding:8px 12px;font:700 12.5px/1 monospace;text-transform:uppercase;letter-spacing:.04em;cursor:pointer}
+  button.sea{background:rgba(122,167,224,.16);border-color:rgba(122,167,224,.5);color:var(--sea)}
+  button:active{opacity:.8}
+  button:disabled{opacity:.4;cursor:default}
+  button.ghost{background:none;border-color:var(--line);color:var(--cream);text-transform:none;font-weight:500}
+  .hint{font-size:12px;color:rgba(243,233,210,.55);margin:2px 0 10px}
+  .out{margin-top:10px}
+  .stat{display:inline-block;background:rgba(0,0,0,.25);border-radius:4px;padding:3px 8px;font:700 12px monospace;margin:0 6px 6px 0}
+  .stat.ok{color:var(--ok)} .stat.bad{color:var(--bad)}
+  .url{font:12px/1.4 monospace;color:rgba(243,233,210,.65);word-break:break-all;background:rgba(0,0,0,.2);border-radius:4px;padding:6px 8px;margin:4px 0}
+  pre{background:#08111d;border:1px solid var(--line);border-radius:6px;padding:10px;font:12px/1.5 monospace;max-height:420px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:6px 0 0}
+  .msg{font-size:13px;margin-top:6px}
+  .msg.bad{color:var(--bad)} .msg.ok{color:var(--ok)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  @media (max-width:520px){ .grid2{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+
+<h1>Débug trafic — avions &amp; bateaux</h1>
+<p class="lead">Page à part de « villes à l'horizon » : envoie exactement les mêmes requêtes que l'appli (mêmes formules de zone), et affiche la réponse brute complète — sans aucun filtre — pour voir ce qui est réellement reçu.</p>
+
+<div class="card">
+  <h2>Paramètres</h2>
+  <div class="row">
+    <div class="field" style="flex:2 1 260px">
+      <label for="relay">Relais (Cloudflare Worker)</label>
+      <input type="text" id="relay" placeholder="https://votre-relais.workers.dev">
+    </div>
+    <div class="field">
+      <label for="lat">Latitude</label>
+      <input type="text" id="lat" value="42.699">
+    </div>
+    <div class="field">
+      <label for="lon">Longitude</label>
+      <input type="text" id="lon" value="3.031">
+    </div>
+    <div class="field" style="flex:0 0 auto;justify-content:flex-end">
+      <label>&nbsp;</label>
+      <button class="ghost" id="btnLoc">Ma position</button>
+    </div>
+  </div>
+  <div class="hint">Le relais est requis pour les bateaux (AISStream refuse les navigateurs). Pour les avions, il est optionnel (accès anonyme direct sinon, quota réduit). CORS : le relais n'autorise que l'origine configurée côté serveur (<code>ALLOWED_ORIGIN</code>) — ouvrez cette page depuis le même site que l'appli (ex. GitHub Pages) pour qu'il l'accepte.</div>
+  <div class="row">
+    <button class="ghost" id="btnCheck">Vérifier le relais (/check)</button>
+  </div>
+  <div id="checkOut" class="out"></div>
+</div>
+
+<div class="card">
+  <h2>Avions (OpenSky)</h2>
+  <div class="row">
+    <div class="field">
+      <label for="airR">Rayon (km)</label>
+      <input type="number" id="airR" value="120" min="1" max="400">
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button id="btnAir">Interroger</button>
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button class="ghost" id="btnAirBusy">Zone témoin : Paris/CDG/Orly</button>
+    </div>
+  </div>
+  <div class="hint">Même construction que l'appli : boîte lat/lon de ± le rayon choisi autour du point, limitée à 3,4° de côté (protection quota, jamais atteinte en usage normal).</div>
+  <div id="airOut" class="out"></div>
+</div>
+
+<div class="card">
+  <h2 class="sea">Bateaux (AISStream)</h2>
+  <div class="row">
+    <div class="field">
+      <label for="seaR">Rayon (km)</label>
+      <input type="number" id="seaR" value="40" min="1" max="400">
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button class="sea" id="btnSea">Interroger</button>
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button class="ghost" id="btnSeaBusy">Zone témoin : Détroit du Pas-de-Calais</button>
+    </div>
+  </div>
+  <div class="hint">Le relais ouvre une connexion AISStream, écoute ~10&nbsp;s sur la zone, puis renvoie tout ce qui est arrivé (<code>received</code> = messages AIS bruts reçus, <code>ships</code> = navires avec position connue après filtrage). <code>received&nbsp;=&nbsp;0</code> = rien reçu du tout dans la fenêtre d'écoute (clé/zone/couverture à vérifier) ; <code>received&nbsp;&gt;&nbsp;0</code> mais <code>ships</code> vide = des messages arrivent mais aucun n'a encore de position exploitable dans cette fenêtre de 10&nbsp;s (fréquent en zone peu fréquentée : réessayez, ou zoomez sur une zone témoin).</div>
+  <div id="seaOut" class="out"></div>
+</div>
+
+<script src="config.js" onerror="void 0"></script>
+<script>
+(() => {
+const $=id=>document.getElementById(id);
+const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
+if(CONFIG.relay) $('relay').value=CONFIG.relay;
+
+const relayBase=()=>{ let r=($('relay').value||'').trim(); if(!r) return '';
+  if(!/^https?:\/\//i.test(r)) r='https://'+r;
+  try{ return new URL(r).origin; }catch(e){ return r.replace(/\/+$/,''); } };
+
+// --- memes formules que l'appli (bbox + boxQuery) : la zone interrogee ici est identique ---
+function bbox(lat,lon,km){
+  const dLat=km/111, dLon=km/(111*Math.max(0.2,Math.cos(lat*Math.PI/180)));
+  return {la1:lat-dLat,la2:lat+dLat,lo1:lon-dLon,lo2:lon+dLon};
+}
+function boxQuery(b){ // cotes limitees a 3,4° : le relais refuse au-dela de 3,5°
+  const c=(lo,hi)=>{ const m=(lo+hi)/2, h=Math.min((hi-lo)/2,1.7); return [m-h,m+h]; };
+  const [la1,la2]=c(b.la1,b.la2), [lo1,lo2]=c(b.lo1,b.lo2);
+  return {lamin:la1,lomin:lo1,lamax:la2,lomax:lo2};
+}
+function qs(box){ return `lamin=${box.lamin.toFixed(3)}&lomin=${box.lomin.toFixed(3)}&lamax=${box.lamax.toFixed(3)}&lomax=${box.lomax.toFixed(3)}`; }
+
+function fetchT(url,ms){
+  const ctrl=new AbortController(); const id=setTimeout(()=>ctrl.abort(),ms);
+  return fetch(url,{signal:ctrl.signal}).finally(()=>clearTimeout(id));
+}
+
+function statLine(items){
+  return items.map(([label,val,cls])=>`<span class="stat${cls?(' '+cls):''}">${label} : ${val}</span>`).join('');
+}
+function esc(s){ return String(s).replace(/[<&]/g,c=>c==='<'?'&lt;':'&amp;'); }
+
+async function runQuery(outEl,{label,url,directFallbackUrl}){
+  outEl.innerHTML=`<div class="msg">Requête en cours…</div><div class="url">${esc(url)}</div>`;
+  const t0=performance.now();
+  try{
+    const r=await fetchT(url,20000);
+    const ms=Math.round(performance.now()-t0);
+    let j=null, rawText='';
+    try{ rawText=await r.text(); j=JSON.parse(rawText); }catch(e){ j=null; }
+    const okCls=r.ok?'ok':'bad';
+    outEl.innerHTML=`
+      <div class="url">${esc(url)}</div>
+      <div>${statLine([['HTTP',r.status,okCls],['durée',ms+' ms']])}</div>
+      <pre>${esc(j?JSON.stringify(j,null,2):(rawText||'(réponse vide)'))}</pre>`;
+    return {ok:r.ok,status:r.status,json:j,ms};
+  }catch(e){
+    outEl.innerHTML=`<div class="url">${esc(url)}</div><div class="msg bad">Échec : ${esc((e&&e.message)||e)}</div>`;
+    if(directFallbackUrl) return runQuery(outEl,{label,url:directFallbackUrl});
+    return {ok:false,error:e};
+  }
+}
+
+async function queryPlanes(lat,lon,km,outEl){
+  const box=boxQuery(bbox(lat,lon,km)), q=qs(box), relay=relayBase();
+  const url=relay?`${relay}/planes?${q}`:`https://opensky-network.org/api/states/all?${q}`;
+  const res=await runQuery(outEl,{label:'avions',url});
+  if(res && res.json){
+    const n=(res.json.states||[]).length;
+    outEl.insertAdjacentHTML('afterbegin',
+      `<div>${statLine([['avions',n,n>0?'ok':''],['source',relay?('relais, '+(res.json.auth||'?')):'direct anonyme'],['crédits restants',res.json.creditsRestants??'—']])}</div>`);
+    if(res.json.error) outEl.insertAdjacentHTML('afterbegin',`<div class="msg bad">${esc(res.json.error)}</div>`);
+  }
+}
+async function querySea(lat,lon,km,outEl){
+  const relay=relayBase();
+  if(!relay){ outEl.innerHTML='<div class="msg bad">Relais requis pour les bateaux (AISStream refuse les navigateurs) : renseignez son URL ci-dessus.</div>'; return; }
+  const box=boxQuery(bbox(lat,lon,km)), q=qs(box);
+  const url=`${relay}/ships?${q}`;
+  const res=await runQuery(outEl,{label:'bateaux',url});
+  if(res && res.json){
+    const n=(res.json.ships||[]).length, rec=res.json.received??'—', lms=res.json.listenMs??'—';
+    outEl.insertAdjacentHTML('afterbegin',
+      `<div>${statLine([['bateaux (avec position)',n,n>0?'ok':'bad'],['messages reçus (received)',rec,(+rec>0)?'ok':'bad'],['durée écoute',lms+' ms']])}</div>`);
+    if(res.json.error) outEl.insertAdjacentHTML('afterbegin',`<div class="msg bad">erreur amont : ${esc(res.json.error)}</div>`);
+    if(n===0 && +rec>0) outEl.insertAdjacentHTML('afterbegin',`<div class="msg">${rec} message(s) AIS reçu(s) mais aucun avec position exploitable dans cette fenêtre de 10 s — souvent juste de la malchance sur une zone peu fréquentée : réessayez, ou testez la zone témoin.</div>`);
+    if(n===0 && +rec===0) outEl.insertAdjacentHTML('afterbegin',`<div class="msg">0 message reçu du tout pendant les 10 s d'écoute : soit aucun navire ne diffusait AIS dans cette zone à cet instant, soit la clé/couverture AISStream a un problème — testez la zone témoin (Détroit du Pas-de-Calais, très fréquentée) pour trancher.</div>`);
+  }
+}
+
+$('btnLoc').onclick=()=>{
+  if(!navigator.geolocation) return alert('Géolocalisation indisponible dans ce navigateur');
+  navigator.geolocation.getCurrentPosition(p=>{ $('lat').value=p.coords.latitude.toFixed(5); $('lon').value=p.coords.longitude.toFixed(5); },
+    e=>alert('GPS refusé : '+e.message));
+};
+$('btnCheck').onclick=async()=>{
+  const relay=relayBase();
+  if(!relay){ $('checkOut').innerHTML='<div class="msg bad">Aucun relais renseigné.</div>'; return; }
+  await runQuery($('checkOut'),{label:'check',url:`${relay}/check`});
+};
+$('btnAir').onclick=()=>queryPlanes(parseFloat($('lat').value),parseFloat($('lon').value),parseFloat($('airR').value)||120,$('airOut'));
+$('btnSea').onclick=()=>querySea(parseFloat($('lat').value),parseFloat($('lon').value),parseFloat($('seaR').value)||40,$('seaOut'));
+$('btnAirBusy').onclick=()=>{ $('lat').value='48.85'; $('lon').value='2.35'; $('airR').value=120; queryPlanes(48.85,2.35,120,$('airOut')); };
+// Detroit du Pas-de-Calais / Douvres : l'un des chenaux les plus frequentes au monde, sert de
+// zone temoin positive (si 0 bateau ici, le probleme est cote cle/relais, pas cote trafic reel)
+$('btnSeaBusy').onclick=()=>{ $('lat').value='50.95'; $('lon').value='1.45'; $('seaR').value=40; querySea(50.95,1.45,40,$('seaOut')); };
+})();
+</script>
+</body>
+</html>
