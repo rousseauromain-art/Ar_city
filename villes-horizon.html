@@ -167,7 +167,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   <div class="row">
     <label for="maxlab">Nombre de noms max</label><span class="val" id="maxlabV">22</span>
     <input type="range" id="maxlab" min="8" max="40" step="1" value="22">
-    <span class="hint">Limite le nombre d'étiquettes affichées à la fois, en gardant en priorité les villes puis les lieux remarquables les plus proches. Réduisez si l'écran est trop chargé.</span>
+    <span class="hint">Limite le nombre d'étiquettes affichées à la fois, en gardant en priorité les villes puis les lieux remarquables les plus proches. Réduisez si l'écran est trop chargé. Cette limite s'applique séparément aux lieux normaux et aux lieux masqués par le relief (mode « voir au-delà ») : activer l'œil peut donc ajouter jusqu'à ce même nombre de fantômes, en plus des lieux normaux.</span>
   </div>
   <div class="row">
     <label for="vil">Hameaux et lieux-dits</label><input type="checkbox" id="vil">
@@ -720,7 +720,7 @@ function maskFrom(pm,brg,dKm){
   const f=(((brg%360)+360)%360)/BSTEP, i0=Math.floor(f)%NB, i1=(i0+1)%NB, t=f-Math.floor(f);
   return pm[i0][k]*(1-t)+pm[i1][k]*t;
 }
-function assessPlace(T,c,ht,tol){ // angles du lieu et verdict de visibilite
+function assessPlace(T,c,ht,tol,peakTol){ // angles du lieu et verdict de visibilite
   const peak=c.kind==='peak'||c.kind==='cape';
   let eP=c.dem;
   if(c.ele!=null&&(peak||eP==null)) eP=Math.max(c.ele,eP==null?-1e9:eP);
@@ -728,14 +728,17 @@ function assessPlace(T,c,ht,tol){ // angles du lieu et verdict de visibilite
   const Dm=c.dist*1000, drop=Dm*Dm/(2*REFF);
   const aG=Math.atan2(eP-T.h0-drop,Dm)/D, aP=Math.atan2(eP+ht-T.h0-drop,Dm)/D;
   const mask=maskFrom(T.pm,c.brg,c.dist-Math.max(0.25,c.dist*(peak?0.07:0.03)));
-  // sommets : tolerance ~0,12° (≈12 m a 6 km) car sur une colline arrondie l'epaulement plus proche
-  // masque geometriquement le point culminant, alors que c'est bien ce sommet que l'on voit.
-  // autres lieux : tolerance passee en parametre (0,06° par defaut, moteur v2/Mapterhorn — un
-  // relief fin ~1 m rend visibles des irregularites qui passaient inapercues avec les tuiles
-  // SRTM ~30 m lissees ; l'appelant peut repasser a 0,02°, la tolerance d'origine du moteur v1,
-  // pour une comparaison a l'identique)
-  if(tol==null) tol=0.06;
-  const hidden=c.dist>0.3&&aP+(peak?0.12:tol)<mask;
+  // sommets/caps : tolerance passee en parametre peakTol (0,28° par defaut, moteur v2/Mapterhorn)
+  // car sur une colline arrondie l'epaulement plus proche masque geometriquement le point
+  // culminant, alors que c'est bien ce sommet que l'on voit — et le relief fin ~1 m y est
+  // particulierement sensible aux irregularites locales (retour terrain du 26/09/2026 : des
+  // pointes/caps clairement visibles a l'oeil nu disparaissaient a tort). Autres lieux : tolerance
+  // passee en parametre tol (0,18° par defaut, meme raison). L'appelant peut repasser 0,12°/0,02°,
+  // les tolerances d'origine du moteur v1 (SRTM ~30 m, plus grossier, moins sujet a ces faux masques)
+  // pour une comparaison a l'identique.
+  if(tol==null) tol=0.18;
+  if(peakTol==null) peakTol=0.28;
+  const hidden=c.dist>0.3&&aP+(peak?peakTol:tol)<mask;
   return {aG,aP,mask,hidden,unknown};
 }
 // altitude de l'observateur : moyenne (mediane) sur un petit voisinage plutot qu'un seul pixel.
@@ -860,11 +863,15 @@ async function computeTerrain(force){
 function applyOcclusion(log){
   if(!terrain||!pos){ for(const c of cities){ c.hidden=false; c.aG=null; } return; }
   let checked=0, hidden=0, unknown=0;
-  const tol=S.reliefV1?0.02:0.06; // v1 (comparaison) : tolerance d'origine, avant l'assouplissement du passage a Mapterhorn
+  // v1 (comparaison) : tolerances d'origine, avant l'assouplissement du passage a Mapterhorn.
+  // v2 (par defaut) : assoupli suite au retour terrain du 26/09/2026 — des caps/pointes et des
+  // villes clairement visibles a l'oeil nu etaient masques a tort par le relief fin (~1 m), qui
+  // detecte des irregularites locales insignifiantes que l'ancien relief (~30 m, lisse) ignorait.
+  const tol=S.reliefV1?0.02:0.18, peakTol=S.reliefV1?0.12:0.28;
   for(const c of cities){
     if(c.dist==null) continue;
     if(c.demT!==terrain.at){ const e=elevAt(terrain.bands,c.lat,c.lon,c.dist); c.dem=e===e?e:null; c.demT=terrain.at; }
-    const r=assessPlace(terrain,c,HT[c.kind]??12,tol);
+    const r=assessPlace(terrain,c,HT[c.kind]??12,tol,peakTol);
     c.aG=r.aG; c.aP=r.aP; c.mask=r.mask; c.hidden=r.hidden;
     checked++; if(r.hidden) hidden++; if(r.unknown) unknown++;
   }
@@ -1206,7 +1213,7 @@ function draw(ts){
 
   // --- lieux : ancres sur le relief (sol du lieu, ou crete qui le laisse entrevoir) ---
   // les lieux masques ne sont traces qu'en mode "voir au-dela", en fantome, apres les visibles
-  // etiquettes inclinees a ~52° (facon PeakFinder), avec altitude si connue ; nombre total
+  // etiquettes inclinees a ~45° (facon PeakFinder), avec altitude si connue ; nombre total
   // plafonne a S.maxLabels, dans l'ordre de priorite deja fourni par visibleCities() (RANK puis distance)
   // etiquettes en eventail : celles a gauche du cap penchent vers le haut-gauche, celles a
   // droite vers le haut-droite (comme PeakFinder) — evite que tout le monde derive du meme
@@ -1219,16 +1226,19 @@ function draw(ts){
   // lui, ne doit jamais a lui seul faire apparaitre/disparaitre un nom — seule l'apparence change.
   const oldLabelStyle=S.labelV1;
   // mode "voir au-dela" (oeil) : les lieux masques sont intercales parmi les visibles (environ 1
-  // pour 3) plutot que places tout a la fin de la liste — sinon, des qu'une scene compte plus de
-  // lieux visibles que S.maxLabels, le plafond etait deja atteint avant que le moindre fantome ne
-  // soit tente, et l'oeil semblait ne rien faire
+  // pour 3) plutot que places tout a la fin de la liste, pour un melange visuel homogene a
+  // l'ecran. Le plafond S.maxLabels est applique SEPAREMENT aux lieux normaux et aux fantomes
+  // (deux compteurs, shownCount/ghostCount plus bas) : avant ce correctif, les deux partageaient
+  // le meme quota, et des qu'une scene comptait plus de lieux visibles que S.maxLabels, celui-ci
+  // etait deja atteint avant que le moindre fantome ne soit tente — l'oeil semblait ne rien faire
+  // (retour terrain du 26/09/2026)
   const order=useRelief&&S.beyond?interleaveGhosts(list.filter(c=>!c.hidden),list.filter(c=>c.hidden)):list;
-  const ANG_LBL=52*D, cAL=Math.cos(ANG_LBL), sAL=Math.sin(ANG_LBL);
+  const ANG_LBL=45*D, cAL=Math.cos(ANG_LBL), sAL=Math.sin(ANG_LBL);
   ctx.textBaseline='alphabetic'; ctx.lineJoin='round';
-  let shownCount=0;
+  let shownCount=0, ghostCount=0;
   for(const c of order){
-    if(shownCount>=S.maxLabels) break;
     const ghost=useRelief&&c.hidden;
+    if(ghost?ghostCount>=S.maxLabels:shownCount>=S.maxLabels) continue;
     if(ghost&&!S.beyond) continue;
     if(!passFilter(c,fq)) continue;
     const dB=wrap(c.brg-heading);
@@ -1278,7 +1288,7 @@ function draw(ts){
       }
     }
     if(ly==null) continue;
-    shownCount++;
+    if(ghost) ghostCount++; else shownCount++;
     ctx.strokeStyle=poi?`rgba(224,165,38,${.8*alpha})`:`rgba(255,255,255,${.85*alpha})`; ctx.lineWidth=1;
     if(ghost) ctx.setLineDash([2,3]);
     ctx.beginPath(); ctx.moveTo(x,ay); ctx.lineTo(oldLabelStyle?x:lx,oldLabelStyle?ly+4:ly); ctx.stroke(); ctx.setLineDash([]);
