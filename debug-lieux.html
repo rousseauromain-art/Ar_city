@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Débug lieux — villes, POI &amp; repères hauts (OSM/Overpass)</title>
+<style>
+  :root{ --ink:#0E1A2B; --ink2:#182A42; --cream:#F3E9D2; --ochre:#E0A526; --line:rgba(243,233,210,.22);
+    --ok:#6FCF97; --bad:#E85A5A; --teal:#6FC7C2; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ink);color:var(--cream);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:16px;max-width:960px;margin:0 auto}
+  h1{font-size:20px;margin:8px 0 2px}
+  p.lead{color:rgba(243,233,210,.7);margin:0 0 18px;font-size:13.5px}
+  .card{background:var(--ink2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:14px}
+  .card h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 10px;color:var(--ochre)}
+  .card h2.teal{color:var(--teal)}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+  label{font-size:12.5px;color:rgba(243,233,210,.75);display:block;margin-bottom:3px}
+  .field{display:flex;flex-direction:column;flex:1 1 120px;min-width:100px}
+  input[type=text],input[type=number]{background:var(--ink);border:1px solid var(--line);color:var(--cream);border-radius:4px;padding:7px 8px;font:13px/1 monospace;width:100%}
+  button{background:rgba(224,165,38,.16);border:1px solid rgba(224,165,38,.5);color:var(--ochre);border-radius:4px;padding:8px 12px;font:700 12.5px/1 monospace;text-transform:uppercase;letter-spacing:.04em;cursor:pointer}
+  button.teal{background:rgba(111,199,194,.16);border-color:rgba(111,199,194,.5);color:var(--teal)}
+  button:active{opacity:.8}
+  button:disabled{opacity:.4;cursor:default}
+  button.ghost{background:none;border-color:var(--line);color:var(--cream);text-transform:none;font-weight:500}
+  .hint{font-size:12px;color:rgba(243,233,210,.55);margin:2px 0 10px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 10px}
+  .chip{display:flex;align-items:center;gap:5px;font-size:12.5px;background:rgba(0,0,0,.2);border:1px solid var(--line);border-radius:20px;padding:5px 10px 5px 8px}
+  .chip input{margin:0}
+  .out{margin-top:10px}
+  .mirror{border:1px solid var(--line);border-radius:6px;padding:10px 12px;margin-bottom:8px;background:rgba(0,0,0,.15)}
+  .mirror h3{font:700 12.5px/1 monospace;margin:0 0 6px;color:rgba(243,233,210,.85);word-break:break-all}
+  .stat{display:inline-block;background:rgba(0,0,0,.25);border-radius:4px;padding:3px 8px;font:700 12px monospace;margin:0 6px 6px 0}
+  .stat.ok{color:var(--ok)} .stat.bad{color:var(--bad)}
+  .names{font-size:12.5px;line-height:1.6;margin:6px 0 0;color:rgba(243,233,210,.9)}
+  .names .n{display:inline-block;background:rgba(224,165,38,.12);border:1px solid rgba(224,165,38,.3);border-radius:4px;padding:1px 6px;margin:0 4px 4px 0}
+  .msg{font-size:13px;margin-top:4px}
+  .msg.bad{color:var(--bad)} .msg.ok{color:var(--ok)}
+  details{margin-top:6px}
+  summary{cursor:pointer;font-size:12px;color:rgba(243,233,210,.55)}
+  pre{background:#08111d;border:1px solid var(--line);border-radius:6px;padding:10px;font:11.5px/1.5 monospace;max-height:340px;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:6px 0 0}
+</style>
+</head>
+<body>
+
+<h1>Débug lieux — villes, POI &amp; repères hauts (OSM/Overpass)</h1>
+<p class="lead">Page à part de « villes à l'horizon » : construit exactement les mêmes requêtes Overpass que l'appli (mêmes clauses, mêmes filtres), mais les envoie aux <b>3 miroirs en même temps</b> et affiche le résultat brut de chacun séparément — au lieu du seul premier qui répond — pour voir lequel marche, lequel traîne, et surtout <b>quels noms reviennent réellement</b>.</p>
+
+<div class="card">
+  <h2>Position</h2>
+  <div class="row">
+    <div class="field">
+      <label for="lat">Latitude</label>
+      <input type="text" id="lat" value="48.1173">
+    </div>
+    <div class="field">
+      <label for="lon">Longitude</label>
+      <input type="text" id="lon" value="-1.6778">
+    </div>
+    <div class="field" style="flex:0 0 auto;justify-content:flex-end">
+      <label>&nbsp;</label>
+      <button class="ghost" id="btnLoc">Ma position</button>
+    </div>
+    <div class="field" style="flex:0 0 auto;justify-content:flex-end">
+      <label>&nbsp;</label>
+      <button class="ghost" id="btnParis">Zone témoin : Paris</button>
+    </div>
+  </div>
+  <div class="hint">« Zone témoin » = un point très dense en données OSM (centre de Paris). S'il ne renvoie rien non plus, le problème est du côté des miroirs eux-mêmes, pas de votre zone ou de vos réglages.</div>
+</div>
+
+<div class="card">
+  <h2>Villes, lieux &amp; points de vue</h2>
+  <div class="row">
+    <div class="field">
+      <label for="vRadius">Rayon (km)</label>
+      <input type="number" id="vRadius" value="60" min="1" max="200">
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button id="btnVilles">Interroger les 3 miroirs</button>
+    </div>
+  </div>
+  <div class="chips">
+    <label class="chip"><input type="checkbox" id="poiHamlets"> hameaux</label>
+    <label class="chip"><input type="checkbox" id="poiLighthouse" checked> phares/balises</label>
+    <label class="chip"><input type="checkbox" id="poiCape" checked> pointes/sommets</label>
+    <label class="chip"><input type="checkbox" id="poiRock" checked> rochers/îlots</label>
+    <label class="chip"><input type="checkbox" id="poiView"> points de vue</label>
+    <label class="chip"><input type="checkbox" id="poiHeritage"> patrimoine</label>
+    <label class="chip"><input type="checkbox" id="poiBeach"> plages</label>
+  </div>
+  <div class="hint">Cases cochées par défaut = réglages par défaut de l'appli. Seuls les éléments avec un tag <code>name</code> (ou <code>name:fr</code>) sont gardés dans « éléments nommés » — un élément OSM sans nom (très fréquent) est reçu mais silencieusement écarté par l'appli, d'où la distinction avec « éléments bruts ».</div>
+  <div id="villesOut" class="out"></div>
+</div>
+
+<div class="card">
+  <h2 class="teal">Repères hauts (tours, clochers, château d'eau, cheminées, mâts, immeubles)</h2>
+  <div class="row">
+    <div class="field">
+      <label for="rRadius">Rayon (km)</label>
+      <input type="number" id="rRadius" value="12" min="1" max="50">
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button class="teal" id="btnReperes">Interroger les 3 miroirs</button>
+    </div>
+  </div>
+  <div class="hint">Requête bien plus légère (rayon réduit, moins de clauses) : si elle passe alors que « Villes » échoue, le souci vient probablement de la taille/complexité de la requête « Villes » (rayon trop grand pour les miroirs en ce moment), pas d'une panne totale.</div>
+  <div id="reperesOut" class="out"></div>
+</div>
+
+<script>
+(() => {
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[<&]/g,c=>c==='<'?'&lt;':'&amp;');
+
+// ---- copié tel quel de villes-horizon.html : mêmes miroirs, mêmes requêtes, même logique ----
+const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter','https://overpass-api.de/api/interpreter'];
+const epName=ep=>{ try{ return new URL(ep).hostname; }catch(e){ return ep; } };
+
+const SETTLE=new Set(['city','town','village','hamlet','isolated_dwelling']);
+function kindOf(t){
+  if(t.place&&SETTLE.has(t.place)) return t.place;
+  if(t.man_made==='lighthouse'||/^light/.test(t['seamark:type']||'')) return 'lighthouse';
+  if(t.natural==='cape') return 'cape';
+  if(t.natural==='peak') return 'peak';
+  if(/^(rock|stone|arch)$/.test(t.natural||'')||/^(island|islet)$/.test(t.place||'')) return 'rock';
+  if(t.natural==='beach') return 'beach';
+  if(t.tourism) return 'view';
+  if(t.historic||t.man_made==='windmill') return 'heritage';
+  return 'poi';
+}
+function parseOverpass(j){
+  const seen=new Set(), got=[];
+  for(const n of (j.elements||[])){
+    const t=n.tags; if(!t) continue;
+    const name=t['name:fr']||t.name; if(!name) continue;
+    const lat=n.lat??(n.center&&n.center.lat), lon=n.lon??(n.center&&n.center.lon);
+    if(lat==null||lon==null) continue;
+    const key=name+'@'+lat.toFixed(4)+','+lon.toFixed(4);
+    if(seen.has(key)) continue; seen.add(key);
+    const ev=parseFloat(t.ele);
+    got.push({name,lat,lon,kind:kindOf(t),pop:+(t.population||0),ele:isFinite(ev)?ev:null});
+  }
+  return got;
+}
+const POI={
+  lighthouse:{q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]'],max:40},
+  cape:      {q:['nwr["natural"~"^(cape|peak)$"]'],max:30},
+  rock:      {q:['nwr["natural"~"^(rock|stone|arch)$"]','nwr["place"~"^(island|islet)$"]'],max:20},
+  view:      {q:['nwr["tourism"~"^(viewpoint|attraction)$"]'],max:20},
+  heritage:  {q:['nwr["historic"~"^(castle|fort|ruins|monument|memorial|standing_stone|archaeological_site)$"]','nwr["man_made"="windmill"]'],max:15},
+  beach:     {q:['nwr["natural"="beach"]'],max:12}
+};
+function clausesFor(pos,r,hamlets,poiSet){
+  const C=`${pos.lat},${pos.lon}`, cap=km=>Math.min(r,km*1000);
+  const cl=[`node["place"~"^(city|town)$"](around:${r},${C})`,`node["place"="village"](around:${cap(30)},${C})`];
+  if(hamlets) cl.push(`node["place"~"^(hamlet|isolated_dwelling)$"](around:${cap(12)},${C})`);
+  for(const k in POI) if(poiSet[k]) for(const sel of POI[k].q) cl.push(`${sel}(around:${cap(POI[k].max)},${C})`);
+  return cl;
+}
+const BUILD_LABEL={tour:'Tour',clocher:'Clocher',tour_telecom:'Tour',chateau_eau:'Château d\'eau',cheminee:'Cheminée',mat:'Mât',immeuble:'Immeuble'};
+function kindOfBuilding(t){
+  if(t.man_made==='tower'){
+    if(/^(church|bell_tower)$/.test(t['tower:type']||'')) return 'clocher';
+    if(t['tower:type']==='communication') return 'tour_telecom';
+    return 'tour';
+  }
+  if(t.man_made==='water_tower') return 'chateau_eau';
+  if(t.man_made==='chimney') return 'cheminee';
+  if(t.man_made==='mast') return 'mat';
+  return 'immeuble';
+}
+function parseBuildings(j){
+  const seen=new Set(), got=[];
+  for(const n of (j.elements||[])){
+    const t=n.tags; if(!t) continue;
+    const lat=n.lat??(n.center&&n.center.lat), lon=n.lon??(n.center&&n.center.lon);
+    if(lat==null||lon==null) continue;
+    const kind=kindOfBuilding(t);
+    const hv=parseFloat(t.height), lv=parseFloat(t['building:levels']);
+    const height_m=isFinite(hv)?hv:(isFinite(lv)?lv*3:null);
+    const name=t['name:fr']||t.name||(BUILD_LABEL[kind]+(height_m?` (${Math.round(height_m)} m)`:''));
+    const key=name+'@'+lat.toFixed(4)+','+lon.toFixed(4);
+    if(seen.has(key)) continue; seen.add(key);
+    got.push({name,lat,lon,kind,height_m});
+  }
+  return got;
+}
+function buildingsQuery(pos,r){
+  const C=`${pos.lat},${pos.lon}`;
+  return `[out:json][timeout:25];(`
+    +`nwr["man_made"="tower"](around:${r},${C});`
+    +`nwr["man_made"="water_tower"](around:${r},${C});`
+    +`nwr["man_made"="chimney"](around:${r},${C});`
+    +`nwr["man_made"="mast"](around:${r},${C});`
+    +`nwr["building"]["height"](if:t["height"]>30)(around:${r},${C});`
+    +`nwr["building"]["building:levels"](if:t["building:levels"]>9)(around:${r},${C});`
+    +`);out center;`;
+}
+// ---- fin du code copié ----
+
+function statLine(items){
+  return items.map(([label,val,cls])=>`<span class="stat${cls?(' '+cls):''}">${label} : ${val}</span>`).join('');
+}
+function namesHtml(list){
+  if(!list.length) return '<div class="msg bad">aucun élément nommé dans la réponse</div>';
+  return '<div class="names">'+list.map(c=>`<span class="n">${esc(c.name)}${c.kind?(' · '+esc(c.kind)):''}</span>`).join('')+'</div>';
+}
+
+// une requête à la fois par miroir (comme l'appli), mais les 3 miroirs partent ensemble
+async function queryOneMirror(ep,q,ms){
+  const ctrl=new AbortController(); const id=setTimeout(()=>ctrl.abort(),ms);
+  const t0=performance.now();
+  try{
+    const r=await fetch(ep,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ctrl.signal});
+    clearTimeout(id);
+    const ms2=Math.round(performance.now()-t0);
+    const rawText=await r.text();
+    let j=null; try{ j=JSON.parse(rawText); }catch(e){}
+    if(!r.ok) return {ep,ok:false,ms:ms2,error:'HTTP '+r.status,raw:rawText};
+    if(!j) return {ep,ok:false,ms:ms2,error:'réponse illisible (pas du JSON)',raw:rawText};
+    return {ep,ok:true,ms:ms2,json:j};
+  }catch(e){
+    clearTimeout(id);
+    const ms2=Math.round(performance.now()-t0);
+    const aborted=e&&e.name==='AbortError';
+    return {ep,ok:false,ms:ms2,error:aborted?`délai dépassé (${(ms/1000)}s)`:((e&&e.message)||String(e))};
+  }
+}
+
+async function runAllMirrors(q,ms,parser,outEl,label){
+  outEl.innerHTML=ENDPOINTS.map(ep=>`<div class="mirror"><h3>${esc(epName(ep))}</h3><div class="msg">requête en cours…</div></div>`).join('');
+  const cards=[...outEl.querySelectorAll('.mirror')];
+  const results=await Promise.all(ENDPOINTS.map((ep,i)=>
+    queryOneMirror(ep,q,ms).then(res=>{ renderMirror(cards[i],res,parser); return res; })
+  ));
+  const okCount=results.filter(r=>r.ok).length;
+  outEl.insertAdjacentHTML('afterbegin',
+    `<div style="margin-bottom:8px">${statLine([[label+' — miroirs OK',okCount+'/'+ENDPOINTS.length,okCount?'ok':'bad']])}</div>`);
+}
+function renderMirror(card,res,parser){
+  if(!res.ok){
+    card.innerHTML=`<h3>${esc(epName(res.ep))}</h3><div>${statLine([['statut','échec','bad'],['durée',res.ms+' ms']])}</div><div class="msg bad">${esc(res.error)}</div>`;
+    return;
+  }
+  const rawN=(res.json.elements||[]).length;
+  const named=parser(res.json);
+  card.innerHTML=`<h3>${esc(epName(res.ep))}</h3>
+    <div>${statLine([['statut','ok','ok'],['durée',res.ms+' ms'],['éléments bruts',rawN],['éléments nommés',named.length,named.length?'ok':'bad']])}</div>
+    ${namesHtml(named)}
+    <details><summary>voir le JSON brut (${rawN} élément(s))</summary><pre>${esc(JSON.stringify(res.json,null,2))}</pre></details>`;
+}
+
+function pos(){ return {lat:parseFloat($('lat').value),lon:parseFloat($('lon').value)}; }
+
+$('btnLoc').onclick=()=>{
+  if(!navigator.geolocation) return alert('Géolocalisation indisponible dans ce navigateur');
+  navigator.geolocation.getCurrentPosition(p=>{ $('lat').value=p.coords.latitude.toFixed(5); $('lon').value=p.coords.longitude.toFixed(5); },
+    e=>alert('GPS refusé : '+e.message));
+};
+$('btnParis').onclick=()=>{ $('lat').value='48.8566'; $('lon').value='2.3522'; };
+
+$('btnVilles').onclick=()=>{
+  const p=pos(); if(!isFinite(p.lat)||!isFinite(p.lon)) return alert('Latitude/longitude invalides');
+  const r=Math.round((parseFloat($('vRadius').value)||60)*1000);
+  const poiSet={lighthouse:$('poiLighthouse').checked,cape:$('poiCape').checked,rock:$('poiRock').checked,view:$('poiView').checked,heritage:$('poiHeritage').checked,beach:$('poiBeach').checked};
+  const cl=clausesFor(p,r,$('poiHamlets').checked,poiSet);
+  const q=`[out:json][timeout:25];(${cl.join(';')};);out center;`;
+  runAllMirrors(q,20000,parseOverpass,$('villesOut'),'Villes/lieux');
+};
+$('btnReperes').onclick=()=>{
+  const p=pos(); if(!isFinite(p.lat)||!isFinite(p.lon)) return alert('Latitude/longitude invalides');
+  const r=Math.round((parseFloat($('rRadius').value)||12)*1000);
+  const q=buildingsQuery(p,r);
+  runAllMirrors(q,20000,parseBuildings,$('reperesOut'),'Repères hauts');
+};
+})();
+</script>
+</body>
+</html>
