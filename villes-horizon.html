@@ -571,6 +571,211 @@ function clausesFor(pos,r,hamlets,poiSet,poiCap){
   for(const k in POI) if(poiSet[k]) for(const sel of POI[k].q) cl.push(`${sel}(around:${poiCap(POI[k].max)},${C})`);
   return cl;
 }
+// ---------- villes/sommets via tuiles vectorielles OpenFreeMap (OpenMapTiles), en parallele d'Overpass ----------
+// Overpass calcule chaque requete a la volee (quelques serveurs benevoles, fragiles, cf. panne du
+// 27/09/2026) ; OpenFreeMap distribue des tuiles deja calculees depuis un CDN (aucune cle, aucune
+// limite annoncee), bien plus robuste — au prix d'un decoupage fixe par zoom (moins fin qu'Overpass
+// sur les petits lieux). Les deux sources tournent en parallele et sont fusionnees (mergeByNameProximity).
+function readVarint(buf,pos){
+  let result=0, shift=0, b;
+  do{ b=buf[pos.i++]; result+=(b&0x7f)*Math.pow(2,shift); shift+=7; }while(b>=0x80);
+  return result;
+}
+function skipField(buf,pos,wireType){
+  if(wireType===0) readVarint(buf,pos);
+  else if(wireType===2){ const len=readVarint(buf,pos); pos.i+=len; }
+  else if(wireType===5) pos.i+=4;
+  else if(wireType===1) pos.i+=8;
+}
+function readMVTString(buf,pos){ const len=readVarint(buf,pos); const s=new TextDecoder().decode(buf.subarray(pos.i,pos.i+len)); pos.i+=len; return s; }
+function readPacked(buf,pos){ const len=readVarint(buf,pos); const end=pos.i+len; const out=[]; while(pos.i<end) out.push(readVarint(buf,pos)); return out; }
+const mvtZigzag=n=>(n>>>1)^(-(n&1));
+function readMVTValue(buf,pos){
+  const len=readVarint(buf,pos), end=pos.i+len; let v=null;
+  while(pos.i<end){
+    const key=readVarint(buf,pos), field=key>>>3, wt=key&7;
+    if(field===1&&wt===2) v=readMVTString(buf,pos);
+    else if(field===2&&wt===5){ v=new DataView(buf.buffer,buf.byteOffset+pos.i,4).getFloat32(0,true); pos.i+=4; }
+    else if(field===3&&wt===1){ v=new DataView(buf.buffer,buf.byteOffset+pos.i,8).getFloat64(0,true); pos.i+=8; }
+    else if((field===4||field===5)&&wt===0) v=readVarint(buf,pos);
+    else if(field===6&&wt===0) v=mvtZigzag(readVarint(buf,pos));
+    else if(field===7&&wt===0) v=!!readVarint(buf,pos);
+    else skipField(buf,pos,wt);
+  }
+  return v;
+}
+function readMVTFeature(buf,pos){
+  const len=readVarint(buf,pos), end=pos.i+len;
+  const f={tags:[],type:0,geometry:[]};
+  while(pos.i<end){
+    const key=readVarint(buf,pos), field=key>>>3, wt=key&7;
+    if(field===2&&wt===2) f.tags=readPacked(buf,pos);
+    else if(field===3&&wt===0) f.type=readVarint(buf,pos);
+    else if(field===4&&wt===2) f.geometry=readPacked(buf,pos);
+    else skipField(buf,pos,wt);
+  }
+  return f;
+}
+function decodeMVTLayer(buf){
+  const pos={i:0}; const layer={name:'',extent:4096,keys:[],values:[],features:[]};
+  while(pos.i<buf.length){
+    const key=readVarint(buf,pos), field=key>>>3, wt=key&7;
+    if(field===1&&wt===2) layer.name=readMVTString(buf,pos);
+    else if(field===5&&wt===0) layer.extent=readVarint(buf,pos);
+    else if(field===3&&wt===2) layer.keys.push(readMVTString(buf,pos));
+    else if(field===4&&wt===2) layer.values.push(readMVTValue(buf,pos));
+    else if(field===2&&wt===2) layer.features.push(readMVTFeature(buf,pos));
+    else skipField(buf,pos,wt);
+  }
+  return layer;
+}
+function peekMVTLayerName(sub){
+  const pos={i:0};
+  while(pos.i<sub.length){
+    const key=readVarint(sub,pos), field=key>>>3, wt=key&7;
+    if(field===1&&wt===2) return readMVTString(sub,pos);
+    skipField(sub,pos,wt);
+  }
+  return '';
+}
+function decodeMVTTile(buf,wantedLayers){ // ne decode QUE les couches demandees (une tuile fait souvent >100 Ko)
+  const pos={i:0}; const out={};
+  while(pos.i<buf.length){
+    const key=readVarint(buf,pos), field=key>>>3, wt=key&7;
+    if(field===3&&wt===2){
+      const len=readVarint(buf,pos);
+      const sub=buf.subarray(pos.i,pos.i+len);
+      const name=peekMVTLayerName(sub);
+      if(!wantedLayers||wantedLayers.includes(name)) out[name]=decodeMVTLayer(sub);
+      pos.i+=len;
+    } else skipField(buf,pos,wt);
+  }
+  return out;
+}
+function featureMVTPoints(f){ // points d'une Feature de type POINT=1 (le seul type utilise par place/mountain_peak)
+  if(f.type!==1) return [];
+  const cmds=f.geometry, pts=[]; let x=0,y=0,i=0;
+  while(i<cmds.length){
+    const cmdInt=cmds[i++], id=cmdInt&0x7, count=cmdInt>>>3;
+    if(id===1||id===2){ for(let k=0;k<count;k++){ x+=mvtZigzag(cmds[i++]); y+=mvtZigzag(cmds[i++]); pts.push([x,y]); } }
+    else if(id===7){ /* ClosePath : pas de parametres */ }
+    else break;
+  }
+  return pts;
+}
+function featureMVTTags(f,layer){
+  const t={}; for(let i=0;i<f.tags.length;i+=2) t[layer.keys[f.tags[i]]]=layer.values[f.tags[i+1]]; return t;
+}
+function lonLatToTileXY(lon,lat,z){
+  const n=Math.pow(2,z);
+  const x=Math.floor((lon+180)/360*n);
+  const latRad=lat*Math.PI/180;
+  const y=Math.floor((1-Math.log(Math.tan(latRad)+1/Math.cos(latRad))/Math.PI)/2*n);
+  return {x,y};
+}
+function tileLocalToLonLat(z,x,y,localX,localY,extent){
+  const n=Math.pow(2,z);
+  const lon=(x+localX/extent)/n*360-180;
+  const yMerc=(y+localY/extent)/n;
+  const latRad=Math.atan(Math.sinh(Math.PI*(1-2*yMerc)));
+  return {lon, lat:latRad*180/Math.PI};
+}
+function tileRangeForBBox(bbox,z){
+  const {x:x1,y:y1}=lonLatToTileXY(bbox.lo1,bbox.la2,z);
+  const {x:x2,y:y2}=lonLatToTileXY(bbox.lo2,bbox.la1,z);
+  const xs=[Math.min(x1,x2),Math.max(x1,x2)], ys=[Math.min(y1,y2),Math.max(y1,y2)];
+  const n=Math.pow(2,z), tiles=[];
+  for(let x=xs[0];x<=xs[1];x++) for(let y=ys[0];y<=ys[1];y++) tiles.push({x:((x%n)+n)%n,y,z});
+  return tiles;
+}
+// vise ~5 tuiles sur le cote le plus large de la boite englobante. La longitude "s'etire" en degres
+// pres des poles (cos(lat) au denominateur, comme dans le calcul de la boite ci-dessous) : sans en
+// tenir compte, le nombre de tuiles en x explose aux latitudes elevees (mesure : 110 tuiles a 60 km
+// pres de Rennes avec une formule ignorant la latitude, pour une cible de 7x7=49).
+function zoomForRadius(rKm,lat){
+  const latFactor=Math.max(0.35,Math.cos((lat||0)*Math.PI/180));
+  const z=Math.round(Math.log2(5*19980*latFactor/rKm));
+  return Math.max(5,Math.min(13,z));
+}
+const OFM_PLACE_KIND={city:'city',town:'town',village:'village',hamlet:'hamlet',isolated_dwelling:'isolated_dwelling'};
+let ofmTileTpl=null, ofmTilesCache=new Map(); // cache memoire (pas localStorage : tuiles trop volumineuses)
+async function ofmTileTemplate(){
+  if(ofmTileTpl) return ofmTileTpl;
+  const r=await fetchT('https://tiles.openfreemap.org/planet',{},8000);
+  if(!r.ok) throw new Error('TileJSON HTTP '+r.status);
+  const j=await r.json();
+  if(!j.tiles||!j.tiles[0]) throw new Error('TileJSON sans gabarit de tuiles');
+  ofmTileTpl=j.tiles[0];
+  return ofmTileTpl;
+}
+async function loadFromOpenFreeMap(p,rKm,hamlets){
+  const tpl=await ofmTileTemplate();
+  const z=zoomForRadius(rKm,p.lat);
+  const dLat=rKm/111, dLon=rKm/(111*Math.max(0.2,Math.cos(p.lat*Math.PI/180)));
+  const bbox={la1:p.lat-dLat,la2:p.lat+dLat,lo1:p.lon-dLon,lo2:p.lon+dLon};
+  const tiles=tileRangeForBBox(bbox,z);
+  if(tiles.length>150) throw new Error(`trop de tuiles (${tiles.length}) pour ce rayon a ce zoom`);
+  const wanted=['place','mountain_peak'];
+  const results=await Promise.all(tiles.map(async t=>{
+    const key=`${z}/${t.x}/${t.y}`;
+    if(ofmTilesCache.has(key)) return ofmTilesCache.get(key);
+    const url=tpl.replace('{z}',t.z).replace('{x}',t.x).replace('{y}',t.y);
+    try{
+      const r=await fetchT(url,{},8000);
+      if(!r.ok) return null;
+      const buf=new Uint8Array(await r.arrayBuffer());
+      const layers=decodeMVTTile(buf,wanted);
+      const out={t,layers};
+      ofmTilesCache.set(key,out);
+      if(ofmTilesCache.size>500){ const k0=ofmTilesCache.keys().next().value; ofmTilesCache.delete(k0); }
+      return out;
+    }catch(e){ return null; }
+  }));
+  const failed=results.filter(r=>r===null).length;
+  const seen=new Set(), got=[];
+  for(const res of results){
+    if(!res) continue;
+    for(const lname of wanted){
+      const layer=res.layers[lname]; if(!layer) continue;
+      for(const f of layer.features){
+        const pts=featureMVTPoints(f); if(!pts.length) continue;
+        const tags=featureMVTTags(f,layer);
+        const name=tags['name:fr']||tags.name; if(!name) continue;
+        const [lx,ly]=pts[0];
+        const {lon,lat}=tileLocalToLonLat(res.t.z,res.t.x,res.t.y,lx,ly,layer.extent);
+        let kind, ele=null;
+        if(lname==='place'){
+          kind=OFM_PLACE_KIND[tags.class]||null; if(!kind) continue;
+          if((kind==='hamlet'||kind==='isolated_dwelling')&&!hamlets) continue;
+        } else { kind='peak'; const ev=parseFloat(tags.ele); ele=isFinite(ev)?ev:null; }
+        const key=name+'@'+lat.toFixed(4)+','+lon.toFixed(4);
+        if(seen.has(key)) continue; seen.add(key);
+        got.push({name,lat,lon,kind,pop:+(tags.population||0),ele});
+      }
+    }
+  }
+  if(!got.length&&failed===tiles.length) throw new Error(`${tiles.length} tuile(s), toutes en echec`);
+  return got;
+}
+// fusionne plusieurs listes en un seul tableau : meme nom (normalise) a moins de maxKm = un seul
+// lieu (la source la plus a gauche du tableau `lists` est prioritaire ; les champs manquants d'un
+// doublon sont completes par la source suivante, ex. altitude connue d'une source, pas de l'autre)
+function mergeByNameProximity(lists,maxKm){
+  const out=[];
+  for(const list of lists){
+    for(const it of list){
+      const n=norm(it.name);
+      const dup=out.find(o=>norm(o.name)===n&&distBrg(o,it).dist<=maxKm);
+      if(!dup) out.push(it);
+      else{
+        if(dup.ele==null&&it.ele!=null) dup.ele=it.ele;
+        if(!dup.pop&&it.pop) dup.pop=it.pop;
+      }
+    }
+  }
+  return out;
+}
+
 // ---------- journal reseau : pour le panneau de diagnostic ----------
 let netLog=[], lastOSMAt=null, lastShown=0;
 function logNet(kind,ok,detail){
@@ -595,25 +800,37 @@ function scheduleRetry(){
   retryDelay=Math.min(Math.round(retryDelay*1.5),60000); // recul progressif, plafonne a 60s
 }
 function stopRetry(){ clearTimeout(retryTimer); retryTimer=null; nextRetryAt=null; retryDelay=15000; }
+const isLiveSource=s=>s==='OSM'||s==='OpenFreeMap'||s==='OSM+OpenFreeMap';
 async function loadCities(force){
   if(!pos||loading) return;
-  if(!force&&lastFetch&&source==='OSM'&&loadedR>=S.radius&&distBrg(pos,lastFetch).dist<S.radius*0.25) return;
+  if(!force&&lastFetch&&isLiveSource(source)&&loadedR>=S.radius&&distBrg(pos,lastFetch).dist<S.radius*0.25) return;
   loading=true; setStatus('Chargement des lieux…');
   const r=Math.round(S.radius*1000), cap=km=>Math.min(r,km*1000);
   const cl=clausesFor(pos,r,S.hamlets,S.poi,cap);
   const q=`[out:json][timeout:25];(${cl.join(';')};);out center;`;
-  try{
-    const got=await overpassQuery(q,20000); // 20 s par miroir, miroirs echelonnes de 5 s : ~30 s au pire
-    cities=got; source='OSM'; lastOSMAt=Date.now();
-    logNet('OSM',true,`${got.length} lieux, rayon ${S.radius} km (via ${overpassLastEp})`);
-    // alimente automatiquement l'atlas local : si Overpass tombe plus tard (ou hors reseau), on
-    // retombe sur ces lieux plutot que sur la petite liste integree (France uniquement)
+  // Overpass (calcule a la volee, tres complet, fragile) et OpenFreeMap (tuiles pre-calculees, moins
+  // fin, tres robuste) tournent EN PARALLELE : la panne de l'un n'empeche plus l'autre de fonctionner
+  // (retour terrain du 27/09/2026 : les 3 miroirs Overpass en panne simultanement -> ecran vide).
+  const [ovpR,ofmR]=await Promise.allSettled([
+    overpassQuery(q,20000), // 20 s par miroir, miroirs echelonnes de 5 s : ~30 s au pire
+    loadFromOpenFreeMap(pos,S.radius,S.hamlets),
+  ]);
+  if(ovpR.status==='fulfilled') logNet('OSM',true,`${ovpR.value.length} lieux, rayon ${S.radius} km (via ${overpassLastEp})`);
+  else logNet('OSM',false,friendlyErr(ovpR.reason));
+  if(ofmR.status==='fulfilled') logNet('OpenFreeMap',true,`${ofmR.value.length} lieux (tuiles, zoom ${zoomForRadius(S.radius,pos.lat)})`);
+  else logNet('OpenFreeMap',false,friendlyErr(ofmR.reason));
+
+  const lists=[]; if(ovpR.status==='fulfilled') lists.push(ovpR.value); if(ofmR.status==='fulfilled') lists.push(ofmR.value);
+  if(lists.length){
+    const got=mergeByNameProximity(lists,1.5);
+    cities=got; source=lists.length>1?'OSM+OpenFreeMap':(ovpR.status==='fulfilled'?'OSM':'OpenFreeMap'); lastOSMAt=Date.now();
+    // alimente automatiquement l'atlas local : si les deux sources tombent plus tard (ou hors reseau),
+    // on retombe sur ces lieux plutot que sur la petite liste integree (France uniquement)
     const added=absorbIntoAtlas(got,pos,S.radius);
     if(added) logNet('Atlas',true,`+${added} lieux memorises (${Object.keys(atlas.items).length} au total)`);
     stopRetry();
-  }catch(e){
-    logNet('OSM',false,friendlyErr(e));
-    if(source!=='OSM'){
+  }else{
+    if(!isLiveSource(source)){
       if(useZoneCache()) logNet('repli',true,`atlas local (${cities.length} lieux)`);
       else {
         cities=FALLBACK.slice(); source='liste intégrée (hors ligne)';
@@ -1634,7 +1851,7 @@ function renderDebug(){
   const kc=kindCounts();
   const kcTxt=Object.entries(kc).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${k} : ${n}`).join('<br>')||'—';
   const lastOSMTxt=lastOSMAt?new Date(lastOSMAt).toLocaleTimeString('fr-FR')+' ('+Math.max(0,Math.round((Date.now()-lastOSMAt)/60000))+' min)':'jamais dans cette session';
-  const retryTxt=loading?'Requete en cours…':nextRetryAt?`Prochaine tentative automatique dans ${Math.max(0,Math.ceil((nextRetryAt-Date.now())/1000))}s`:(source==='OSM'?'A jour, aucune relance necessaire':'Aucune relance programmee');
+  const retryTxt=loading?'Requete en cours…':nextRetryAt?`Prochaine tentative automatique dans ${Math.max(0,Math.ceil((nextRetryAt-Date.now())/1000))}s`:(isLiveSource(source)?'A jour, aucune relance necessaire':'Aucune relance programmee');
   const nAtlas=Object.keys(atlas.items).length;
   const zoneTxt=nAtlas?`${nAtlas} lieux au total, ${atlas.zones.length} telechargement(s)`:'aucune';
   const zonesHtml=atlas.zones.length?atlas.zones.slice().reverse().map(z=>
