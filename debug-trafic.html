@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Débug trafic — avions &amp; bateaux</title>
+<title>Débug trafic — avions, bateaux, pylônes</title>
 <style>
   :root{ --ink:#0E1A2B; --ink2:#182A42; --cream:#F3E9D2; --ochre:#E0A526; --line:rgba(243,233,210,.22);
     --ok:#6FCF97; --bad:#E85A5A; --sea:#7AA7E0; }
@@ -37,7 +37,7 @@
 </head>
 <body>
 
-<h1>Débug trafic — avions &amp; bateaux</h1>
+<h1>Débug trafic — avions, bateaux, pylônes</h1>
 <p class="lead">Page à part de « villes à l'horizon » : envoie exactement les mêmes requêtes que l'appli (mêmes formules de zone), et affiche la réponse brute complète — sans aucun filtre — pour voir ce qui est réellement reçu.</p>
 
 <div class="card">
@@ -101,6 +101,28 @@
   </div>
   <div class="hint">Le relais ouvre une connexion AISStream, écoute ~10&nbsp;s sur la zone, puis renvoie tout ce qui est arrivé (<code>received</code> = messages AIS bruts reçus, <code>ships</code> = navires avec position connue après filtrage). <code>received&nbsp;=&nbsp;0</code> = rien reçu du tout dans la fenêtre d'écoute (clé/zone/couverture à vérifier) ; <code>received&nbsp;&gt;&nbsp;0</code> mais <code>ships</code> vide = des messages arrivent mais aucun n'a encore de position exploitable dans cette fenêtre de 10&nbsp;s (fréquent en zone peu fréquentée : réessayez, ou zoomez sur une zone témoin).</div>
   <div id="seaOut" class="out"></div>
+</div>
+
+<div class="card">
+  <h2 style="color:#E85A5A">Pylônes (ANFR)</h2>
+  <div class="row">
+    <div class="field">
+      <label for="telR">Rayon (km)</label>
+      <input type="number" id="telR" value="8" min="1" max="15">
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button id="btnTelRelay">Via le relais (toutes les routes)</button>
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button class="ghost" id="btnTelDirect">En direct depuis cet appareil</button>
+    </div>
+  </div>
+  <div class="row">
+    <button class="ghost" id="btnTelRennes">Zone témoin : Rennes</button>
+    <button class="ghost" id="btnTelParis">Zone témoin : Paris</button>
+  </div>
+  <div class="hint">ANFR a changé ses adresses le 28/09/2026 (l'ancienne répond 404). <b>Via le relais</b> : le relais essaie ses 5 routes connues et détaille chacune (adresse, code HTTP, nombre de lignes). <b>En direct</b> : cet appareil interroge lui-même data.anfr.fr, sans relais — ça dit en plus si le navigateur y a droit (CORS). Distinguer : <code>HTTP 404</code> = adresse inexistante ; <code>HTTP 200</code> + « refus » = adresse bonne, paramètres refusés ; « bloqué » = le navigateur n'a pas le droit (CORS) ou pas de réseau.</div>
+  <div id="telOut" class="out"></div>
 </div>
 
 <script src="config.js" onerror="void 0"></script>
@@ -183,6 +205,88 @@ async function querySea(lat,lon,km,outEl){
     if(n===0 && +rec===0) outEl.insertAdjacentHTML('afterbegin',`<div class="msg">0 message reçu du tout pendant les 10 s d'écoute : soit aucun navire ne diffusait AIS dans cette zone à cet instant, soit la clé/couverture AISStream a un problème — testez la zone témoin (Détroit du Pas-de-Calais, très fréquentée) pour trancher.</div>`);
   }
 }
+
+// ---------- ANFR ----------
+const ANFR_API='https://data.anfr.fr/d4c/api/records/', ANFR_RES='88ef0887-6b0f-4d3f-8545-6d64c8f597da', ANFR_DS='observatoire_2g_3g_4g';
+const PLM=new Set(['75056','69123','13055']);
+function telTable(rows){ // rows : [{name, ok, http, info, url}]
+  return `<table style="width:100%;border-collapse:collapse;font:12px/1.4 monospace">`+rows.map(r=>
+    `<tr style="border-top:1px solid var(--line)"><td style="padding:6px 6px 6px 0;vertical-align:top;white-space:nowrap">
+      <span class="stat ${r.ok?'ok':'bad'}">${r.ok?'OK':'KO'}</span></td>
+      <td style="padding:6px 0;vertical-align:top"><b>${esc(r.name)}</b>${r.http!=null?` · HTTP ${r.http}`:''}<br>${esc(r.info||'')}
+      ${(r.urls||[]).map(u=>`<div class="url">${esc(u)}</div>`).join('')}</td></tr>`).join('')+`</table>`;
+}
+// lit n'importe lequel des 3 formats ANFR : tableau, OpenDataSoft (status/nhits/records), CKAN (success/result)
+function anfrSummary(j){
+  if(Array.isArray(j)) return {ok:true,info:`${j.length} ligne(s) (ancien format tableau)`};
+  if(!j||typeof j!=='object') return {ok:false,info:'réponse vide'};
+  if(j.success===false) return {ok:false,info:'refus (paramètres) : '+JSON.stringify(j.error).slice(0,140)};
+  if(j.status==='error') return {ok:false,info:'refus : "status":"error" (adresse bonne, paramètre refusé)'};
+  if(j.result&&Array.isArray(j.result.records)){ const f=j.result.records[0]||{}; return {ok:true,info:`${j.result.records.length} ligne(s) reçue(s) / ${j.result.total??'?'} au total (format CKAN)`+(f.coordonnees?` · ex. coordonnées « ${f.coordonnees} »`:'')}; }
+  if(Array.isArray(j.records)){ const f=(j.records[0]||{}).fields||{}; return {ok:true,info:`${j.records.length} ligne(s) reçue(s) / ${j.nhits??'?'} au total (format OpenDataSoft)`+(f.coordonnees?` · ex. coordonnées « ${f.coordonnees} »`:'')}; }
+  return {ok:false,info:'format inconnu : '+Object.keys(j).slice(0,6).join(', ')};
+}
+async function probe(name,url,sane){
+  try{
+    const r=await fetchT(url,15000); let txt='', j=null;
+    try{ txt=await r.text(); j=JSON.parse(txt); }catch(e){}
+    if(!r.ok) return {name,ok:false,http:r.status,info:r.status===404?'adresse inexistante':'erreur serveur',urls:[url]};
+    if(!j) return {name,ok:false,http:r.status,info:'pas du JSON : '+txt.slice(0,80),urls:[url]};
+    const s=j.datasetid&&!j.records?{ok:true,info:`jeu « ${j.datasetid} » présent`+(j.metas&&j.metas.records_count?` · ${j.metas.records_count} lignes`:'')}:anfrSummary(j);
+    if(s.ok&&sane){ const w=sane(j); if(w){ s.ok=false; s.info=w; } }
+    return {name,http:r.status,...s,urls:[url]};
+  }catch(e){
+    return {name,ok:false,info:e&&e.name==='AbortError'?'délai dépassé (15 s)':'bloqué : CORS refusé par data.anfr.fr, ou pas de réseau ('+((e&&e.message)||e)+')',urls:[url]};
+  }
+}
+async function communeOf(lat,lon){ // meme regle que le relais : arrondissement a Paris/Lyon/Marseille
+  const base=`https://geo.api.gouv.fr/communes?lat=${lat}&lon=${lon}&fields=code,nom&format=json`;
+  const j=await (await fetchT(base,8000)).json(); const c=j&&j[0]; if(!c) return null;
+  if(!PLM.has(c.code)) return c;
+  const j2=await (await fetchT(base+'&type=arrondissement-municipal',8000)).json();
+  return (j2&&j2[0])||c;
+}
+async function telDirect(lat,lon,km){
+  const out=$('telOut'); out.innerHTML='<div class="msg">Recherche de la commune (geo.api.gouv.fr)…</div>';
+  let c=null; try{ c=await communeOf(lat,lon); }catch(e){}
+  if(!c){ out.innerHTML='<div class="msg bad">Commune introuvable (hors de France, ou geo.api.gouv.fr injoignable).</div>'; return; }
+  out.innerHTML=`<div class="msg">Commune : ${esc(c.nom)} (${c.code}) — test des 6 adresses ANFR en parallèle…</div>`;
+  const ins=encodeURIComponent(c.code);
+  const tests=await Promise.all([
+    probe('Métadonnées du jeu (existe-t-il ?)',`https://data.anfr.fr/d4c/api/datasets/1.0/${ANFR_DS}/`,null),
+    probe('Search v1 + filtre rayon (geofilter)',`${ANFR_API}1.0/search/?dataset=${ANFR_DS}&rows=10&geofilter.distance=${lat},${lon},${Math.round(km*1000)}`,
+      j=>(j.nhits>200000?`filtre ignoré (${j.nhits} lignes = toute la France)`:null)),
+    probe('Search v1 par commune',`${ANFR_API}1.0/search/?dataset=${ANFR_DS}&rows=10&refine.code_insee=${ins}`,null),
+    probe('Download (CKAN) par commune',`${ANFR_API}1.0/download/?resource_id=${ANFR_RES}&limit=10&refine.code_insee=${ins}`,null),
+    probe('Download (CKAN) + filtre JSON',`${ANFR_API}1.0/download/?resource_id=${ANFR_RES}&limit=10&filters=${encodeURIComponent(JSON.stringify({code_insee:[c.code]}))}`,null),
+    probe('Ancienne route 2.0/resource (celle du relais avant)',`${ANFR_API}2.0/resource/?format=json&resource_id=${ANFR_RES}&refine.code_insee=${ins}`,null),
+  ]);
+  const nOk=tests.filter(t=>t.ok).length;
+  out.innerHTML=`<div>${statLine([['commune',c.nom+' '+c.code],['adresses qui répondent',nOk+' / '+tests.length,nOk?'ok':'bad']])}</div>`+telTable(tests);
+}
+async function telRelay(lat,lon,km){
+  const out=$('telOut'), relay=relayBase();
+  if(!relay){ out.innerHTML='<div class="msg bad">Aucun relais renseigné (en haut de page).</div>'; return; }
+  const url=`${relay}/telecom?lat=${lat}&lon=${lon}&radius_km=${km}&debug=all`;
+  out.innerHTML=`<div class="msg">Le relais essaie ses 5 routes (jusqu'à ~1 min)…</div><div class="url">${esc(url)}</div>`;
+  const t0=performance.now();
+  try{
+    const r=await fetchT(url,90000); const j=await r.json(); const ms=Math.round(performance.now()-t0);
+    const d=j.debug||{};
+    if(!d.attempts){ out.innerHTML=`<div>${statLine([['HTTP',r.status,r.ok?'ok':'bad'],['durée',ms+' ms']])}</div><div class="msg bad">Le relais n'a pas renvoyé de détail : il n'est pas encore à jour (redéployer relais-worker.js).</div><pre>${esc(JSON.stringify(j,null,2))}</pre>`; return; }
+    const rows=d.attempts.map(a=>({name:a.label+' ['+a.strategy+']',ok:a.ok,
+      info:(a.ok?`${a.rows} ligne(s) / ${a.total} au total`+(a.partial?` · ${a.partial}`:''):a.error)+` · ${a.ms??'?'} ms`,
+      urls:(a.calls||[]).slice(0,3).map(c=>`HTTP ${c.http??'—'} · ${c.error?c.error+' · ':''}${c.rows!=null?c.rows+' lignes · ':''}${c.url}`).concat((a.calls||[]).length>3?[`… et ${(a.calls.length-3)} autre(s) commune(s)`]:[])}));
+    out.innerHTML=`<div>${statLine([['HTTP',r.status,r.ok?'ok':'bad'],['durée',ms+' ms'],['route retenue',j.route||'aucune',j.route?'ok':'bad'],['supports trouvés',(j.sites||[]).length,(j.sites||[]).length?'ok':'bad'],['communes',(d.communes||[]).join(', ')||'—'],['tables propriétaire/nature',d.lookups]])}</div>`
+      +(j.error?`<div class="msg bad">${esc(j.error)}</div>`:'')+telTable(rows)
+      +`<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12.5px">Réponse brute</summary><pre>${esc(JSON.stringify({...j,sites:(j.sites||[]).slice(0,5)},null,2))}</pre></details>`;
+  }catch(e){ out.innerHTML=`<div class="msg bad">Échec de l'appel au relais : ${esc((e&&e.message)||e)}</div><div class="url">${esc(url)}</div>`; }
+}
+const telArgs=()=>[parseFloat($('lat').value),parseFloat($('lon').value),Math.min(15,parseFloat($('telR').value)||8)];
+$('btnTelRelay').onclick=()=>telRelay(...telArgs());
+$('btnTelDirect').onclick=()=>telDirect(...telArgs());
+$('btnTelRennes').onclick=()=>{ $('lat').value='48.1105'; $('lon').value='-1.6799'; telDirect(...telArgs()); };
+$('btnTelParis').onclick=()=>{ $('lat').value='48.8566'; $('lon').value='2.3522'; telDirect(...telArgs()); };
 
 $('btnLoc').onclick=()=>{
   if(!navigator.geolocation) return alert('Géolocalisation indisponible dans ce navigateur');
