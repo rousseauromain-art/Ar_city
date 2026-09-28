@@ -847,6 +847,14 @@ function friendlyErr(e){
   if(e&&e.name==='AbortError'||/aborted/i.test(m)) return 'delai depasse (serveur trop lent)';
   return m;
 }
+// regle anti-rafale (pylones telecom, reperes hauts) : apres un echec, on attend au moins errDelay
+// (recul progressif, plafonne a 5 min) avant de reessayer au meme endroit ; affiche dans le diagnostic
+// pour repondre a la question "combien de temps avant un nouvel essai ?"
+function retryHint(errAt,errDelay){
+  if(!errAt) return '';
+  const left=errDelay-(Date.now()-errAt);
+  return left>0?` — nouvel essai dans ${Math.ceil(left/1000)} s`:'';
+}
 let retryTimer=null, retryDelay=15000, nextRetryAt=null;
 function scheduleRetry(){
   clearTimeout(retryTimer);
@@ -1328,26 +1336,37 @@ async function pollSea(){
   }catch(e){ tMsg.sea='indispo'; logNet('AISStream',false,'relais : '+friendlyErr(e)); }
 }
 // ---------- pylones et points hauts telecom (France uniquement, source ANFR via le relais) ----------
-let telecomSites=[], telecomAt=null, telecomBusy=false, tMsg2={telecom:''}, telecomHits=[];
+let telecomSites=[], telecomAt=null, telecomBusy=false, telecomErrAt=null, telecomErrDelay=30000, tMsg2={telecom:''}, telecomHits=[];
 async function pollTelecom(){
-  if(!S.telecom||!pos||document.hidden) return;
+  if(!S.telecom||!pos||document.hidden||telecomBusy) return; // re-entrance : un appel en cours suffit
   if(!relayBase()){ tMsg2.telecom='relais requis'; return; }
-  if(telecomAt&&distBrg(pos,telecomAt).dist<Math.max(1,S.telecomMax*0.3)) return; // deja couvert
+  if(telecomAt&&distBrg(pos,telecomAt).dist<Math.max(1,S.telecomMax*0.3)) return; // deja couvert par une reponse recente : deplacement insuffisant
+  if(telecomErrAt&&Date.now()-telecomErrAt<telecomErrDelay) return; // echec recent (ex. ANFR en panne) : on patiente avant de reessayer, meme immobile
+  // ce 2e garde-fou manquait auparavant : tant qu'ANFR echouait, telecomAt n'etait jamais mis a jour
+  // (il ne l'est qu'en cas de succes, juste en dessous) et rien ne limitait plus les tentatives, d'ou
+  // une requete quasi a chaque position GPS en conditions reelles (retour du 28/09/2026, Paris).
   telecomBusy=true; tMsg2.telecom='recherche…';
   try{
     const r=await fetchT(`${relayBase()}/telecom?lat=${pos.lat.toFixed(5)}&lon=${pos.lon.toFixed(5)}&radius_km=${S.telecomMax}`,{},20000);
     let j={}; try{ j=await r.json(); }catch(e){}
     if(!r.ok||j.anfrOk===false) throw new Error(j.error||('HTTP '+r.status));
-    if(j.hors_france){ telecomSites=[]; telecomAt={...pos}; tMsg2.telecom='hors de France (ANFR)';
-      logNet('ANFR',true,'position hors de France : aucune donnee disponible ici'); return; }
-    telecomSites=(j.sites||[]).map(s=>({
-      name:s.name||s.address||('Support '+s.sup_id), kind:/pylône|mât|tour|fût/i.test(s.nature||'')?'telecom_pylone':'telecom_toit',
-      lat:s.lat, lon:s.lon, sup_id:s.sup_id, anfr:s.anfr, address:s.address, cp:s.cp,
-      height_m:s.height_m, owner:s.owner, nature:s.nature, operators:s.operators
-    }));
-    recompute(); telecomAt={...pos}; tMsg2.telecom=telecomSites.length+' site(s)';
-    logNet('ANFR',true,`${telecomSites.length} site(s) telecom, ${(j.communes||[]).length} commune(s), rayon ${S.telecomMax} km`+(j.cache?' (cache relais)':''));
-  }catch(e){ tMsg2.telecom='indispo'; logNet('ANFR',false,friendlyErr(e)); }
+    if(j.hors_france){
+      telecomSites=[]; telecomAt={...pos}; tMsg2.telecom='hors de France (ANFR)';
+      logNet('ANFR',true,'position hors de France : aucune donnee disponible ici');
+    }else{
+      telecomSites=(j.sites||[]).map(s=>({
+        name:s.name||s.address||('Support '+s.sup_id), kind:/pylône|mât|tour|fût/i.test(s.nature||'')?'telecom_pylone':'telecom_toit',
+        lat:s.lat, lon:s.lon, sup_id:s.sup_id, anfr:s.anfr, address:s.address, cp:s.cp,
+        height_m:s.height_m, owner:s.owner, nature:s.nature, operators:s.operators
+      }));
+      recompute(); telecomAt={...pos}; tMsg2.telecom=telecomSites.length+' site(s)';
+      logNet('ANFR',true,`${telecomSites.length} site(s) telecom, ${(j.communes||[]).length} commune(s), rayon ${S.telecomMax} km`+(j.cache?' (cache relais)':''));
+    }
+    telecomErrAt=null; telecomErrDelay=30000; // succes : le recul est remis a zero
+  }catch(e){
+    tMsg2.telecom='indispo'; telecomErrAt=Date.now(); telecomErrDelay=Math.min(Math.round(telecomErrDelay*1.5),300000); // recul progressif, plafonne a 5 min
+    logNet('ANFR',false,friendlyErr(e));
+  }
   telecomBusy=false;
 }
 
@@ -1355,7 +1374,7 @@ async function pollTelecom(){
 // source : OpenStreetMap (comme les lieux, via Overpass), affiches comme les pylones telecom
 // ci-dessus (ancrage simple sur l'horizon, sans correction de relief : on ne dispose pas non plus
 // de l'altitude du terrain a l'emplacement exact du repere).
-let buildingSites=[], buildingsAt=null, buildingsBusy=false, bMsg={buildings:''};
+let buildingSites=[], buildingsAt=null, buildingsBusy=false, buildingsErrAt=null, buildingsErrDelay=30000, bMsg={buildings:''};
 const BUILD_LABEL={tour:'Tour',clocher:'Clocher',tour_telecom:'Tour',chateau_eau:'Château d\'eau',cheminee:'Cheminée',mat:'Mât',immeuble:'Immeuble'};
 function kindOfBuilding(t){
   if(t.man_made==='tower'){
@@ -1390,6 +1409,7 @@ function parseBuildings(j){
 async function pollBuildings(){
   if(!S.buildings||!pos||buildingsBusy||document.hidden) return;
   if(buildingsAt&&distBrg(pos,buildingsAt).dist<Math.max(1,S.buildingsMax*0.3)) return; // deja couvert
+  if(buildingsErrAt&&Date.now()-buildingsErrAt<buildingsErrDelay) return; // echec recent : on patiente avant de reessayer
   buildingsBusy=true; bMsg.buildings='recherche…';
   const r=Math.round(S.buildingsMax*1000), C=`${pos.lat},${pos.lon}`;
   const q=`[out:json][timeout:25];(`
@@ -1404,7 +1424,11 @@ async function pollBuildings(){
     buildingSites=await overpassQuery(q,15000,parseBuildings);
     recompute(); buildingsAt={...pos}; bMsg.buildings=buildingSites.length+' repere(s)';
     logNet('OSM (reperes)',true,`${buildingSites.length} repere(s) haut(s), rayon ${S.buildingsMax} km`);
-  }catch(e){ bMsg.buildings='indispo'; logNet('OSM (reperes)',false,friendlyErr(e)); }
+    buildingsErrAt=null; buildingsErrDelay=30000;
+  }catch(e){
+    bMsg.buildings='indispo'; buildingsErrAt=Date.now(); buildingsErrDelay=Math.min(Math.round(buildingsErrDelay*1.5),300000);
+    logNet('OSM (reperes)',false,friendlyErr(e));
+  }
   buildingsBusy=false;
 }
 
@@ -2031,8 +2055,8 @@ function renderDebug(){
     <div class="dbgsec">Trafic en direct</div>
     <div class="dbgline">avions : ${S.air?(tMsg.air||'en attente'):'desactive (Reglages → Avions)'}</div>
     <div class="dbgline">bateaux : ${S.sea?(tMsg.sea||'en attente'):'desactive (Reglages → Bateaux)'}</div>
-    <div class="dbgline">pylônes telecom : ${S.telecom?(tMsg2.telecom||'en attente')+` (${telecomSites.length} en memoire)`:'desactive (Reglages → Pylônes)'}</div>
-    <div class="dbgline">reperes hauts (OSM) : ${S.buildings?(bMsg.buildings||'en attente')+` (${buildingSites.length} en memoire)`:'desactive (Reglages → Tours, clochers…)'}</div>
+    <div class="dbgline">pylônes telecom : ${S.telecom?(tMsg2.telecom||'en attente')+retryHint(telecomErrAt,telecomErrDelay)+` (${telecomSites.length} en memoire)`:'desactive (Reglages → Pylônes)'}</div>
+    <div class="dbgline">reperes hauts (OSM) : ${S.buildings?(bMsg.buildings||'en attente')+retryHint(buildingsErrAt,buildingsErrDelay)+` (${buildingSites.length} en memoire)`:'desactive (Reglages → Tours, clochers…)'}</div>
     <div class="dbgline">config.js : ${CONFIG_LOADED?'charge':'introuvable (a placer a cote du fichier HTML)'} · relais : ${relayBase()?relayBase().replace(/^https?:\/\//,''):'aucun'}${relayHasPath()?' (chemin en trop dans config.js, ignore)':''}</div>
     ${(CONFIG.aisKey||CONFIG.openskySecret)?'<div class="dbgline" style="color:#E08787">Attention : config.js contient encore des secrets, visibles publiquement — a retirer (ils vont dans le relais)</div>':''}
     <div class="row zbtns" style="padding:8px 0 0"><button id="btnDbgRelay">Tester le relais</button></div>
@@ -2040,7 +2064,7 @@ function renderDebug(){
     <div class="dbgsec">Requêtes réseau depuis l'ouverture</div>
     <div class="dbgline">${reqSum}</div>
     ${reqHtml}
-    <div class="dbgline" style="opacity:.7">Les lieux ne sont rechargés qu'après un déplacement d'environ ${Math.round(S.radius*0.25)} km (¼ du rayon) ; tuiles de relief déjà vues : lues en cache, sans requête.</div>
+    <div class="dbgline" style="opacity:.7">Les lieux ne sont rechargés qu'après un déplacement d'environ ${Math.round(S.radius*0.25)} km (¼ du rayon) ; tuiles de relief déjà vues : lues en cache, sans requête. Pylônes ANFR et repères hauts : rechargés après ~${Math.round(S.telecomMax*0.3)}/${Math.round(S.buildingsMax*0.3)} km de déplacement, et après un échec, au moins 30 s avant un nouvel essai (recul progressif jusqu'à 5 min tant que ça échoue).</div>
     <div class="dbgsec">Journal reseau (${netLog.length} entrees)</div>
     ${logHtml}
   `;
@@ -2212,8 +2236,8 @@ function setFilter(v){ S.filter=v; if($('flt').value!==v) $('flt').value=v;
 $('flt').oninput=e=>setFilter(e.target.value.trim());
 $('air').onchange=e=>{S.air=e.target.checked;syncTraffic();saveSettings();};
 $('sea').onchange=e=>{S.sea=e.target.checked;syncTraffic();saveSettings();};
-$('tel').onchange=e=>{S.telecom=e.target.checked;telecomAt=null;syncTraffic();saveSettings();};
-$('bld').onchange=e=>{S.buildings=e.target.checked;buildingsAt=null;syncTraffic();saveSettings();};
+$('tel').onchange=e=>{S.telecom=e.target.checked;telecomAt=null;telecomErrAt=null;telecomErrDelay=30000;syncTraffic();saveSettings();};
+$('bld').onchange=e=>{S.buildings=e.target.checked;buildingsAt=null;buildingsErrAt=null;buildingsErrDelay=30000;syncTraffic();saveSettings();};
 // #btnFind : ouverture sur appui LONG plutot que sur simple tap. En paysage, ce bouton (coin
 // haut-droit) se trouve pile la ou les doigts reposent en tenant le telephone : un simple tap
 // s'ouvrait donc par accident. Un appui bref (frolement) n'ouvre plus rien ; il faut maintenir.
