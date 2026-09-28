@@ -261,8 +261,10 @@ async function telDirect(lat,lon,km){
     probe('Download (CKAN) + filtre JSON',`${ANFR_API}1.0/download/?resource_id=${ANFR_RES}&limit=10&filters=${encodeURIComponent(JSON.stringify({code_insee:[c.code]}))}`,null),
     probe('Ancienne route 2.0/resource (celle du relais avant)',`${ANFR_API}2.0/resource/?format=json&resource_id=${ANFR_RES}&refine.code_insee=${ins}`,null),
   ]);
-  const nOk=tests.filter(t=>t.ok).length;
-  out.innerHTML=`<div>${statLine([['commune',c.nom+' '+c.code],['adresses qui répondent',nOk+' / '+tests.length,nOk?'ok':'bad']])}</div>`+telTable(tests);
+  const nOk=tests.filter(t=>t.ok).length, nBlk=tests.filter(t=>/^bloqué/.test(t.info||'')).length;
+  out.innerHTML=`<div>${statLine([['commune',c.nom+' '+c.code],['adresses qui répondent',nOk+' / '+tests.length,nOk?'ok':'bad']])}</div>`
+    +(nBlk===tests.length?`<div class="msg">Toutes bloquées alors que geo.api.gouv.fr a répondu : data.anfr.fr n'autorise pas les appels depuis un navigateur (CORS). Normal — c'est pour ça que l'appli passe par le relais. Utilisez « Via le relais ».</div>`:'')
+    +telTable(tests);
 }
 async function telRelay(lat,lon,km){
   const out=$('telOut'), relay=relayBase();
@@ -275,9 +277,9 @@ async function telRelay(lat,lon,km){
     const d=j.debug||{};
     if(!d.attempts){ out.innerHTML=`<div>${statLine([['HTTP',r.status,r.ok?'ok':'bad'],['durée',ms+' ms']])}</div><div class="msg bad">Le relais n'a pas renvoyé de détail : il n'est pas encore à jour (redéployer relais-worker.js).</div><pre>${esc(JSON.stringify(j,null,2))}</pre>`; return; }
     const rows=d.attempts.map(a=>({name:a.label+' ['+a.strategy+']',ok:a.ok,
-      info:(a.ok?`${a.rows} ligne(s) / ${a.total} au total`+(a.partial?` · ${a.partial}`:''):a.error)+` · ${a.ms??'?'} ms`,
+      info:(a.note?a.note+' · ':'')+(a.radiusKm?`rayon ${a.radiusKm} km · `:'')+(a.ok?`${a.rows} ligne(s) / ${a.total} au total`+(a.partial?` · ${a.partial}`:''):a.error)+` · ${a.ms??'?'} ms`,
       urls:(a.calls||[]).slice(0,3).map(c=>`HTTP ${c.http??'—'} · ${c.error?c.error+' · ':''}${c.rows!=null?c.rows+' lignes · ':''}${c.url}`).concat((a.calls||[]).length>3?[`… et ${(a.calls.length-3)} autre(s) commune(s)`]:[])}));
-    out.innerHTML=`<div>${statLine([['HTTP',r.status,r.ok?'ok':'bad'],['durée',ms+' ms'],['route retenue',j.route||'aucune',j.route?'ok':'bad'],['supports trouvés',(j.sites||[]).length,(j.sites||[]).length?'ok':'bad'],['communes',(d.communes||[]).join(', ')||'—'],['tables propriétaire/nature',d.lookups]])}</div>`
+    out.innerHTML=`<div>${statLine([['HTTP',r.status,r.ok?'ok':'bad'],['durée',ms+' ms'],['route retenue',j.route||'aucune',j.route?'ok':'bad'],['supports trouvés',(j.sites||[]).length,(j.sites||[]).length?'ok':'bad'],['rayon',j.radius_eff?`${j.radius_km} km demandés → ${j.radius_eff} km (zone dense : ANFR tronque sans trier par distance)`:(j.radius_km??'—')+' km',j.radius_eff?'':'ok'],['communes du secteur',Array.isArray(d.communes)?d.communes.join(', '):(d.communes||'—')],['tables propriétaire/nature',d.lookups]])}</div>`
       +(j.error?`<div class="msg bad">${esc(j.error)}</div>`:'')+telTable(rows)
       +`<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12.5px">Réponse brute</summary><pre>${esc(JSON.stringify({...j,sites:(j.sites||[]).slice(0,5)},null,2))}</pre></details>`;
   }catch(e){ out.innerHTML=`<div class="msg bad">Échec de l'appel au relais : ${esc((e&&e.message)||e)}</div><div class="url">${esc(url)}</div>`; }

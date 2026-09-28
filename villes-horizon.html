@@ -1359,8 +1359,8 @@ async function pollTelecom(){
         lat:s.lat, lon:s.lon, sup_id:s.sup_id, anfr:s.anfr, address:s.address, cp:s.cp,
         height_m:s.height_m, owner:s.owner, nature:s.nature, operators:s.operators
       }));
-      recompute(); telecomAt={...pos}; tMsg2.telecom=telecomSites.length+' site(s)';
-      logNet('ANFR',true,`${telecomSites.length} site(s) telecom, ${(j.communes||[]).length} commune(s), rayon ${S.telecomMax} km`+(j.route?` · route ANFR : ${j.route}`:'')+(j.truncated?' · liste tronquee':'')+(j.cache?' (cache relais)':''));
+      recompute(); telecomAt={...pos}; tMsg2.telecom=telecomSites.length+' site(s)'+(j.radius_eff?` dans ${String(j.radius_eff).replace('.',',')} km (zone dense)`:'');
+      logNet('ANFR',true,`${telecomSites.length} site(s) telecom, ${(j.communes||[]).length} commune(s), rayon ${S.telecomMax} km`+(j.radius_eff?` · zone dense : rayon ramene a ${j.radius_eff} km pour tout recevoir`:'')+(j.route?` · route ANFR : ${j.route}`:'')+(j.truncated?' · liste tronquee':'')+(j.cache?' (cache relais)':''));
     }
     telecomErrAt=null; telecomErrDelay=30000; // succes : le recul est remis a zero
   }catch(e){
