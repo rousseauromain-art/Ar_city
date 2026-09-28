@@ -44,8 +44,15 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #tools svg{width:19px;height:19px;stroke:var(--cream);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 #tools button:active{background:rgba(243,233,210,.2)}
 #btnFind.holding{background:rgba(224,165,38,.55);transition:background .15s}
-#btnFind.on,#btnBeyond.on,#btnAlign.on,#btnPoint.on{background:rgba(224,165,38,.85)}
-#btnFind.on svg,#btnBeyond.on svg,#btnAlign.on svg,#btnPoint.on svg{stroke:var(--ink)}
+#btnFind.on,#btnAlign.on,#btnPoint.on{background:rgba(224,165,38,.85)}
+#btnFind.on svg,#btnAlign.on svg,#btnPoint.on svg{stroke:var(--ink)}
+/* bouton oeil : a portee de pouce, a cote du declencheur, avec son etat ecrit et un badge "+N"
+   (nombre de lieux que "Tout voir" ajouterait dans la direction visee) */
+#btnBeyond{position:relative;display:flex;align-items:center;gap:7px;width:142px;justify-content:center;white-space:nowrap;letter-spacing:.1em;background:rgba(14,26,43,.55)}
+#btnBeyond svg{width:17px;height:17px;flex:0 0 auto;stroke:var(--cream);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+#btnBeyond.on{background:rgba(224,165,38,.9);color:var(--ink);border-color:transparent}
+#btnBeyond.on svg{stroke:var(--ink)}
+#eyeBadge{position:absolute;top:-10px;right:-10px;min-width:24px;padding:4px 6px;border-radius:12px;background:var(--ochre);color:var(--ink);font:700 11px/1 var(--mono);letter-spacing:0;text-align:center;display:none;box-shadow:0 0 0 2px rgba(14,26,43,.85)}
 .sec{margin-top:6px;padding:14px 0 4px;border-top:1px solid var(--line);font:700 15px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--ochre)}
 .row label em{font:500 11px var(--mono);color:var(--ochre);font-style:normal;margin-left:8px}
 .zbtns{grid-template-columns:1fr auto;gap:10px}
@@ -113,7 +120,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #shot.open{display:flex}
 #shot img{flex:1;min-height:0;object-fit:contain;background:#000}
 #shot .acts{display:flex;gap:10px;padding:14px 16px calc(var(--safe-b) + 16px)}
-#shot .acts button{flex:1;padding:14px;border:1px solid var(--line);border-radius:3px;font:700 15px/1 var(--display);letter-spacing:.12em;text-transform:uppercase}
+#shot .acts button{flex:1 1 auto;min-width:0;padding:14px 10px;border:1px solid var(--line);border-radius:3px;font:700 15px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #shot .acts .pri{background:var(--cream);color:var(--ink);border-color:var(--cream)}
 @media (prefers-reduced-motion:reduce){#sheet,#flash,#shutter i{transition:none}}
 </style>
@@ -133,17 +140,17 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <div id="note" class="chip"></div>
   </div>
   <div id="tools">
-    <button id="btnFind" aria-label="Filtrer par nom (maintenir)" title="Maintenir pour ouvrir"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg></button>
-    <button id="btnBeyond" aria-label="Voir au-dela du relief"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
-    <button id="btnAlign" aria-label="Calage automatique"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg></button>
+    <button id="btnFind" aria-label="Chercher un lieu par nom (maintenir)" title="Chercher un lieu (maintenir)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg></button>
+    <button id="btnAlign" aria-label="Calage automatique" title="Caler automatiquement"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg></button>
     <button id="btnPoint" aria-label="Pointer un repere connu pour caler le cap" title="Touchez ensuite le repère visible à l'écran"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg></button>
-    <button id="btnFs" aria-label="Plein ecran"><svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
+    <button id="btnReload" aria-label="Recharger les lieux et le relief" title="Recharger les lieux"><svg viewBox="0 0 24 24"><path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M20.5 3.5V9H15"/></svg></button>
+    <button id="btnFs" aria-label="Plein écran" title="Plein écran"><svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
   </div>
   <div id="flash"></div>
   <div id="bar">
     <button class="side" id="btnSet">Réglages</button>
     <button id="shutter" aria-label="Prendre la photo"><i></i></button>
-    <button class="side" id="btnReload">Recharger</button>
+    <button class="side" id="btnBeyond" aria-pressed="false" aria-label="Densité des noms : Essentiel ou Tout voir"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span id="eyeLbl">Essentiel</span><b id="eyeBadge"></b></button>
   </div>
 </div>
 
@@ -165,24 +172,15 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <span class="hint">Angle du côté large du capteur (~67° pour un objectif principal standard). L'app en déduit le champ réellement affiché selon l'orientation et le recadrage. Le calage auto l'ajuste ; sinon, si deux lieux connus paraissent trop écartés ou trop serrés, corrigez ici.</span>
   </div>
   <div class="row">
-    <label for="maxlab">Nombre de noms max</label><span class="val" id="maxlabV">22</span>
-    <input type="range" id="maxlab" min="8" max="40" step="1" value="22">
-    <span class="hint">Limite le nombre d'étiquettes affichées à la fois, en gardant en priorité les villes puis les lieux remarquables les plus proches. Réduisez si l'écran est trop chargé. Cette limite s'applique séparément aux lieux normaux et aux lieux masqués par le relief (mode « voir au-delà ») : activer l'œil peut donc ajouter jusqu'à ce même nombre de fantômes, en plus des lieux normaux.</span>
-  </div>
-  <div class="row">
     <label for="vil">Hameaux et lieux-dits</label><input type="checkbox" id="vil">
   </div>
   <div class="row">
     <label for="rel">Masquer ce qui est caché par le relief</label><input type="checkbox" id="rel" checked>
-    <span class="hint">Calcule, pour chaque direction, la crête la plus haute devant chaque lieu (tuiles d'altitude Mapterhorn — IGN ~1 m à proximité en France, Copernicus ~30 m au-delà —, courbure terrestre incluse ; sous 300 m, le relief le plus fin est lissé pour qu'un obstacle proche insignifiant ne masque pas à tort un lieu lointain). Les lieux cachés derrière une colline disparaissent ; l'œil en haut à droite les affiche en transparence.</span>
+    <span class="hint">Calcule, pour chaque direction, la crête la plus haute devant chaque lieu (tuiles d'altitude Mapterhorn — IGN ~1 m à proximité en France, Copernicus ~30 m au-delà —, courbure terrestre incluse ; sous 300 m, le relief le plus fin est lissé pour qu'un obstacle proche insignifiant ne masque pas à tort un lieu lointain). Les lieux cachés derrière une colline disparaissent ; le bouton œil (en bas, « Tout voir ») les affiche en transparence.</span>
   </div>
   <div class="row">
     <label for="relv1">Ancien relief (v1, comparaison)</label><input type="checkbox" id="relv1">
     <span class="hint">Bascule sur l'ancien relief (tuiles AWS/SRTM ~30 m, tolérance de masquage d'origine) pour comparer avec le nouveau (v2, Mapterhorn, plus précis, actif par défaut). Ce réglage change quels lieux sont masqués : c'est volontairement l'objet de la comparaison, donc la liste des noms peut différer entre v1 et v2 ici.</span>
-  </div>
-  <div class="row">
-    <label for="lblv1">Ancien style d'étiquette (v1, comparaison)</label><input type="checkbox" id="lblv1">
-    <span class="hint">Bascule sur l'ancien affichage des noms (texte droit, empilé au-dessus du repère) au lieu de l'éventail incliné actuel (v2). Réglage indépendant du relief ci-dessus : seule l'apparence change, les mêmes lieux restent affichés dans les deux styles.</span>
   </div>
   <div class="row">
     <label for="obsH">Altitude de l'œil (correction)</label><span class="val" id="obsHV">0 m</span>
@@ -191,8 +189,8 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <span class="hint">L'altitude du sol sous vos pieds est estimée d'après le relief ; elle peut se tromper de 10 m ou plus, surtout en bord de mer ou de falaise (précision GPS, données à 30 m hors de France). Positif : balcon, étage (2ᵉ étage ≈ +6 m). Négatif : l'estimation vous place trop haut (ex. estimé 14 m alors que vous êtes au ras de l'eau → −11 m). Repère : l'altitude affichée par PeakFinder ou une carte topo.</span>
   </div>
   <div class="row">
-    <label for="bey">Voir au-delà du relief</label><input type="checkbox" id="bey">
-    <span class="hint">Affiche en transparence, avec un trait pointillé, les lieux cachés derrière une colline. Raccourci : l'icône œil, en haut à droite de l'écran caméra.</span>
+    <label for="bey">Tout voir</label><input type="checkbox" id="bey">
+    <span class="hint">Par défaut (« Essentiel »), seuls les lieux visibles d'ici sont nommés. « Tout voir » ajoute en transparence, avec un trait pointillé, ceux cachés derrière le relief et ceux au-delà de la portée habituelle de leur catégorie (plage &gt; 12 km, village &gt; 30 km, île &gt; 60 km…). Raccourci : le bouton œil à droite du déclencheur ; le badge « +N » indique combien de lieux il ajouterait dans la direction visée. Les noms ne se chevauchent jamais : dans une zone très chargée, certains attendent d'avoir de la place.</span>
   </div>
   <div class="row">
     <label for="sky">Ligne d'horizon (aide au calage)</label><input type="checkbox" id="sky">
@@ -309,13 +307,15 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-09-26 · Lots 1-4 : hauteur d\'observation, relief hybride, chargement/calage accélérés, calage par pointage, tours/clochers/immeubles hauts (OSM)';
-const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,labelV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,maxLabels:22,chipsFold:false,
+const APP_VERSION='2026-09-28 (b) · œil Essentiel / Tout voir (filtre unique), étiquettes inclinées seules, répétitions regroupées, bandeau simplifié, légende photo sous l\'image · îles jusqu\'à 60 km · diagnostic lieux et réseau · Lots 1-4 + A/B : hauteur d\'observation, relief hybride, chargement/calage accélérés, calage par pointage, tours/clochers/immeubles hauts (OSM), villes/sommets/POI multi-sources (Overpass + OpenFreeMap + Geoapify + GeoNames)';
+const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
   lighthouse:{label:'Phares, feux et balises',        max:40, q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]']},
   cape:      {label:'Pointes, caps et sommets',       max:30, q:['nwr["natural"~"^(cape|peak)$"]']},
-  rock:      {label:'Rochers, ilots et arches',       max:20, q:['nwr["natural"~"^(rock|stone|arch)$"]','nwr["place"~"^(island|islet)$"]']},
+  // les iles ont leur propre portee de recherche (60 km, cf. MAXD.island) : une ile se voit de bien
+  // plus loin qu'un rocher — [selecteur, portee km] remplace la portee commune de la categorie
+  rock:      {label:'Rochers, îlots et îles',          max:20, q:['nwr["natural"~"^(rock|stone|arch)$"]',['nwr["place"~"^(island|islet)$"]',60]], note:'îles ≤ 60 km'},
   view:      {label:'Points de vue et curiosites',    max:20, q:['nwr["tourism"~"^(viewpoint|attraction)$"]']},
   heritage:  {label:'Chateaux, forts, menhirs, moulins', max:15, q:['nwr["historic"~"^(castle|fort|ruins|monument|memorial|standing_stone|archaeological_site)$"]','nwr["man_made"="windmill"]']},
   beach:     {label:'Plages',                         max:12, q:['nwr["natural"="beach"]']}
@@ -368,7 +368,7 @@ function loadSettings(){
   try{
     const raw=localStorage.getItem(PKEY); if(!raw) return;
     const saved=JSON.parse(raw);
-    for(const k of ['radius','camFov','hamlets','relief','reliefV1','labelV1','obsHeight','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','beyond','telecom','telecomMax','buildings','buildingsMax','maxLabels','chipsFold'])
+    for(const k of ['radius','camFov','hamlets','relief','reliefV1','obsHeight','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','beyond','telecom','telecomMax','buildings','buildingsMax','chipsFold'])
       if(saved[k]!==undefined) S[k]=saved[k];
     if(saved.poi) Object.assign(S.poi,saved.poi);
   }catch(e){}
@@ -378,8 +378,8 @@ function saveSettings(){
   clearTimeout(saveSettingsT);
   saveSettingsT=setTimeout(()=>{
     try{
-      const {radius,camFov,hamlets,relief,reliefV1,labelV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,buildings,buildingsMax,maxLabels,chipsFold,poi}=S;
-      localStorage.setItem(PKEY,JSON.stringify({radius,camFov,hamlets,relief,reliefV1,labelV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,buildings,buildingsMax,maxLabels,chipsFold,poi}));
+      const {radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi}=S;
+      localStorage.setItem(PKEY,JSON.stringify({radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi}));
     }catch(e){}
   },300);
 }
@@ -500,7 +500,29 @@ function pose(){
 
 // ---------- données ----------
 function setStatus(t){ $('status').textContent=t; }
+// ---------- compteur de requetes reseau (panneau de diagnostic) ----------
+// TOUTES les requetes de l'appli passent par fetchT() ou par l'unique fetch() d'overpassRace() : ces
+// deux points suffisent a tout compter, sans exception. Remis a zero a chaque ouverture de l'appli.
+// Les tuiles de relief deja en cache navigateur ne passent PAS par ici (servies localement, 0 requete).
+const reqStats={}, reqLast={}, reqTimes=[]; let reqTotal=0; const reqSince=Date.now();
+function reqBucket(url){
+  const u=String(url);
+  if(/\/api\/interpreter|overpass/i.test(u)) return 'Overpass (OSM)';
+  if(/tiles\.openfreemap\.org/.test(u)) return 'OpenFreeMap (tuiles lieux)';
+  if(/tiles\.mapterhorn\.com/.test(u)) return 'Relief Mapterhorn (tuiles)';
+  if(/elevation-tiles-prod/.test(u)) return 'Relief SRTM (tuiles)';
+  if(/\/geoapify\?/.test(u)) return 'Geoapify (relais)';
+  if(/\/geonames\?/.test(u)) return 'GeoNames (relais)';
+  if(/\/telecom\?/.test(u)) return 'Pylônes ANFR (relais)';
+  if(/\/planes\?/.test(u)||/opensky-network\.org/.test(u)) return 'Avions OpenSky';
+  if(/\/ships\?/.test(u)) return 'Bateaux AISStream (relais)';
+  if(/\/check(\?|$)/.test(u)) return 'Test du relais';
+  return 'Autre';
+}
+function trackReq(url){ const b=reqBucket(url), t=Date.now(); reqStats[b]=(reqStats[b]||0)+1; reqLast[b]=t; reqTotal++; reqTimes.push(t); if(reqTimes.length>3000) reqTimes.splice(0,1000); }
+const reqWithin=ms=>{ const t0=Date.now()-ms; let n=0; for(let i=reqTimes.length-1;i>=0&&reqTimes[i]>=t0;i--) n++; return n; };
 function fetchT(url,opts,ms){
+  trackReq(url);
   const ctrl=new AbortController(); const id=setTimeout(()=>ctrl.abort(),ms);
   return fetch(url,{...opts,signal:ctrl.signal}).finally(()=>clearTimeout(id));
 }
@@ -539,6 +561,7 @@ function overpassRace(q,ms,parser){
       const ep=ENDPOINTS[launched++], ctrl=new AbortController(); ctrls.push(ctrl);
       const kill=setTimeout(()=>ctrl.abort(),ms);
       clearTimeout(timer); timer=setTimeout(launch,Math.max(OVP_STAGGER_MS,ms/4)); // requete lourde (zone 150 km) : on laisse plus de temps avant de solliciter un autre miroir
+      trackReq(ep);
       fetch(ep,{method:'POST',body,headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ctrl.signal})
         .then(async res=>{ if(!res.ok) throw new Error('HTTP '+res.status); return (parser||parseOverpass)(await res.json()); })
         .then(out=>{
@@ -568,7 +591,7 @@ function clausesFor(pos,r,hamlets,poiSet,poiCap){
   const C=`${pos.lat},${pos.lon}`, cap=km=>Math.min(r,km*1000);
   const cl=[`node["place"~"^(city|town)$"](around:${r},${C})`,`node["place"="village"](around:${cap(30)},${C})`];
   if(hamlets) cl.push(`node["place"~"^(hamlet|isolated_dwelling)$"](around:${cap(12)},${C})`);
-  for(const k in POI) if(poiSet[k]) for(const sel of POI[k].q) cl.push(`${sel}(around:${poiCap(POI[k].max)},${C})`);
+  for(const k in POI) if(poiSet[k]) for(const q of POI[k].q){ const [sel,m]=Array.isArray(q)?q:[q,POI[k].max]; cl.push(`${sel}(around:${poiCap(m)},${C})`); }
   return cl;
 }
 // ---------- villes/sommets via tuiles vectorielles OpenFreeMap (OpenMapTiles), en parallele d'Overpass ----------
@@ -697,7 +720,7 @@ function zoomForRadius(rKm,lat){
   const z=Math.round(Math.log2(5*19980*latFactor/rKm));
   return Math.max(5,Math.min(13,z));
 }
-const OFM_PLACE_KIND={city:'city',town:'town',village:'village',hamlet:'hamlet',isolated_dwelling:'isolated_dwelling'};
+const OFM_PLACE_KIND={city:'city',town:'town',village:'village',hamlet:'hamlet',isolated_dwelling:'isolated_dwelling',island:'island',islet:'island'};
 let ofmTileTpl=null, ofmTilesCache=new Map(); // cache memoire (pas localStorage : tuiles trop volumineuses)
 async function ofmTileTemplate(){
   if(ofmTileTpl) return ofmTileTpl;
@@ -757,6 +780,38 @@ async function loadFromOpenFreeMap(p,rKm,hamlets){
   if(!got.length&&failed===tiles.length) throw new Error(`${tiles.length} tuile(s), toutes en echec`);
   return got;
 }
+// ---------- villes/sommets/POI supplementaires via le relais (Geoapify + GeoNames) ----------
+// Deux autres sources independantes, en parallele des precedentes : Geoapify (villes/sommets/POI) et
+// GeoNames (villes/sommets) tournent via le relais, qui detient seul leurs identifiants (GEOAPIFY_KEY,
+// GEONAMES_USER — jamais dans le navigateur, voir relais-worker.js). Purement optionnelles : sans
+// relais configure (CONFIG.relay), elles sont simplement absentes de la fusion, sans aucune degradation
+// des autres sources. 'cape'/'rock' ne sont pas couverts par Geoapify (voir relais-worker.js) ; GeoNames
+// ne couvre que villes/sommets (pas de recherche par categorie de POI dans ses webservices gratuits).
+const GEOAPIFY_POI_KINDS=['lighthouse','view','heritage','beach'];
+async function fetchRelayPlaces(route,p,rKm,kinds){
+  const base=relayBase();
+  const results=await Promise.allSettled(kinds.map(async k=>{
+    const r=await fetchT(`${base}/${route}?lat=${p.lat.toFixed(5)}&lon=${p.lon.toFixed(5)}&radius_km=${rKm}&kind=${k}`,{},10000);
+    let j={}; try{ j=await r.json(); }catch(e){}
+    if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+    return j.places||[];
+  }));
+  const ok=results.filter(x=>x.status==='fulfilled');
+  if(!ok.length){
+    const first=results.find(x=>x.status==='rejected');
+    throw (first&&first.reason)||new Error('aucune reponse');
+  }
+  return [].concat(...ok.map(x=>x.value));
+}
+function loadFromGeoapify(p,rKm,poiSet){
+  const kinds=['villes']; if(poiSet.cape) kinds.push('sommets');
+  for(const k of GEOAPIFY_POI_KINDS) if(poiSet[k]) kinds.push(k);
+  return fetchRelayPlaces('geoapify',p,rKm,kinds);
+}
+function loadFromGeoNames(p,rKm,poiSet){
+  const kinds=['villes']; if(poiSet.cape) kinds.push('sommets');
+  return fetchRelayPlaces('geonames',p,rKm,kinds);
+}
 // fusionne plusieurs listes en un seul tableau : meme nom (normalise) a moins de maxKm = un seul
 // lieu (la source la plus a gauche du tableau `lists` est prioritaire ; les champs manquants d'un
 // doublon sont completes par la source suivante, ex. altitude connue d'une source, pas de l'autre)
@@ -800,7 +855,8 @@ function scheduleRetry(){
   retryDelay=Math.min(Math.round(retryDelay*1.5),60000); // recul progressif, plafonne a 60s
 }
 function stopRetry(){ clearTimeout(retryTimer); retryTimer=null; nextRetryAt=null; retryDelay=15000; }
-const isLiveSource=s=>s==='OSM'||s==='OpenFreeMap'||s==='OSM+OpenFreeMap';
+const LIVE_SOURCE_TOKENS=new Set(['OSM','OpenFreeMap','Geoapify','GeoNames']);
+const isLiveSource=s=>!!s&&s.split('+').every(t=>LIVE_SOURCE_TOKENS.has(t));
 async function loadCities(force){
   if(!pos||loading) return;
   if(!force&&lastFetch&&isLiveSource(source)&&loadedR>=S.radius&&distBrg(pos,lastFetch).dist<S.radius*0.25) return;
@@ -808,23 +864,39 @@ async function loadCities(force){
   const r=Math.round(S.radius*1000), cap=km=>Math.min(r,km*1000);
   const cl=clausesFor(pos,r,S.hamlets,S.poi,cap);
   const q=`[out:json][timeout:25];(${cl.join(';')};);out center;`;
-  // Overpass (calcule a la volee, tres complet, fragile) et OpenFreeMap (tuiles pre-calculees, moins
-  // fin, tres robuste) tournent EN PARALLELE : la panne de l'un n'empeche plus l'autre de fonctionner
-  // (retour terrain du 27/09/2026 : les 3 miroirs Overpass en panne simultanement -> ecran vide).
-  const [ovpR,ofmR]=await Promise.allSettled([
+  // Overpass (calcule a la volee, tres complet, fragile), OpenFreeMap (tuiles pre-calculees, tres
+  // robuste) et, si un relais est configure, Geoapify + GeoNames (identifiants geres cote serveur)
+  // tournent EN PARALLELE : la panne de l'un n'empeche plus les autres de fonctionner (retour terrain
+  // du 27/09/2026 : les 3 miroirs Overpass en panne simultanement -> ecran vide).
+  const wantRelay=!!relayBase();
+  const srcNames=['OSM','OpenFreeMap']; const tasks=[
     overpassQuery(q,20000), // 20 s par miroir, miroirs echelonnes de 5 s : ~30 s au pire
     loadFromOpenFreeMap(pos,S.radius,S.hamlets),
-  ]);
+  ];
+  if(wantRelay){
+    srcNames.push('Geoapify','GeoNames');
+    tasks.push(loadFromGeoapify(pos,S.radius,S.poi), loadFromGeoNames(pos,S.radius,S.poi));
+  }
+  const settled=await Promise.allSettled(tasks);
+  const [ovpR,ofmR,gpfR,gnmR]=settled;
   if(ovpR.status==='fulfilled') logNet('OSM',true,`${ovpR.value.length} lieux, rayon ${S.radius} km (via ${overpassLastEp})`);
   else logNet('OSM',false,friendlyErr(ovpR.reason));
   if(ofmR.status==='fulfilled') logNet('OpenFreeMap',true,`${ofmR.value.length} lieux (tuiles, zoom ${zoomForRadius(S.radius,pos.lat)})`);
   else logNet('OpenFreeMap',false,friendlyErr(ofmR.reason));
+  if(wantRelay){
+    if(gpfR.status==='fulfilled') logNet('Geoapify',true,`${gpfR.value.length} lieux`);
+    else logNet('Geoapify',false,friendlyErr(gpfR.reason));
+    if(gnmR.status==='fulfilled') logNet('GeoNames',true,`${gnmR.value.length} lieux`);
+    else logNet('GeoNames',false,friendlyErr(gnmR.reason));
+  }
 
-  const lists=[]; if(ovpR.status==='fulfilled') lists.push(ovpR.value); if(ofmR.status==='fulfilled') lists.push(ofmR.value);
+  const lists=[], used=[];
+  settled.forEach((res,i)=>{ if(res.status==='fulfilled'){ lists.push(res.value); used.push(srcNames[i]); } });
   if(lists.length){
-    const got=mergeByNameProximity(lists,1.5);
-    cities=got; source=lists.length>1?'OSM+OpenFreeMap':(ovpR.status==='fulfilled'?'OSM':'OpenFreeMap'); lastOSMAt=Date.now();
-    // alimente automatiquement l'atlas local : si les deux sources tombent plus tard (ou hors reseau),
+    let got=mergeByNameProximity(lists,1.5);
+    if(!S.hamlets) got=got.filter(c=>c.kind!=='hamlet'&&c.kind!=='isolated_dwelling'); // filtre uniforme, quelle que soit la source d'origine
+    cities=got; source=used.join('+'); lastOSMAt=Date.now();
+    // alimente automatiquement l'atlas local : si toutes les sources tombent plus tard (ou hors reseau),
     // on retombe sur ces lieux plutot que sur la petite liste integree (France uniquement)
     const added=absorbIntoAtlas(got,pos,S.radius);
     if(added) logNet('Atlas',true,`+${added} lieux memorises (${Object.keys(atlas.items).length} au total)`);
@@ -886,17 +958,22 @@ async function downloadZone(){
 
 
 // ---------- relief : masquage des lieux cachés par le terrain ----------
-const RANK={city:0,town:1,lighthouse:1,cape:2,peak:2,village:2,view:3,rock:3,heritage:3,beach:4,hamlet:4,isolated_dwelling:4,poi:3};
-// portee d'affichage (km) et hauteur de cible pour le calcul de relief (m)
-const MAXD={village:30,hamlet:12,isolated_dwelling:12,lighthouse:40,cape:30,peak:45,rock:20,view:20,heritage:15,beach:12,poi:15};
-const HT={lighthouse:25,peak:4,cape:4,rock:4,view:4,heritage:10,beach:1};
+const RANK={city:0,town:1,lighthouse:1,island:1,cape:2,peak:2,village:2,view:3,rock:3,heritage:3,beach:4,hamlet:4,isolated_dwelling:4,poi:3};
+// portee d'affichage (km) et hauteur de cible pour le calcul de relief (m). 'island' distinct de
+// 'rock' depuis le retour terrain du 28/09/2026 (Formentera jamais affichee depuis Santa Eularia,
+// ~30-35 km) : les deux partageaient le meme plafond de 20 km, pense pour de petits rochers/ilots
+// a peine visibles au loin, bien trop court pour une ile de plusieurs km reperable a l'oeil nu
+// beaucoup plus loin (aligne sur cape/peak plutot que sur rock)
+const MAXD={village:30,hamlet:12,isolated_dwelling:12,lighthouse:40,cape:30,peak:45,island:60,rock:20,view:20,heritage:15,beach:12,poi:15};
+const HT={lighthouse:25,peak:4,cape:4,island:30,rock:4,view:4,heritage:10,beach:1};
 const SETTLE=new Set(['city','town','village','hamlet','isolated_dwelling']);
 function kindOf(t){
   if(t.place&&SETTLE.has(t.place)) return t.place;
   if(t.man_made==='lighthouse'||/^light/.test(t['seamark:type']||'')) return 'lighthouse';
   if(t.natural==='cape') return 'cape';
   if(t.natural==='peak') return 'peak';
-  if(/^(rock|stone|arch)$/.test(t.natural||'')||/^(island|islet)$/.test(t.place||'')) return 'rock';
+  if(/^(island|islet)$/.test(t.place||'')) return 'island';
+  if(/^(rock|stone|arch)$/.test(t.natural||'')) return 'rock';
   if(t.natural==='beach') return 'beach';
   if(t.tourism) return 'view';
   if(t.historic||t.man_made==='windmill') return 'heritage';
@@ -1044,6 +1121,10 @@ const SEA_TILE_256=(()=>{ const t=new Uint8ClampedArray(256*256*4); for(let i=0;
 const SEA_TILE_512=(()=>{ const t=new Uint8ClampedArray(512*512*4); for(let i=0;i<t.length;i+=4){ t[i]=128; t[i+3]=255; } return t; })();
 const seaTile=ts=>ts===512?SEA_TILE_512:SEA_TILE_256;
 let reliefStats={checked:0,hidden:0,unknown:0};
+// instantane du placement des etiquettes a l'ecran (voir draw()) : combine a visStats (plus bas) pour
+// expliquer, dans le panneau de diagnostic, TOUTES les raisons de non-affichage — pas seulement le
+// relief (seul cas deja visible avant ce correctif, cf. retour terrain du 28/09/2026)
+let placeStats={eligible:0,shown:0,ghost:0,noRoom:0,capped:0};
 async function loadTileData(z,x,y,urlFn,ts,guaranteed){
   const url=urlFn(z,x,y);
   let resp=null, fromCache=false, cache=null;
@@ -1396,13 +1477,21 @@ function mobiles(){
 // visibleCities() trie la liste ; ne recalculer que quand les donnees (citiesVer) ou
 // le rayon ont change, pas a chaque frame — c'etait la principale cause de lag
 let citiesVer=0, _visCache=[], _visVer=-1, _visRad=null;
+// Au-dela de la portee naturelle de sa categorie (MAXD : plage 12 km, ile 60 km...), un lieu n'est
+// plus ecarte : il est marque c.far et devient un "fantome", affiche en transparence en mode Tout
+// voir (bouton oeil) comme les lieux caches par le relief — un seul mecanisme, pilote par l'oeil
+// (retour du 28/09/2026). Seul le rayon regle reste une exclusion franche ("ce qui m'interesse").
+let visStats={total:0,outRadius:0,tooFarForKind:0,farList:[],dup:0,kept:0};
 function visibleCities(){
   if(_visVer===citiesVer&&_visRad===S.radius) return _visCache;
+  let outRadius=0, tooFarForKind=0; const farList=[];
   _visCache=cities.filter(c=>{
-    if(c.dist==null||c.dist>S.radius) return false;
-    const m=MAXD[c.kind]; if(m!=null&&c.dist>m) return false;
+    if(c.dist==null||c.dist>S.radius){ outRadius++; return false; }
+    const m=MAXD[c.kind]; c.far=m!=null&&c.dist>m;
+    if(c.far){ tooFarForKind++; farList.push(c); }
     return true;
   }).sort((a,b)=>(RANK[a.kind]??3)-(RANK[b.kind]??3)||a.dist-b.dist);
+  const beforeDup=_visCache.length;
   // OSM decrit parfois un meme lieu par plusieurs objets (ile + sommet, commune + centre...) :
   // on garde le plus significatif (deja trie en tete) et on ecarte les homonymes a moins de 2 km
   { const seen=new Map(), out=[];
@@ -1410,20 +1499,33 @@ function visibleCities(){
       if(g&&g.some(o=>distBrg(o,c).dist<2)) continue;
       if(g) g.push(c); else seen.set(k,[c]); out.push(c); }
     _visCache=out; }
+  farList.sort((a,b)=>(RANK[a.kind]??3)-(RANK[b.kind]??3)||a.dist-b.dist);
+  visStats={total:cities.length,outRadius,tooFarForKind,farList:farList.slice(0,6),dup:beforeDup-_visCache.length,kept:_visCache.filter(c=>!c.far).length};
   _visVer=citiesVer; _visRad=S.radius;
   return _visCache;
 }
-// intercale les lieux masques (b) parmi les visibles (a), environ 1 pour "ratio" — utilise par le
-// mode "voir au-dela" pour que les fantomes ne soient pas tous relegues apres le plafond S.maxLabels
-function interleaveGhosts(a,b,ratio=3){
-  if(!b.length) return a;
-  const out=[]; let bi=0;
-  for(let i=0;i<a.length;i++){
-    out.push(a[i]);
-    if((i+1)%ratio===0&&bi<b.length) out.push(b[bi++]);
+// etiquettes v2 (inclinees) : pas vertical entre deux hauteurs essayees, et test de chevauchement
+// exact entre deux quadrilateres convexes (axes separateurs), avec une marge m en pixels
+const LBL_STEP=10;
+function polysOverlap(P,Q,m){
+  for(const poly of [P,Q]) for(let i=0;i<2;i++){
+    const a=poly[i], b=poly[i+1], L=Math.hypot(b[0]-a[0],b[1]-a[1])||1;
+    const nx=-(b[1]-a[1])/L, ny=(b[0]-a[0])/L;
+    let p0=Infinity,p1=-Infinity,q0=Infinity,q1=-Infinity;
+    for(const [x,y] of P){ const d=x*nx+y*ny; if(d<p0)p0=d; if(d>p1)p1=d; }
+    for(const [x,y] of Q){ const d=x*nx+y*ny; if(d<q0)q0=d; if(d>q1)q1=d; }
+    if(p1+m<=q0||q1+m<=p0) return false; // axe separateur trouve : pas de chevauchement
   }
-  while(bi<b.length) out.push(b[bi++]);
-  return out;
+  return true;
+}
+// badge "+N" du bouton oeil : nombre de lieux en transparence disponibles dans le champ, affiche en
+// mode Essentiel seulement (en Tout voir ils sont deja a l'ecran). DOM touche seulement si ca change.
+let _eyeBadgeN=-1;
+function updateEyeBadge(n){
+  const b=$('eyeBadge'); if(!b) return;
+  const v=S.beyond?0:n;
+  if(v===_eyeBadgeN) return;
+  _eyeBadgeN=v; b.textContent=v?'+'+v:''; b.style.display=v?'block':'none';
 }
 // diagnostic "pourquoi ce lieu n'apparait pas" pour la recherche par nom : explique la premiere
 // raison rencontree (hameau non affiche, hors de portee, masque par le relief, doublon...) plutot
@@ -1433,7 +1535,7 @@ function whyAbsent(c){
   if(c.dist==null) return 'distance non calculée';
   if(c.dist>S.radius) return `hors du rayon affiché (${c.dist.toFixed(1)} km, réglage actuel ${S.radius} km)`;
   const m=MAXD[c.kind];
-  if(m!=null&&c.dist>m) return `trop loin pour ce type de lieu (${c.dist.toFixed(1)} km, max ${m} km pour "${c.kind}")`;
+  if(m!=null&&c.dist>m) return `au-delà de la portée habituelle de ce type de lieu (${c.dist.toFixed(1)} km, ${m} km pour "${c.kind}") : affiché en transparence avec le bouton œil (Tout voir)`;
   if(S.relief&&terrain&&c.hidden){
     // "masque par quoi" : identifie le point du profil (distance+altitude) qui masque ce lieu,
     // pour comprendre en un coup d'oeil s'il s'agit d'un relief lointain reel ou d'un artefact proche
@@ -1441,7 +1543,7 @@ function whyAbsent(c){
     const lim=c.dist-Math.max(0.25,c.dist*(peak?0.07:0.03));
     const cause=maskCause(terrain.bands,c,terrain.h0,c.brg,lim);
     const causeTxt=cause?` — masqué par un point à ${cause.d.toFixed(1)} km (~${Math.round(cause.e)} m d'altitude)`:'';
-    return `masqué par le relief${causeTxt} (bouton œil "voir au-delà du relief" pour l'afficher quand même)`;
+    return `masqué par le relief${causeTxt} : affiché en transparence avec le bouton œil (Tout voir)`;
   }
   return null;
 }
@@ -1542,42 +1644,46 @@ function draw(ts){
   }
 
   // --- lieux : ancres sur le relief (sol du lieu, ou crete qui le laisse entrevoir) ---
-  // les lieux masques ne sont traces qu'en mode "voir au-dela", en fantome, apres les visibles
-  // etiquettes inclinees a ~45° (facon PeakFinder), avec altitude si connue ; nombre total
-  // plafonne a S.maxLabels, dans l'ordre de priorite deja fourni par visibleCities() (RANK puis distance)
-  // etiquettes en eventail : celles a gauche du cap penchent vers le haut-gauche, celles a
-  // droite vers le haut-droite (comme PeakFinder) — evite que tout le monde derive du meme
-  // cote et se bloque mutuellement quand plusieurs lieux sont proches en relevement
-  const useRelief=S.relief&&!!terrain, placed=[], topLimit=safeT+24+14, maxLanes=9;
-  // v1 (comparaison) : ancien style d'etiquette, droite (non inclinee) et empilee verticalement
-  // au-dessus du point d'ancrage — comme l'affichage d'avant l'eventail incline actuel (v2).
-  // Reglage INDEPENDANT de S.reliefV1 (moteur de relief) : ce dernier peut legitimement changer
-  // quels lieux sont masques (c'est le but de cette comparaison-la), mais le style d'etiquette,
-  // lui, ne doit jamais a lui seul faire apparaitre/disparaitre un nom — seule l'apparence change.
-  const oldLabelStyle=S.labelV1;
-  // mode "voir au-dela" (oeil) : les lieux masques sont intercales parmi les visibles (environ 1
-  // pour 3) plutot que places tout a la fin de la liste, pour un melange visuel homogene a
-  // l'ecran. Le plafond S.maxLabels est applique SEPAREMENT aux lieux normaux et aux fantomes
-  // (deux compteurs, shownCount/ghostCount plus bas) : avant ce correctif, les deux partageaient
-  // le meme quota, et des qu'une scene comptait plus de lieux visibles que S.maxLabels, celui-ci
-  // etait deja atteint avant que le moindre fantome ne soit tente — l'oeil semblait ne rien faire
-  // (retour terrain du 26/09/2026)
-  const order=useRelief&&S.beyond?interleaveGhosts(list.filter(c=>!c.hidden),list.filter(c=>c.hidden)):list;
+  // UN SEUL reglage de densite, le bouton oeil (retour du 28/09/2026 : "une seule fonction de
+  // filtrage, activable avec l'oeil") :
+  //  - Essentiel (defaut) : seulement les lieux visibles d'ici — ni caches par le relief, ni au-dela
+  //    de la portee naturelle de leur categorie (c.far, voir visibleCities) ;
+  //  - Tout voir : en plus, en transparence, tous ceux-la ("existe, mais probablement pas visible").
+  // Plus de plafond numerique d'etiquettes : la seule limite est de ne jamais superposer deux noms.
+  // Ordre : tous les lieux visibles d'abord, par priorite (RANK puis distance), PUIS les fantomes —
+  // passer en Tout voir ne peut donc jamais faire disparaitre un nom affiche en Essentiel.
+  // Etiquettes inclinees a 45° en eventail (a gauche du cap vers le haut-gauche, a droite vers le
+  // haut-droite, comme PeakFinder) : tige verticale depuis le point, puis nom incline.
+  // Placement (retour du 28/09/2026, "des noms disparaissent alors qu'il y a de la place") : test de
+  // chevauchement exact sur la bande inclinee — et non sur le carre qui l'englobe (~140x140 px pour
+  // un nom de 200 px), qui bloquait des voisins qui ne se touchaient pas — et recherche de place en
+  // montant verticalement (glisser le long de la diagonale n'ecarte jamais une voisine parallele).
+  const useRelief=S.relief&&!!terrain, placed=[], topLimit=safeT+24+14, maxLanes=60;
+  // zones d'interface a ne jamais recouvrir (colonne d'icones, bandeau d'etat) : posees d'emblee
+  // comme des etiquettes deja placees (retour du 28/09/2026 : des noms passaient sous les icones)
+  for(const el of [$('tools'),$('chips')]){ if(!el) continue; const r=el.getBoundingClientRect(); if(r.width&&r.height) placed.push([r.left,r.right,r.top,r.bottom]); }
+  const isGhost=c=>!!c.far||(useRelief&&!!c.hidden);
+  const order=S.beyond?list.filter(c=>!isGhost(c)).concat(list.filter(isGhost)):list.filter(c=>!isGhost(c));
+  const inView=c=>{ const dB=wrap(c.brg-heading); if(Math.abs(dB)>Math.min(80,FOVH*0.8)) return null;
+    const x=W/2+fh*Math.tan(dB*D); return (x<-40||x>W+40)?null:x; };
   const ANG_LBL=45*D, cAL=Math.cos(ANG_LBL), sAL=Math.sin(ANG_LBL);
   ctx.textBaseline='alphabetic'; ctx.lineJoin='round';
-  let shownCount=0, ghostCount=0;
+  // diagnostic : eligible = dans le champ et teste ; noRoom = aucune place libre ; ghostInView =
+  // lieux en transparence presents dans le champ (badge "+N" du bouton oeil en mode Essentiel)
+  let shownCount=0, ghostCount=0, dEligible=0, dNoRoom=0, ghostInView=0;
+  if(!S.beyond) for(const c of list) if(isGhost(c)&&passFilter(c,fq)&&inView(c)!=null) ghostInView++;
   for(const c of order){
-    const ghost=useRelief&&c.hidden;
-    if(ghost?ghostCount>=S.maxLabels:shownCount>=S.maxLabels) continue;
-    if(ghost&&!S.beyond) continue;
+    const ghost=isGhost(c);
     if(!passFilter(c,fq)) continue;
-    const dB=wrap(c.brg-heading);
-    if(Math.abs(dB)>Math.min(80,FOVH*0.8)) continue;
-    const x=W/2+fh*Math.tan(dB*D);
-    if(x<-40||x>W+40) continue;
-    const sgn=x<W/2?-1:1; // sens de l'eventail : gauche/droite de l'ecran (v2 uniquement)
+    const x=inView(c); if(x==null) continue;
+    if(ghost) ghostInView++;
+    dEligible++;
+    // sens de l'eventail : vers le haut-gauche a gauche du cap, vers le haut-droite a droite — sauf si
+    // le nom sortirait de l'ecran de ce cote (pres des bords) : on le penche alors de l'autre cote
+    let sgn=x<W/2?-1:1;
+    const hid=useRelief&&c.hidden;
     let aA=0;
-    if(useRelief&&c.aG!=null) aA=ghost?c.aG:Math.max(c.aG,Math.min(c.mask,c.aP));
+    if(useRelief&&c.aG!=null) aA=hid?c.aG:Math.max(c.aG,Math.min(c.mask,c.aP));
     const ay=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-aA)*D)));
     const poi=!SETTLE.has(c.kind);
     const size=c.kind==='city'?18:c.kind==='town'?16:c.kind==='village'?14:poi?13:12;
@@ -1591,75 +1697,87 @@ function draw(ts){
     ctx.font=`500 11px ${FM}`;
     const dw=dtxt?ctx.measureText(dtxt).width:0;
     let lx=null, ly=null;
-    if(oldLabelStyle){
-      // ancien style : bloc droit centre sur x, nom au-dessus de la distance/altitude, empile
-      // vers le haut au-dessus de l'ancre (premiere position verticale libre)
-      const boxW=Math.max(nw,dw)+8, blockH=dtxt?size+18:size+6;
+    const totalLen=nw+(dtxt?dw+7:0)+4, padTop=size+2, padBot=3;
+    const reach=10+totalLen*cAL+padTop*sAL;
+    if(sgn<0&&x-reach<4&&x+reach<=W-4) sgn=1; else if(sgn>0&&x+reach>W-4&&x-reach>=4) sgn=-1;
+    // cote prefere d'abord ; s'il est entierement bloque (voisins, icones), on essaie l'autre cote
+    for(const side of [sgn,-sgn]){
+      if(side!==sgn&&((side<0&&x-reach<4)||(side>0&&x+reach>W-4))) break; // l'autre cote sortirait de l'ecran
       for(let k=0;k<maxLanes;k++){
-        const cy=ay-12-k*(blockH+6); // baseline de la ligne du bas (distance, ou nom si pas de distance)
-        const by0=cy-blockH, by1=cy+4;
-        if(by0<topLimit) break;
-        const bx0=x-boxW/2, bx1=x+boxW/2;
-        if(!placed.some(r=>bx0<r[1]+6&&bx1>r[0]-6&&by0<r[3]+4&&by1>r[2]-4)){ lx=x; ly=cy; placed.push([bx0,bx1,by0,by1]); break; }
-      }
-    } else {
-      const totalLen=nw+(dtxt?dw+7:0)+4, padTop=size+2, padBot=3;
-      for(let k=0;k<maxLanes;k++){ // premiere place libre le long de la diagonale montante
-        const diag=26+k*22, lsx=x+diag*sgn*cAL, lsy=ay-diag*sAL;
-        // boite englobante (axis-aligned) de l'etiquette inclinee, dans le repere ecran
-        // (px,py) parcourt les 4 coins locaux ; px va de 0 (ancrage) a sgn*totalLen (bout du texte)
+        const lsx=x+side*10, lsy=ay-18-k*LBL_STEP;
+        const poly=[[0,-padTop],[side*totalLen,-padTop],[side*totalLen,padBot],[0,padBot]]
+          .map(([px,py])=>[lsx+px*cAL+py*side*sAL, lsy-side*px*sAL+py*cAL]);
         let bx0=Infinity,bx1=-Infinity,by0=Infinity,by1=-Infinity;
-        for(const px of [0,sgn*totalLen]) for(const py of [-padTop,padBot]){
-          const sx=lsx+px*cAL+py*sgn*sAL, sy=lsy-sgn*px*sAL+py*cAL;
-          if(sx<bx0)bx0=sx; if(sx>bx1)bx1=sx; if(sy<by0)by0=sy; if(sy>by1)by1=sy;
-        }
+        for(const [sx,sy] of poly){ if(sx<bx0)bx0=sx; if(sx>bx1)bx1=sx; if(sy<by0)by0=sy; if(sy>by1)by1=sy; }
         if(by0<topLimit) break;
-        if(!placed.some(r=>bx0<r[1]+8&&bx1>r[0]-8&&by0<r[3]+6&&by1>r[2]-6)){ lx=lsx; ly=lsy; placed.push([bx0,bx1,by0,by1]); break; }
+        // tri rapide sur les boites englobantes, puis confirmation exacte si l'autre est aussi inclinee
+        const hit=placed.some(r=>bx0<r[1]+6&&bx1>r[0]-6&&by0<r[3]+6&&by1>r[2]-6&&(!r[4]||polysOverlap(poly,r[4],5)));
+        if(!hit){ lx=lsx; ly=lsy; sgn=side; placed.push([bx0,bx1,by0,by1,poly]); break; }
       }
+      if(ly!=null) break;
     }
-    if(ly==null) continue;
+    if(ly==null){ dNoRoom++; continue; }
     if(ghost) ghostCount++; else shownCount++;
     ctx.strokeStyle=poi?`rgba(224,165,38,${.8*alpha})`:`rgba(255,255,255,${.85*alpha})`; ctx.lineWidth=1;
     if(ghost) ctx.setLineDash([2,3]);
-    ctx.beginPath(); ctx.moveTo(x,ay); ctx.lineTo(oldLabelStyle?x:lx,oldLabelStyle?ly+4:ly); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(x,ay); ctx.lineTo(lx,ly); ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle=poi?`rgba(224,165,38,${.95*alpha})`:`rgba(255,255,255,${.9*alpha})`;
     ctx.beginPath(); ctx.arc(x,ay,ghost?1.8:2.4,0,7); ctx.fill();
-    if(oldLabelStyle){
-      ctx.textAlign='center';
-      ctx.font=`700 ${size}px ${FD}`;
-      ctx.strokeStyle=`rgba(14,26,43,${ghost?.6:.9})`; ctx.lineWidth=3.5;
-      const nameY=dtxt?ly-14:ly;
-      ctx.strokeText(c.name,x,nameY); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,x,nameY);
-      if(dtxt){ ctx.font=`500 11px ${FM}`;
-        ctx.lineWidth=3; ctx.strokeText(dtxt,x,ly); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,x,ly); }
-    } else {
-      ctx.save(); ctx.translate(lx,ly); ctx.rotate(-sgn*ANG_LBL); ctx.textAlign=sgn>0?'left':'right';
-      ctx.font=`700 ${size}px ${FD}`;
-      ctx.strokeStyle=`rgba(14,26,43,${ghost?.6:.9})`; ctx.lineWidth=3.5;
-      ctx.strokeText(c.name,0,0); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,0,0);
-      if(dtxt){ ctx.font=`500 11px ${FM}`;
-        const dx=sgn*(nw+7);
-        ctx.lineWidth=3; ctx.strokeText(dtxt,dx,0); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,dx,0); }
-      ctx.restore();
-    }
+    ctx.save(); ctx.translate(lx,ly); ctx.rotate(-sgn*ANG_LBL); ctx.textAlign=sgn>0?'left':'right';
+    ctx.font=`700 ${size}px ${FD}`;
+    ctx.strokeStyle=`rgba(14,26,43,${ghost?.6:.9})`; ctx.lineWidth=3.5;
+    ctx.strokeText(c.name,0,0); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,0,0);
+    if(dtxt){ ctx.font=`500 11px ${FM}`;
+      const dx=sgn*(nw+7);
+      ctx.lineWidth=3; ctx.strokeText(dtxt,dx,0); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,dx,0); }
+    ctx.restore();
   }
+  // instantane pour le panneau de diagnostic, lu par renderDebug() a son propre rythme (1x/s)
+  placeStats={eligible:dEligible,shown:shownCount,ghost:ghostCount,noRoom:dNoRoom,ghostInView};
+  updateEyeBadge(ghostInView);
   // --- pylones telecom et reperes hauts OSM (tours, clochers, immeubles...) : ancrage simple sur
   // l'horizon, sans correction de relief (on ne dispose pas de l'altitude du terrain a l'emplacement
   // exact du support/repere). Fonction partagee : seuls la couleur et la source de donnees changent.
+  // Repetitions regroupees (retour du 28/09/2026 : huit fois "Mât 11 km" cote a cote n'apprennent
+  // rien et saturent l'ecran) : un meme nom generique a moins de 36 px du precedent a l'ecran forme
+  // un groupe, nomme "5 mâts · 11–12 km", un point par element, une seule etiquette.
+  const PLURAL={'Tour':'tours','Clocher':'clochers',"Château d'eau":"châteaux d'eau",'Cheminée':'cheminées','Mât':'mâts','Immeuble':'immeubles'};
+  const fkm=d=>d<10?d.toFixed(1):String(Math.round(d));
   function drawPylonLike(list,maxDist,color,hitsArr){
+    const vis=[];
     for(const t of list){
       if(t.dist==null||t.dist>maxDist) continue;
       const dB=wrap(t.brg-heading);
       if(Math.abs(dB)>Math.min(80,FOVH*0.8)) continue;
       const x=W/2+fh*Math.tan(dB*D);
       if(x<-40||x>W+40) continue;
-      const size=13;
+      vis.push({t,x});
+    }
+    vis.sort((a,b)=>a.x-b.x);
+    const groups=[];
+    for(const v of vis){
+      const g=groups.find(g=>g.name===v.t.name&&v.x-g.xs[g.xs.length-1]<=36);
+      if(g){ g.items.push(v.t); g.xs.push(v.x); } else groups.push({name:v.t.name,items:[v.t],xs:[v.x]});
+    }
+    for(const g of groups) g.dmin=Math.min(...g.items.map(t=>t.dist));
+    groups.sort((a,b)=>a.dmin-b.dmin); // les plus proches se placent en premier
+    const size=13;
+    // alignement a gauche impose : sinon il heritait d'un 'center' laisse par un autre trace, et la
+    // distance se dessinait par-dessus le nom ("Tou9.1 km", "Mâ11 km" — photos du 27/09/2026)
+    ctx.textAlign='left';
+    for(const g of groups){
+      const n=g.items.length, near=g.items.reduce((a,t)=>t.dist<a.dist?t:a);
+      const x=n>1?g.xs.reduce((a,b)=>a+b,0)/n:g.xs[0];
+      const label=n>1?(PLURAL[g.name]?`${n} ${PLURAL[g.name]}`:`${n} × ${g.name}`):g.name;
+      const dmax=Math.max(...g.items.map(t=>t.dist));
+      const dtxt=(n>1&&fkm(g.dmin)!==fkm(dmax)?`${fkm(g.dmin)}–${fkm(dmax)}`:fkm(g.dmin))+' km';
       ctx.font=`700 ${size}px ${FD}`;
-      const nw=ctx.measureText(t.name).width;
-      const dtxt=(t.dist<10?t.dist.toFixed(1):Math.round(t.dist))+' km';
+      const nw=ctx.measureText(label).width;
       ctx.font=`500 11px ${FM}`;
       const dw=ctx.measureText(dtxt).width+7;
-      const x0=x-2, x1=x+6+nw+dw+4;
+      // pres du bord droit, le texte passe a gauche de la tige pour ne pas sortir de l'ecran
+      const flip=x+6+nw+dw+4>W-4, tx=flip?x-6-nw-dw:x+6;
+      const x0=flip?tx-4:x-2, x1=flip?x+2:x+6+nw+dw+4;
       let ly=null;
       for(let k=0;k<maxLanes;k++){
         const cand=hy-24-k*22;
@@ -1669,16 +1787,18 @@ function draw(ts){
       if(ly==null) continue;
       placed.push([x0,x1,ly-size-2,ly+4]);
       ctx.strokeStyle=color.line; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.moveTo(x,hy); ctx.lineTo(x,ly+3); ctx.stroke();
-      ctx.fillStyle=color.dot; ctx.beginPath(); ctx.arc(x,hy,2.6,0,7); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x,hy); ctx.lineTo(x,ly+3);
+      if(n>1){ ctx.moveTo(g.xs[0],hy); ctx.lineTo(g.xs[n-1],hy); } // accolade reliant les elements du groupe
+      ctx.stroke();
+      ctx.fillStyle=color.dot; for(const xi of g.xs){ ctx.beginPath(); ctx.arc(xi,hy,2.6,0,7); ctx.fill(); }
       ctx.font=`700 ${size}px ${FD}`;
       ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.lineWidth=3.5;
-      ctx.strokeText(t.name,x+6,ly); ctx.fillStyle=color.text; ctx.fillText(t.name,x+6,ly);
+      ctx.strokeText(label,tx,ly); ctx.fillStyle=color.text; ctx.fillText(label,tx,ly);
       ctx.font=`500 11px ${FM}`; ctx.lineWidth=3;
-      ctx.strokeText(dtxt,x+6+nw+7,ly); ctx.fillStyle=color.line; ctx.fillText(dtxt,x+6+nw+7,ly);
+      ctx.strokeText(dtxt,tx+nw+7,ly); ctx.fillStyle=color.line; ctx.fillText(dtxt,tx+nw+7,ly);
       // zone tactile enregistree dans le repere local (avant compensation de roulis) : convertie
-      // au moment du tap, voir hitTelecom()
-      if(hitsArr) hitsArr.push({t,roll,x0,x1,y0:ly-size-2,y1:ly+4});
+      // au moment du tap, voir hitTelecom() ; pour un groupe, le tap ouvre l'element le plus proche
+      if(hitsArr) hitsArr.push({t:near,roll,x0,x1,y0:ly-size-2,y1:ly+4});
     }
   }
   telecomHits.length=0;
@@ -1739,12 +1859,19 @@ function draw(ts){
   if(msg){ ctx.lineWidth=4; ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.strokeText(msg,W/2,H*0.62); ctx.fillStyle='#F3E9D2'; ctx.fillText(msg,W/2,H*0.62); }
 
   // statut
-  const g=pos?`GPS ±${Math.round(acc||0)} m`:'GPS —';
-  const shown=list.filter(c=>(!useRelief||!c.hidden)&&passFilter(c,fq)).length;
-  const nHidden=useRelief?list.filter(c=>c.hidden&&passFilter(c,fq)).length:0;
+  // bandeau en langage courant : le nombre de lieux, puis UNIQUEMENT ce qui ne va pas (le detail
+  // technique — source, etat du relief, precision GPS — est dans le panneau Diagnostic)
+  const shown=list.filter(c=>!isGhost(c)&&passFilter(c,fq)).length;
   lastShown=shown;
+  const issues=[];
+  if(!pos) issues.push('GPS en attente'); else if(acc>50) issues.push(`GPS imprécis (±${Math.round(acc)} m)`);
+  if(loading) issues.push('chargement des lieux…');
+  else if(/^liste int/.test(source)) issues.push('hors ligne : grandes villes seulement');
+  else if(/^atlas/.test(source)) issues.push('hors ligne : lieux mémorisés');
+  if(S.relief){ if(/^calcul/.test(reliefState)) issues.push('relief en calcul…'); else if(reliefState==='indispo') issues.push('relief indisponible'); }
+  if(pos&&!sensor) issues.push('pas de boussole');
   const tr=(S.air&&tMsg.air?' · '+tMsg.air:'')+(S.sea&&tMsg.sea?' · '+tMsg.sea:'');
-  setStatus(`${g} · ${shown} lieux${nHidden?` (+${nHidden} masqués${S.beyond?', affichés':''})`:''} · ${source}${S.relief?' · relief '+reliefState:''}${tr}${sensor?'':' · boussole —'}`);
+  setStatus(`${shown} lieux`+issues.map(t=>' · '+t).join('')+tr);
   const cal=$('calib');
   if(S.headOff||S.pitchOff){ cal.style.display='block'; cal.innerHTML=`cap ${S.headOff>0?'+':''}${S.headOff.toFixed(0)}° · horizon ${S.pitchOff>0?'+':''}${S.pitchOff.toFixed(0)}°<b>remettre</b>`; }
   else cal.style.display='none';
@@ -1858,13 +1985,34 @@ function renderDebug(){
     `<div class="dbgline">${new Date(z.saved).toLocaleString('fr-FR')} — ${z.count} lieux recus, rayon ${z.r} km`+
     (pos?`, a ${Math.round(distBrg(pos,z.c).dist)} km d'ici`:'')+`</div>`).join(''):'';
   const logHtml=netLog.length?netLog.map(e=>`<div class="dbgrow ${e.ok?'ok':'ko'}"><span>${new Date(e.t).toLocaleTimeString('fr-FR')}</span><b>${e.kind}</b><span>${e.detail}</span></div>`).join(''):'<div class="dbgline">vide</div>';
+  // requetes reseau depuis l'ouverture de l'appli, par service, avec l'anciennete de la derniere
+  const agoTxt=t=>{ const s=Math.round((Date.now()-t)/1000); return s<90?`${s} s`:s<5400?`${Math.round(s/60)} min`:`${Math.round(s/3600)} h`; };
+  const reqHtml=Object.keys(reqStats).length?Object.entries(reqStats).sort((a,b)=>b[1]-a[1]).map(([k,n])=>
+    `<div class="dbgline">${k} : <b>${n}</b> (dernière il y a ${agoTxt(reqLast[k])})</div>`).join(''):'<div class="dbgline">aucune requête envoyée</div>';
+  // pas de "moyenne par minute" : la rafale du chargement initial la rendrait trompeuse ; le nombre
+  // sur la derniere minute montre directement si l'appli sollicite encore le reseau (0 a l'arret)
+  const reqSum=`${reqTotal} requête(s) depuis l'ouverture (il y a ${agoTxt(reqSince)}) · <b>${reqWithin(60000)}</b> dans la dernière minute · ${reqWithin(600000)} sur 10 min`;
+  // pourquoi certains lieux ne s'affichent pas : toutes les raisons, pas seulement le relief
+  const vs=visStats, ps=placeStats;
+  const whyLines=[
+    `Mode ${S.beyond?'<b>Tout voir</b> (œil activé)':'<b>Essentiel</b>'} · ${vs.total} lieux en mémoire`,
+    vs.outRadius?`${vs.outRadius} hors du rayon réglé (${S.radius} km) : jamais affichés`:'',
+    `${vs.kept} visibles d'ici, en principe`,
+    vs.tooFarForKind?`${vs.tooFarForKind} au-delà de la portée de leur catégorie (en transparence avec l'œil) : `+vs.farList.map(c=>`${c.name} (${Math.round(c.dist)} km, portée ${MAXD[c.kind]} km)`).join(', ')+(vs.tooFarForKind>vs.farList.length?'…':''):'',
+    `${reliefStats.hidden} caché(s) par le relief (en transparence avec l'œil)`,
+    vs.dup?`${vs.dup} doublon(s) d'un lieu de même nom à moins de 2 km`:'',
+    `Dans le champ maintenant : ${ps.shown} affiché(s)${ps.ghost?` + ${ps.ghost} en transparence`:''}${!S.beyond&&ps.ghostInView?` · ${ps.ghostInView} de plus avec l'œil`:''}`,
+    ps.noRoom?`<span style="color:#E08787">${ps.noRoom} non placé(s) faute de place pour l'étiquette (écran chargé)</span>`:'',
+].filter(Boolean).map(t=>`<div class="dbgline">${t}</div>`).join('');
   $('dbgBody').innerHTML=`
     <div class="dbgsec">Version</div>
     <div class="dbgline">${APP_VERSION}</div>
     <div class="dbgsec">Stockage</div>
     <div class="dbgline">${storeEst}</div>
     <div class="dbgsec">A l'ecran maintenant</div>
-    <div class="dbgline">${lastShown} lieux affiches (source : ${source})</div>
+    <div class="dbgline">${lastShown} lieux affiches (source : ${source}) · GPS ${pos?'±'+Math.round(acc||0)+' m':'en attente'}</div>
+    <div class="dbgsec">Pourquoi certains lieux ne s'affichent pas</div>
+    ${whyLines}
     <div class="dbgsec">En memoire (${cities.length} au total)</div>
     <div class="dbgline">${kcTxt}</div>
     <div class="dbgsec">Dernier succes OpenStreetMap en direct</div>
@@ -1879,7 +2027,7 @@ function renderDebug(){
     <div class="dbgsec">Relief / ligne d'horizon</div>
     <div class="dbgline">relief : ${reliefState}${terrain?` · observateur a ${Math.round(obsElev)} m`:''}</div>
     <div class="dbgline">source : ${terrain?(terrain.src==='v1'?'AWS/SRTM ~30 m (moteur v1, comparaison manuelle)':terrain.src==='legacy'?'AWS/SRTM ~30 m (repli — Mapterhorn injoignable)':'Mapterhorn (IGN ~1 m proche, Copernicus 30 m au-delà)'):'—'}</div>
-    <div class="dbgline">${reliefStats.checked} lieux verifies, ${reliefStats.hidden} masques${reliefStats.unknown?`, ${reliefStats.unknown} hors couverture`:''} · voir au-dela : ${S.beyond?'oui':'non'}</div>
+    <div class="dbgline">${reliefStats.checked} lieux verifies, ${reliefStats.hidden} masques${reliefStats.unknown?`, ${reliefStats.unknown} hors couverture`:''} · mode : ${S.beyond?'Tout voir':'Essentiel'}</div>
     <div class="dbgsec">Trafic en direct</div>
     <div class="dbgline">avions : ${S.air?(tMsg.air||'en attente'):'desactive (Reglages → Avions)'}</div>
     <div class="dbgline">bateaux : ${S.sea?(tMsg.sea||'en attente'):'desactive (Reglages → Bateaux)'}</div>
@@ -1889,6 +2037,10 @@ function renderDebug(){
     ${(CONFIG.aisKey||CONFIG.openskySecret)?'<div class="dbgline" style="color:#E08787">Attention : config.js contient encore des secrets, visibles publiquement — a retirer (ils vont dans le relais)</div>':''}
     <div class="row zbtns" style="padding:8px 0 0"><button id="btnDbgRelay">Tester le relais</button></div>
     <div class="row zbtns" style="padding:8px 0 0"><button id="btnDbgPlanes">Tester avions (zone Paris, très fréquentée)</button></div>
+    <div class="dbgsec">Requêtes réseau depuis l'ouverture</div>
+    <div class="dbgline">${reqSum}</div>
+    ${reqHtml}
+    <div class="dbgline" style="opacity:.7">Les lieux ne sont rechargés qu'après un déplacement d'environ ${Math.round(S.radius*0.25)} km (¼ du rayon) ; tuiles de relief déjà vues : lues en cache, sans requête.</div>
     <div class="dbgsec">Journal reseau (${netLog.length} entrees)</div>
     ${logHtml}
   `;
@@ -1906,11 +2058,9 @@ $('btnClose').onclick=()=>$('sheet').classList.remove('open');
 let radT;
 $('rad').oninput=e=>{S.radius=+e.target.value;$('radV').textContent=S.radius+' km';clearTimeout(radT);radT=setTimeout(()=>loadCities(false),900);saveSettings();};
 $('fov').oninput=e=>{S.camFov=+e.target.value;showFov();saveSettings();};
-$('maxlab').oninput=e=>{S.maxLabels=+e.target.value;$('maxlabV').textContent=S.maxLabels;saveSettings();};
 $('vil').onchange=e=>{S.hamlets=e.target.checked;loadCities(true);saveSettings();};
 $('rel').onchange=e=>{S.relief=e.target.checked;if(S.relief)computeTerrain(false);saveSettings();};
 $('relv1').onchange=e=>{S.reliefV1=e.target.checked;saveSettings();computeTerrain(true);};
-$('lblv1').onchange=e=>{S.labelV1=e.target.checked;saveSettings();}; // apparence seule : pas de recalcul de relief necessaire
 // pendant le glissement : libelle seulement ; au relacher : recalcul du relief (un recalcul par
 // cran saturait computeTerrain, qui ignorait alors les valeurs suivantes -> derniere valeur perdue)
 $('obsH').oninput=e=>{S.obsHeight=+e.target.value;$('obsHV').textContent=fmtObsH(S.obsHeight);updateObsInfo();saveSettings();};
@@ -2039,7 +2189,7 @@ $('btnAlign').onclick=async()=>{ const b=$('btnAlign'); b.classList.add('on'); n
 function setFilter(v){ S.filter=v; if($('flt').value!==v) $('flt').value=v;
   const n=$('fltN'), d=$('fltDiag');
   if(!v){ n.textContent=''; d.style.display='none'; d.textContent=''; return; }
-  const fq=norm(v), raw=cities.filter(c=>passFilter(c,fq)), nShown=visibleCities().filter(c=>passFilter(c,fq)).length;
+  const fq=norm(v), raw=cities.filter(c=>passFilter(c,fq)), nShown=visibleCities().filter(c=>!c.far&&passFilter(c,fq)).length;
   if(nShown){ n.textContent=nShown+' trouve(s)'; d.style.display='none'; d.textContent=''; return; }
   n.textContent='0 trouve(s)'; d.style.display='block';
   if(raw.length){ d.textContent=diagnoseFilter(fq); return; } // match exact trouve mais ecarte : texte simple
@@ -2088,7 +2238,7 @@ $('bld').onchange=e=>{S.buildings=e.target.checked;buildingsAt=null;syncTraffic(
 Object.keys(POI).forEach(k=>{
   const d=document.createElement('div'); d.className='row';
   const id='poi_'+k;
-  d.innerHTML=`<label for="${id}">${POI[k].label}<em>&le; ${POI[k].max} km</em></label><input type="checkbox" id="${id}"${S.poi[k]?' checked':''}>`;
+  d.innerHTML=`<label for="${id}">${POI[k].label}<em>&le; ${POI[k].max} km${POI[k].note?' · '+POI[k].note:''}</em></label><input type="checkbox" id="${id}"${S.poi[k]?' checked':''}>`;
   $('poiList').appendChild(d);
   d.querySelector('input').onchange=e=>{ S.poi[k]=e.target.checked; loadCities(true); saveSettings(); };
 });
@@ -2102,10 +2252,10 @@ const fsOn=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
 async function toggleFS(){ try{ if(fsOn()) await fsExit.call(document); else await fsReq.call(FSel); }catch(e){} }
 if(!fsReq) $('btnFs').style.display='none';
 $('btnFs').onclick=toggleFS;
-function setBeyond(v){ S.beyond=v; $('btnBeyond').classList.toggle('on',v); $('bey').checked=v; saveSettings(); }
+function setBeyond(v){ S.beyond=v; $('btnBeyond').classList.toggle('on',v); $('bey').checked=v; $('eyeLbl').textContent=v?'Tout voir':'Essentiel'; $('btnBeyond').setAttribute('aria-pressed',v?'true':'false'); _eyeBadgeN=-1; saveSettings(); }
 $('btnBeyond').onclick=()=>setBeyond(!S.beyond);
 $('bey').onchange=e=>setBeyond(e.target.checked);
-$('btnBeyond').classList.toggle('on',S.beyond); $('bey').checked=S.beyond;
+$('btnBeyond').classList.toggle('on',S.beyond); $('bey').checked=S.beyond; $('eyeLbl').textContent=S.beyond?'Tout voir':'Essentiel'; $('btnBeyond').setAttribute('aria-pressed',S.beyond?'true':'false');
 $('verInfo').textContent='Version '+APP_VERSION;
 async function clearAllCache(){
   if(!confirm("Supprimer les tuiles de relief et l'atlas hors-ligne ?\nLes réglages et le calage sont conservés.")) return;
@@ -2133,8 +2283,7 @@ $('btnReload').onclick=()=>{loadCities(true);computeTerrain(true);};
 (function syncControlsFromS(){
   $('rad').value=S.radius; $('radV').textContent=S.radius+' km';
   $('fov').value=S.camFov; showFov();
-  $('maxlab').value=S.maxLabels; $('maxlabV').textContent=S.maxLabels;
-  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('relv1').checked=S.reliefV1; $('lblv1').checked=S.labelV1; $('dst').checked=S.showDist; $('sky').checked=S.skyline;
+  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('relv1').checked=S.reliefV1; $('dst').checked=S.showDist; $('sky').checked=S.skyline;
   $('obsH').value=S.obsHeight; $('obsHV').textContent=fmtObsH(S.obsHeight); updateObsInfo();
   $('air').checked=S.air; $('sea').checked=S.sea; $('tel').checked=S.telecom; $('bld').checked=S.buildings;
   document.querySelector('.chips').classList.toggle('folded',S.chipsFold);
@@ -2144,17 +2293,22 @@ $('btnFold').addEventListener('click',()=>{ S.chipsFold=!S.chipsFold; document.q
 // ---------- photo ----------
 $('shutter').onclick=()=>{
   const fl=$('flash'); fl.style.opacity=.9; setTimeout(()=>fl.style.opacity=0,60);
-  const c=document.createElement('canvas'); c.width=Math.round(W*dpr); c.height=Math.round(H*dpr);
+  // légende dans une bande SOUS l'image (retour du 28/09/2026 : posee sur la photo, elle masquait
+  // la scene et certains noms, ex. "Platja del riu de Santa Eularia")
+  const BAND=48;
+  const c=document.createElement('canvas'); c.width=Math.round(W*dpr); c.height=Math.round((H+BAND)*dpr);
   const x=c.getContext('2d'); x.scale(dpr,dpr);
   if(camOK&&video.videoWidth){ const s=Math.max(W/video.videoWidth,H/video.videoHeight), dw=video.videoWidth*s, dh=video.videoHeight*s;
-    x.drawImage(video,(W-dw)/2,(H-dh)/2,dw,dh); } else { x.fillStyle='#000'; x.fillRect(0,0,W,H); }
+    x.save(); x.beginPath(); x.rect(0,0,W,H); x.clip(); x.drawImage(video,(W-dw)/2,(H-dh)/2,dw,dh); x.restore(); } else { x.fillStyle='#000'; x.fillRect(0,0,W,H); }
   x.drawImage(ov,0,0,W,H);
-  // légende
-  const near=visibleCities().filter(c=>SETTLE.has(c.kind)).reduce((a,c)=>(!a||c.dist<a.dist)?c:a,null); const {heading}=pose();
-  const cap=`${near?'Près de '+near.name+' · ':''}${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} · cap ${Math.round(heading)}°`;
-  x.font=`500 12px ${FM}`; x.textAlign='left'; x.textBaseline='alphabetic';
-  const tw=x.measureText(cap).width; const by=H-parseFloat(getComputedStyle($('bar')).paddingBottom)-90;
-  x.fillStyle='rgba(14,26,43,.75)'; x.fillRect(12,by-18,tw+18,26); x.fillStyle='#F3E9D2'; x.fillText(cap,21,by);
+  const near=visibleCities().filter(c=>SETTLE.has(c.kind)&&!c.far).reduce((a,c)=>(!a||c.dist<a.dist)?c:a,null); const {heading}=pose();
+  const pres=near?(/^[aeiouyhàâäéèêëîïôöûüAEIOUYHÀÂÄÉÈÊËÎÏÔÖÛÜ]/.test(near.name)?"Près d'":'Près de ')+near.name:'';
+  const line2=`${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} · cap ${Math.round(heading)}° · Villes à l'horizon`;
+  x.fillStyle='#0E1A2B'; x.fillRect(0,H,W,BAND);
+  const fit=(t,max)=>{ if(x.measureText(t).width<=max) return t; while(t.length>4&&x.measureText(t+'…').width>max) t=t.slice(0,-1); return t+'…'; };
+  x.textAlign='left'; x.textBaseline='alphabetic';
+  if(pres){ x.font=`700 15px ${FD}`; x.fillStyle='#F3E9D2'; x.fillText(fit(pres,W-24),12,H+20); }
+  x.font=`500 11px ${FM}`; x.fillStyle='rgba(224,165,38,.95)'; x.fillText(fit(line2,W-24),12,pres?H+38:H+29);
   c.toBlob(b=>{ shotBlob=b; if(shotURL) URL.revokeObjectURL(shotURL); shotURL=URL.createObjectURL(b); $('shotImg').src=shotURL; $('shot').classList.add('open'); },'image/jpeg',.92);
 };
 const shotName=()=>'horizon-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.jpg';

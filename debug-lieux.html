@@ -123,7 +123,8 @@ function kindOf(t){
   if(t.man_made==='lighthouse'||/^light/.test(t['seamark:type']||'')) return 'lighthouse';
   if(t.natural==='cape') return 'cape';
   if(t.natural==='peak') return 'peak';
-  if(/^(rock|stone|arch)$/.test(t.natural||'')||/^(island|islet)$/.test(t.place||'')) return 'rock';
+  if(/^(island|islet)$/.test(t.place||'')) return 'island';
+  if(/^(rock|stone|arch)$/.test(t.natural||'')) return 'rock';
   if(t.natural==='beach') return 'beach';
   if(t.tourism) return 'view';
   if(t.historic||t.man_made==='windmill') return 'heritage';
@@ -146,7 +147,7 @@ function parseOverpass(j){
 const POI={
   lighthouse:{q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]'],max:40},
   cape:      {q:['nwr["natural"~"^(cape|peak)$"]'],max:30},
-  rock:      {q:['nwr["natural"~"^(rock|stone|arch)$"]','nwr["place"~"^(island|islet)$"]'],max:20},
+  rock:      {q:['nwr["natural"~"^(rock|stone|arch)$"]',['nwr["place"~"^(island|islet)$"]',60]],max:20},
   view:      {q:['nwr["tourism"~"^(viewpoint|attraction)$"]'],max:20},
   heritage:  {q:['nwr["historic"~"^(castle|fort|ruins|monument|memorial|standing_stone|archaeological_site)$"]','nwr["man_made"="windmill"]'],max:15},
   beach:     {q:['nwr["natural"="beach"]'],max:12}
@@ -155,7 +156,7 @@ function clausesFor(pos,r,hamlets,poiSet){
   const C=`${pos.lat},${pos.lon}`, cap=km=>Math.min(r,km*1000);
   const cl=[`node["place"~"^(city|town)$"](around:${r},${C})`,`node["place"="village"](around:${cap(30)},${C})`];
   if(hamlets) cl.push(`node["place"~"^(hamlet|isolated_dwelling)$"](around:${cap(12)},${C})`);
-  for(const k in POI) if(poiSet[k]) for(const sel of POI[k].q) cl.push(`${sel}(around:${cap(POI[k].max)},${C})`);
+  for(const k in POI) if(poiSet[k]) for(const q of POI[k].q){ const [sel,m]=Array.isArray(q)?q:[q,POI[k].max]; cl.push(`${sel}(around:${cap(m)},${C})`); }
   return cl;
 }
 const BUILD_LABEL={tour:'Tour',clocher:'Clocher',tour_telecom:'Tour',chateau_eau:'Château d\'eau',cheminee:'Cheminée',mat:'Mât',immeuble:'Immeuble'};
