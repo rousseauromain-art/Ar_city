@@ -125,6 +125,28 @@
   <div id="telOut" class="out"></div>
 </div>
 
+<div class="card">
+  <h2 style="color:#F2C14E">Monuments (Wikidata)</h2>
+  <div class="row">
+    <div class="field">
+      <label for="monR">Rayon (km)</label>
+      <input type="number" id="monR" value="30" min="5" max="45">
+    </div>
+    <div class="field">
+      <label for="monL">Notoriété min. (langues)</label>
+      <input type="number" id="monL" value="40" min="10" max="300">
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button id="btnMonRelay">Via le relais</button>
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button class="ghost" id="btnMonDirect">En direct (Wikidata)</button>
+    </div>
+  </div>
+  <div class="hint">Utilise la position ci-dessus. <b>Via le relais</b> : il essaie sa requête complète puis sa variante légère et détaille chacune (code HTTP, durée, lignes) ; la 1re réponse d'une zone peut prendre 20–30 s, les suivantes sont servies par le cache (7 jours). <b>En direct</b> : ce téléphone interroge lui-même query.wikidata.org — dit aussi si le navigateur y a droit. Les 15 monuments les plus célèbres trouvés sont listés (classés par nombre de langues Wikipédia).</div>
+  <div id="monOut" class="out"></div>
+</div>
+
 <script src="config.js" onerror="void 0"></script>
 <script>
 (() => {
@@ -289,6 +311,53 @@ $('btnTelRelay').onclick=()=>telRelay(...telArgs());
 $('btnTelDirect').onclick=()=>telDirect(...telArgs());
 $('btnTelRennes').onclick=()=>{ $('lat').value='48.1105'; $('lon').value='-1.6799'; telDirect(...telArgs()); };
 $('btnTelParis').onclick=()=>{ $('lat').value='48.8566'; $('lon').value='2.3522'; telDirect(...telArgs()); };
+
+// ---------- Monuments (Wikidata) ----------
+const TOP=(list,lat,lon)=>list.slice().sort((a,b)=>b.links-a.links).slice(0,15).map(m=>{
+  const d=Math.hypot((m.lat-lat)*111,(m.lon-lon)*111*Math.cos(lat*Math.PI/180));
+  return `${m.name} — ${m.links} langues${m.ht?' · '+m.ht+' m':''} · ${d.toFixed(1)} km · ${m.types||'?'}`; });
+function monList(list,lat,lon){
+  return `<pre>${esc(TOP(list,lat,lon).join('\n')||'(aucun)')}</pre>`;
+}
+async function monRelay(lat,lon,km,minL){
+  const out=$('monOut'), relay=relayBase();
+  if(!relay){ out.innerHTML='<div class="msg bad">Aucun relais renseigné (en haut de page).</div>'; return; }
+  const url=`${relay}/monuments?lat=${lat}&lon=${lon}&radius_km=${km}&min_links=${minL}&debug=1`;
+  out.innerHTML=`<div class="msg">Le relais interroge Wikidata (jusqu'à ~45 s)…</div><div class="url">${esc(url)}</div>`;
+  const t0=performance.now();
+  try{
+    const r=await fetchT(url,90000); const j=await r.json(); const ms=Math.round(performance.now()-t0);
+    const d=j.debug||{}, att=d.attempts||[];
+    const rows=att.map(a=>({name:a.route,ok:a.ok,http:a.http,info:(a.ok?`${a.rows} monument(s) · ${a.bytes||'?'} octets`:a.error)+` · ${a.ms} ms · rayon ${a.radiusKm} km`,urls:[]}));
+    out.innerHTML=`<div>${statLine([['HTTP',r.status,r.ok?'ok':'bad'],['durée',ms+' ms'],['route retenue',j.route||'aucune',j.route?'ok':'bad'],['monuments',(j.monuments||[]).length,(j.monuments||[]).length?'ok':'bad'],['cache',j.cache||'non (requête faite)']])}</div>`
+      +(j.error?`<div class="msg bad">${esc(j.error)}</div>`:'')+(rows.length?telTable(rows):'')
+      +(j.monuments?monList(j.monuments,lat,lon):'')
+      +(d.sparql?`<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12.5px">Requête SPARQL envoyée (à rejouer sur query.wikidata.org)</summary><pre>${esc(d.sparql)}</pre></details>`:'');
+    if(!att.length&&!j.error) out.insertAdjacentHTML('afterbegin','<div class="msg bad">Le relais n\'a pas renvoyé de détail : redéployer relais-worker.js (route /monuments absente ?).</div>');
+  }catch(e){ out.innerHTML=`<div class="msg bad">Échec de l'appel au relais : ${esc((e&&e.message)||e)}</div><div class="url">${esc(url)}</div>`; }
+}
+async function monDirect(lat,lon,km,minL){
+  const out=$('monOut'); out.innerHTML='<div class="msg">Ce téléphone interroge Wikidata (jusqu\'à ~30 s)…</div>';
+  const q=`SELECT ?i ?iLabel ?sl ?lat ?lon (MAX(?hh) AS ?h) (GROUP_CONCAT(DISTINCT ?tLabel; separator="|") AS ?types) WHERE {
+  SERVICE wikibase:around { ?i wdt:P625 ?loc . bd:serviceParam wikibase:center "Point(${lon.toFixed(5)} ${lat.toFixed(5)})"^^geo:wktLiteral . bd:serviceParam wikibase:radius "${km.toFixed(1)}" . }
+  ?i wikibase:sitelinks ?sl . FILTER(?sl >= ${Math.round(minL)})
+  VALUES ?root { wd:Q811979 wd:Q33506 wd:Q4989906 wd:Q570116 } ?i wdt:P31 ?t . ?t wdt:P279* ?root .
+  BIND(geof:latitude(?loc) AS ?lat) BIND(geof:longitude(?loc) AS ?lon)
+  OPTIONAL { ?i p:P2048/psn:P2048/wikibase:quantityAmount ?hh }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
+} GROUP BY ?i ?iLabel ?sl ?lat ?lon ORDER BY DESC(?sl) LIMIT 250`;
+  const t0=performance.now();
+  try{
+    const r=await fetchT('https://query.wikidata.org/sparql',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/sparql-results+json'},body:'query='+encodeURIComponent(q)},30000);
+    const ms=Math.round(performance.now()-t0);
+    if(!r.ok){ out.innerHTML=`<div>${statLine([['HTTP',r.status,'bad'],['durée',ms+' ms']])}</div><div class="msg bad">${r.status===429?'Wikidata limite le débit : réessayer dans une minute.':r.status>=500?'Requête trop lourde ou service surchargé (timeout côté Wikidata).':'Refusé.'}</div>`; return; }
+    const j=await r.json(); const list=(j.results.bindings||[]).map(b=>({name:b.iLabel.value,links:parseInt(b.sl.value,10),lat:+b.lat.value,lon:+b.lon.value,ht:b.h?Math.round(+b.h.value):null,types:b.types?b.types.value:''}));
+    out.innerHTML=`<div>${statLine([['HTTP',r.status,'ok'],['durée',ms+' ms'],['monuments',list.length,list.length?'ok':'bad'],['accès navigateur (CORS)','autorisé','ok']])}</div>`+monList(list,lat,lon);
+  }catch(e){ out.innerHTML=`<div class="msg bad">bloqué : le navigateur n'a pas le droit d'appeler query.wikidata.org (CORS), ou pas de réseau (${esc((e&&e.message)||e)})</div>`; }
+}
+const monArgs=()=>[parseFloat($('lat').value),parseFloat($('lon').value),Math.min(45,parseFloat($('monR').value)||30),Math.min(300,Math.max(10,parseFloat($('monL').value)||40))];
+$('btnMonRelay').onclick=()=>monRelay(...monArgs());
+$('btnMonDirect').onclick=()=>monDirect(...monArgs());
 
 $('btnLoc').onclick=()=>{
   if(!navigator.geolocation) return alert('Géolocalisation indisponible dans ce navigateur');

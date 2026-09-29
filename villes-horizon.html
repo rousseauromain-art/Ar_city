@@ -327,7 +327,7 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-09-28 (c) · calques (lieux, monuments, télécom, repères hauts), monuments emblématiques (OSM + notoriété Wikidata, hauteur réelle), équipements sous l\'horizon avec icônes permanentes, mémoire de position des étiquettes, antennes intérieures ANFR écartées';
+const APP_VERSION='2026-09-29 (a) · monuments : source Wikidata (relais, puis direct, puis mémoire de l\'appareil), plus d\'Overpass pour cette couche ; 40 monuments les plus célèbres nets, le reste en transparence';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
@@ -536,6 +536,7 @@ function reqBucket(url){
   if(/\/geoapify\?/.test(u)) return 'Geoapify (relais)';
   if(/\/geonames\?/.test(u)) return 'GeoNames (relais)';
   if(/\/telecom\?/.test(u)) return 'Pylônes ANFR (relais)';
+  if(/\/monuments\?/.test(u)) return 'Monuments (relais)';
   if(/\/planes\?/.test(u)||/opensky-network\.org/.test(u)) return 'Avions OpenSky';
   if(/\/ships\?/.test(u)) return 'Bateaux AISStream (relais)';
   if(/\/check(\?|$)/.test(u)) return 'Test du relais';
@@ -1479,98 +1480,108 @@ function opsOf(operators){
 }
 const has5G=operators=>(operators||[]).some(o=>(o.systems||[]).some(s=>/5G/i.test(s.generation||'')||/5G|NR/i.test(s.system||'')));
 
-// ---------- monuments emblematiques (lot 5, 28/09/2026) ----------
-// Selection : objets OSM relies a une fiche Wikidata, classes par NOTORIETE = nombre de langues ou
-// ils ont un article Wikipedia (Tour Eiffel : plusieurs centaines ; plaque commemorative : 0).
-// Hauteur reelle (OSM, sinon Wikidata P2048, sinon valeur par type) : sert au masquage par le
-// relief et au critere de visibilite (assez haut pour etre vu d'ici ?).
+// ---------- monuments emblematiques (lot 5, 28/09/2026 ; source refaite le 29/09/2026) ----------
+// Source : Wikidata SEUL. La 1re version interrogeait OpenStreetMap depuis le telephone sur 40 km
+// autour de Paris : les 3 miroirs Overpass depassaient le delai (retour du 29/09/2026). Wikidata repond
+// directement a "les structures les plus celebres autour de ce point", triees par NOTORIETE = nombre de
+// langues ou elles ont un article Wikipedia (Tour Eiffel : plus de 200 ; plaque commemorative : 0),
+// avec hauteur reelle et coordonnees. Trois chemins, dans l'ordre :
+//  1) le relais (/monuments) : requete faite cote serveur, reponse gardee 7 jours et partagee ;
+//  2) Wikidata en direct depuis l'appareil (Wikidata autorise les navigateurs) ;
+//  3) la derniere reponse memorisee sur cet appareil pour cette zone.
+// Hauteur : Wikidata, sinon valeur par type — sert au masquage par le relief et au critere de visibilite.
 let monumentSites=[], monAt=null, monBusy=false, monErrAt=null, monErrDelay=30000, monMsg='', monStats={};
-const MON_MIN_LINKS=15, MON_MIN_ANG=0.12, MON_STAR_LINKS=80; // tres celebre : seuil de taille abaisse a 0,05°
+const MON_MIN_LINKS=40, MON_MIN_ANG=0.12, MON_STAR_LINKS=80, MON_MAX_SHOWN=40; // MAX_SHOWN : les plus celebres seulement, le reste en transparence
 const MON_DEF_H={tour:60,dome:40,clocher:45,arc:25,colonne:25,chateau:20,musee:18};
 const monRadius=()=>Math.min(40,Math.max(15,S.radius));
-function monTypeOf(t){
-  const n=(t['name:fr']||t.name||'').toLowerCase();
-  if(/^(tower|communications_tower)$/.test(t.man_made||'')||t.historic==='tower'||t.building==='tower') return 'tour';
-  if(t.man_made==='obelisk'||/^(obelisk|column)$/.test(t.memorial||'')||/^(ob[ée]lisque|colonne)\b/.test(n)) return 'colonne';
-  if(t.historic==='city_gate'||/^(arc|porte)\b/.test(n)) return 'arc';
-  if(/^(castle|fort|palace|manor|citadel)$/.test(t.historic||'')||/^(castle|palace)$/.test(t.building||'')) return 'chateau';
-  if(/^(cathedral|basilica|mosque|synagogue|temple)$/.test(t.building||'')||/^(dôme|dome|panth[ée]on|invalides|basilique|sacr[ée])/.test(n)) return 'dome';
-  if(/^(church|chapel)$/.test(t.building||'')||t.amenity==='place_of_worship'||/^(church|cathedral|chapel)$/.test(t.historic||'')) return 'clocher';
+// type d'icone a partir des classes Wikidata (ex. "tour|tour d'observation|monument") et du nom
+function monTypeFrom(types,name){
+  const t=(String(types||'')+' '+String(name||'')).toLowerCase();
+  if(/\barc\b|triumphal|porte de ville|city gate/.test(t)) return 'arc';
+  if(/ob[ée]lisque|obelisk|colonne|column/.test(t)) return 'colonne';
+  if(/basilique|basilica|cath[ée]drale|cathedral|d[ôo]me|\bdome\b|mosqu[ée]e|mosque|synagogue|pantheon|panthéon|mausol[ée]e/.test(t)) return 'dome';
+  if(/[ée]glise|church|chapelle|chapel|clocher|abbaye|abbey|monast[èe]re|monastery/.test(t)) return 'clocher';
+  if(/ch[âa]teau|castle|palais|palace|forteresse|fortress|citadelle|citadel|manoir|\bfort\b/.test(t)) return 'chateau';
+  if(/\btour\b|tower|gratte-ciel|skyscraper|beffroi|belfry|phare|lighthouse|pyl[ôo]ne/.test(t)) return 'tour';
   return 'musee';
 }
-const heightOf=t=>{ const h=parseFloat(String(t.height||t.est_height||'').replace(',','.')); if(isFinite(h)&&h>0) return h;
-  const l=parseFloat(t['building:levels']); return isFinite(l)&&l>0?l*3.2:null; };
-function parseMonuments(j){
-  const byQ=new Map();
-  for(const n of (j.elements||[])){
-    const t=n.tags; if(!t) continue;
-    const qid=/^Q\d{1,12}$/.test(t.wikidata||'')?t.wikidata:null; if(!qid) continue; // valide AVANT toute requete Wikidata
-    const name=t['name:fr']||t.name; if(!name) continue;
-    const lat=n.lat??(n.center&&n.center.lat), lon=n.lon??(n.center&&n.center.lon); if(lat==null||lon==null) continue;
-    const m={name,lat,lon,kind:'monument',qid,type:monTypeOf(t),htOsm:heightOf(t)};
-    const prev=byQ.get(qid); // un meme monument decrit par plusieurs objets (batiment + relation...)
-    if(!prev||(!prev.htOsm&&m.htOsm)) byQ.set(qid,m);
-  }
-  return [...byQ.values()];
+// requete Wikidata (meme texte que le relais : voir sparqlMonuments() dans relais-worker.js)
+function sparqlMon(lat,lon,radiusKm,minLinks,full){
+  const cls=full?'VALUES ?root { wd:Q811979 wd:Q33506 wd:Q4989906 wd:Q570116 } ?i wdt:P31 ?t . ?t wdt:P279* ?root .'
+    :'VALUES ?t { wd:Q12518 wd:Q1440300 wd:Q11303 wd:Q41176 wd:Q811979 wd:Q4989906 wd:Q570116 wd:Q16970 wd:Q2977 wd:Q317557 wd:Q108325 wd:Q23413 wd:Q16560 wd:Q33506 wd:Q12280 wd:Q483110 wd:Q179700 wd:Q1075 wd:Q1329623 wd:Q1081138 } ?i wdt:P31 ?t .';
+  return `SELECT ?i ?iLabel ?sl ?lat ?lon (MAX(?hh) AS ?h) (GROUP_CONCAT(DISTINCT ?tLabel; separator="|") AS ?types) WHERE {
+  SERVICE wikibase:around { ?i wdt:P625 ?loc . bd:serviceParam wikibase:center "Point(${lon.toFixed(5)} ${lat.toFixed(5)})"^^geo:wktLiteral . bd:serviceParam wikibase:radius "${radiusKm.toFixed(1)}" . }
+  ?i wikibase:sitelinks ?sl . FILTER(?sl >= ${Math.round(minLinks)})
+  ${cls}
+  BIND(geof:latitude(?loc) AS ?lat) BIND(geof:longitude(?loc) AS ?lon)
+  OPTIONAL { ?i p:P2048/psn:P2048/wikibase:quantityAmount ?hh }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
+} GROUP BY ?i ?iLabel ?sl ?lat ?lon ORDER BY DESC(?sl) LIMIT 250`;
 }
-// notoriete et hauteur : une requete SPARQL Wikidata par lot de 250, resultat garde 30 jours en local
-const WD_KEY='vh_wd_v1', WD_TTL=30*864e5; let wdCache=null;
-function wdLoad(){ if(wdCache) return wdCache; try{ wdCache=JSON.parse(localStorage.getItem(WD_KEY)||'{}')||{}; }catch(e){ wdCache={}; } return wdCache; }
-function wdSave(){ try{ const ks=Object.keys(wdCache); if(ks.length>8000) ks.sort((a,b)=>wdCache[a][2]-wdCache[b][2]).slice(0,ks.length-6000).forEach(k=>delete wdCache[k]);
-  localStorage.setItem(WD_KEY,JSON.stringify(wdCache)); }catch(e){} }
-async function enrichWikidata(list){
-  const c=wdLoad(), now=Date.now();
-  const need=[...new Set(list.map(m=>m.qid).filter(q=>!(c[q]&&now-c[q][2]<WD_TTL)))];
-  const batches=[]; for(let i=0;i<need.length;i+=250) batches.push(need.slice(i,i+250));
-  let ok=0, fail=0;
-  const one=async ids=>{
-    const q=`SELECT ?item ?links ?h WHERE { VALUES ?item { ${ids.map(x=>'wd:'+x).join(' ')} } ?item wikibase:sitelinks ?links . OPTIONAL { ?item p:P2048/psn:P2048/wikibase:quantityAmount ?h } }`;
+function normWdqs(j){ // reponse WDQS brute -> [{qid,name,lat,lon,links,ht,types}]
+  const b=j&&j.results&&j.results.bindings; if(!Array.isArray(b)) throw new Error('format Wikidata inattendu');
+  const out=[], seen=new Set();
+  for(const r of b){ const q=r.i&&/Q\d+$/.exec(r.i.value||''); if(!q) continue;
+    const name=r.iLabel&&r.iLabel.value; if(!name||/^Q\d+$/.test(name)) continue;
+    const lat=parseFloat(r.lat&&r.lat.value), lon=parseFloat(r.lon&&r.lon.value); if(!isFinite(lat)||!isFinite(lon)||seen.has(q[0])) continue; seen.add(q[0]);
+    const h=parseFloat(r.h&&r.h.value);
+    out.push({qid:q[0],name,lat,lon,links:parseInt(r.sl&&r.sl.value,10)||0,ht:isFinite(h)&&h>0?Math.round(h):null,types:(r.types&&r.types.value)||''}); }
+  return out;
+}
+async function monViaRelay(R){
+  const u=`${relayBase()}/monuments?lat=${pos.lat.toFixed(5)}&lon=${pos.lon.toFixed(5)}&radius_km=${R}&min_links=${MON_MIN_LINKS}`;
+  const r=await fetchT(u,{},60000);
+  let j={}; try{ j=await r.json(); }catch(e){}
+  if(!r.ok||j.monumentsOk===false) throw new Error(j.error||('HTTP '+r.status));
+  if(!Array.isArray(j.monuments)) throw new Error('reponse du relais inattendue');
+  return {list:j.monuments,how:'relais'+(j.cache?` (cache ${j.cache})`:'')+(j.route?` · ${j.route}`:'')};
+}
+async function monDirect(R){
+  const errs=[];
+  for(const [full,ms] of [[true,30000],[false,20000]]){
     try{
-      const r=await fetchT('https://query.wikidata.org/sparql',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/sparql-results+json'},body:'query='+encodeURIComponent(q)},25000);
+      const r=await fetchT('https://query.wikidata.org/sparql',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/sparql-results+json'},
+        body:'query='+encodeURIComponent(sparqlMon(pos.lat,pos.lon,Math.min(45,R+1),MON_MIN_LINKS,full))},ms);
       if(!r.ok) throw new Error('HTTP '+r.status);
-      const j=await r.json(), seen=new Set();
-      for(const b of j.results.bindings){ const id=b.item.value.split('/').pop(); const h=b.h?parseFloat(b.h.value):null;
-        const prev=seen.has(id)?c[id]:null; seen.add(id);
-        c[id]=[parseInt(b.links.value,10)||0, Math.max(h||0,prev&&prev[1]||0)||null, now]; }
-      for(const id of ids) if(!seen.has(id)) c[id]=[0,null,now]; // fiche supprimee/fusionnee
-      ok++;
-    }catch(e){ fail++; }
-  };
-  for(let i=0;i<batches.length;i+=3) await Promise.all(batches.slice(i,i+3).map(one)); // 3 en parallele max
-  for(const m of list){ const e=c[m.qid]; if(e){ m.links=e[0]; m.htWd=e[1]; } }
-  if(ok) wdSave();
-  return {asked:need.length,batches:batches.length,fail};
+      return {list:normWdqs(await r.json()),how:'Wikidata direct'+(full?'':' (requete legere)')};
+    }catch(e){ errs.push((full?'complete':'legere')+' : '+friendlyErr(e)); }
+  }
+  throw new Error(errs.join(' | '));
 }
+// derniere reponse par zone, gardee sur l'appareil (6 zones) : les monuments ne changent pas
+const MON_KEY='vh_mon_v2';
+function monCacheRead(){ try{ return JSON.parse(localStorage.getItem(MON_KEY)||'[]')||[]; }catch(e){ return []; } }
+function monCacheWrite(list){ try{
+  const all=monCacheRead().filter(z=>distBrg(z,pos).dist>3); all.unshift({lat:pos.lat,lon:pos.lon,t:Date.now(),list});
+  localStorage.setItem(MON_KEY,JSON.stringify(all.slice(0,6))); }catch(e){} }
+function monCacheNear(){ const z=monCacheRead().find(z=>distBrg(z,pos).dist<10); return z||null; }
 async function loadMonuments(force){
   if(!S.layers.monuments||!pos||monBusy||document.hidden) return;
   const R=monRadius();
   if(!force&&monAt&&distBrg(pos,monAt).dist<R*0.25) return;
   if(!force&&monErrAt&&Date.now()-monErrAt<monErrDelay) return;
   monBusy=true; monMsg='recherche…';
-  const r=Math.round(R*1000), C=`${pos.lat.toFixed(5)},${pos.lon.toFixed(5)}`;
-  const q=`[out:json][timeout:25];(`
-    +`nwr["wikidata"]["tourism"~"^(attraction|museum)$"](around:${r},${C});`
-    +`nwr["wikidata"]["historic"~"^(monument|memorial|castle|fort|palace|manor|tower|city_gate|church|cathedral)$"](around:${r},${C});`
-    +`nwr["wikidata"]["man_made"~"^(tower|communications_tower|obelisk)$"](around:${r},${C});`
-    +`nwr["wikidata"]["building"~"^(cathedral|basilica|church|mosque|synagogue|temple|palace|castle)$"](around:${r},${C});`
-    +`);out center;`;
-  try{
-    const all=await overpassQuery(q,25000,parseMonuments);
-    const wd=await enrichWikidata(all);
+  let got=null; const errs=[];
+  if(relayBase()){ try{ got=await monViaRelay(R); }catch(e){ errs.push('relais : '+friendlyErr(e)); } }
+  if(!got){ try{ got=await monDirect(R); }catch(e){ errs.push('direct : '+friendlyErr(e)); } }
+  if(got&&got.list.length) monCacheWrite(got.list);
+  let fromCache=false;
+  if(!got){ const z=monCacheNear(); if(z){ got={list:z.list,how:`memoire de l'appareil (${new Date(z.t).toLocaleDateString('fr-FR')})`}; fromCache=true; } }
+  if(got){
     const kept=[];
-    for(const m of all){
-      m.ht=m.htOsm||m.htWd||MON_DEF_H[m.type]||20;
-      if(m.links==null){ if((m.htOsm||0)>=60) kept.push(m); continue; } // Wikidata injoignable : seuls les tres hauts
-      if(m.links>=MON_MIN_LINKS) kept.push(m);
+    for(const m of got.list){
+      if(!m||m.links<MON_MIN_LINKS) continue;
+      const type=monTypeFrom(m.types,m.name);
+      kept.push({name:m.name,lat:m.lat,lon:m.lon,kind:'monument',qid:m.qid,type,links:m.links,htWd:m.ht,htOsm:null,ht:m.ht||MON_DEF_H[type]||20,types:m.types});
     }
-    monumentSites=kept; monAt={...pos}; monErrAt=null; monErrDelay=30000;
-    monStats={osm:all.length,kept:kept.length,wdAsked:wd.asked,wdFail:wd.fail};
-    monMsg=`${kept.length} monument(s) sur ${all.length} candidats`+(wd.fail?` · Wikidata en échec (${wd.fail}/${wd.batches} lots)`:'');
+    monumentSites=kept; monAt={...pos}; monErrAt=fromCache?Date.now():null; monErrDelay=fromCache?Math.min(Math.round(monErrDelay*1.5),300000):30000;
+    monStats={n:kept.length,how:got.how};
+    monMsg=`${kept.length} monument(s) · ${got.how}`+(errs.length&&!fromCache?` (repli après : ${errs.join(' ; ')})`:'')+(fromCache?` · sources injoignables : ${errs.join(' ; ')}`:'');
     citiesVer++; recompute(); markBuildingDupes();
-    logNet('Monuments',!wd.fail,`${kept.length} emblematique(s) retenu(s) sur ${all.length} objets OSM relies a Wikidata (rayon ${R} km, notoriete >= ${MON_MIN_LINKS} langues)`+(wd.asked?` · ${wd.asked} fiche(s) Wikidata interrogee(s)`:' · notoriete en cache')+(wd.fail?` · ${wd.fail} lot(s) Wikidata en echec`:''));
-  }catch(e){
+    logNet('Monuments',!fromCache&&!errs.length,`${kept.length} emblematique(s) via ${got.how}, rayon ${R} km, notoriete >= ${MON_MIN_LINKS} langues`+(errs.length?` · ${errs.join(' ; ')}`:''));
+  }else{
     monErrAt=Date.now(); monErrDelay=Math.min(Math.round(monErrDelay*1.5),300000); monMsg='indispo';
-    logNet('Monuments',false,friendlyErr(e));
+    logNet('Monuments',false,errs.join(' | ')||'aucune source disponible');
   }
   monBusy=false;
 }
@@ -1728,6 +1739,10 @@ function visibleCities(){
     if(c.far){ tooFarForKind++; farList.push(c); }
     return true;
   }).sort((a,b)=>(RANK[a.kind]??3)-(RANK[b.kind]??3)||(a.kind==='monument'?(b.links||0)-(a.links||0):0)||a.dist-b.dist);
+  // en ville dense on trouve des centaines de monuments : seuls les MON_MAX_SHOWN plus celebres (et visibles
+  // d'ici) restent nets, classement par notoriete donc stable quand on tourne ; les autres, en transparence
+  { let n=0; for(const c of _visCache){ if(c.kind!=='monument') continue; c.cap=false;
+      if(!c.far&&++n>MON_MAX_SHOWN){ c.far=true; c.cap=true; tooFarForKind++; farList.push(c); } } }
   const beforeDup=_visCache.length;
   // OSM decrit parfois un meme lieu par plusieurs objets (ile + sommet, commune + centre...) :
   // on garde le plus significatif (deja trie en tete) et on ecarte les homonymes a moins de 2 km
@@ -2300,14 +2315,14 @@ function inQuad(P,x,y,m){
 const MON_TYPE_LBL={tour:'Tour',dome:'Édifice à dôme',clocher:'Église, clocher',arc:'Arc, porte',colonne:'Colonne, obélisque',chateau:'Château, palais, fort',musee:'Monument, musée'};
 function showMonumentDetail(m){
   const esc=v=>String(v).replace(/[<&"]/g,c=>({'<':'&lt;','&':'&amp;','"':'&quot;'})[c]);
-  const vis=m.hidden&&S.relief&&terrain?'masqué par le relief d\'ici':m.far?`trop petit pour être vu d'ici (${(m.angH||0).toFixed(2)}° de haut à l'écran)`:`visible d'ici (${(m.angH||0).toFixed(1)}° de haut à l'écran)`;
+  const vis=m.hidden&&S.relief&&terrain?'masqué par le relief d\'ici':m.cap?'monument moins célèbre : affiché en transparence (bouton œil, Tout voir)':m.far?`trop petit pour être vu d'ici (${(m.angH||0).toFixed(2)}° de haut à l'écran)`:`visible d'ici (${(m.angH||0).toFixed(1)}° de haut à l'écran)`;
   $('dbgBody').innerHTML=`
     <div class="dbgline" style="font-size:18px;color:#F2C14E;font-weight:700">${esc(m.name)}</div>
     <div class="dbgline">${MON_TYPE_LBL[m.type]||'Monument'} · à ${m.dist<10?m.dist.toFixed(1):Math.round(m.dist)} km · ${vis}</div>
     <div class="dbgsec">Notoriété</div>
     <div class="dbgline">${m.links!=null?`article Wikipédia dans <b>${m.links}</b> langue(s)`:'inconnue (Wikidata injoignable)'}</div>
     <div class="dbgsec">Hauteur</div>
-    <div class="dbgline">${m.htOsm?Math.round(m.htOsm)+' m (OpenStreetMap)':m.htWd?Math.round(m.htWd)+' m (Wikidata)':`inconnue — ${MON_DEF_H[m.type]||20} m supposés pour le relief`}</div>
+    <div class="dbgline">${m.htWd?Math.round(m.htWd)+' m (Wikidata)':`inconnue — ${MON_DEF_H[m.type]||20} m supposés pour le relief`}</div>
     <div class="dbgsec">En savoir plus</div>
     <div class="dbgline"><a style="color:#F2C14E" target="_blank" rel="noopener" href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/frwiki/${m.qid}">Wikipédia</a> · <a style="color:#F2C14E" target="_blank" rel="noopener" href="https://www.wikidata.org/wiki/${m.qid}">fiche Wikidata ${m.qid}</a></div>`;
   $('dbgTitle').textContent='Monument';
