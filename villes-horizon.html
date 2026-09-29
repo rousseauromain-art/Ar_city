@@ -43,6 +43,17 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #tools button{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.72);backdrop-filter:blur(6px)}
 #tools svg{width:19px;height:19px;stroke:var(--cream);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 #tools button:active{background:rgba(243,233,210,.2)}
+#btnLayers.on{background:rgba(224,165,38,.3)}
+/* calques (lots 2 et 5, 28/09/2026) : quoi afficher ; l'oeil regle combien */
+#layers{position:absolute;top:calc(var(--safe-t) + 34px);right:62px;width:min(272px,calc(100vw - 80px));background:rgba(14,26,43,.95);border:1px solid var(--line);border-radius:6px;padding:10px 12px 8px;display:none;z-index:6;backdrop-filter:blur(8px)}
+#layers.open{display:block}
+#layers .lyT{font:700 12px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--ochre);margin:2px 0 8px}
+#layers label{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
+#layers label svg{width:22px;height:22px;flex:0 0 22px;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#layers .lyN{flex:1;font:600 14px/1.2 var(--display);color:var(--cream)}
+#layers .lyN em{display:block;font:400 11.5px/1.3 var(--mono,monospace);font-style:normal;color:rgba(243,233,210,.6);margin-top:2px}
+#layers input{width:20px;height:20px;accent-color:#E0A526}
+#layers .lyH{font:400 11.5px/1.35 var(--mono,monospace);color:rgba(243,233,210,.55);padding-top:8px;border-top:1px solid var(--line)}
 #btnFind.holding{background:rgba(224,165,38,.55);transition:background .15s}
 #btnFind.on,#btnAlign.on,#btnPoint.on{background:rgba(224,165,38,.85)}
 #btnFind.on svg,#btnAlign.on svg,#btnPoint.on svg{stroke:var(--ink)}
@@ -140,6 +151,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <div id="note" class="chip"></div>
   </div>
   <div id="tools">
+    <button id="btnLayers" aria-label="Calques : choisir ce qui s'affiche" title="Calques" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M12 3.5l8.5 4.5-8.5 4.5L3.5 8z"/><path d="M3.5 12.5l8.5 4.5 8.5-4.5"/><path d="M3.5 16.5l8.5 4.5 8.5-4.5"/></svg></button>
     <button id="btnFind" aria-label="Chercher un lieu par nom (maintenir)" title="Chercher un lieu (maintenir)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg></button>
     <button id="btnAlign" aria-label="Calage automatique" title="Caler automatiquement"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg></button>
     <button id="btnPoint" aria-label="Pointer un repere connu pour caler le cap" title="Touchez ensuite le repère visible à l'écran"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg></button>
@@ -147,6 +159,14 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <button id="btnFs" aria-label="Plein écran" title="Plein écran"><svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
   </div>
   <div id="flash"></div>
+  <div id="layers" role="dialog" aria-label="Calques">
+    <div class="lyT">Calques</div>
+    <label><svg viewBox="0 0 24 24" stroke="#F3E9D2"><path d="M4 19l5-14 5 14M6 14h6"/><path d="M15 19v-7a3 3 0 0 1 6 0v7M15 15h6"/></svg><span class="lyN">Lieux<em id="lyInfoPlaces">villes, villages, sommets…</em></span><input type="checkbox" id="lyPlaces"></label>
+    <label><svg viewBox="0 0 24 24" stroke="#F2C14E"><path d="M7 21l4-15h2l4 15M9.2 13.5h5.6M10 21a2 2 0 0 1 4 0M12 6V2.5"/></svg><span class="lyN">Monuments<em id="lyInfoMon">lieux emblématiques (Wikipédia)</em></span><input type="checkbox" id="lyMon"></label>
+    <label><svg viewBox="0 0 24 24" stroke="#E85A5A"><path d="M8 21l3.2-15h1.6L16 21M9.6 14.5l5.2-3M14.4 14.5l-5.2-3M8.8 18l6.8-2.6M15.2 18l-6.8-2.6M12 6V2.5M10 3.5h4"/></svg><span class="lyN">Pylônes télécom<em id="lyInfoTel">ANFR, France — via le relais</em></span><input type="checkbox" id="lyTel"></label>
+    <label><svg viewBox="0 0 24 24" stroke="#7AA7E0"><path d="M6 21V8h7v13M13 12h5v9M8.5 11h2M8.5 14h2M8.5 17h2M15 15h1M15 18h1M9.5 8V4"/></svg><span class="lyN">Repères hauts<em id="lyInfoBld">tours, cheminées, châteaux d'eau (OSM)</em></span><input type="checkbox" id="lyBld"></label>
+    <div class="lyH">L'œil règle <b>combien</b> de noms ; les calques règlent <b>lesquels</b>.</div>
+  </div>
   <div id="bar">
     <button class="side" id="btnSet">Réglages</button>
     <button id="shutter" aria-label="Prendre la photo"><i></i></button>
@@ -307,8 +327,9 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-09-28 (b) · œil Essentiel / Tout voir (filtre unique), étiquettes inclinées seules, répétitions regroupées, bandeau simplifié, légende photo sous l\'image · îles jusqu\'à 60 km · diagnostic lieux et réseau · Lots 1-4 + A/B : hauteur d\'observation, relief hybride, chargement/calage accélérés, calage par pointage, tours/clochers/immeubles hauts (OSM), villes/sommets/POI multi-sources (Overpass + OpenFreeMap + Geoapify + GeoNames)';
+const APP_VERSION='2026-09-28 (c) · calques (lieux, monuments, télécom, repères hauts), monuments emblématiques (OSM + notoriété Wikidata, hauteur réelle), équipements sous l\'horizon avec icônes permanentes, mémoire de position des étiquettes, antennes intérieures ANFR écartées';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
+  layers:{places:true,monuments:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
   lighthouse:{label:'Phares, feux et balises',        max:40, q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]']},
@@ -371,6 +392,7 @@ function loadSettings(){
     for(const k of ['radius','camFov','hamlets','relief','reliefV1','obsHeight','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','beyond','telecom','telecomMax','buildings','buildingsMax','chipsFold'])
       if(saved[k]!==undefined) S[k]=saved[k];
     if(saved.poi) Object.assign(S.poi,saved.poi);
+    if(saved.layers) Object.assign(S.layers,saved.layers);
   }catch(e){}
 }
 let saveSettingsT=null;
@@ -378,8 +400,8 @@ function saveSettings(){
   clearTimeout(saveSettingsT);
   saveSettingsT=setTimeout(()=>{
     try{
-      const {radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi}=S;
-      localStorage.setItem(PKEY,JSON.stringify({radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi}));
+      const {radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}=S;
+      localStorage.setItem(PKEY,JSON.stringify({radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}));
     }catch(e){}
   },300);
 }
@@ -463,7 +485,7 @@ function distBrg(a,b){
   const h=Math.sin((la2-la1)/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dl/2)**2;
   return {dist:6371*2*Math.asin(Math.sqrt(h)),brg};
 }
-function recompute(){ if(!pos) return; for(const c of cities){ const r=distBrg(pos,c); c.dist=r.dist; c.brg=r.brg; } for(const t of telecomSites){ const r=distBrg(pos,t); t.dist=r.dist; t.brg=r.brg; } for(const b of buildingSites){ const r=distBrg(pos,b); b.dist=r.dist; b.brg=r.brg; } citiesVer++; applyOcclusion(false); }
+function recompute(){ if(!pos) return; for(const c of cities){ const r=distBrg(pos,c); c.dist=r.dist; c.brg=r.brg; } for(const t of telecomSites){ const r=distBrg(pos,t); t.dist=r.dist; t.brg=r.brg; } for(const b of buildingSites){ const r=distBrg(pos,b); b.dist=r.dist; b.brg=r.brg; } for(const m of monumentSites){ const r=distBrg(pos,m); m.dist=r.dist; m.brg=r.brg; } citiesVer++; applyOcclusion(false); }
 
 // ---------- capteurs d'orientation ----------
 let gotAbs=false;
@@ -517,6 +539,7 @@ function reqBucket(url){
   if(/\/planes\?/.test(u)||/opensky-network\.org/.test(u)) return 'Avions OpenSky';
   if(/\/ships\?/.test(u)) return 'Bateaux AISStream (relais)';
   if(/\/check(\?|$)/.test(u)) return 'Test du relais';
+  if(/query\.wikidata\.org/.test(u)) return 'Wikidata (notoriété monuments)';
   return 'Autre';
 }
 function trackReq(url){ const b=reqBucket(url), t=Date.now(); reqStats[b]=(reqStats[b]||0)+1; reqLast[b]=t; reqTotal++; reqTimes.push(t); if(reqTimes.length>3000) reqTimes.splice(0,1000); }
@@ -966,7 +989,7 @@ async function downloadZone(){
 
 
 // ---------- relief : masquage des lieux cachés par le terrain ----------
-const RANK={city:0,town:1,lighthouse:1,island:1,cape:2,peak:2,village:2,view:3,rock:3,heritage:3,beach:4,hamlet:4,isolated_dwelling:4,poi:3};
+const RANK={monument:-1,city:0,town:1,lighthouse:1,island:1,cape:2,peak:2,village:2,view:3,rock:3,heritage:3,beach:4,hamlet:4,isolated_dwelling:4,poi:3};
 // portee d'affichage (km) et hauteur de cible pour le calcul de relief (m). 'island' distinct de
 // 'rock' depuis le retour terrain du 28/09/2026 (Formentera jamais affichee depuis Santa Eularia,
 // ~30-35 km) : les deux partageaient le meme plafond de 20 km, pense pour de petits rochers/ilots
@@ -1233,17 +1256,18 @@ async function computeTerrain(force){
   if(terrainRedo){ terrainRedo=false; computeTerrain(true); }
 }
 function applyOcclusion(log){
-  if(!terrain||!pos){ for(const c of cities){ c.hidden=false; c.aG=null; } return; }
+  const all=monumentSites.length?cities.concat(monumentSites):cities;
+  if(!terrain||!pos){ for(const c of all){ c.hidden=false; c.aG=null; } return; }
   let checked=0, hidden=0, unknown=0; // statistiques : seuls les lieux dans le rayon affiche comptent
   // v1 (comparaison) : tolerances d'origine, avant l'assouplissement du passage a Mapterhorn.
   // v2 (par defaut) : assoupli suite au retour terrain du 26/09/2026 — des caps/pointes et des
   // villes clairement visibles a l'oeil nu etaient masques a tort par le relief fin (~1 m), qui
   // detecte des irregularites locales insignifiantes que l'ancien relief (~30 m, lisse) ignorait.
   const tol=S.reliefV1?0.02:0.18, peakTol=S.reliefV1?0.12:0.28;
-  for(const c of cities){
+  for(const c of all){
     if(c.dist==null) continue;
     if(c.demT!==terrain.at){ const e=elevAt(terrain.bands,c.lat,c.lon,c.dist); c.dem=e===e?e:null; c.demT=terrain.at; }
-    const r=assessPlace(terrain,c,HT[c.kind]??12,tol,peakTol);
+    const r=assessPlace(terrain,c,c.ht??HT[c.kind]??12,tol,peakTol); // c.ht : hauteur reelle d'un monument (Tour Eiffel : 330 m, pas 10)
     c.aG=r.aG; c.aP=r.aP; c.mask=r.mask; c.hidden=r.hidden;
     if(c.dist>S.radius) continue; // hors rayon : calcule quand meme (rayon modifiable) mais pas compte
     checked++; if(r.hidden) hidden++; if(r.unknown) unknown++;
@@ -1336,7 +1360,7 @@ async function pollSea(){
   }catch(e){ tMsg.sea='indispo'; logNet('AISStream',false,'relais : '+friendlyErr(e)); }
 }
 // ---------- pylones et points hauts telecom (France uniquement, source ANFR via le relais) ----------
-let telecomSites=[], telecomAt=null, telecomBusy=false, telecomErrAt=null, telecomErrDelay=30000, tMsg2={telecom:''}, telecomHits=[];
+let telecomIndoor=0, telecomSites=[], telecomAt=null, telecomBusy=false, telecomErrAt=null, telecomErrDelay=30000, tMsg2={telecom:''}, telecomHits=[];
 async function pollTelecom(){
   if(!S.telecom||!pos||document.hidden||telecomBusy) return; // re-entrance : un appel en cours suffit
   if(!relayBase()){ tMsg2.telecom='relais requis'; return; }
@@ -1354,12 +1378,16 @@ async function pollTelecom(){
       telecomSites=[]; telecomAt={...pos}; tMsg2.telecom='hors de France (ANFR)';
       logNet('ANFR',true,'position hors de France : aucune donnee disponible ici');
     }else{
-      telecomSites=(j.sites||[]).map(s=>({
-        name:s.name||s.address||('Support '+s.sup_id), kind:/pylône|mât|tour|fût/i.test(s.nature||'')?'telecom_pylone':'telecom_toit',
-        lat:s.lat, lon:s.lon, sup_id:s.sup_id, anfr:s.anfr, address:s.address, cp:s.cp,
-        height_m:s.height_m, owner:s.owner, nature:s.nature, operators:s.operators
-      }));
-      recompute(); telecomAt={...pos}; tMsg2.telecom=telecomSites.length+' site(s)'+(j.radius_eff?` dans ${String(j.radius_eff).replace('.',',')} km (zone dense)`:'');
+      let indoor=0;
+      telecomSites=(j.sites||[]).map(s=>{
+        const icon=telIcon(s.nature_code,s.nature); if(!icon){ indoor++; return null; }
+        return { name:TEL_LABEL[icon], icon, kind:'telecom', place:s.name||s.address||('Support '+s.sup_id),
+          lat:s.lat, lon:s.lon, sup_id:s.sup_id, anfr:s.anfr, address:s.address, cp:s.cp,
+          height_m:s.height_m, owner:s.owner, nature:s.nature, nature_code:s.nature_code, operators:s.operators,
+          ops:opsOf(s.operators), g5:has5G(s.operators) };
+      }).filter(Boolean);
+      telecomIndoor=indoor;
+      recompute(); telecomAt={...pos}; tMsg2.telecom=telecomSites.length+' site(s)'+(indoor?` (+${indoor} en intérieur/tunnel ignorés)`:'')+(j.radius_eff?` dans ${String(j.radius_eff).replace('.',',')} km (zone dense)`:'');
       logNet('ANFR',true,`${telecomSites.length} site(s) telecom, ${(j.communes||[]).length} commune(s), rayon ${S.telecomMax} km`+(j.radius_eff?` · zone dense : rayon ramene a ${j.radius_eff} km pour tout recevoir`:'')+(j.route?` · route ANFR : ${j.route}`:'')+(j.truncated?' · liste tronquee':'')+(j.cache?' (cache relais)':''));
     }
     telecomErrAt=null; telecomErrDelay=30000; // succes : le recul est remis a zero
@@ -1368,6 +1396,187 @@ async function pollTelecom(){
     logNet('ANFR',false,friendlyErr(e));
   }
   telecomBusy=false;
+}
+
+// ---------- pictogrammes (lots 2 et 5, 28/09/2026) ----------
+// Dessines au canevas, poses sur leur base (x, yBase), hauteur h pixels. Une icone ne disparait
+// jamais (principe des cartes : l'equipement reste, seul son texte peut ceder la place).
+// Tous generiques, dessines maison (aucune silhouette de marque ou d'oeuvre protegee).
+const GLYPH={
+  // telecom
+  pylone(u){ const P=new Path2D(); P.moveTo(-5*u,0); P.lineTo(-1*u,-14*u); P.moveTo(5*u,0); P.lineTo(1*u,-14*u);
+    for(const [a,b] of [[0,-4.5],[-4.5,-9],[-9,-13]]){ const w=y=>5-(-y)*4/14; P.moveTo(-w(a)*u,a*u); P.lineTo(w(b)*u,b*u); P.moveTo(w(a)*u,a*u); P.lineTo(-w(b)*u,b*u); }
+    P.moveTo(0,-14*u); P.lineTo(0,-17*u); P.moveTo(-2.4*u,-16*u); P.lineTo(2.4*u,-16*u); return {stroke:P}; },
+  mat(u){ const P=new Path2D(); P.moveTo(0,0); P.lineTo(0,-16*u); P.moveTo(-3*u,0); P.lineTo(3*u,0);
+    const F=new Path2D(); F.rect(-3.2*u,-15.5*u,2*u,5*u); F.rect(1.2*u,-15.5*u,2*u,5*u); return {stroke:P,fill:F}; },
+  toit(u){ const F=new Path2D(); F.rect(-6*u,-9*u,12*u,9*u); const P=new Path2D(); P.moveTo(2.5*u,-9*u); P.lineTo(2.5*u,-16*u);
+    const A=new Path2D(); A.rect(3.2*u,-15.5*u,1.8*u,4*u); A.rect(0*u,-15.5*u,1.8*u,4*u); return {fill:F,stroke:P,fill2:A}; },
+  chateau_eau(u){ const P=new Path2D(); P.moveTo(-2*u,0); P.lineTo(-1.5*u,-9*u); P.moveTo(2*u,0); P.lineTo(1.5*u,-9*u);
+    const F=new Path2D(); F.moveTo(-5.5*u,-9*u); F.lineTo(5.5*u,-9*u); F.lineTo(4.5*u,-15*u); F.lineTo(-4.5*u,-15*u); F.closePath(); return {stroke:P,fill:F}; },
+  antenne(u){ const P=new Path2D(); P.moveTo(-4*u,0); P.lineTo(0,-12*u); P.lineTo(4*u,0); P.moveTo(0,-12*u); P.lineTo(0,-15*u);
+    P.moveTo(-3*u,-17*u); P.quadraticCurveTo(0,-19.5*u,3*u,-17*u); return {stroke:P}; },
+  // monuments
+  tour(u){ const F=new Path2D(); F.moveTo(-6*u,0); F.quadraticCurveTo(-2.5*u,-7*u,-1.1*u,-17*u); F.lineTo(1.1*u,-17*u); F.quadraticCurveTo(2.5*u,-7*u,6*u,0);
+    F.lineTo(3*u,0); F.quadraticCurveTo(0,-5*u,-3*u,0); F.closePath(); const P=new Path2D(); P.moveTo(0,-17*u); P.lineTo(0,-20*u); return {fill:F,stroke:P}; },
+  dome(u){ const F=new Path2D(); F.rect(-6.5*u,-6*u,13*u,6*u); F.moveTo(-5*u,-6*u); F.arc(0,-6*u,5*u,Math.PI,0); F.closePath();
+    const P=new Path2D(); P.moveTo(0,-11*u); P.lineTo(0,-15*u); P.moveTo(-1.5*u,-13.5*u); P.lineTo(1.5*u,-13.5*u); return {fill:F,stroke:P}; },
+  clocher(u){ const F=new Path2D(); F.rect(-4*u,-8*u,8*u,8*u); F.moveTo(-4.5*u,-8*u); F.lineTo(0,-18*u); F.lineTo(4.5*u,-8*u); F.closePath();
+    F.rect(-7*u,-4*u,3*u,4*u); F.rect(4*u,-4*u,3*u,4*u); return {fill:F}; },
+  arc(u){ const F=new Path2D(); F.rect(-7*u,-13*u,14*u,13*u); F.moveTo(3*u,0); F.lineTo(3*u,-6*u); F.arc(0,-6*u,3*u,0,Math.PI,true); F.lineTo(-3*u,0); F.closePath();
+    return {fill:F,evenodd:true}; },
+  colonne(u){ const F=new Path2D(); F.moveTo(-1.6*u,-1.5*u); F.lineTo(-1.1*u,-15*u); F.lineTo(0,-18*u); F.lineTo(1.1*u,-15*u); F.lineTo(1.6*u,-1.5*u); F.closePath();
+    F.rect(-3.5*u,-1.8*u,7*u,1.8*u); return {fill:F}; },
+  chateau(u){ const F=new Path2D(); F.moveTo(-7*u,0); F.lineTo(-7*u,-12*u);
+    for(let i=0;i<5;i++){ const x=-7+i*3.5; F.lineTo(x*u,-12*u); F.lineTo(x*u,-14*u); F.lineTo((x+1.75)*u,-14*u); F.lineTo((x+1.75)*u,-12*u); }
+    F.lineTo(7*u,-12*u); F.lineTo(7*u,0); F.closePath(); return {fill:F}; },
+  musee(u){ const F=new Path2D(); F.moveTo(-7.5*u,-10*u); F.lineTo(0,-14.5*u); F.lineTo(7.5*u,-10*u); F.closePath(); F.rect(-7.5*u,-1.6*u,15*u,1.6*u);
+    for(const x of [-5.5,-1,3.5]) F.rect(x*u,-9.5*u,2*u,8*u); return {fill:F}; },
+};
+// hauteur totale approximative d'une icone (unites de 16) : pour placer l'etiquette au-dessus/dessous
+const GLYPH_H={pylone:17,mat:16,toit:16,chateau_eau:15,antenne:18,tour:20,dome:15,clocher:18,arc:13,colonne:18,chateau:14,musee:14.5};
+function drawGlyph(type,x,yBase,h,color,alpha=1){
+  const g=(GLYPH[type]||GLYPH.antenne)(h/16);
+  ctx.save(); ctx.translate(x,yBase); ctx.globalAlpha=alpha; ctx.lineJoin='round'; ctx.lineCap='round';
+  // halo sombre d'abord (lisible sur ciel clair comme sur facade sombre), puis la couleur
+  ctx.strokeStyle='rgba(14,26,43,.85)'; ctx.lineWidth=3.2;
+  for(const k of ['fill','fill2','stroke']) if(g[k]) ctx.stroke(g[k]);
+  ctx.fillStyle=color; ctx.strokeStyle=color; ctx.lineWidth=1.5;
+  if(g.fill) ctx.fill(g.fill,g.evenodd?'evenodd':'nonzero');
+  if(g.fill2) ctx.fill(g.fill2);
+  if(g.stroke) ctx.stroke(g.stroke);
+  ctx.restore();
+}
+
+// ---------- telecom : nature ANFR -> icone ; supports invisibles ecartes ----------
+// Table officielle ANFR (sup_nature, 28/09/2026). 8/9/10 = interieur de galerie, souterrain, tunnel
+// (antennes du metro...) et 49/55 = portique routier, mobilier urbain (petites cellules au ras du
+// sol) : invisibles de loin, ils encombraient l'ecran a Paris sans rien montrer de reel.
+const NAT_HIDDEN=new Set([8,9,10,49,55]);
+function telIcon(code,nature){
+  const c=+code;
+  if(NAT_HIDDEN.has(c)) return null;
+  if([21,22,23,24,25,26,48,33,44].includes(c)) return 'pylone';
+  if([42,11,12,43,52].includes(c)) return 'mat';
+  if([4,31].includes(c)) return 'chateau_eau';
+  if([38,17,39,34,19,20,45,46].includes(c)) return 'toit';
+  if(!isFinite(c)&&nature){ // repli sur le libelle si le code manque
+    if(/int[ée]rieur|souterrain|tunnel|mobilier|signalisation/i.test(nature)) return null;
+    if(/pyl[ôo]ne|tour/i.test(nature)) return 'pylone';
+    if(/m[âa]t|f[ûu]t/i.test(nature)) return 'mat';
+    if(/ch[âa]teau d'eau|silo|r[ée]servoir/i.test(nature)) return 'chateau_eau';
+    if(/b[âa]timent|immeuble|toit|terrasse|local|monument/i.test(nature)) return 'toit';
+  }
+  return 'antenne';
+}
+const TEL_LABEL={pylone:'Pylône',mat:'Mât',chateau_eau:"Château d'eau",toit:'Toit-terrasse',antenne:'Antenne'};
+// pastilles operateurs : initiale sur la couleur de la marque (couleur seule jamais porteuse du sens)
+const OPS=[[/orange/i,'O','#FF7900'],[/sfr/i,'S','#E2001A'],[/bouygues/i,'B','#1E9BD7'],[/free/i,'F','#8C8C8C']];
+function opsOf(operators){
+  const out=[];
+  for(const o of operators||[]){ const m=OPS.find(([re])=>re.test(o.name||'')); const k=m?m[1]:'·';
+    if(!out.some(x=>x.k===k)) out.push({k,col:m?m[2]:'#B0B0B0'}); }
+  return out.sort((a,b)=>'OSBF·'.indexOf(a.k)-'OSBF·'.indexOf(b.k));
+}
+const has5G=operators=>(operators||[]).some(o=>(o.systems||[]).some(s=>/5G/i.test(s.generation||'')||/5G|NR/i.test(s.system||'')));
+
+// ---------- monuments emblematiques (lot 5, 28/09/2026) ----------
+// Selection : objets OSM relies a une fiche Wikidata, classes par NOTORIETE = nombre de langues ou
+// ils ont un article Wikipedia (Tour Eiffel : plusieurs centaines ; plaque commemorative : 0).
+// Hauteur reelle (OSM, sinon Wikidata P2048, sinon valeur par type) : sert au masquage par le
+// relief et au critere de visibilite (assez haut pour etre vu d'ici ?).
+let monumentSites=[], monAt=null, monBusy=false, monErrAt=null, monErrDelay=30000, monMsg='', monStats={};
+const MON_MIN_LINKS=15, MON_MIN_ANG=0.12, MON_STAR_LINKS=80; // tres celebre : seuil de taille abaisse a 0,05°
+const MON_DEF_H={tour:60,dome:40,clocher:45,arc:25,colonne:25,chateau:20,musee:18};
+const monRadius=()=>Math.min(40,Math.max(15,S.radius));
+function monTypeOf(t){
+  const n=(t['name:fr']||t.name||'').toLowerCase();
+  if(/^(tower|communications_tower)$/.test(t.man_made||'')||t.historic==='tower'||t.building==='tower') return 'tour';
+  if(t.man_made==='obelisk'||/^(obelisk|column)$/.test(t.memorial||'')||/^(ob[ée]lisque|colonne)\b/.test(n)) return 'colonne';
+  if(t.historic==='city_gate'||/^(arc|porte)\b/.test(n)) return 'arc';
+  if(/^(castle|fort|palace|manor|citadel)$/.test(t.historic||'')||/^(castle|palace)$/.test(t.building||'')) return 'chateau';
+  if(/^(cathedral|basilica|mosque|synagogue|temple)$/.test(t.building||'')||/^(dôme|dome|panth[ée]on|invalides|basilique|sacr[ée])/.test(n)) return 'dome';
+  if(/^(church|chapel)$/.test(t.building||'')||t.amenity==='place_of_worship'||/^(church|cathedral|chapel)$/.test(t.historic||'')) return 'clocher';
+  return 'musee';
+}
+const heightOf=t=>{ const h=parseFloat(String(t.height||t.est_height||'').replace(',','.')); if(isFinite(h)&&h>0) return h;
+  const l=parseFloat(t['building:levels']); return isFinite(l)&&l>0?l*3.2:null; };
+function parseMonuments(j){
+  const byQ=new Map();
+  for(const n of (j.elements||[])){
+    const t=n.tags; if(!t) continue;
+    const qid=/^Q\d{1,12}$/.test(t.wikidata||'')?t.wikidata:null; if(!qid) continue; // valide AVANT toute requete Wikidata
+    const name=t['name:fr']||t.name; if(!name) continue;
+    const lat=n.lat??(n.center&&n.center.lat), lon=n.lon??(n.center&&n.center.lon); if(lat==null||lon==null) continue;
+    const m={name,lat,lon,kind:'monument',qid,type:monTypeOf(t),htOsm:heightOf(t)};
+    const prev=byQ.get(qid); // un meme monument decrit par plusieurs objets (batiment + relation...)
+    if(!prev||(!prev.htOsm&&m.htOsm)) byQ.set(qid,m);
+  }
+  return [...byQ.values()];
+}
+// notoriete et hauteur : une requete SPARQL Wikidata par lot de 250, resultat garde 30 jours en local
+const WD_KEY='vh_wd_v1', WD_TTL=30*864e5; let wdCache=null;
+function wdLoad(){ if(wdCache) return wdCache; try{ wdCache=JSON.parse(localStorage.getItem(WD_KEY)||'{}')||{}; }catch(e){ wdCache={}; } return wdCache; }
+function wdSave(){ try{ const ks=Object.keys(wdCache); if(ks.length>8000) ks.sort((a,b)=>wdCache[a][2]-wdCache[b][2]).slice(0,ks.length-6000).forEach(k=>delete wdCache[k]);
+  localStorage.setItem(WD_KEY,JSON.stringify(wdCache)); }catch(e){} }
+async function enrichWikidata(list){
+  const c=wdLoad(), now=Date.now();
+  const need=[...new Set(list.map(m=>m.qid).filter(q=>!(c[q]&&now-c[q][2]<WD_TTL)))];
+  const batches=[]; for(let i=0;i<need.length;i+=250) batches.push(need.slice(i,i+250));
+  let ok=0, fail=0;
+  const one=async ids=>{
+    const q=`SELECT ?item ?links ?h WHERE { VALUES ?item { ${ids.map(x=>'wd:'+x).join(' ')} } ?item wikibase:sitelinks ?links . OPTIONAL { ?item p:P2048/psn:P2048/wikibase:quantityAmount ?h } }`;
+    try{
+      const r=await fetchT('https://query.wikidata.org/sparql',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/sparql-results+json'},body:'query='+encodeURIComponent(q)},25000);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const j=await r.json(), seen=new Set();
+      for(const b of j.results.bindings){ const id=b.item.value.split('/').pop(); const h=b.h?parseFloat(b.h.value):null;
+        const prev=seen.has(id)?c[id]:null; seen.add(id);
+        c[id]=[parseInt(b.links.value,10)||0, Math.max(h||0,prev&&prev[1]||0)||null, now]; }
+      for(const id of ids) if(!seen.has(id)) c[id]=[0,null,now]; // fiche supprimee/fusionnee
+      ok++;
+    }catch(e){ fail++; }
+  };
+  for(let i=0;i<batches.length;i+=3) await Promise.all(batches.slice(i,i+3).map(one)); // 3 en parallele max
+  for(const m of list){ const e=c[m.qid]; if(e){ m.links=e[0]; m.htWd=e[1]; } }
+  if(ok) wdSave();
+  return {asked:need.length,batches:batches.length,fail};
+}
+async function loadMonuments(force){
+  if(!S.layers.monuments||!pos||monBusy||document.hidden) return;
+  const R=monRadius();
+  if(!force&&monAt&&distBrg(pos,monAt).dist<R*0.25) return;
+  if(!force&&monErrAt&&Date.now()-monErrAt<monErrDelay) return;
+  monBusy=true; monMsg='recherche…';
+  const r=Math.round(R*1000), C=`${pos.lat.toFixed(5)},${pos.lon.toFixed(5)}`;
+  const q=`[out:json][timeout:25];(`
+    +`nwr["wikidata"]["tourism"~"^(attraction|museum)$"](around:${r},${C});`
+    +`nwr["wikidata"]["historic"~"^(monument|memorial|castle|fort|palace|manor|tower|city_gate|church|cathedral)$"](around:${r},${C});`
+    +`nwr["wikidata"]["man_made"~"^(tower|communications_tower|obelisk)$"](around:${r},${C});`
+    +`nwr["wikidata"]["building"~"^(cathedral|basilica|church|mosque|synagogue|temple|palace|castle)$"](around:${r},${C});`
+    +`);out center;`;
+  try{
+    const all=await overpassQuery(q,25000,parseMonuments);
+    const wd=await enrichWikidata(all);
+    const kept=[];
+    for(const m of all){
+      m.ht=m.htOsm||m.htWd||MON_DEF_H[m.type]||20;
+      if(m.links==null){ if((m.htOsm||0)>=60) kept.push(m); continue; } // Wikidata injoignable : seuls les tres hauts
+      if(m.links>=MON_MIN_LINKS) kept.push(m);
+    }
+    monumentSites=kept; monAt={...pos}; monErrAt=null; monErrDelay=30000;
+    monStats={osm:all.length,kept:kept.length,wdAsked:wd.asked,wdFail:wd.fail};
+    monMsg=`${kept.length} monument(s) sur ${all.length} candidats`+(wd.fail?` · Wikidata en échec (${wd.fail}/${wd.batches} lots)`:'');
+    citiesVer++; recompute(); markBuildingDupes();
+    logNet('Monuments',!wd.fail,`${kept.length} emblematique(s) retenu(s) sur ${all.length} objets OSM relies a Wikidata (rayon ${R} km, notoriete >= ${MON_MIN_LINKS} langues)`+(wd.asked?` · ${wd.asked} fiche(s) Wikidata interrogee(s)`:' · notoriete en cache')+(wd.fail?` · ${wd.fail} lot(s) Wikidata en echec`:''));
+  }catch(e){
+    monErrAt=Date.now(); monErrDelay=Math.min(Math.round(monErrDelay*1.5),300000); monMsg='indispo';
+    logNet('Monuments',false,friendlyErr(e));
+  }
+  monBusy=false;
+}
+// un repere haut OSM qui EST un monument (Tour Eiffel, Montparnasse...) n'est dessine qu'une fois
+function markBuildingDupes(){
+  for(const b of buildingSites) b.dupMon=monumentSites.some(m=>Math.abs(m.lat-b.lat)<0.003&&Math.abs(m.lon-b.lon)<0.004&&distBrg(m,b).dist<0.25);
 }
 
 // ---------- reperes hauts (tours, clochers, cheminees, mats, chateaux d'eau, immeubles hauts) ----------
@@ -1422,7 +1631,7 @@ async function pollBuildings(){
     +`);out center;`;
   try{
     buildingSites=await overpassQuery(q,15000,parseBuildings);
-    recompute(); buildingsAt={...pos}; bMsg.buildings=buildingSites.length+' repere(s)';
+    recompute(); markBuildingDupes(); buildingsAt={...pos}; bMsg.buildings=buildingSites.length+' repere(s)';
     logNet('OSM (reperes)',true,`${buildingSites.length} repere(s) haut(s), rayon ${S.buildingsMax} km`);
     buildingsErrAt=null; buildingsErrDelay=30000;
   }catch(e){
@@ -1509,12 +1718,16 @@ let visStats={total:0,outRadius:0,tooFarForKind:0,farList:[],dup:0,kept:0};
 function visibleCities(){
   if(_visVer===citiesVer&&_visRad===S.radius) return _visCache;
   let outRadius=0, tooFarForKind=0; const farList=[];
-  _visCache=cities.filter(c=>{
+  const src=S.layers.monuments&&monumentSites.length?monumentSites.concat(cities):cities;
+  _visCache=src.filter(c=>{
     if(c.dist==null||c.dist>S.radius){ outRadius++; return false; }
-    const m=MAXD[c.kind]; c.far=m!=null&&c.dist>m;
+    if(c.kind==='monument'){ // visible d'ici si sa hauteur apparente depasse ~0,12° (ou s'il est tres celebre)
+      c.angH=Math.atan((c.ht||20)/Math.max(50,c.dist*1000))/D;
+      c.far=c.angH<((c.links||0)>=MON_STAR_LINKS?0.05:MON_MIN_ANG); // tres celebre : seuil abaisse, jamais supprime
+    } else { const m=MAXD[c.kind]; c.far=m!=null&&c.dist>m; }
     if(c.far){ tooFarForKind++; farList.push(c); }
     return true;
-  }).sort((a,b)=>(RANK[a.kind]??3)-(RANK[b.kind]??3)||a.dist-b.dist);
+  }).sort((a,b)=>(RANK[a.kind]??3)-(RANK[b.kind]??3)||(a.kind==='monument'?(b.links||0)-(a.links||0):0)||a.dist-b.dist);
   const beforeDup=_visCache.length;
   // OSM decrit parfois un meme lieu par plusieurs objets (ile + sommet, commune + centre...) :
   // on garde le plus significatif (deja trie en tete) et on ecarte les homonymes a moins de 2 km
@@ -1606,6 +1819,9 @@ function resize(){
 }
 window.addEventListener('resize',()=>setTimeout(resize,80));
 
+// memoires de position d'une image a l'autre (lot 1) et zones tactiles des monuments
+const lblMem=new Map(), laneMem=new Map(), monHits=[]; let infraStats={labeled:0,iconOnly:0,deck:'bas'};
+const BLD_ICON={tour:'mat',tour_telecom:'pylone',clocher:'clocher',chateau_eau:'chateau_eau',cheminee:'colonne',mat:'mat',immeuble:'toit'};
 let lastFrameT=0;
 function draw(ts){
   if(ts!=null&&ts-lastFrameT<32){ requestAnimationFrame(draw); return; } // plafond ~30 im/s
@@ -1682,40 +1898,85 @@ function draw(ts){
   // chevauchement exact sur la bande inclinee — et non sur le carre qui l'englobe (~140x140 px pour
   // un nom de 200 px), qui bloquait des voisins qui ne se touchaient pas — et recherche de place en
   // montant verticalement (glisser le long de la diagonale n'ecarte jamais une voisine parallele).
+  const PLURAL={'Tour':'tours','Clocher':'clochers',"Château d'eau":"châteaux d'eau",'Cheminée':'cheminées','Mât':'mâts','Immeuble':'immeubles','Pylône':'pylônes','Toit-terrasse':'toits-terrasses','Antenne':'antennes'};
+  const fkm=d=>d<10?d.toFixed(1):String(Math.round(d));
   const useRelief=S.relief&&!!terrain, placed=[], topLimit=safeT+24+14, maxLanes=60;
-  // zones d'interface a ne jamais recouvrir (colonne d'icones, bandeau d'etat) : posees d'emblee
-  // comme des etiquettes deja placees (retour du 28/09/2026 : des noms passaient sous les icones)
-  for(const el of [$('tools'),$('chips')]){ if(!el) continue; const r=el.getBoundingClientRect(); if(r.width&&r.height) placed.push([r.left,r.right,r.top,r.bottom]); }
-  const isGhost=c=>!!c.far||(useRelief&&!!c.hidden);
-  const order=S.beyond?list.filter(c=>!isGhost(c)).concat(list.filter(isGhost)):list.filter(c=>!isGhost(c));
+  // zones d'interface a ne jamais recouvrir (colonne d'icones, bandeau d'etat, boutons du bas,
+  // panneau des calques) : posees d'emblee comme des etiquettes deja placees
+  for(const el of [$('tools'),$('chips'),$('btnSet'),$('shutter'),$('btnBeyond'),$('layers')]){ if(!el) continue; const r=el.getBoundingClientRect(); if(r.width&&r.height) placed.push([r.left,r.right,r.top,r.bottom]); }
+  // chevauchement d'un rectangle horizontal avec ce qui est deja pose (etiquettes inclinees : test exact)
+  const rectHit=(x0,x1,y0,y1,m,own)=>{ let q=null;
+    return placed.some(r=>{ if(own&&r[5]===own) return false; if(!(x0<r[1]+m&&x1>r[0]-m&&y0<r[3]+m&&y1>r[2]-m)) return false; if(!r[4]) return true;
+      q=q||[[x0,y0],[x1,y0],[x1,y1],[x0,y1]]; return polysOverlap(q,r[4],m); }); };
   const inView=c=>{ const dB=wrap(c.brg-heading); if(Math.abs(dB)>Math.min(80,FOVH*0.8)) return null;
     const x=W/2+fh*Math.tan(dB*D); return (x<-40||x>W+40)?null:x; };
+
+  // --- DEUX ETAGES (lot 1, retour du 28/09/2026 : "les elements rouges disparaissent trop vite au
+  // profit des villes") : les lieux au-dessus de l'horizon, les equipements (telecom, reperes hauts)
+  // dans une bande SOUS l'horizon, etiquettes vers le bas — ils ne se disputent plus la meme place.
+  // Si l'horizon est trop bas a l'ecran pour loger cette bande, les equipements passent au-dessus,
+  // mais se placent AVANT les lieux (le calque a ete active expressement).
+  const lowTop=hy+30, lowBot=H-Math.max(8,parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-b'))||0)-6;
+  const lowDeck=lowBot-lowTop>=46;
+  const infra=[];
+  if(S.telecom&&telecomSites.length) infra.push({list:telecomSites,max:S.telecomMax,color:{line:'rgba(232,90,90,.85)',text:'#E85A5A',icon:'#E85A5A'},hits:telecomHits,key:'tel'});
+  if(S.buildings&&buildingSites.length) infra.push({list:buildingSites,max:S.buildingsMax,color:{line:'rgba(122,167,224,.85)',text:'#7AA7E0',icon:'#7AA7E0'},hits:null,key:'bld'});
+  telecomHits.length=0; monHits.length=0; infraStats={labeled:0,iconOnly:0,deck:lowDeck?'bas':'haut'};
+
+  // --- lieux et monuments : ancres sur le relief (sol du lieu, ou crete qui le laisse entrevoir) ---
+  // UN SEUL reglage de densite, le bouton oeil ; les CALQUES reglent quoi (lieux, monuments...).
+  //  - Essentiel (defaut) : seulement les lieux visibles d'ici ;
+  //  - Tout voir : en plus, en transparence, ceux caches par le relief ou hors de portee.
+  // Ordre : visibles d'abord par priorite (monuments, puis RANK, puis distance), PUIS les fantomes —
+  // passer en Tout voir ne peut jamais faire disparaitre un nom affiche en Essentiel.
+  // Etiquettes inclinees a 45° en eventail, test de chevauchement exact sur la bande inclinee.
+  // MEMOIRE DE POSITION (lot 1 ; Madsen, Tatzgern et al., IEEE TVCG 2016 : une etiquette qui ne
+  // saute pas d'une hauteur a l'autre se retrouve mieux) : chaque nom retente d'abord la place
+  // qu'il occupait a l'image precedente ; il n'en change que si elle est prise.
+  const showPlaces=S.layers.places;
+  const isGhost=c=>!!c.far||(useRelief&&!!c.hidden);
+  const layerOk=c=>showPlaces||c.kind==='monument';
+  const order=(S.beyond?list.filter(c=>!isGhost(c)).concat(list.filter(isGhost)):list.filter(c=>!isGhost(c))).filter(layerOk);
   const ANG_LBL=45*D, cAL=Math.cos(ANG_LBL), sAL=Math.sin(ANG_LBL);
+  // angles d'un monument : sol, et sommet reel (sol + hauteur) — partage entre reservation et dessin
+  const monAng=c=>{ const hid=useRelief&&c.hidden, aGnd=useRelief&&c.aG!=null?c.aG:0;
+    return {aGnd,aA:useRelief&&c.aP!=null?(hid?c.aG:c.aP):aGnd+(c.angH||0)}; };
+  const monGH=c=>(c.links||0)>=MON_STAR_LINKS?22:18;
+  // les icones des monuments sont reservees AVANT tout le reste : aucune etiquette (equipement ou
+  // lieu) ne peut passer dessus (capture du 28/09 : "3 toits-terrasses" sous la Tour Eiffel)
+  for(const c of order){ if(c.kind!=='monument'||!passFilter(c,fq)) continue; const x=inView(c); if(x==null) continue;
+    const y=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-monAng(c).aA)*D))), g=monGH(c);
+    placed.push([x-g/2-2,x+g/2+2,y-g-2,y+2,null,c]); }
+  // horizon trop bas pour la bande du dessous : equipements au-dessus, places avant les lieux mais
+  // limites aux 3 lignes les plus basses (sinon ils prenaient tout l'ecran — capture du 28/09)
+  if(!lowDeck) for(const L of infra) drawInfra(L,'up');
   ctx.textBaseline='alphabetic'; ctx.lineJoin='round';
-  // diagnostic : eligible = dans le champ et teste ; noRoom = aucune place libre ; ghostInView =
-  // lieux en transparence presents dans le champ (badge "+N" du bouton oeil en mode Essentiel)
   let shownCount=0, ghostCount=0, dEligible=0, dNoRoom=0, ghostInView=0;
-  if(!S.beyond) for(const c of list) if(isGhost(c)&&passFilter(c,fq)&&inView(c)!=null) ghostInView++;
+  if(!S.beyond) for(const c of list) if(isGhost(c)&&layerOk(c)&&passFilter(c,fq)&&inView(c)!=null) ghostInView++;
+  if(lblMem.size>3000) lblMem.clear();
   for(const c of order){
     const ghost=isGhost(c);
     if(!passFilter(c,fq)) continue;
     const x=inView(c); if(x==null) continue;
     if(ghost) ghostInView++;
     dEligible++;
-    // sens de l'eventail : vers le haut-gauche a gauche du cap, vers le haut-droite a droite — sauf si
-    // le nom sortirait de l'ecran de ce cote (pres des bords) : on le penche alors de l'autre cote
+    const mon=c.kind==='monument';
     let sgn=x<W/2?-1:1;
     const hid=useRelief&&c.hidden;
-    let aA=0;
+    let aA=0, aGnd=null;
     if(useRelief&&c.aG!=null) aA=hid?c.aG:Math.max(c.aG,Math.min(c.mask,c.aP));
+    // monument : pose a son SOMMET reel (sol + hauteur) ; un trait fin le relie au sol quand l'ecart
+    // se voit — la Tour Eiffel a 5 km monte a ~3,8° au-dessus de sa base
+    if(mon){ ({aGnd,aA}=monAng(c)); }
     const ay=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-aA)*D)));
-    const poi=!SETTLE.has(c.kind);
-    const size=c.kind==='city'?18:c.kind==='town'?16:c.kind==='village'?14:poi?13:12;
-    const alpha=(SETTLE.has(c.kind)?(c.kind==='city'||c.kind==='town'?1:.8):.9)*(ghost?.5:1);
-    const tint=poi?'224,165,38':'243,233,210';
+    const poi=!SETTLE.has(c.kind)&&!mon;
+    const gH=mon?monGH(c):0; // hauteur de l'icone du monument
+    const size=mon?((c.links||0)>=MON_STAR_LINKS?17:15):c.kind==='city'?18:c.kind==='town'?16:c.kind==='village'?14:poi?13:12;
+    const alpha=(SETTLE.has(c.kind)?(c.kind==='city'||c.kind==='town'?1:.8):mon?1:.9)*(ghost?.5:1);
+    const tint=mon?'242,193,78':poi?'224,165,38':'243,233,210';
     ctx.font=`700 ${size}px ${FD}`;
     const nw=ctx.measureText(c.name).width;
-    const altTxt=c.ele!=null?Math.round(c.ele)+' m':'';
+    const altTxt=!mon&&c.ele!=null?Math.round(c.ele)+' m':'';
     const distTxt=S.showDist?(c.dist<10?c.dist.toFixed(1):Math.round(c.dist))+' km':'';
     const dtxt=[altTxt,distTxt].filter(Boolean).join(' · ');
     ctx.font=`500 11px ${FM}`;
@@ -1723,30 +1984,68 @@ function draw(ts){
     let lx=null, ly=null;
     const totalLen=nw+(dtxt?dw+7:0)+4, padTop=size+2, padBot=3;
     const reach=10+totalLen*cAL+padTop*sAL;
+    const base=mon?ay-4:ay; // monument : le nom part A COTE de son icone, pas au-dessus (plus de place pour monter)
     if(sgn<0&&x-reach<4&&x+reach<=W-4) sgn=1; else if(sgn>0&&x+reach>W-4&&x-reach>=4) sgn=-1;
-    // cote prefere d'abord ; s'il est entierement bloque (voisins, icones), on essaie l'autre cote
-    for(const side of [sgn,-sgn]){
-      if(side!==sgn&&((side<0&&x-reach<4)||(side>0&&x+reach>W-4))) break; // l'autre cote sortirait de l'ecran
-      for(let k=0;k<maxLanes;k++){
-        const lsx=x+side*10, lsy=ay-18-k*LBL_STEP;
-        const poly=[[0,-padTop],[side*totalLen,-padTop],[side*totalLen,padBot],[0,padBot]]
-          .map(([px,py])=>[lsx+px*cAL+py*side*sAL, lsy-side*px*sAL+py*cAL]);
-        let bx0=Infinity,bx1=-Infinity,by0=Infinity,by1=-Infinity;
-        for(const [sx,sy] of poly){ if(sx<bx0)bx0=sx; if(sx>bx1)bx1=sx; if(sy<by0)by0=sy; if(sy>by1)by1=sy; }
-        if(by0<topLimit) break;
-        // tri rapide sur les boites englobantes, puis confirmation exacte si l'autre est aussi inclinee
-        const hit=placed.some(r=>bx0<r[1]+6&&bx1>r[0]-6&&by0<r[3]+6&&by1>r[2]-6&&(!r[4]||polysOverlap(poly,r[4],5)));
-        if(!hit){ lx=lsx; ly=lsy; sgn=side; placed.push([bx0,bx1,by0,by1,poly]); break; }
-      }
-      if(ly!=null) break;
+    const tryAt=(side,k)=>{
+      const lsx=x+side*(mon?gH/2+4:10), lsy=base-(mon?gH*0.5:18)-k*LBL_STEP;
+      const poly=[[0,-padTop],[side*totalLen,-padTop],[side*totalLen,padBot],[0,padBot]]
+        .map(([px,py])=>[lsx+px*cAL+py*side*sAL, lsy-side*px*sAL+py*cAL]);
+      let bx0=Infinity,bx1=-Infinity,by0=Infinity,by1=-Infinity;
+      for(const [sx,sy] of poly){ if(sx<bx0)bx0=sx; if(sx>bx1)bx1=sx; if(sy<by0)by0=sy; if(sy>by1)by1=sy; }
+      if(by0<topLimit) return -1; // plus de place vers le haut
+      const hit=placed.some(r=>r[5]!==c&&bx0<r[1]+6&&bx1>r[0]-6&&by0<r[3]+6&&by1>r[2]-6&&(!r[4]||polysOverlap(poly,r[4],5)));
+      if(hit) return 0;
+      lx=lsx; ly=lsy; placed.push([bx0,bx1,by0,by1,poly]); return 1;
+    };
+    const memKey=c.name+'|'+c.kind, mem=lblMem.get(memKey);
+    let got=false;
+    // 1) la place de l'image precedente (si ce cote reste possible pres des bords)
+    if(mem&&!((mem.side<0&&x-reach<4)||(mem.side>0&&x+reach>W-4))&&tryAt(mem.side,mem.k)===1){ sgn=mem.side; got=true; }
+    // 2) sinon, recherche habituelle : cote prefere, puis l'autre, en montant
+    if(!got) for(const side of [sgn,-sgn]){
+      if(side!==sgn&&((side<0&&x-reach<4)||(side>0&&x+reach>W-4))) break;
+      for(let k=0;k<maxLanes;k++){ const r=tryAt(side,k); if(r<0) break; if(r===1){ sgn=side; lblMem.set(memKey,{side,k}); got=true; break; } }
+      if(got) break;
     }
-    if(ly==null){ dNoRoom++; continue; }
-    if(ghost) ghostCount++; else shownCount++;
-    ctx.strokeStyle=poi?`rgba(224,165,38,${.8*alpha})`:`rgba(255,255,255,${.85*alpha})`; ctx.lineWidth=1;
+    // monument sans place pour un nom incline (frequent en paysage : pose a son sommet reel, il
+    // part deja haut) : repli sur un nom HORIZONTAL a cote de son icone, plus compact en hauteur
+    let flat=null;
+    if(!got&&mon){
+      const fw=nw+(dtxt?dw+7:0);
+      for(let k=0;k<12&&!flat;k++){
+        const fy=ay-gH-2-k*(size+6); if(fy-size-2<topLimit) break;
+        for(const side of (x<W/2?[1,-1]:[-1,1])){
+          const fx0=side>0?x+gH/2+4:x-gH/2-4-fw, fx1=fx0+fw;
+          if(fx0<4||fx1>W-4) continue;
+          if(!rectHit(fx0-2,fx1+2,fy-size-2,fy+4,5,c)){ flat={x:fx0,y:fy,side,w:fw}; placed.push([fx0-2,fx1+2,fy-size-2,fy+4]); break; }
+        }
+      }
+      if(flat) got=true;
+    }
+    // un monument garde toujours son icone, meme sans place pour son nom
+    if(!got&&!mon){ dNoRoom++; continue; }
+    if(mon&&!got) dNoRoom++;
+    if(got){ if(ghost) ghostCount++; else shownCount++; }
+    if(mon){
+      const yG=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-aGnd)*D)));
+      if(yG-ay>8){ ctx.strokeStyle=`rgba(242,193,78,${.45*alpha})`; ctx.lineWidth=1; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(x,yG); ctx.lineTo(x,ay); ctx.stroke(); ctx.setLineDash([]); }
+      drawGlyph(c.type,x,ay,gH,`rgb(${tint})`,alpha);
+      if(!got){ monHits.push({t:c,roll,poly:null,icon:[x-gH/2,x+gH/2,ay-gH,ay]}); continue; }
+      if(flat){
+        const ex=flat.side>0?flat.x-2:flat.x+flat.w+2, ey=flat.y-size*0.35; // bord du nom le plus proche de l'icone
+        if(Math.hypot(ex-x,ey-(ay-gH))>6){ ctx.strokeStyle=`rgba(242,193,78,${.8*alpha})`; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,ay-gH-1); ctx.lineTo(ex,ey); ctx.stroke(); }
+        ctx.textAlign='left'; ctx.font=`700 ${size}px ${FD}`; ctx.strokeStyle=`rgba(14,26,43,${ghost?.6:.9})`; ctx.lineWidth=3.5;
+        ctx.strokeText(c.name,flat.x,flat.y); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,flat.x,flat.y);
+        if(dtxt){ ctx.font=`500 11px ${FM}`; ctx.lineWidth=3; ctx.strokeText(dtxt,flat.x+nw+7,flat.y); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,flat.x+nw+7,flat.y); }
+        const pl=placed[placed.length-1]; monHits.push({t:c,roll,poly:[[pl[0],pl[2]],[pl[1],pl[2]],[pl[1],pl[3]],[pl[0],pl[3]]],icon:[x-gH/2,x+gH/2,ay-gH,ay]});
+        continue;
+      }
+    }
+    ctx.strokeStyle=mon?`rgba(242,193,78,${.8*alpha})`:poi?`rgba(224,165,38,${.8*alpha})`:`rgba(255,255,255,${.85*alpha})`; ctx.lineWidth=1;
     if(ghost) ctx.setLineDash([2,3]);
-    ctx.beginPath(); ctx.moveTo(x,ay); ctx.lineTo(lx,ly); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle=poi?`rgba(224,165,38,${.95*alpha})`:`rgba(255,255,255,${.9*alpha})`;
-    ctx.beginPath(); ctx.arc(x,ay,ghost?1.8:2.4,0,7); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(mon?x+sgn*(gH/2-2):x,mon?ay-gH*0.45:ay); ctx.lineTo(lx,ly); ctx.stroke(); ctx.setLineDash([]);
+    if(!mon){ ctx.fillStyle=poi?`rgba(224,165,38,${.95*alpha})`:`rgba(255,255,255,${.9*alpha})`;
+      ctx.beginPath(); ctx.arc(x,ay,ghost?1.8:2.4,0,7); ctx.fill(); }
     ctx.save(); ctx.translate(lx,ly); ctx.rotate(-sgn*ANG_LBL); ctx.textAlign=sgn>0?'left':'right';
     ctx.font=`700 ${size}px ${FD}`;
     ctx.strokeStyle=`rgba(14,26,43,${ghost?.6:.9})`; ctx.lineWidth=3.5;
@@ -1755,26 +2054,28 @@ function draw(ts){
       const dx=sgn*(nw+7);
       ctx.lineWidth=3; ctx.strokeText(dtxt,dx,0); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,dx,0); }
     ctx.restore();
+    // zone tactile exacte : la bande inclinee du nom (pas son rectangle englobant, qui debordait sur
+    // les voisins — un toucher sur la Tour Eiffel ouvrait l'Arc de Triomphe) + l'icone
+    if(mon){ const pl=placed[placed.length-1]; monHits.push({t:c,roll,poly:pl[4],icon:[x-gH/2,x+gH/2,ay-gH,ay],x0:pl[0],x1:pl[1],y0:pl[2],y1:pl[3]}); }
   }
   // instantane pour le panneau de diagnostic, lu par renderDebug() a son propre rythme (1x/s)
   placeStats={eligible:dEligible,shown:shownCount,ghost:ghostCount,noRoom:dNoRoom,ghostInView};
   updateEyeBadge(ghostInView);
-  // --- pylones telecom et reperes hauts OSM (tours, clochers, immeubles...) : ancrage simple sur
-  // l'horizon, sans correction de relief (on ne dispose pas de l'altitude du terrain a l'emplacement
-  // exact du support/repere). Fonction partagee : seuls la couleur et la source de donnees changent.
-  // Repetitions regroupees (retour du 28/09/2026 : huit fois "Mât 11 km" cote a cote n'apprennent
-  // rien et saturent l'ecran) : un meme nom generique a moins de 36 px du precedent a l'ecran forme
-  // un groupe, nomme "5 mâts · 11–12 km", un point par element, une seule etiquette.
-  const PLURAL={'Tour':'tours','Clocher':'clochers',"Château d'eau":"châteaux d'eau",'Cheminée':'cheminées','Mât':'mâts','Immeuble':'immeubles'};
-  const fkm=d=>d<10?d.toFixed(1):String(Math.round(d));
-  function drawPylonLike(list,maxDist,color,hitsArr){
+  if(lowDeck) for(const L of infra) drawInfra(L,'low');
+
+  // --- equipements : telecom (ANFR) et reperes hauts (OSM) ---
+  // Icone TOUJOURS dessinee sur l'horizon (pylone, mat, toit-terrasse, chateau d'eau...) ; seule
+  // l'etiquette peut manquer de place. Repetitions regroupees (Park et al. 2025 : "situe et groupe"
+  // est le plus rapide a lire) : un meme type a moins de 36 px du precedent forme un groupe,
+  // "3 toits-terrasses · 0.3–0.5 km", une icone par element. Pastilles operateurs + badge 5G.
+  function drawInfra(L,deck){
     const vis=[];
-    for(const t of list){
-      if(t.dist==null||t.dist>maxDist) continue;
+    for(const t of L.list){
+      if(t.dist==null||t.dist>L.max||t.dupMon) continue; // dupMon : deja dessine comme monument
       const dB=wrap(t.brg-heading);
       if(Math.abs(dB)>Math.min(80,FOVH*0.8)) continue;
       const x=W/2+fh*Math.tan(dB*D);
-      if(x<-40||x>W+40) continue;
+      if(x<-20||x>W+20) continue;
       vis.push({t,x});
     }
     vis.sort((a,b)=>a.x-b.x);
@@ -1785,49 +2086,64 @@ function draw(ts){
     }
     for(const g of groups) g.dmin=Math.min(...g.items.map(t=>t.dist));
     groups.sort((a,b)=>a.dmin-b.dmin); // les plus proches se placent en premier
-    const size=13;
-    // alignement a gauche impose : sinon il heritait d'un 'center' laisse par un autre trace, et la
-    // distance se dessinait par-dessus le nom ("Tou9.1 km", "Mâ11 km" — photos du 27/09/2026)
-    ctx.textAlign='left';
+    const size=13, step=20;
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    // 1) icones : toutes, des plus lointaines aux plus proches (les proches par-dessus), taille selon distance
+    const icons=vis.slice().sort((a,b)=>b.t.dist-a.t.dist);
+    for(const {t,x} of icons){ const h=t.dist<1?19:t.dist<3?16:13; drawGlyph(t.icon||BLD_ICON[t.kind]||'antenne',x,hy,h,L.color.icon,t.dist<5?1:.8); }
+    // 2) etiquettes
     for(const g of groups){
       const n=g.items.length, near=g.items.reduce((a,t)=>t.dist<a.dist?t:a);
       const x=n>1?g.xs.reduce((a,b)=>a+b,0)/n:g.xs[0];
       const label=n>1?(PLURAL[g.name]?`${n} ${PLURAL[g.name]}`:`${n} × ${g.name}`):g.name;
       const dmax=Math.max(...g.items.map(t=>t.dist));
       const dtxt=(n>1&&fkm(g.dmin)!==fkm(dmax)?`${fkm(g.dmin)}–${fkm(dmax)}`:fkm(g.dmin))+' km';
-      ctx.font=`700 ${size}px ${FD}`;
-      const nw=ctx.measureText(label).width;
-      ctx.font=`500 11px ${FM}`;
-      const dw=ctx.measureText(dtxt).width+7;
-      // pres du bord droit, le texte passe a gauche de la tige pour ne pas sortir de l'ecran
-      const flip=x+6+nw+dw+4>W-4, tx=flip?x-6-nw-dw:x+6;
-      const x0=flip?tx-4:x-2, x1=flip?x+2:x+6+nw+dw+4;
-      let ly=null;
-      for(let k=0;k<maxLanes;k++){
-        const cand=hy-24-k*22;
-        if(cand<topLimit) break;
-        if(!placed.some(r=>x0<r[1]+8&&x1>r[0]-8&&cand-size-2<r[3]&&cand+4>r[2])){ ly=cand; break; }
+      const ops=L.key==='tel'?opsOf(g.items.flatMap(t=>t.operators||[])):[];
+      const g5=L.key==='tel'&&g.items.some(t=>t.g5);
+      ctx.font=`700 ${size}px ${FD}`; const nw=ctx.measureText(label).width;
+      ctx.font=`500 11px ${FM}`; const dw=ctx.measureText(dtxt).width;
+      const opsW=ops.length?ops.length*13+4:0, g5W=g5?24:0;
+      const tw=nw+7+dw+opsW+g5W+4;
+      const flip=x+6+tw>W-4, tx=flip?x-6-tw:x+6;
+      const x0=flip?tx-4:x-2, x1=flip?x+2:x+6+tw;
+      const iconTop=hy-20;
+      const yOf=k=>deck==='low'?lowTop+size+k*step:iconTop-6-k*step; // ligne de base du texte
+      const fits=k=>{ const y=yOf(k); if(deck==='low'?y+4>lowBot:y-size-2<topLimit) return -1;
+        return rectHit(x0,x1,y-size-2,y+4,6)?0:1; };
+      const key=L.key+'|'+g.name+'|'+(near.sup_id||near.name+near.lat);
+      const mem=laneMem.get(key); let k0=null;
+      const kMax=deck==='low'?maxLanes:3;
+      if(mem!=null&&mem<kMax&&fits(mem)===1) k0=mem;
+      else for(let k=0;k<kMax;k++){ const r=fits(k); if(r<0) break; if(r===1){ k0=k; break; } }
+      // rien au-dessus de l'horizon (calques Lieux et Monuments decoches) : les equipements
+      // recuperent aussi le haut de l'ecran quand la bande du bas est pleine
+      let upY=null;
+      if(k0==null&&deck==='low'&&!S.layers.places&&!S.layers.monuments){
+        for(let k=0;k<maxLanes;k++){ const y=hy-26-k*step; if(y-size-2<topLimit) break; if(!rectHit(x0,x1,y-size-2,y+4,6)){ upY=y; break; } }
       }
-      if(ly==null) continue;
+      if(k0==null&&upY==null){ infraStats.iconOnly+=n;
+        if(L.hits) L.hits.push({t:near,roll,x0:Math.min(...g.xs)-8,x1:Math.max(...g.xs)+8,y0:hy-20,y1:hy+2}); continue; }
+      if(k0!=null) laneMem.set(key,k0); infraStats.labeled+=n;
+      const ly=k0!=null?yOf(k0):upY, below=k0!=null&&deck==='low';
       placed.push([x0,x1,ly-size-2,ly+4]);
-      ctx.strokeStyle=color.line; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.moveTo(x,hy); ctx.lineTo(x,ly+3);
-      if(n>1){ ctx.moveTo(g.xs[0],hy); ctx.lineTo(g.xs[n-1],hy); } // accolade reliant les elements du groupe
+      ctx.strokeStyle=L.color.line; ctx.lineWidth=1; ctx.beginPath();
+      if(below){ ctx.moveTo(x,hy+3); ctx.lineTo(x,ly-size-1); } else { ctx.moveTo(x,iconTop); ctx.lineTo(x,ly+3); }
+      if(n>1){ ctx.moveTo(g.xs[0],hy+(below?4:-20)); ctx.lineTo(g.xs[n-1],hy+(below?4:-20)); } // accolade du groupe
       ctx.stroke();
-      ctx.fillStyle=color.dot; for(const xi of g.xs){ ctx.beginPath(); ctx.arc(xi,hy,2.6,0,7); ctx.fill(); }
-      ctx.font=`700 ${size}px ${FD}`;
-      ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.lineWidth=3.5;
-      ctx.strokeText(label,tx,ly); ctx.fillStyle=color.text; ctx.fillText(label,tx,ly);
+      ctx.font=`700 ${size}px ${FD}`; ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.lineWidth=3.5;
+      ctx.strokeText(label,tx,ly); ctx.fillStyle=L.color.text; ctx.fillText(label,tx,ly);
       ctx.font=`500 11px ${FM}`; ctx.lineWidth=3;
-      ctx.strokeText(dtxt,tx+nw+7,ly); ctx.fillStyle=color.line; ctx.fillText(dtxt,tx+nw+7,ly);
-      // zone tactile enregistree dans le repere local (avant compensation de roulis) : convertie
-      // au moment du tap, voir hitTelecom() ; pour un groupe, le tap ouvre l'element le plus proche
-      if(hitsArr) hitsArr.push({t:near,roll,x0,x1,y0:ly-size-2,y1:ly+4});
+      ctx.strokeText(dtxt,tx+nw+7,ly); ctx.fillStyle=L.color.line; ctx.fillText(dtxt,tx+nw+7,ly);
+      let ox=tx+nw+7+dw+6;
+      for(const o of ops){ // pastille : cercle couleur marque + initiale
+        ctx.beginPath(); ctx.arc(ox+5,ly-4,5.5,0,7); ctx.fillStyle=o.col; ctx.fill(); ctx.lineWidth=1; ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.stroke();
+        ctx.font=`700 8px ${FM}`; ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.fillText(o.k,ox+5,ly-1.2); ctx.textAlign='left'; ox+=13; }
+      if(g5){ ctx.font=`700 9px ${FM}`; const bx=ox+2, bw=20;
+        ctx.fillStyle='rgba(14,26,43,.9)'; ctx.fillRect(bx,ly-11,bw,12); ctx.strokeStyle=L.color.text; ctx.lineWidth=1; ctx.strokeRect(bx+.5,ly-10.5,bw-1,11);
+        ctx.fillStyle=L.color.text; ctx.textAlign='center'; ctx.fillText('5G',bx+bw/2,ly-2); ctx.textAlign='left'; }
+      if(L.hits) L.hits.push({t:near,roll,x0,x1,y0:Math.min(ly-size-2,hy-20),y1:Math.max(ly+4,hy+2)});
     }
   }
-  telecomHits.length=0;
-  if(S.telecom&&telecomSites.length) drawPylonLike(telecomSites,S.telecomMax,{line:'rgba(224,90,90,.85)',dot:'rgba(224,90,90,.95)',text:'#E85A5A'},telecomHits);
-  if(S.buildings&&buildingSites.length) drawPylonLike(buildingSites,S.buildingsMax,{line:'rgba(122,167,224,.85)',dot:'rgba(122,167,224,.95)',text:'#7AA7E0'},null);
 
   // --- mobiles : avions et bateaux, places a leur hauteur angulaire reelle ---
   const Reff=6371000*1.13, h0=obsElev+1.6;
@@ -1885,7 +2201,7 @@ function draw(ts){
   // statut
   // bandeau en langage courant : le nombre de lieux, puis UNIQUEMENT ce qui ne va pas (le detail
   // technique — source, etat du relief, precision GPS — est dans le panneau Diagnostic)
-  const shown=list.filter(c=>!isGhost(c)&&passFilter(c,fq)).length;
+  const shown=list.filter(c=>!isGhost(c)&&passFilter(c,fq)&&(S.layers.places||c.kind==='monument')).length;
   lastShown=shown;
   const issues=[];
   if(!pos) issues.push('GPS en attente'); else if(acc>50) issues.push(`GPS imprécis (±${Math.round(acc)} m)`);
@@ -1953,15 +2269,52 @@ function pointCalibrate(px,py){
 }
 // une case tactile est enregistree dans le repere compense du roulis (voir la boucle de rendu) :
 // on y ramene le point tape avant de tester les intersections
-function hitTelecom(px,py){
-  for(let i=telecomHits.length-1;i>=0;i--){
-    const h=telecomHits[i], cx=W/2, cy=H/2, dx=px-cx, dy=py-cy, r=h.roll*D;
+function hitTelecom(px,py,arr=telecomHits){
+  // deux passes : d'abord un toucher franchement DANS une zone, ensuite seulement avec 6 px de marge
+  // (des noms voisins espaces de 5 px auraient sinon des zones tactiles qui se recouvrent)
+  for(const m of [0,6]){ const t=hitAt(px,py,arr,m); if(t) return t; }
+  return null;
+}
+function hitAt(px,py,arr,mg){
+  for(let i=arr.length-1;i>=0;i--){
+    const h=arr[i], cx=W/2, cy=H/2, dx=px-cx, dy=py-cy, r=h.roll*D;
     const lx=cx+dx*Math.cos(r)+dy*Math.sin(r), ly=cy-dx*Math.sin(r)+dy*Math.cos(r);
-    if(lx>=h.x0-6&&lx<=h.x1+6&&ly>=h.y0-6&&ly<=h.y1+6) return h.t;
+    if(h.icon){
+      const ic=h.icon; if(lx>=ic[0]-mg&&lx<=ic[1]+mg&&ly>=ic[2]-mg&&ly<=ic[3]+mg) return h.t;
+      if(h.poly&&inQuad(h.poly,lx,ly,mg)) return h.t;
+      continue;
+    }
+    if(lx>=h.x0-mg&&lx<=h.x1+mg&&ly>=h.y0-mg&&ly<=h.y1+mg) return h.t;
   }
   return null;
 }
+// point dans un quadrilatere convexe, avec une marge m (distance signee a chaque cote)
+function inQuad(P,x,y,m){
+  let sgn=0;
+  for(let i=0;i<4;i++){ const a=P[i], b=P[(i+1)%4], L=Math.hypot(b[0]-a[0],b[1]-a[1])||1;
+    const d=((b[0]-a[0])*(y-a[1])-(b[1]-a[1])*(x-a[0]))/L; // distance signee au cote
+    if(!sgn&&Math.abs(d)>1e-9) sgn=Math.sign(d);
+    if(d*(sgn||1)<-m) return false; }
+  return true;
+}
+const MON_TYPE_LBL={tour:'Tour',dome:'Édifice à dôme',clocher:'Église, clocher',arc:'Arc, porte',colonne:'Colonne, obélisque',chateau:'Château, palais, fort',musee:'Monument, musée'};
+function showMonumentDetail(m){
+  const esc=v=>String(v).replace(/[<&"]/g,c=>({'<':'&lt;','&':'&amp;','"':'&quot;'})[c]);
+  const vis=m.hidden&&S.relief&&terrain?'masqué par le relief d\'ici':m.far?`trop petit pour être vu d'ici (${(m.angH||0).toFixed(2)}° de haut à l'écran)`:`visible d'ici (${(m.angH||0).toFixed(1)}° de haut à l'écran)`;
+  $('dbgBody').innerHTML=`
+    <div class="dbgline" style="font-size:18px;color:#F2C14E;font-weight:700">${esc(m.name)}</div>
+    <div class="dbgline">${MON_TYPE_LBL[m.type]||'Monument'} · à ${m.dist<10?m.dist.toFixed(1):Math.round(m.dist)} km · ${vis}</div>
+    <div class="dbgsec">Notoriété</div>
+    <div class="dbgline">${m.links!=null?`article Wikipédia dans <b>${m.links}</b> langue(s)`:'inconnue (Wikidata injoignable)'}</div>
+    <div class="dbgsec">Hauteur</div>
+    <div class="dbgline">${m.htOsm?Math.round(m.htOsm)+' m (OpenStreetMap)':m.htWd?Math.round(m.htWd)+' m (Wikidata)':`inconnue — ${MON_DEF_H[m.type]||20} m supposés pour le relief`}</div>
+    <div class="dbgsec">En savoir plus</div>
+    <div class="dbgline"><a style="color:#F2C14E" target="_blank" rel="noopener" href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/frwiki/${m.qid}">Wikipédia</a> · <a style="color:#F2C14E" target="_blank" rel="noopener" href="https://www.wikidata.org/wiki/${m.qid}">fiche Wikidata ${m.qid}</a></div>`;
+  $('dbgTitle').textContent='Monument';
+  $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null;
+}
 function showTelecomDetail(px,py){
+  const m=hitTelecom(px,py,monHits); if(m){ showMonumentDetail(m); return; }
   const t=hitTelecom(px,py); if(!t) return;
   const ops=(t.operators||[]).map(o=>{
     const sys=o.systems.map(s=>`${s.system} (${s.status}${s.date?', '+s.date.slice(0,4):''})`).join(', ');
@@ -1969,8 +2322,8 @@ function showTelecomDetail(px,py){
   }).join('');
   $('dbgBody').innerHTML=`
     <div class="dbgsec">Support telecom</div>
-    <div class="dbgline" style="font-size:16px;color:#E85A5A;font-weight:700">${t.name}</div>
-    <div class="dbgline">${t.nature||'nature inconnue'}${t.height_m?`, ${t.height_m} m`:''} · a ${t.dist.toFixed(1)} km</div>
+    <div class="dbgline" style="font-size:16px;color:#E85A5A;font-weight:700">${t.name}${t.g5?' · 5G':''}</div>
+    <div class="dbgline">${t.nature||'nature inconnue'}${t.height_m?`, ${t.height_m} m`:''} · a ${t.dist.toFixed(1)} km${t.place&&t.place!==t.address?' · '+t.place:''}</div>
     <div class="dbgsec">Proprietaire du support</div>
     <div class="dbgline">${t.owner||'inconnu'}</div>
     <div class="dbgsec">Adresse</div>
@@ -2055,6 +2408,8 @@ function renderDebug(){
     <div class="dbgsec">Trafic en direct</div>
     <div class="dbgline">avions : ${S.air?(tMsg.air||'en attente'):'desactive (Reglages → Avions)'}</div>
     <div class="dbgline">bateaux : ${S.sea?(tMsg.sea||'en attente'):'desactive (Reglages → Bateaux)'}</div>
+    <div class="dbgline">monuments : ${S.layers.monuments?(monMsg||'en attente')+retryHint(monErrAt,monErrDelay)+` (${monumentSites.length} en memoire)`:'calque desactive (bouton Calques)'}</div>
+    <div class="dbgline">equipements : etiquettes ${infraStats.deck==='bas'?'sous':'au-dessus de'} l'horizon · ${infraStats.labeled} nommes, ${infraStats.iconOnly} en icone seule</div>
     <div class="dbgline">pylônes telecom : ${S.telecom?(tMsg2.telecom||'en attente')+retryHint(telecomErrAt,telecomErrDelay)+` (${telecomSites.length} en memoire)`:'desactive (Reglages → Pylônes)'}</div>
     <div class="dbgline">reperes hauts (OSM) : ${S.buildings?(bMsg.buildings||'en attente')+retryHint(buildingsErrAt,buildingsErrDelay)+` (${buildingSites.length} en memoire)`:'desactive (Reglages → Tours, clochers…)'}</div>
     <div class="dbgline">config.js : ${CONFIG_LOADED?'charge':'introuvable (a placer a cote du fichier HTML)'} · relais : ${relayBase()?relayBase().replace(/^https?:\/\//,''):'aucun'}${relayHasPath()?' (chemin en trop dans config.js, ignore)':''}</div>
@@ -2236,8 +2591,8 @@ function setFilter(v){ S.filter=v; if($('flt').value!==v) $('flt').value=v;
 $('flt').oninput=e=>setFilter(e.target.value.trim());
 $('air').onchange=e=>{S.air=e.target.checked;syncTraffic();saveSettings();};
 $('sea').onchange=e=>{S.sea=e.target.checked;syncTraffic();saveSettings();};
-$('tel').onchange=e=>{S.telecom=e.target.checked;telecomAt=null;telecomErrAt=null;telecomErrDelay=30000;syncTraffic();saveSettings();};
-$('bld').onchange=e=>{S.buildings=e.target.checked;buildingsAt=null;buildingsErrAt=null;buildingsErrDelay=30000;syncTraffic();saveSettings();};
+$('tel').onchange=e=>{S.telecom=e.target.checked;telecomAt=null;telecomErrAt=null;telecomErrDelay=30000;syncTraffic();saveSettings();syncLayersPanel();};
+$('bld').onchange=e=>{S.buildings=e.target.checked;buildingsAt=null;buildingsErrAt=null;buildingsErrDelay=30000;syncTraffic();saveSettings();syncLayersPanel();};
 // #btnFind : ouverture sur appui LONG plutot que sur simple tap. En paysage, ce bouton (coin
 // haut-droit) se trouve pile la ou les doigts reposent en tenant le telephone : un simple tap
 // s'ouvrait donc par accident. Un appui bref (frolement) n'ouvre plus rien ; il faut maintenir.
@@ -2301,7 +2656,27 @@ const onFsChange=()=>{ $('btnFs').innerHTML=fsOn()
 document.addEventListener('fullscreenchange',onFsChange);
 document.addEventListener('webkitfullscreenchange',onFsChange);
 $('dst').onchange=e=>{S.showDist=e.target.checked;saveSettings();};
-$('btnReload').onclick=()=>{loadCities(true);computeTerrain(true);};
+// ---------- calques (lots 2 et 5) ----------
+// Lieux et Monuments : propres aux calques. Telecom et Reperes hauts : MEME reglage que les cases
+// de l'ecran Reglages (on pilote ces cases, pour garder un seul etat et un seul comportement).
+function syncLayersPanel(){
+  $('lyPlaces').checked=S.layers.places; $('lyMon').checked=S.layers.monuments;
+  $('lyTel').checked=S.telecom; $('lyBld').checked=S.buildings;
+  $('lyInfoMon').textContent=S.layers.monuments&&monMsg?`${monumentSites.length} chargé(s) · ${monMsg}`:'lieux emblématiques (Wikipédia)';
+  $('lyInfoTel').textContent=!relayBase()?'relais requis (config.js)':S.telecom?(tMsg2.telecom||'en attente')+(infraStats.iconOnly?` · ${infraStats.iconOnly} en icône seule`:''):'ANFR, France — via le relais';
+  $('lyInfoBld').textContent=S.buildings?(bMsg.buildings||'en attente'):"tours, cheminées, châteaux d'eau (OSM)";
+  const nonDef=!S.layers.places||!S.layers.monuments||S.telecom||S.buildings;
+  $('btnLayers').classList.toggle('on',nonDef);
+}
+function setLayersOpen(o){ $('layers').classList.toggle('open',o); $('btnLayers').setAttribute('aria-expanded',String(o)); if(o) syncLayersPanel(); }
+$('btnLayers').onclick=e=>{ e.stopPropagation(); setLayersOpen(!$('layers').classList.contains('open')); };
+document.addEventListener('pointerdown',e=>{ if($('layers').classList.contains('open')&&e.target&&e.target.closest&&!e.target.closest('#layers,#btnLayers')) setLayersOpen(false); });
+$('lyPlaces').onchange=e=>{ S.layers.places=e.target.checked; citiesVer++; saveSettings(); syncLayersPanel(); };
+$('lyMon').onchange=e=>{ S.layers.monuments=e.target.checked; citiesVer++; saveSettings(); if(S.layers.monuments) loadMonuments(true); syncLayersPanel(); };
+$('lyTel').onchange=e=>{ $('tel').checked=e.target.checked; $('tel').onchange({target:$('tel')}); if(S.telecom) pollTelecom(); syncLayersPanel(); };
+$('lyBld').onchange=e=>{ $('bld').checked=e.target.checked; $('bld').onchange({target:$('bld')}); if(S.buildings) pollBuildings(); syncLayersPanel(); };
+syncLayersPanel();
+$('btnReload').onclick=()=>{loadCities(true);computeTerrain(true);if(S.layers.monuments) loadMonuments(true);};
 
 // reflete les reglages charges (localStorage) sur les controles au demarrage
 (function syncControlsFromS(){
@@ -2383,7 +2758,7 @@ $('go').onclick=async()=>{
   appStarted=true;
   await startCamera();
   if(navigator.geolocation){
-    navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); computeTerrain(false); if(S.telecom) pollTelecom(); if(S.buildings) pollBuildings(); },
+    navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); computeTerrain(false); if(S.telecom) pollTelecom(); if(S.buildings) pollBuildings(); if(S.layers.monuments) loadMonuments(false); },
       err=>{ setStatus('GPS refusé : '+err.message); }, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
   } else setStatus('GPS indisponible');
   startTraffic();
