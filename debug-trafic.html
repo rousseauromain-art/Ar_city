@@ -140,6 +140,9 @@
       <button id="btnMonRelay">Via le relais</button>
     </div>
     <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button id="btnMonTile" title="Une tuile de 0,2° comme le fait l'appli (requête plus petite, mode debug : toujours un appel Wikidata frais)">Une tuile (comme l'appli)</button>
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
       <button class="ghost" id="btnMonDirect">En direct (Wikidata)</button>
     </div>
   </div>
@@ -319,10 +322,10 @@ const TOP=(list,lat,lon)=>list.slice().sort((a,b)=>b.links-a.links).slice(0,15).
 function monList(list,lat,lon){
   return `<pre>${esc(TOP(list,lat,lon).join('\n')||'(aucun)')}</pre>`;
 }
-async function monRelay(lat,lon,km,minL){
+async function monRelay(lat,lon,km,minL,extra=''){
   const out=$('monOut'), relay=relayBase();
   if(!relay){ out.innerHTML='<div class="msg bad">Aucun relais renseigné (en haut de page).</div>'; return; }
-  const url=`${relay}/monuments?lat=${lat}&lon=${lon}&radius_km=${km}&min_links=${minL}&debug=1`;
+  const url=`${relay}/monuments?lat=${lat}&lon=${lon}&radius_km=${km}&min_links=${minL}${extra}&debug=1`;
   out.innerHTML=`<div class="msg">Le relais interroge Wikidata (jusqu'à ~45 s)…</div><div class="url">${esc(url)}</div>`;
   const t0=performance.now();
   try{
@@ -357,6 +360,10 @@ async function monDirect(lat,lon,km,minL){
 }
 const monArgs=()=>[parseFloat($('lat').value),parseFloat($('lon').value),Math.min(45,parseFloat($('monR').value)||30),Math.min(300,Math.max(10,parseFloat($('monL').value)||40))];
 $('btnMonRelay').onclick=()=>monRelay(...monArgs());
+$('btnMonTile').onclick=()=>{ // meme decoupage que l'appli : tuile de 0,2° contenant le point, rayon = demi-diagonale
+  const [lat,lon,,minL]=monArgs(), T=0.2, cl=(Math.floor(lat/T)+.5)*T, co=(Math.floor(lon/T)+.5)*T;
+  const rk=Math.ceil(Math.hypot(T*111.19/2,T*111.19*Math.cos(cl*Math.PI/180)/2));
+  monRelay(+cl.toFixed(3),+co.toFixed(3),rk,minL,'&pad=1'); };
 $('btnMonDirect').onclick=()=>monDirect(...monArgs());
 
 $('btnLoc').onclick=()=>{

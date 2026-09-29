@@ -1528,14 +1528,6 @@ function normWdqs(j){ // reponse WDQS brute -> [{qid,name,lat,lon,links,ht,types
     out.push({qid:q[0],name,lat,lon,links:parseInt(r.sl&&r.sl.value,10)||0,ht:isFinite(h)&&h>0?Math.round(h):null,types:(r.types&&r.types.value)||''}); }
   return out;
 }
-async function monViaRelay(R,minLinks){
-  const u=`${relayBase()}/monuments?lat=${pos.lat.toFixed(5)}&lon=${pos.lon.toFixed(5)}&radius_km=${R}&min_links=${minLinks}`;
-  const r=await fetchT(u,{},50000);
-  let j={}; try{ j=await r.json(); }catch(e){}
-  if(!r.ok||j.monumentsOk===false) throw new Error(j.error||('HTTP '+r.status));
-  if(!Array.isArray(j.monuments)) throw new Error('reponse du relais inattendue');
-  return {list:j.monuments,how:'relais'+(j.cache?` (cache ${j.cache})`:'')+(j.route?` · ${j.route}`:'')};
-}
 async function monDirect(R){
   const errs=[];
   for(const [full,ms] of [[true,30000],[false,20000]]){
@@ -1568,6 +1560,41 @@ function applyMonuments(list,how,errs,fromCache,R,minLinks){
   citiesVer++; recompute(); markBuildingDupes();
   logNet('Monuments',!fromCache&&!errs.length,`${kept.length} emblematique(s) via ${how}, rayon ${R} km, notoriete >= ${minLinks} langues`+(errs.length?` · ${errs.join(' ; ')}`:''));
 }
+// MODE TUILES (retour du 29/09/2026 : "le mode tuile est une bonne idee") : la zone est decoupee en tuiles de
+// 0,2° (~22 x 15 km) demandees separement au relais, de la plus proche a la plus lointaine, 3 a la fois. Chaque
+// requete Wikidata est ~5 fois plus petite qu'une zone de 30 km (quelques secondes au lieu de 20 a 30 s), les
+// monuments apparaissent au fur et a mesure, une tuile en echec n'invalide pas les autres, et chaque tuile
+// est memorisee sur l'appareil (30 jours) : se deplacer ne recharge que les tuiles nouvelles.
+const MON_TILE=0.2, MON_TILE_TTL=30*86400000, MON_TILE_KEY='vh_montile_v1', MON_NEAR_KM=15;
+const monTiles=new Map(); // "i,j" -> [monuments] (tuiles chargees pendant cette session)
+function monTileStoreRead(){ try{ return JSON.parse(localStorage.getItem(MON_TILE_KEY)||'{}')||{}; }catch(e){ return {}; } }
+function monTileStoreWrite(key,list){ try{ const st=monTileStoreRead(); st[key]={t:Date.now(),list};
+  const ks=Object.keys(st).sort((x,y)=>st[y].t-st[x].t); for(const k of ks.slice(150)) delete st[k];
+  localStorage.setItem(MON_TILE_KEY,JSON.stringify(st)); }catch(e){} }
+function monTilesAround(R){
+  const kmLat=111.19, kmLon=111.19*Math.cos(pos.lat*D), out=[];
+  const di=Math.ceil((R+8)/(MON_TILE*kmLat)), dj=Math.ceil((R+8)/(MON_TILE*Math.max(0.2,kmLon)));
+  const i0=Math.floor(pos.lat/MON_TILE), j0=Math.floor(pos.lon/MON_TILE);
+  for(let i=i0-di;i<=i0+di;i++) for(let j=j0-dj;j<=j0+dj;j++){
+    const lat=(i+.5)*MON_TILE, lon=(j+.5)*MON_TILE, d=distBrg(pos,{lat,lon}).dist;
+    if(d<=R+4) out.push({key:i+','+j,lat,lon,d,rk:Math.ceil(Math.hypot(MON_TILE*kmLat/2,MON_TILE*111.19*Math.cos(lat*D)/2))});
+  }
+  return out.sort((x,y)=>x.d-y.d);
+}
+async function monFetchTile(t){
+  const ml=t.d<=MON_NEAR_KM?MON_MIN_LINKS:MON_STAR_LINKS; // au-dela de 15 km : seulement les tres celebres
+  const u=`${relayBase()}/monuments?lat=${t.lat.toFixed(3)}&lon=${t.lon.toFixed(3)}&radius_km=${t.rk}&pad=1&min_links=${ml}`;
+  const r=await fetchT(u,{},40000);
+  let j={}; try{ j=await r.json(); }catch(e){}
+  if(!r.ok||j.monumentsOk===false){ const e=new Error(j.error||('HTTP '+r.status)); e.status=r.status; throw e; }
+  if(!Array.isArray(j.monuments)) throw new Error('reponse du relais inattendue');
+  return {list:j.monuments,cache:j.cache||''};
+}
+function monMerged(R){ // union dedoublonnee des tuiles chargees
+  const seen=new Set(), out=[];
+  for(const l of monTiles.values()) for(const m of l){ if(!m||seen.has(m.qid)) continue; seen.add(m.qid); out.push(m); }
+  return out;
+}
 async function loadMonuments(force){
   if(!S.layers.monuments||!pos||monBusy||document.hidden) return;
   const R=monRadius();
@@ -1576,26 +1603,42 @@ async function loadMonuments(force){
   monBusy=true; monMsg='recherche…';
   const t0=Date.now(), errs=[];
   // garde-fou : quoi qu'il arrive (exception, reponse qui ne vient jamais), l'etat "recherche" est leve
-  const dog=setTimeout(()=>{ if(monBusy){ monBusy=false; monErrAt=Date.now(); monMsg='delai global depasse (90 s)'; logNet('Monuments',false,monMsg); } },90000);
+  const dog=setTimeout(()=>{ if(monBusy){ monBusy=false; monErrAt=Date.now(); monMsg='delai global depasse (150 s)'; logNet('Monuments',false,monMsg); } },150000);
   try{
-    let got=null, quick=0;
+    if(force) monTiles.clear();
+    let got=null, tilesOk=0, tilesKo=0, fromStore=0, edge=0, nTiles=0, stop=false;
     if(relayBase()){
-      // 1) etape rapide : seulement les tres celebres (requete legere cote Wikidata, affichage en quelques secondes)
-      try{ const q=await monViaRelay(R,MON_STAR_LINKS); if(q.list.length){ applyMonuments(q.list,q.how+' · celebres',[],false,R,MON_STAR_LINKS); quick=monumentSites.length; monMsg+=' — complement en cours…'; } }
-      catch(e){ errs.push('relais rapide : '+friendlyErr(e)); }
-      // 2) etape complete
-      try{ got=await monViaRelay(R,MON_MIN_LINKS); }catch(e){ errs.push('relais : '+friendlyErr(e)); }
+      const tiles=monTilesAround(R); nTiles=tiles.length;
+      const store=monTileStoreRead(), todo=[];
+      for(const t of tiles){
+        if(monTiles.has(t.key)){ tilesOk++; continue; }
+        const z=!force&&store[t.key]; if(z&&Date.now()-z.t<MON_TILE_TTL){ monTiles.set(t.key,z.list); tilesOk++; fromStore++; continue; }
+        todo.push(t);
+      }
+      if(tilesOk) applyMonuments(monMerged(R),'tuiles',[],false,R,MON_MIN_LINKS);
+      let lastApply=Date.now(), done=0; monMsg=`tuiles : ${tilesOk}/${nTiles}…`;
+      const worker=async()=>{ while(!stop&&todo.length){ const t=todo.shift();
+        try{ const r=await monFetchTile(t); monTiles.set(t.key,r.list); monTileStoreWrite(t.key,r.list); tilesOk++; if(r.cache) edge++; }
+        catch(e){ tilesKo++; errs.push(`tuile ${t.key} : ${friendlyErr(e)}`); if((e&&e.status===429)||(!tilesOk&&tilesKo>=3)) stop=true; } // relais manifestement en panne : on n'insiste pas
+        done++; monMsg=`tuiles : ${tilesOk}/${nTiles}${tilesKo?` (${tilesKo} en echec)`:''}…`;
+        if(Date.now()-lastApply>1500){ lastApply=Date.now(); applyMonuments(monMerged(R),'tuiles',[],false,R,MON_MIN_LINKS); monMsg=`tuiles : ${tilesOk}/${nTiles}…`; } } };
+      await Promise.all([worker(),worker(),worker()]);
+      if(tilesOk){ // au moins une tuile : on affiche ce qu'on a
+        const how=`relais, ${tilesOk}/${nTiles} tuile(s)${fromStore?` dont ${fromStore} en memoire`:''}${edge?`, ${edge} en cache relais`:''}`;
+        applyMonuments(monMerged(R),how,errs.slice(0,3),false,R,MON_MIN_LINKS);
+        if(tilesKo){ monAt=null; monErrAt=Date.now(); monErrDelay=Math.min(Math.round(monErrDelay*1.5),300000);
+          monMsg+=` — ${tilesKo} tuile(s) en echec, nouvel essai automatique`; logNet('Monuments',false,monMsg+' · '+errs.slice(0,3).join(' ; ')); }
+        return;
+      }
     }
-    if(!got&&!quick){ try{ got=await monDirect(R); }catch(e){ errs.push('direct : '+friendlyErr(e)); } }
+    // relais absent ou aucune tuile obtenue : Wikidata en direct (zone entiere), puis memoire de l'appareil
+    if(errs.length) errs.splice(3);
+    try{ got=await monDirect(R); }catch(e){ errs.push('direct : '+friendlyErr(e)); }
     if(got&&got.list.length) monCacheWrite(got.list);
     let fromCache=false;
-    if(!got&&!quick){ const z=monCacheNear(); if(z){ got={list:z.list,how:`memoire de l'appareil (${new Date(z.t).toLocaleDateString('fr-FR')})`}; fromCache=true; } }
+    if(!got){ const z=monCacheNear(); if(z){ got={list:z.list,how:`memoire de l'appareil (${new Date(z.t).toLocaleDateString('fr-FR')})`}; fromCache=true; } }
     if(got){ applyMonuments(got.list,got.how,errs,fromCache,R,MON_MIN_LINKS); }
-    else if(quick){ // l'etape rapide a reussi, le complement non : on garde les celebres
-      monErrAt=Date.now(); monErrDelay=Math.min(Math.round(monErrDelay*1.5),300000);
-      monMsg=`${quick} monument(s) (celebres seulement) · complement indisponible : ${errs.join(' ; ')}`;
-      logNet('Monuments',false,monMsg);
-    }else{
+    else{
       monErrAt=Date.now(); monErrDelay=Math.min(Math.round(monErrDelay*1.5),300000); monMsg='indispo : '+(errs.join(' | ')||'aucune source');
       logNet('Monuments',false,errs.join(' | ')||'aucune source disponible');
     }
@@ -2156,7 +2199,7 @@ function draw(ts){
         for(let k=0;k<maxLanes;k++){ const y=hy-26-k*step; if(y-size-2<topLimit) break; if(!rectHit(x0,x1,y-size-2,y+4,6)){ upY=y; break; } }
       }
       if(k0==null&&upY==null){ infraStats.iconOnly+=n;
-        if(L.hits) L.hits.push({t:near,roll,x0:Math.min(...g.xs)-8,x1:Math.max(...g.xs)+8,y0:hy-20,y1:hy+2}); continue; }
+        if(L.hits) L.hits.push({t:near,g:g.items,roll,x0:Math.min(...g.xs)-8,x1:Math.max(...g.xs)+8,y0:hy-20,y1:hy+2}); continue; }
       if(k0!=null) laneMem.set(key,k0); infraStats.labeled+=n;
       const ly=k0!=null?yOf(k0):upY, below=k0!=null&&deck==='low';
       placed.push([x0,x1,ly-size-2,ly+4]);
@@ -2175,7 +2218,7 @@ function draw(ts){
       if(g5){ ctx.font=`700 9px ${FM}`; const bx=ox+2, bw=20;
         ctx.fillStyle='rgba(14,26,43,.9)'; ctx.fillRect(bx,ly-11,bw,12); ctx.strokeStyle=L.color.text; ctx.lineWidth=1; ctx.strokeRect(bx+.5,ly-10.5,bw-1,11);
         ctx.fillStyle=L.color.text; ctx.textAlign='center'; ctx.fillText('5G',bx+bw/2,ly-2); ctx.textAlign='left'; }
-      if(L.hits) L.hits.push({t:near,roll,x0,x1,y0:Math.min(ly-size-2,hy-20),y1:Math.max(ly+4,hy+2)});
+      if(L.hits) L.hits.push({t:near,g:g.items,roll,x0,x1,y0:Math.min(ly-size-2,hy-20),y1:Math.max(ly+4,hy+2)});
     }
   }
 
@@ -2306,19 +2349,21 @@ function pointCalibrate(px,py){
 function hitTelecom(px,py,arr=telecomHits){
   // deux passes : d'abord un toucher franchement DANS une zone, ensuite seulement avec 6 px de marge
   // (des noms voisins espaces de 5 px auraient sinon des zones tactiles qui se recouvrent)
-  for(const m of [0,6]){ const t=hitAt(px,py,arr,m); if(t) return t; }
+  lastHitGrp=null;
+  for(const m of [0,6]){ const h=hitAt(px,py,arr,m); if(h){ lastHitGrp=h.g||null; return h.t; } }
   return null;
 }
+let lastHitGrp=null; // elements regroupes sous l'etiquette touchee (ex. "13 toits-terrasses")
 function hitAt(px,py,arr,mg){
   for(let i=arr.length-1;i>=0;i--){
     const h=arr[i], cx=W/2, cy=H/2, dx=px-cx, dy=py-cy, r=h.roll*D;
     const lx=cx+dx*Math.cos(r)+dy*Math.sin(r), ly=cy-dx*Math.sin(r)+dy*Math.cos(r);
     if(h.icon){
-      const ic=h.icon; if(lx>=ic[0]-mg&&lx<=ic[1]+mg&&ly>=ic[2]-mg&&ly<=ic[3]+mg) return h.t;
-      if(h.poly&&inQuad(h.poly,lx,ly,mg)) return h.t;
+      const ic=h.icon; if(lx>=ic[0]-mg&&lx<=ic[1]+mg&&ly>=ic[2]-mg&&ly<=ic[3]+mg) return h;
+      if(h.poly&&inQuad(h.poly,lx,ly,mg)) return h;
       continue;
     }
-    if(lx>=h.x0-mg&&lx<=h.x1+mg&&ly>=h.y0-mg&&ly<=h.y1+mg) return h.t;
+    if(lx>=h.x0-mg&&lx<=h.x1+mg&&ly>=h.y0-mg&&ly<=h.y1+mg) return h;
   }
   return null;
 }
@@ -2347,15 +2392,12 @@ function showMonumentDetail(m){
   $('dbgTitle').textContent='Monument';
   $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null;
 }
-function showTelecomDetail(px,py){
-  const m=hitTelecom(px,py,monHits); if(m){ showMonumentDetail(m); return; }
-  const t=hitTelecom(px,py); if(!t) return;
+function telecomBlock(t){
   const ops=(t.operators||[]).map(o=>{
     const sys=o.systems.map(s=>`${s.system} (${s.status}${s.date?', '+s.date.slice(0,4):''})`).join(', ');
     return `<div class="dbgline"><b style="color:#F3E9D2">${o.name}</b><br>${sys}</div>`;
   }).join('');
-  $('dbgBody').innerHTML=`
-    <div class="dbgsec">Support telecom</div>
+  return `
     <div class="dbgline" style="font-size:16px;color:#E85A5A;font-weight:700">${t.name}${t.g5?' · 5G':''}</div>
     <div class="dbgline">${t.nature||'nature inconnue'}${t.height_m?`, ${t.height_m} m`:''} · a ${t.dist.toFixed(1)} km${t.place&&t.place!==t.address?' · '+t.place:''}</div>
     <div class="dbgsec">Proprietaire du support</div>
@@ -2365,9 +2407,23 @@ function showTelecomDetail(px,py){
     <div class="dbgsec">Identifiants</div>
     <div class="dbgline">ANFR ${t.anfr||'—'} · support ANFR n°${t.sup_id}</div>
     <div class="dbgsec">Operateurs presents (${(t.operators||[]).length})</div>
-    ${ops||'<div class="dbgline">aucun</div>'}
-  `;
-  $('dbgTitle').textContent='Support telecom';
+    ${ops||'<div class="dbgline">aucun</div>'}`;
+}
+function showTelecomDetail(px,py){
+  const m=hitTelecom(px,py,monHits); if(m){ showMonumentDetail(m); return; }
+  const t=hitTelecom(px,py); if(!t) return;
+  const grp=(lastHitGrp&&lastHitGrp.length>1?lastHitGrp:[t]).slice().sort((a,b)=>a.dist-b.dist);
+  if(grp.length===1){
+    $('dbgBody').innerHTML=`<div class="dbgsec">Support telecom</div>`+telecomBlock(t);
+    $('dbgTitle').textContent='Support telecom';
+  }else{
+    // groupe : tous les elements, du plus proche au plus lointain ; le plus proche est deplie
+    const esc=v=>String(v==null?'':v).replace(/[<&"]/g,c=>({'<':'&lt;','&':'&amp;','"':'&quot;'})[c]);
+    const opsTxt=x=>(x.operators||[]).map(o=>o.name).join(', '), fkm=d=>d<10?d.toFixed(1):String(Math.round(d));
+    $('dbgBody').innerHTML=`<div class="dbgsec">${grp.length} supports regroupes · ${fkm(grp[0].dist)}–${fkm(grp[grp.length-1].dist)} km</div>`+
+      grp.map((x,i)=>`<details class="telgrp"${i===0?' open':''}><summary style="cursor:pointer;padding:8px 0;border-bottom:1px solid rgba(243,233,210,.15)"><b style="color:#E85A5A">${esc(x.nature||x.name)}${x.g5?' · 5G':''}</b> · ${fkm(x.dist)} km${x.height_m?` · ${x.height_m} m`:''}<br><span style="opacity:.75">${esc(x.address||x.place||'adresse inconnue')}${x.cp?' · '+esc(x.cp):''}${opsTxt(x)?' · '+esc(opsTxt(x)):''}</span></summary>${telecomBlock(x)}</details>`).join('');
+    $('dbgTitle').textContent=`${grp.length} supports telecom`;
+  }
   $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null;
 }
 $('calib').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;saveSettings();});
