@@ -1493,7 +1493,7 @@ const has5G=operators=>(operators||[]).some(o=>(o.systems||[]).some(s=>/5G/i.tes
 let monumentSites=[], monAt=null, monBusy=false, monErrAt=null, monErrDelay=30000, monMsg='', monStats={};
 const MON_MIN_LINKS=40, MON_MIN_ANG=0.12, MON_STAR_LINKS=80, MON_MAX_SHOWN=40; // MAX_SHOWN : les plus celebres seulement, le reste en transparence
 const MON_DEF_H={tour:60,dome:40,clocher:45,arc:25,colonne:25,chateau:20,musee:18};
-const monRadius=()=>Math.min(40,Math.max(15,S.radius));
+const monRadius=()=>Math.min(30,Math.max(15,S.radius)); // 30 km max : au-dela la requete Wikidata depasse le delai autour de Paris
 // type d'icone a partir des classes Wikidata (ex. "tour|tour d'observation|monument") et du nom
 function monTypeFrom(types,name){
   const t=(String(types||'')+' '+String(name||'')).toLowerCase();
@@ -1528,9 +1528,9 @@ function normWdqs(j){ // reponse WDQS brute -> [{qid,name,lat,lon,links,ht,types
     out.push({qid:q[0],name,lat,lon,links:parseInt(r.sl&&r.sl.value,10)||0,ht:isFinite(h)&&h>0?Math.round(h):null,types:(r.types&&r.types.value)||''}); }
   return out;
 }
-async function monViaRelay(R){
-  const u=`${relayBase()}/monuments?lat=${pos.lat.toFixed(5)}&lon=${pos.lon.toFixed(5)}&radius_km=${R}&min_links=${MON_MIN_LINKS}`;
-  const r=await fetchT(u,{},60000);
+async function monViaRelay(R,minLinks){
+  const u=`${relayBase()}/monuments?lat=${pos.lat.toFixed(5)}&lon=${pos.lon.toFixed(5)}&radius_km=${R}&min_links=${minLinks}`;
+  const r=await fetchT(u,{},50000);
   let j={}; try{ j=await r.json(); }catch(e){}
   if(!r.ok||j.monumentsOk===false) throw new Error(j.error||('HTTP '+r.status));
   if(!Array.isArray(j.monuments)) throw new Error('reponse du relais inattendue');
@@ -1555,35 +1555,54 @@ function monCacheWrite(list){ try{
   const all=monCacheRead().filter(z=>distBrg(z,pos).dist>3); all.unshift({lat:pos.lat,lon:pos.lon,t:Date.now(),list});
   localStorage.setItem(MON_KEY,JSON.stringify(all.slice(0,6))); }catch(e){} }
 function monCacheNear(){ const z=monCacheRead().find(z=>distBrg(z,pos).dist<10); return z||null; }
+function applyMonuments(list,how,errs,fromCache,R,minLinks){
+  const kept=[];
+  for(const m of list){
+    if(!m||!isFinite(m.lat)||!isFinite(m.lon)||(m.links||0)<minLinks) continue;
+    const type=monTypeFrom(m.types,m.name);
+    kept.push({name:m.name,lat:m.lat,lon:m.lon,kind:'monument',qid:m.qid,type,links:m.links,htWd:m.ht,htOsm:null,ht:m.ht||MON_DEF_H[type]||20,types:m.types});
+  }
+  monumentSites=kept; monAt={...pos}; monErrAt=fromCache?Date.now():null; monErrDelay=fromCache?Math.min(Math.round(monErrDelay*1.5),300000):30000;
+  monStats={n:kept.length,how};
+  monMsg=`${kept.length} monument(s) · ${how}`+(errs.length&&!fromCache?` (repli après : ${errs.join(' ; ')})`:'')+(fromCache?` · sources injoignables : ${errs.join(' ; ')}`:'');
+  citiesVer++; recompute(); markBuildingDupes();
+  logNet('Monuments',!fromCache&&!errs.length,`${kept.length} emblematique(s) via ${how}, rayon ${R} km, notoriete >= ${minLinks} langues`+(errs.length?` · ${errs.join(' ; ')}`:''));
+}
 async function loadMonuments(force){
   if(!S.layers.monuments||!pos||monBusy||document.hidden) return;
   const R=monRadius();
   if(!force&&monAt&&distBrg(pos,monAt).dist<R*0.25) return;
   if(!force&&monErrAt&&Date.now()-monErrAt<monErrDelay) return;
   monBusy=true; monMsg='recherche…';
-  let got=null; const errs=[];
-  if(relayBase()){ try{ got=await monViaRelay(R); }catch(e){ errs.push('relais : '+friendlyErr(e)); } }
-  if(!got){ try{ got=await monDirect(R); }catch(e){ errs.push('direct : '+friendlyErr(e)); } }
-  if(got&&got.list.length) monCacheWrite(got.list);
-  let fromCache=false;
-  if(!got){ const z=monCacheNear(); if(z){ got={list:z.list,how:`memoire de l'appareil (${new Date(z.t).toLocaleDateString('fr-FR')})`}; fromCache=true; } }
-  if(got){
-    const kept=[];
-    for(const m of got.list){
-      if(!m||m.links<MON_MIN_LINKS) continue;
-      const type=monTypeFrom(m.types,m.name);
-      kept.push({name:m.name,lat:m.lat,lon:m.lon,kind:'monument',qid:m.qid,type,links:m.links,htWd:m.ht,htOsm:null,ht:m.ht||MON_DEF_H[type]||20,types:m.types});
+  const t0=Date.now(), errs=[];
+  // garde-fou : quoi qu'il arrive (exception, reponse qui ne vient jamais), l'etat "recherche" est leve
+  const dog=setTimeout(()=>{ if(monBusy){ monBusy=false; monErrAt=Date.now(); monMsg='delai global depasse (90 s)'; logNet('Monuments',false,monMsg); } },90000);
+  try{
+    let got=null, quick=0;
+    if(relayBase()){
+      // 1) etape rapide : seulement les tres celebres (requete legere cote Wikidata, affichage en quelques secondes)
+      try{ const q=await monViaRelay(R,MON_STAR_LINKS); if(q.list.length){ applyMonuments(q.list,q.how+' · celebres',[],false,R,MON_STAR_LINKS); quick=monumentSites.length; monMsg+=' — complement en cours…'; } }
+      catch(e){ errs.push('relais rapide : '+friendlyErr(e)); }
+      // 2) etape complete
+      try{ got=await monViaRelay(R,MON_MIN_LINKS); }catch(e){ errs.push('relais : '+friendlyErr(e)); }
     }
-    monumentSites=kept; monAt={...pos}; monErrAt=fromCache?Date.now():null; monErrDelay=fromCache?Math.min(Math.round(monErrDelay*1.5),300000):30000;
-    monStats={n:kept.length,how:got.how};
-    monMsg=`${kept.length} monument(s) · ${got.how}`+(errs.length&&!fromCache?` (repli après : ${errs.join(' ; ')})`:'')+(fromCache?` · sources injoignables : ${errs.join(' ; ')}`:'');
-    citiesVer++; recompute(); markBuildingDupes();
-    logNet('Monuments',!fromCache&&!errs.length,`${kept.length} emblematique(s) via ${got.how}, rayon ${R} km, notoriete >= ${MON_MIN_LINKS} langues`+(errs.length?` · ${errs.join(' ; ')}`:''));
-  }else{
-    monErrAt=Date.now(); monErrDelay=Math.min(Math.round(monErrDelay*1.5),300000); monMsg='indispo';
-    logNet('Monuments',false,errs.join(' | ')||'aucune source disponible');
-  }
-  monBusy=false;
+    if(!got&&!quick){ try{ got=await monDirect(R); }catch(e){ errs.push('direct : '+friendlyErr(e)); } }
+    if(got&&got.list.length) monCacheWrite(got.list);
+    let fromCache=false;
+    if(!got&&!quick){ const z=monCacheNear(); if(z){ got={list:z.list,how:`memoire de l'appareil (${new Date(z.t).toLocaleDateString('fr-FR')})`}; fromCache=true; } }
+    if(got){ applyMonuments(got.list,got.how,errs,fromCache,R,MON_MIN_LINKS); }
+    else if(quick){ // l'etape rapide a reussi, le complement non : on garde les celebres
+      monErrAt=Date.now(); monErrDelay=Math.min(Math.round(monErrDelay*1.5),300000);
+      monMsg=`${quick} monument(s) (celebres seulement) · complement indisponible : ${errs.join(' ; ')}`;
+      logNet('Monuments',false,monMsg);
+    }else{
+      monErrAt=Date.now(); monErrDelay=Math.min(Math.round(monErrDelay*1.5),300000); monMsg='indispo : '+(errs.join(' | ')||'aucune source');
+      logNet('Monuments',false,errs.join(' | ')||'aucune source disponible');
+    }
+  }catch(e){
+    monErrAt=Date.now(); monErrDelay=Math.min(Math.round(monErrDelay*1.5),300000);
+    monMsg='erreur interne : '+friendlyErr(e); logNet('Monuments',false,monMsg+' ('+Math.round((Date.now()-t0)/1000)+' s)');
+  }finally{ clearTimeout(dog); monBusy=false; }
 }
 // un repere haut OSM qui EST un monument (Tour Eiffel, Montparnasse...) n'est dessine qu'une fois
 function markBuildingDupes(){
