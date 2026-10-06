@@ -53,6 +53,8 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #layers .lyN{flex:1;font:600 14px/1.2 var(--display);color:var(--cream)}
 #layers .lyN em{display:block;font:400 11.5px/1.3 var(--mono,monospace);font-style:normal;color:rgba(243,233,210,.6);margin-top:2px}
 #layers input{width:20px;height:20px;accent-color:#E0A526}
+#layers label.lySub{padding:2px 0 8px 32px;border-top:0}
+#layers label.lySub .lyN{font-size:12.5px;font-weight:500}
 #layers .lyH{font:400 11.5px/1.35 var(--mono,monospace);color:rgba(243,233,210,.55);padding-top:8px;border-top:1px solid var(--line)}
 #btnFind.holding{background:rgba(224,165,38,.55);transition:background .15s}
 #btnFind.on,#btnAlign.on,#btnPoint.on{background:rgba(224,165,38,.85)}
@@ -166,6 +168,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <label><svg viewBox="0 0 24 24" stroke="#E85A5A"><path d="M8 21l3.2-15h1.6L16 21M9.6 14.5l5.2-3M14.4 14.5l-5.2-3M8.8 18l6.8-2.6M15.2 18l-6.8-2.6M12 6V2.5M10 3.5h4"/></svg><span class="lyN">Pylônes télécom<em id="lyInfoTel">ANFR, France — via le relais</em></span><input type="checkbox" id="lyTel"></label>
     <label><svg viewBox="0 0 24 24" stroke="#7AA7E0"><path d="M6 21V8h7v13M13 12h5v9M8.5 11h2M8.5 14h2M8.5 17h2M15 15h1M15 18h1M9.5 8V4"/></svg><span class="lyN">Repères hauts<em id="lyInfoBld">tours, cheminées, châteaux d'eau (OSM)</em></span><input type="checkbox" id="lyBld"></label>
     <label><svg viewBox="0 0 24 24" stroke="#C79BE8"><path d="M3 20V11h3V8h3v4h3V6h3v6h3V9h3v11z"/></svg><span class="lyN">Silhouette bâtiments<em id="lyInfoUrb">contour des immeubles (IGN BD TOPO) · France</em></span><input type="checkbox" id="lyUrb"></label>
+    <label class="lySub"><span class="lyN">Premier plan masqué<em>ignore les bâtiments à moins de 150 m (rue en canyon)</em></span><input type="checkbox" id="lyUrbClip"></label>
     <div class="lyH">L'œil règle <b>combien</b> de noms ; les calques règlent <b>lesquels</b>.</div>
   </div>
   <div id="bar">
@@ -330,7 +333,7 @@ const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
 const APP_VERSION='2026-09-29 (a) · monuments : source Wikidata (relais, puis direct, puis mémoire de l\'appareil), plus d\'Overpass pour cette couche ; 40 monuments les plus célèbres nets, le reste en transparence';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
-  layers:{places:true,monuments:true,urban:false},
+  layers:{places:true,monuments:true,urban:false,urbClip:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
   lighthouse:{label:'Phares, feux et balises',        max:40, q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]']},
@@ -1438,6 +1441,48 @@ const GLYPH={
 };
 // hauteur totale approximative d'une icone (unites de 16) : pour placer l'etiquette au-dessus/dessous
 const GLYPH_H={pylone:17,mat:16,toit:16,chateau_eau:15,antenne:18,tour:20,dome:15,clocher:18,arc:13,colonne:18,chateau:14,musee:14.5};
+// ---------- silhouettes de monuments a leur taille reelle (07/10/2026) ----------
+// Un monument dont la hauteur apparente depasse ~26 px est dessine avec SA forme (profil simplifie), de son sol a son
+// sommet, a l'echelle exacte (largeur = rapport largeur/hauteur reel x hauteur a l'ecran). En dessous, l'icone
+// habituelle. Profils dedies : Tour Eiffel, Arc de Triomphe, Notre-Dame, Montparnasse ; les autres monuments
+// prennent un gabarit selon leur type (tour, dome, clocher, arc, colonne, chateau, musee). Unites : hauteur = 1,
+// x depuis l'axe, v de 0 (sol) a 1 (sommet). Les formes generiques sont indicatives, pas des plans.
+const SPR={
+  eiffel:{asp:.40,poly:[[-.19,0],[-.145,.06],[-.108,.17],[-.085,.25],[-.062,.35],[-.04,.55],[-.022,.8],[-.017,.84],[-.008,.93],[0,1],[.008,.93],[.017,.84],[.022,.8],[.04,.55],[.062,.35],[.085,.25],[.108,.17],[.145,.06],[.19,0],[.13,0],[.1,.04],[.05,.09],[0,.11],[-.05,.09],[-.1,.04],[-.13,0]],
+    lines:[[-.12,.17,.12,.17],[-.075,.35,.075,.35],[-.03,.84,.03,.84]]},
+  arc:{asp:.9,poly:[[-.45,0],[.45,0],[.45,.86],[.47,.86],[.47,.92],[.45,.92],[.45,1],[-.45,1],[-.45,.92],[-.47,.92],[-.47,.86],[-.45,.86]],
+    hole:[[-.13,0],[-.13,.5],[-.1,.62],[0,.68],[.1,.62],[.13,.5],[.13,0]]},
+  notredame:{asp:1.0,poly:[[-.5,0],[.5,0],[.5,.72],[.22,.72],[.22,.5],[.035,.5],[.03,.88],[0,1],[-.03,.88],[-.035,.5],[-.22,.5],[-.22,.72],[-.5,.72]],
+    hole:null,lines:[[-.5,.62,-.22,.62],[.22,.62,.5,.62]]},
+  montparnasse:{asp:.30,poly:[[-.15,0],[.15,0],[.15,.96],[.12,1],[-.12,1],[-.15,.96]],lines:[[-.15,.3,.15,.3],[-.15,.6,.15,.6]]},
+  tour:{asp:.22,poly:[[-.1,0],[.1,0],[.075,.5],[.065,.8],[.025,.93],[0,1],[-.025,.93],[-.065,.8],[-.075,.5]]},
+  dome:{asp:1.0,poly:[[-.5,0],[.5,0],[.5,.34],[.3,.34],[.3,.5],[.27,.56],[.2,.7],[.1,.8],[.035,.84],[.03,.94],[0,1],[-.03,.94],[-.035,.84],[-.1,.8],[-.2,.7],[-.27,.56],[-.3,.5],[-.3,.34],[-.5,.34]]},
+  clocher:{asp:.9,poly:[[-.45,0],[.45,0],[.45,.4],[.12,.4],[.12,.62],[0,1],[-.12,.62],[-.12,.4],[-.45,.4]]},
+  colonne:{asp:.12,poly:[[-.06,0],[.06,0],[.06,.12],[.035,.12],[.025,.9],[0,1],[-.025,.9],[-.035,.12],[-.06,.12]]},
+  chateau:{asp:3.2,poly:[[-1.6,0],[1.6,0],[1.6,.62],[1.55,.62],[1.45,1],[1.35,.62],[.4,.62],[.4,.7],[-.4,.7],[-.4,.62],[-1.35,.62],[-1.45,1],[-1.55,.62],[-1.6,.62]]},
+  musee:{asp:3.0,poly:[[-1.5,0],[1.5,0],[1.5,.7],[.3,.7],[0,1],[-.3,.7],[-1.5,.7]]},
+};
+function monSpriteKey(c){
+  const n=c.name||'';
+  if(c.qid==='Q243'||/^tour eiffel$/i.test(n)) return 'eiffel';
+  if(c.qid==='Q64436'||/arc de triomphe de l.[ée]toile/i.test(n)) return 'arc';
+  if(c.qid==='Q2981'||/notre-dame de paris/i.test(n)) return 'notredame';
+  if(c.qid==='Q179797'||/tour montparnasse/i.test(n)) return 'montparnasse';
+  return SPR[c.type]?c.type:'musee';
+}
+const SPRITE_MIN_PX=26;
+function drawSprite(key,x,yTop,yBase,fillA,strokeA){
+  const sp=SPR[key], Hpx=yBase-yTop, P=pt=>[x+pt[0]*Hpx,yBase-pt[1]*Hpx];
+  ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round';
+  const path=()=>{ ctx.beginPath(); sp.poly.forEach((q,i)=>{ const [px,py]=P(q); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }); ctx.closePath();
+    if(sp.hole){ sp.hole.forEach((q,i)=>{ const [px,py]=P(q); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }); ctx.closePath(); } };
+  path(); ctx.fillStyle=`rgba(242,193,78,${fillA})`; ctx.fill('evenodd');
+  path(); ctx.strokeStyle='rgba(14,26,43,.75)'; ctx.lineWidth=3.6; ctx.stroke();
+  path(); ctx.strokeStyle=`rgba(255,214,110,${strokeA})`; ctx.lineWidth=1.6; ctx.stroke();
+  if(sp.lines){ ctx.beginPath(); for(const l of sp.lines){ const a=P([l[0],l[1]]), b=P([l[2],l[3]]); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); }
+    ctx.strokeStyle=`rgba(255,214,110,${strokeA*.8})`; ctx.lineWidth=1.2; ctx.stroke(); }
+  ctx.restore();
+}
 // taille et opacite continues selon la distance, pour tous les types (retour du 01/10) : 26 px / 100 % a
 // 300 m, 10 px / 50 % a 15 km (interpolation logarithmique : l'oeil juge les distances en rapport)
 function infraIconLook(d){ const t=Math.max(0,Math.min(1,Math.log(Math.max(d,.05)/.3)/Math.log(15/.3))); return {h:26-16*t,a:1-.5*t}; }
@@ -1716,6 +1761,8 @@ function urbTilesAround(R){
 function urbCompute(){ // profil des angles par direction depuis la position courante
   const ang=new Float32Array(URB_NB).fill(-99), dist=new Float32Array(URB_NB), eye=1.6+(S.obsHeight||0);
   const kLat=111320, kLon=111320*Math.cos(pos.lat*D), Rm=URB_R_KM*1000+700, bw=360/URB_NB;
+  // premier plan masque : a hauteur de rue, la facade d'en face (20 m) cacherait toute la ville ; au-dela de 10 m d'altitude d'observation, le calque montre tout
+  const clipM=(S.layers.urbClip!==false&&(S.obsHeight||0)<10)?150:3;
   let nb=0;
   for(const T of urbTiles.values()) for(const b of T.bl){
     const p=b.pts, n=p.length/2, top=b.h-eye; nb++;
@@ -1724,10 +1771,10 @@ function urbCompute(){ // profil des angles par direction depuis la position cou
       const i=k%n, N=(p[2*i]-pos.lat)*kLat, E=(p[2*i+1]-pos.lon)*kLon, j=k===0?0:Math.ceil(Math.hypot(N-pn,E-pe)/20);
       if(k===0){ pn=N; pe=E; pd=Math.hypot(N,E); pbr=Math.atan2(E,N)/D; have=true; continue; }
       for(let s=1;s<=j;s++){
-        const f=s/j, n2=pn+(N-pn)*f, e2=pe+(E-pe)*f, d2=Math.hypot(n2,e2); if(d2<3||d2>Rm){ pd=d2; pbr=Math.atan2(e2,n2)/D; continue; }
+        const f=s/j, n2=pn+(N-pn)*f, e2=pe+(E-pe)*f, d2=Math.hypot(n2,e2); if(d2<clipM||d2>Rm){ pd=d2; pbr=Math.atan2(e2,n2)/D; continue; }
         const br=Math.atan2(e2,n2)/D;
         let dd=br-pbr; dd=((dd+540)%360)-180;
-        if(Math.abs(dd)<=90&&pd>=3){
+        if(Math.abs(dd)<=90&&pd>=clipM){
           const a=Math.atan2(top,Math.min(pd,d2))/D, lo=Math.min(pbr,pbr+dd), hi=Math.max(pbr,pbr+dd);
           for(let q=Math.floor(lo/bw);q<=Math.floor(hi/bw);q++){ const bi=((q%URB_NB)+URB_NB)%URB_NB; if(a>ang[bi]){ ang[bi]=a; dist[bi]=Math.min(pd,d2); } }
         }
@@ -2162,11 +2209,15 @@ function draw(ts){
   const monAng=c=>{ const hid=useRelief&&c.hidden, aGnd=useRelief&&c.aG!=null?c.aG:0;
     return {aGnd,aA:useRelief&&c.aP!=null?(hid?c.aG:c.aP):aGnd+(c.angH||0)}; };
   const monGH=c=>(c.links||0)>=MON_STAR_LINKS?22:18;
+  // silhouette a taille reelle si le monument est assez grand a l'ecran (sol -> sommet), sinon null (icone)
+  const monSpriteBox=(c,x,yTop)=>{ const {aGnd}=monAng(c), yBase=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-aGnd)*D)));
+    const Hpx=yBase-yTop; if(!(Hpx>=SPRITE_MIN_PX)||Hpx>3*H) return null;
+    const key=monSpriteKey(c), w=SPR[key].asp*Hpx; return {key,x0:x-w/2,x1:x+w/2,yTop,yBase,w}; };
   // les icones des monuments sont reservees AVANT tout le reste : aucune etiquette (equipement ou
   // lieu) ne peut passer dessus (capture du 28/09 : "3 toits-terrasses" sous la Tour Eiffel)
   for(const c of order){ if(c.kind!=='monument'||!passFilter(c,fq)) continue; const x=inView(c); if(x==null) continue;
-    const y=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-monAng(c).aA)*D))), g=monGH(c);
-    placed.push([x-g/2-2,x+g/2+2,y-g-2,y+2,null,c]); }
+    const y=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-monAng(c).aA)*D))), g=monGH(c), sb=monSpriteBox(c,x,y);
+    placed.push(sb?[sb.x0-2,sb.x1+2,sb.yTop-2,sb.yBase+2,null,c]:[x-g/2-2,x+g/2+2,y-g-2,y+2,null,c]); }
   // horizon trop bas pour la bande du dessous : equipements au-dessus, places avant les lieux mais
   // limites aux 3 lignes les plus basses (sinon ils prenaient tout l'ecran — capture du 28/09)
   if(!lowDeck) for(const L of infra) drawInfra(L,'up');
@@ -2246,24 +2297,28 @@ function draw(ts){
     if(!got&&!mon){ dNoRoom++; continue; }
     if(mon&&!got) dNoRoom++;
     if(got){ if(ghost) ghostCount++; else shownCount++; }
+    let iconBox=null, leadX=x, leadY=ay-gH*0.45;
     if(mon){
-      const yG=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-aGnd)*D)));
-      if(yG-ay>8){ ctx.strokeStyle=`rgba(242,193,78,${.45*alpha})`; ctx.lineWidth=1; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(x,yG); ctx.lineTo(x,ay); ctx.stroke(); ctx.setLineDash([]); }
-      drawGlyph(c.type,x,ay,gH,`rgb(${tint})`,alpha);
-      if(!got){ monHits.push({t:c,roll,poly:null,icon:[x-gH/2,x+gH/2,ay-gH,ay]}); continue; }
+      const yG=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-aGnd)*D))), sb=monSpriteBox(c,x,ay);
+      if(sb){ drawSprite(sb.key,x,sb.yTop,sb.yBase,.26*alpha,.95*alpha); iconBox=[sb.x0,sb.x1,sb.yTop,sb.yBase]; leadY=ay+1; }
+      else{
+        if(yG-ay>8){ ctx.strokeStyle=`rgba(242,193,78,${.45*alpha})`; ctx.lineWidth=1; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(x,yG); ctx.lineTo(x,ay); ctx.stroke(); ctx.setLineDash([]); }
+        drawGlyph(c.type,x,ay,gH,`rgb(${tint})`,alpha); iconBox=[x-gH/2,x+gH/2,ay-gH,ay];
+      }
+      if(!got){ monHits.push({t:c,roll,poly:null,icon:iconBox}); continue; }
       if(flat){
         const ex=flat.side>0?flat.x-2:flat.x+flat.w+2, ey=flat.y-size*0.35; // bord du nom le plus proche de l'icone
-        if(Math.hypot(ex-x,ey-(ay-gH))>6){ ctx.strokeStyle=`rgba(242,193,78,${.8*alpha})`; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,ay-gH-1); ctx.lineTo(ex,ey); ctx.stroke(); }
+        if(Math.hypot(ex-x,ey-(ay-gH))>6){ ctx.strokeStyle=`rgba(242,193,78,${.8*alpha})`; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,iconBox[2]-1); ctx.lineTo(ex,ey); ctx.stroke(); }
         ctx.textAlign='left'; ctx.font=`700 ${size}px ${FD}`; ctx.strokeStyle=`rgba(14,26,43,${ghost?.6:.9})`; ctx.lineWidth=3.5;
         ctx.strokeText(c.name,flat.x,flat.y); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,flat.x,flat.y);
         if(dtxt){ ctx.font=`500 11px ${FM}`; ctx.lineWidth=3; ctx.strokeText(dtxt,flat.x+nw+7,flat.y); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,flat.x+nw+7,flat.y); }
-        const pl=placed[placed.length-1]; monHits.push({t:c,roll,poly:[[pl[0],pl[2]],[pl[1],pl[2]],[pl[1],pl[3]],[pl[0],pl[3]]],icon:[x-gH/2,x+gH/2,ay-gH,ay]});
+        const pl=placed[placed.length-1]; monHits.push({t:c,roll,poly:[[pl[0],pl[2]],[pl[1],pl[2]],[pl[1],pl[3]],[pl[0],pl[3]]],icon:iconBox});
         continue;
       }
     }
     ctx.strokeStyle=mon?`rgba(242,193,78,${.8*alpha})`:poi?`rgba(224,165,38,${.8*alpha})`:`rgba(255,255,255,${.85*alpha})`; ctx.lineWidth=1;
     if(ghost) ctx.setLineDash([2,3]);
-    ctx.beginPath(); ctx.moveTo(mon?x+sgn*(gH/2-2):x,mon?ay-gH*0.45:ay); ctx.lineTo(lx,ly); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(mon?(leadX===x&&iconBox&&iconBox[3]-iconBox[2]>gH+4?x:x+sgn*(gH/2-2)):x,mon?leadY:ay); ctx.lineTo(lx,ly); ctx.stroke(); ctx.setLineDash([]);
     if(!mon){ ctx.fillStyle=poi?`rgba(224,165,38,${.95*alpha})`:`rgba(255,255,255,${.9*alpha})`;
       ctx.beginPath(); ctx.arc(x,ay,ghost?1.8:2.4,0,7); ctx.fill(); }
     ctx.save(); ctx.translate(lx,ly); ctx.rotate(-sgn*ANG_LBL); ctx.textAlign=sgn>0?'left':'right';
@@ -2276,7 +2331,7 @@ function draw(ts){
     ctx.restore();
     // zone tactile exacte : la bande inclinee du nom (pas son rectangle englobant, qui debordait sur
     // les voisins — un toucher sur la Tour Eiffel ouvrait l'Arc de Triomphe) + l'icone
-    if(mon){ const pl=placed[placed.length-1]; monHits.push({t:c,roll,poly:pl[4],icon:[x-gH/2,x+gH/2,ay-gH,ay],x0:pl[0],x1:pl[1],y0:pl[2],y1:pl[3]}); }
+    if(mon){ const pl=placed[placed.length-1]; monHits.push({t:c,roll,poly:pl[4],icon:iconBox,x0:pl[0],x1:pl[1],y0:pl[2],y1:pl[3]}); }
   }
   // instantane pour le panneau de diagnostic, lu par renderDebug() a son propre rythme (1x/s)
   placeStats={eligible:dEligible,shown:shownCount,ghost:ghostCount,noRoom:dNoRoom,ghostInView};
@@ -2904,7 +2959,7 @@ $('dst').onchange=e=>{S.showDist=e.target.checked;saveSettings();};
 // Lieux et Monuments : propres aux calques. Telecom et Reperes hauts : MEME reglage que les cases
 // de l'ecran Reglages (on pilote ces cases, pour garder un seul etat et un seul comportement).
 function syncLayersPanel(){
-  $('lyPlaces').checked=S.layers.places; $('lyMon').checked=S.layers.monuments; $('lyUrb').checked=!!S.layers.urban;
+  $('lyPlaces').checked=S.layers.places; $('lyMon').checked=S.layers.monuments; $('lyUrb').checked=!!S.layers.urban; $('lyUrbClip').checked=S.layers.urbClip!==false; $('lyUrbClip').closest('label').style.display=S.layers.urban?'':'none';
   $('lyInfoUrb').textContent=S.layers.urban?(urbMsg||'en attente')+retryHint(urbErrAt,urbErrDelay):'contour des immeubles (IGN BD TOPO) · France';
   $('lyTel').checked=S.telecom; $('lyBld').checked=S.buildings;
   $('lyInfoMon').textContent=S.layers.monuments&&monMsg?`${monumentSites.length} chargé(s) · ${monMsg}`:'lieux emblématiques (Wikipédia)';
@@ -2919,6 +2974,7 @@ document.addEventListener('pointerdown',e=>{ if($('layers').classList.contains('
 $('lyPlaces').onchange=e=>{ S.layers.places=e.target.checked; citiesVer++; saveSettings(); syncLayersPanel(); };
 $('lyMon').onchange=e=>{ S.layers.monuments=e.target.checked; citiesVer++; saveSettings(); if(S.layers.monuments) loadMonuments(true); syncLayersPanel(); };
 $('lyUrb').onchange=e=>{ S.layers.urban=e.target.checked; saveSettings(); if(S.layers.urban) loadUrban(true); syncLayersPanel(); };
+$('lyUrbClip').onchange=e=>{ S.layers.urbClip=e.target.checked; saveSettings(); if(urbTiles.size&&pos) urbCompute(); };
 $('lyTel').onchange=e=>{ $('tel').checked=e.target.checked; $('tel').onchange({target:$('tel')}); if(S.telecom) pollTelecom(); syncLayersPanel(); };
 $('lyBld').onchange=e=>{ $('bld').checked=e.target.checked; $('bld').onchange({target:$('bld')}); if(S.buildings) pollBuildings(); syncLayersPanel(); };
 syncLayersPanel();
