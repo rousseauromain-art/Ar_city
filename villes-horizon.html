@@ -169,6 +169,8 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <label><svg viewBox="0 0 24 24" stroke="#7AA7E0"><path d="M6 21V8h7v13M13 12h5v9M8.5 11h2M8.5 14h2M8.5 17h2M15 15h1M15 18h1M9.5 8V4"/></svg><span class="lyN">Repères hauts<em id="lyInfoBld">tours, cheminées, châteaux d'eau (OSM)</em></span><input type="checkbox" id="lyBld"></label>
     <label><svg viewBox="0 0 24 24" stroke="#C79BE8"><path d="M3 20V11h3V8h3v4h3V6h3v6h3V9h3v11z"/></svg><span class="lyN">Silhouette bâtiments<em id="lyInfoUrb">contour des immeubles (IGN BD TOPO) · France</em></span><input type="checkbox" id="lyUrb"></label>
     <label class="lySub"><span class="lyN">Premier plan masqué<em>ignore les bâtiments à moins de 150 m (rue en canyon)</em></span><input type="checkbox" id="lyUrbClip"></label>
+    <label class="lySub"><span class="lyN">Silhouette lissée<em>effet skyline : comble les rues étroites et les creux</em></span><input type="checkbox" id="lyUrbSmooth"></label>
+    <label class="lySub"><span class="lyN">Remplissage<em>teinte par couches de distance (désactivé : contours seuls)</em></span><input type="checkbox" id="lyUrbFill"></label>
     <div class="lyH">L'œil règle <b>combien</b> de noms ; les calques règlent <b>lesquels</b>.</div>
   </div>
   <div id="bar">
@@ -333,7 +335,7 @@ const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
 const APP_VERSION='2026-09-29 (a) · monuments : source Wikidata (relais, puis direct, puis mémoire de l\'appareil), plus d\'Overpass pour cette couche ; 40 monuments les plus célèbres nets, le reste en transparence';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
-  layers:{places:true,monuments:true,urban:false,urbClip:true},
+  layers:{places:true,monuments:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
   lighthouse:{label:'Phares, feux et balises',        max:40, q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]']},
@@ -1245,7 +1247,7 @@ async function computeTerrain(force){
     // Un calage ou un affichage peuvent des maintenant utiliser ce relief, meme incomplet.
     reliefState=skylineState=nearJobs.length?'calcul (relief lointain)…':'calcul…';
     let pm=await computeMask(h0);
-    terrain={c,h0,bands,pm,at:Date.now(),partial:true,refining:nearJobs.length>0,src};
+    terrain={c,h0,bands,pm,at:Date.now(),partial:true,refining:nearJobs.length>0,src}; if(S.layers.urban&&urbTiles.size&&pos) urbCompute();
     if(nearJobs.length){
       reliefState=skylineState='ok (relief lointain, affinage en cours…)';
       applyOcclusion(false);
@@ -1253,7 +1255,7 @@ async function computeTerrain(force){
       reliefState=skylineState='calcul…';
       pm=await computeMask(h0); // meme "bands" (mutees en place par la 2e passe) : pas de rechargement
     }
-    terrain={c,h0,bands,pm,at:Date.now(),partial:failed>0,refining:false,src};
+    terrain={c,h0,bands,pm,at:Date.now(),partial:failed>0,refining:false,src}; if(S.layers.urban&&urbTiles.size&&pos) urbCompute();
     clearTimeout(terrainRetryT); if(failed) terrainRetryT=setTimeout(()=>computeTerrain(false),30000);
     reliefState=skylineState='ok';
     finalLog();
@@ -1471,16 +1473,24 @@ function monSpriteKey(c){
   return SPR[c.type]?c.type:'musee';
 }
 const SPRITE_MIN_PX=26;
-function drawSprite(key,x,yTop,yBase,fillA,strokeA){
+function drawSprite(key,x,yTop,yBase,fillA,strokeA,occY){
   const sp=SPR[key], Hpx=yBase-yTop, P=pt=>[x+pt[0]*Hpx,yBase-pt[1]*Hpx];
   ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round';
   const path=()=>{ ctx.beginPath(); sp.poly.forEach((q,i)=>{ const [px,py]=P(q); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }); ctx.closePath();
     if(sp.hole){ sp.hole.forEach((q,i)=>{ const [px,py]=P(q); i?ctx.lineTo(px,py):ctx.moveTo(px,py); }); ctx.closePath(); } };
-  path(); ctx.fillStyle=`rgba(242,193,78,${fillA})`; ctx.fill('evenodd');
-  path(); ctx.strokeStyle='rgba(14,26,43,.75)'; ctx.lineWidth=3.6; ctx.stroke();
-  path(); ctx.strokeStyle=`rgba(255,214,110,${strokeA})`; ctx.lineWidth=1.6; ctx.stroke();
-  if(sp.lines){ ctx.beginPath(); for(const l of sp.lines){ const a=P([l[0],l[1]]), b=P([l[2],l[3]]); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); }
-    ctx.strokeStyle=`rgba(255,214,110,${strokeA*.8})`; ctx.lineWidth=1.2; ctx.stroke(); }
+  const body=()=>{
+    path(); ctx.fillStyle=`rgba(242,193,78,${fillA})`; ctx.fill('evenodd');
+    path(); ctx.strokeStyle='rgba(14,26,43,.75)'; ctx.lineWidth=3.6; ctx.stroke();
+    path(); ctx.strokeStyle=`rgba(255,214,110,${strokeA})`; ctx.lineWidth=1.6; ctx.stroke();
+    if(sp.lines){ ctx.beginPath(); for(const l of sp.lines){ const a=P([l[0],l[1]]), b=P([l[2],l[3]]); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); }
+      ctx.strokeStyle=`rgba(255,214,110,${strokeA*.8})`; ctx.lineWidth=1.2; ctx.stroke(); } };
+  if(occY!=null){ // une partie est cachee par un batiment plus proche : visible au-dessus de la ligne, en pointille derriere
+    const wBox=Math.abs(sp.asp)*Hpx+40;
+    ctx.save(); ctx.beginPath(); ctx.rect(x-wBox,yTop-10,2*wBox,Math.max(0,occY-yTop+10)); ctx.clip(); body(); ctx.restore();
+    if(occY<yBase){ ctx.save(); ctx.beginPath(); ctx.rect(x-wBox,occY,2*wBox,yBase-occY+10); ctx.clip();
+      ctx.setLineDash([3,3]); path(); ctx.strokeStyle=`rgba(255,214,110,${strokeA*.7})`; ctx.lineWidth=1.2; ctx.stroke();
+      path(); ctx.fillStyle=`rgba(242,193,78,${fillA*.35})`; ctx.fill('evenodd'); ctx.restore(); }
+  } else body();
   ctx.restore();
 }
 // taille et opacite continues selon la distance, pour tous les types (retour du 01/10) : 26 px / 100 % a
@@ -1758,32 +1768,66 @@ function urbTilesAround(R){
   for(const t of tl){ const c=tileLocalToLonLat(t.z,t.x,t.y,2048,2048,4096); t.d=distBrg(pos,{lat:c.lat,lon:c.lon}).dist; t.key=`${t.z}/${t.x}/${t.y}`; }
   return tl.filter(t=>t.d<=R+0.7).sort((a,b)=>a.d-b.d).slice(0,70);
 }
-function urbCompute(){ // profil des angles par direction depuis la position courante
-  const ang=new Float32Array(URB_NB).fill(-99), dist=new Float32Array(URB_NB), eye=1.6+(S.obsHeight||0);
-  const kLat=111320, kLon=111320*Math.cos(pos.lat*D), Rm=URB_R_KM*1000+700, bw=360/URB_NB;
+const URB_LMAX=[600,1800,1e9], URB_LMID=[400,1100,2500]; // couches : proche (<600 m), moyen (<1,8 km), lointain
+let urbRaw=null, urbLS=null; // angles bruts par couche, puis lisses (ce que l'on dessine)
+// lissage "facon skyline" : un contour trop precis (une rue vue de bout, un immeuble isole) donne un effet
+// dentele. On comble les rues etroites (dilatation de 0,5°) puis les trous de moins de 4°, enfin (w>1) on
+// regroupe la silhouette en BLOCS de w bins (w*0,5°) a sommet plat et aretes verticales, comme une
+// silhouette de ville dessinee : hauteur du bloc = moitie moyenne, moitie maximum (les tours restent visibles)
+const URB_BLOCK=[6,4,3]; // largeur des blocs par couche (bins de 0,5°) : 3° / 2° / 1,5°
+function urbSmooth(a,w){
+  const n=a.length, d=new Float32Array(n).fill(-99);
+  for(let i=0;i<n;i++){ let m=-99; for(let k=-1;k<=1;k++){ const v=a[(i+k+n)%n]; if(v>m) m=v; } d[i]=m; }
+  for(let i=0;i<n;i++){ // trous courts entre deux zones remplies : interpolation lineaire
+    if(d[i]>-50) continue; let j=i; while(j<i+n&&d[j%n]<=-50) j++;
+    const len=j-i; if(len<=8&&j<i+n){ const v0=d[(i-1+n)%n], v1=d[j%n]; if(v0>-50&&v1>-50) for(let k=0;k<len;k++) d[(i+k)%n]=v0+(v1-v0)*(k+1)/(len+1); }
+    i=j-1; }
+  if(!(w>1)) return d;
+  const o=new Float32Array(n).fill(-99);
+  for(let s=0;s+w<=n;s+=w){ let sum=0,c=0,mx=-99; for(let k=0;k<w;k++){ const v=d[s+k]; if(v>-50){ sum+=v; c++; if(v>mx) mx=v; } }
+    if(c*2>=w){ const v=(sum/c+mx)/2; for(let k=0;k<w;k++) o[s+k]=v; } }
+  return o;
+}
+function urbSmoothLayers(){ if(urbRaw) urbLS=urbRaw.la.map((a,li)=>S.layers.urbSmooth===false?a:urbSmooth(a,URB_BLOCK[li])); }
+function urbCompute(){ // profil des angles par direction (3 couches de distance) depuis la position courante
+  const NB=URB_NB, ang=new Float32Array(NB).fill(-99), dist=new Float32Array(NB), eyeRel=1.6+(S.obsHeight||0);
+  const la=[0,1,2].map(()=>new Float32Array(NB).fill(-99)), ld=[0,1,2].map(()=>new Float32Array(NB));
+  const kLat=111320, kLon=111320*Math.cos(pos.lat*D), Rm=URB_R_KM*1000+700, bw=360/NB;
   // premier plan masque : a hauteur de rue, la facade d'en face (20 m) cacherait toute la ville ; au-dela de 10 m d'altitude d'observation, le calque montre tout
   const clipM=(S.layers.urbClip!==false&&(S.obsHeight||0)<10)?150:3;
+  // relief sous les batiments : altitude du sol au pied de chacun (tuiles de relief deja chargees), sinon terrain plat
+  const TR=(S.relief&&terrain&&terrain.bands&&terrain.h0!=null)?terrain:null; let nz=0;
   let nb=0;
   for(const T of urbTiles.values()) for(const b of T.bl){
-    const p=b.pts, n=p.length/2, top=b.h-eye; nb++;
-    let pn=0,pe=0,pd=0,pbr=0,have=false;
+    const p=b.pts, n=p.length/2; nb++;
+    let top=b.h-eyeRel;
+    if(TR){ if(b.zt!==TR){ const dk=Math.hypot((p[0]-pos.lat)*kLat,(p[1]-pos.lon)*kLon)/1000, e=elevAt(TR.bands,p[0],p[1],dk); b.z=e===e?e:null; b.zt=TR; }
+      if(b.z!=null){ top=b.z+b.h-TR.h0; nz++; } }
+    let pn=0,pe=0,pd=0,pbr=0;
     for(let k=0;k<=n;k++){ // anneau ferme, aretes decoupees tous les ~20 m
       const i=k%n, N=(p[2*i]-pos.lat)*kLat, E=(p[2*i+1]-pos.lon)*kLon, j=k===0?0:Math.ceil(Math.hypot(N-pn,E-pe)/20);
-      if(k===0){ pn=N; pe=E; pd=Math.hypot(N,E); pbr=Math.atan2(E,N)/D; have=true; continue; }
+      if(k===0){ pn=N; pe=E; pd=Math.hypot(N,E); pbr=Math.atan2(E,N)/D; continue; }
       for(let s=1;s<=j;s++){
         const f=s/j, n2=pn+(N-pn)*f, e2=pe+(E-pe)*f, d2=Math.hypot(n2,e2); if(d2<clipM||d2>Rm){ pd=d2; pbr=Math.atan2(e2,n2)/D; continue; }
         const br=Math.atan2(e2,n2)/D;
         let dd=br-pbr; dd=((dd+540)%360)-180;
         if(Math.abs(dd)<=90&&pd>=clipM){
-          const a=Math.atan2(top,Math.min(pd,d2))/D, lo=Math.min(pbr,pbr+dd), hi=Math.max(pbr,pbr+dd);
-          for(let q=Math.floor(lo/bw);q<=Math.floor(hi/bw);q++){ const bi=((q%URB_NB)+URB_NB)%URB_NB; if(a>ang[bi]){ ang[bi]=a; dist[bi]=Math.min(pd,d2); } }
+          const dn=Math.min(pd,d2), a=Math.atan2(top,dn)/D, lo=Math.min(pbr,pbr+dd), hi=Math.max(pbr,pbr+dd), li=dn<URB_LMAX[0]?0:dn<URB_LMAX[1]?1:2;
+          for(let q=Math.floor(lo/bw);q<=Math.floor(hi/bw);q++){ const bi=((q%NB)+NB)%NB;
+            if(a>ang[bi]){ ang[bi]=a; dist[bi]=dn; } if(a>la[li][bi]){ la[li][bi]=a; ld[li][bi]=dn; } }
         }
         pd=d2; pbr=br;
       }
       pn=N; pe=E;
     }
   }
-  urbAng=ang; urbDist=dist; urbAt={...pos}; urbVer++; urbStats.nb=nb;
+  urbAng=ang; urbDist=dist; urbRaw={la,ld}; urbSmoothLayers(); urbAt={...pos}; urbVer++; urbStats.nb=nb; urbStats.relief=TR?Math.round(100*nz/Math.max(1,nb)):0;
+}
+// angle de ce qui masque un monument a une distance donnee : le plus haut batiment PLUS PROCHE que lui (-99 si rien)
+function urbOccluder(brg,distM){
+  if(!urbLS||!urbRaw) return -99; const bw=360/URB_NB, bi=Math.floor(((brg%360)+360)%360/bw)%URB_NB; let m=-99;
+  for(let li=0;li<3;li++){ for(let k=-1;k<=1;k++){ const i=(bi+k+URB_NB)%URB_NB, a=urbLS[li][i]; if(a>m&&a>-50&&urbRaw.ld[li][i]<distM-200) m=a; } }
+  return m;
 }
 async function loadUrban(force){
   if(!S.layers.urban||!pos||document.hidden) return;
@@ -2085,29 +2129,36 @@ function draw(ts){
   ctx.strokeStyle='#E0A526'; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.moveTo(W/2,hy-9); ctx.lineTo(W/2,hy+9); ctx.moveTo(W/2-9,hy); ctx.lineTo(W/2+9,hy); ctx.stroke();
 
-  // silhouette des batiments (calque "Silhouette") : contour en creneaux de ce qui monte le plus haut dans
-  // chaque direction (pas de 0,5°), teinte legere jusqu'a la ligne d'horizon pour voir si le cap colle
-  if(S.layers.urban&&urbAng&&pos){
-    const bw=360/URB_NB, pts=[];
-    for(let x=-20;x<=W+20;x+=2){
-      const dB=Math.atan((x-W/2)/fh)/D, brg=((heading+dB)%360+360)%360, bi=Math.floor(brg/bw)%URB_NB, a=urbAng[bi];
-      pts.push(a<-50?null:{x,y:H/2+fh*Math.tan((pitch-a)*D),d:urbDist[bi]});
+  // silhouette des batiments (calque "Silhouette") : trois couches de distance (proche, moyen, lointain), du fond
+  // vers l'avant, lissees "facon skyline", remplies jusqu'au sol de leur couche ; plus c'est loin, plus c'est clair
+  if(S.layers.urban&&urbLS&&pos){
+    const bw=360/URB_NB, eyeR=Math.max(1,1.6+(S.obsHeight||0)), fill=S.layers.urbFill!==false;
+    const ST=[ // [remplissage, trait, epaisseur] par couche
+      ['rgba(96,82,140,.26)','rgba(190,172,232,.55)',1.0],
+      ['rgba(58,46,98,.38)','rgba(199,155,232,.80)',1.25],
+      ['rgba(24,18,46,.55)','rgba(228,196,252,.98)',1.7]];
+    for(const li of [2,1,0]){
+      const arr=urbLS[li], pts=[];
+      for(let x=-20;x<=W+20;x+=2){
+        const dB=Math.atan((x-W/2)/fh)/D, a=arr[Math.floor((((heading+dB)%360)+360)%360/bw)%URB_NB];
+        if(a<-50){ pts.push(null); continue; }
+        const y=H/2+fh*Math.tan((pitch-a)*D), pv=pts[pts.length-1];
+        if(pv&&Math.abs(pv.y-y)>.5) pts.push({x,y:pv.y}); // marche : arete verticale (blocs de silhouette)
+        pts.push({x,y});
+      }
+      const runs=[]; let cur=[];
+      for(const q of pts){ if(q) cur.push(q); else if(cur.length){ runs.push(cur); cur=[]; } }
+      if(cur.length) runs.push(cur);
+      const gA=-Math.atan2(eyeR,URB_LMID[li])/D, yB=H/2+fh*Math.tan((pitch-gA)*D); // sol de cette couche
+      ctx.save(); ctx.lineJoin='round';
+      const path=run=>{ ctx.moveTo(run[0].x,run[0].y); for(let i=1;i<run.length;i++) ctx.lineTo(run[i].x,run[i].y); };
+      if(fill){ ctx.fillStyle=ST[li][0]; for(const run of runs){ if(run.length<2) continue; ctx.beginPath(); path(run);
+        ctx.lineTo(run[run.length-1].x,Math.max(yB,run[run.length-1].y)); ctx.lineTo(run[0].x,Math.max(yB,run[0].y)); ctx.closePath(); ctx.fill(); } }
+      for(const run of runs){ if(run.length<2) continue;
+        ctx.beginPath(); path(run); ctx.strokeStyle='rgba(14,26,43,.5)'; ctx.lineWidth=ST[li][2]+2; ctx.stroke();
+        ctx.beginPath(); path(run); ctx.strokeStyle=ST[li][1]; ctx.lineWidth=ST[li][2]; ctx.stroke(); }
+      ctx.restore();
     }
-    const runs=[]; let cur=[];
-    for(const q of pts){ if(q) cur.push(q); else if(cur.length){ runs.push(cur); cur=[]; } }
-    if(cur.length) runs.push(cur);
-    ctx.save(); ctx.lineJoin='round';
-    const stepPath=run=>{ ctx.moveTo(run[0].x,run[0].y); for(let i=1;i<run.length;i++){ ctx.lineTo(run[i].x,run[i-1].y); ctx.lineTo(run[i].x,run[i].y); } };
-    // teinte : de la silhouette vers l'horizon
-    ctx.fillStyle='rgba(199,155,232,.13)';
-    for(const run of runs){ if(run.length<2) continue; ctx.beginPath(); stepPath(run);
-      ctx.lineTo(run[run.length-1].x,Math.max(hy,run[run.length-1].y)); ctx.lineTo(run[0].x,Math.max(hy,run[0].y)); ctx.closePath(); ctx.fill(); }
-    // trait : halo sombre puis couleur, par troncons de profondeur (proche net, lointain plus fin)
-    for(const run of runs){ if(run.length<2) continue;
-      const near=run.reduce((a,q)=>a+(q.d<300?1:0),0)/run.length;
-      ctx.beginPath(); stepPath(run); ctx.strokeStyle='rgba(14,26,43,.55)'; ctx.lineWidth=3.6; ctx.stroke();
-      ctx.beginPath(); stepPath(run); ctx.strokeStyle=near>0.5?'rgba(222,190,250,.98)':'rgba(199,155,232,.85)'; ctx.lineWidth=near>0.5?1.9:1.4; ctx.stroke(); }
-    ctx.restore();
   }
   // ligne d'horizon calculee (aide au calage) : silhouette du relief theorique (trait seul —
   // un remplissage jusqu'au bas de l'ecran recouvrait le premier plan de la camera, retire)
@@ -2300,7 +2351,9 @@ function draw(ts){
     let iconBox=null, leadX=x, leadY=ay-gH*0.45;
     if(mon){
       const yG=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-aGnd)*D))), sb=monSpriteBox(c,x,ay);
-      if(sb){ drawSprite(sb.key,x,sb.yTop,sb.yBase,.26*alpha,.95*alpha); iconBox=[sb.x0,sb.x1,sb.yTop,sb.yBase]; leadY=ay+1; }
+      if(sb){ let occY=null;
+        if(S.layers.urban&&urbLS){ const oa=urbOccluder(heading+Math.atan((x-W/2)/fh)/D,c.dist*1000); if(oa>-50) occY=H/2+fh*Math.tan((pitch-oa)*D); }
+        drawSprite(sb.key,x,sb.yTop,sb.yBase,.26*alpha,.95*alpha,occY); iconBox=[sb.x0,sb.x1,sb.yTop,sb.yBase]; leadY=ay+1; }
       else{
         if(yG-ay>8){ ctx.strokeStyle=`rgba(242,193,78,${.45*alpha})`; ctx.lineWidth=1; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(x,yG); ctx.lineTo(x,ay); ctx.stroke(); ctx.setLineDash([]); }
         drawGlyph(c.type,x,ay,gH,`rgb(${tint})`,alpha); iconBox=[x-gH/2,x+gH/2,ay-gH,ay];
@@ -2959,7 +3012,8 @@ $('dst').onchange=e=>{S.showDist=e.target.checked;saveSettings();};
 // Lieux et Monuments : propres aux calques. Telecom et Reperes hauts : MEME reglage que les cases
 // de l'ecran Reglages (on pilote ces cases, pour garder un seul etat et un seul comportement).
 function syncLayersPanel(){
-  $('lyPlaces').checked=S.layers.places; $('lyMon').checked=S.layers.monuments; $('lyUrb').checked=!!S.layers.urban; $('lyUrbClip').checked=S.layers.urbClip!==false; $('lyUrbClip').closest('label').style.display=S.layers.urban?'':'none';
+  $('lyPlaces').checked=S.layers.places; $('lyMon').checked=S.layers.monuments; $('lyUrb').checked=!!S.layers.urban; $('lyUrbClip').checked=S.layers.urbClip!==false; for(const id of ['lyUrbClip','lyUrbSmooth','lyUrbFill']) $(id).closest('label').style.display=S.layers.urban?'':'none';
+  $('lyUrbSmooth').checked=S.layers.urbSmooth!==false; $('lyUrbFill').checked=S.layers.urbFill!==false;
   $('lyInfoUrb').textContent=S.layers.urban?(urbMsg||'en attente')+retryHint(urbErrAt,urbErrDelay):'contour des immeubles (IGN BD TOPO) · France';
   $('lyTel').checked=S.telecom; $('lyBld').checked=S.buildings;
   $('lyInfoMon').textContent=S.layers.monuments&&monMsg?`${monumentSites.length} chargé(s) · ${monMsg}`:'lieux emblématiques (Wikipédia)';
@@ -2975,6 +3029,8 @@ $('lyPlaces').onchange=e=>{ S.layers.places=e.target.checked; citiesVer++; saveS
 $('lyMon').onchange=e=>{ S.layers.monuments=e.target.checked; citiesVer++; saveSettings(); if(S.layers.monuments) loadMonuments(true); syncLayersPanel(); };
 $('lyUrb').onchange=e=>{ S.layers.urban=e.target.checked; saveSettings(); if(S.layers.urban) loadUrban(true); syncLayersPanel(); };
 $('lyUrbClip').onchange=e=>{ S.layers.urbClip=e.target.checked; saveSettings(); if(urbTiles.size&&pos) urbCompute(); };
+$('lyUrbSmooth').onchange=e=>{ S.layers.urbSmooth=e.target.checked; saveSettings(); urbSmoothLayers(); };
+$('lyUrbFill').onchange=e=>{ S.layers.urbFill=e.target.checked; saveSettings(); };
 $('lyTel').onchange=e=>{ $('tel').checked=e.target.checked; $('tel').onchange({target:$('tel')}); if(S.telecom) pollTelecom(); syncLayersPanel(); };
 $('lyBld').onchange=e=>{ $('bld').checked=e.target.checked; $('bld').onchange({target:$('bld')}); if(S.buildings) pollBuildings(); syncLayersPanel(); };
 syncLayersPanel();
