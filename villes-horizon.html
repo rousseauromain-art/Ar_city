@@ -165,6 +165,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <label><svg viewBox="0 0 24 24" stroke="#F2C14E"><path d="M7 21l4-15h2l4 15M9.2 13.5h5.6M10 21a2 2 0 0 1 4 0M12 6V2.5"/></svg><span class="lyN">Monuments<em id="lyInfoMon">lieux emblématiques (Wikipédia)</em></span><input type="checkbox" id="lyMon"></label>
     <label><svg viewBox="0 0 24 24" stroke="#E85A5A"><path d="M8 21l3.2-15h1.6L16 21M9.6 14.5l5.2-3M14.4 14.5l-5.2-3M8.8 18l6.8-2.6M15.2 18l-6.8-2.6M12 6V2.5M10 3.5h4"/></svg><span class="lyN">Pylônes télécom<em id="lyInfoTel">ANFR, France — via le relais</em></span><input type="checkbox" id="lyTel"></label>
     <label><svg viewBox="0 0 24 24" stroke="#7AA7E0"><path d="M6 21V8h7v13M13 12h5v9M8.5 11h2M8.5 14h2M8.5 17h2M15 15h1M15 18h1M9.5 8V4"/></svg><span class="lyN">Repères hauts<em id="lyInfoBld">tours, cheminées, châteaux d'eau (OSM)</em></span><input type="checkbox" id="lyBld"></label>
+    <label><svg viewBox="0 0 24 24" stroke="#C79BE8"><path d="M3 20V11h3V8h3v4h3V6h3v6h3V9h3v11z"/></svg><span class="lyN">Silhouette bâtiments<em id="lyInfoUrb">contour des immeubles (IGN BD TOPO) · France</em></span><input type="checkbox" id="lyUrb"></label>
     <div class="lyH">L'œil règle <b>combien</b> de noms ; les calques règlent <b>lesquels</b>.</div>
   </div>
   <div id="bar">
@@ -329,7 +330,7 @@ const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
 const APP_VERSION='2026-09-29 (a) · monuments : source Wikidata (relais, puis direct, puis mémoire de l\'appareil), plus d\'Overpass pour cette couche ; 40 monuments les plus célèbres nets, le reste en transparence';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
-  layers:{places:true,monuments:true},
+  layers:{places:true,monuments:true,urban:false},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
   lighthouse:{label:'Phares, feux et balises',        max:40, q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]']},
@@ -537,6 +538,8 @@ function reqBucket(url){
   if(/\/geonames\?/.test(u)) return 'GeoNames (relais)';
   if(/\/telecom\?/.test(u)) return 'Pylônes ANFR (relais)';
   if(/\/monuments\?/.test(u)) return 'Monuments (relais)';
+  if(/data\.geopf\.fr/.test(u)) return 'Bâtiments IGN (tuiles BD TOPO)';
+  if(/\/bdtopo\?/.test(u)) return 'Bâtiments IGN (relais)';
   if(/\/planes\?/.test(u)||/opensky-network\.org/.test(u)) return 'Avions OpenSky';
   if(/\/ships\?/.test(u)) return 'Bateaux AISStream (relais)';
   if(/\/check(\?|$)/.test(u)) return 'Test du relais';
@@ -1435,6 +1438,9 @@ const GLYPH={
 };
 // hauteur totale approximative d'une icone (unites de 16) : pour placer l'etiquette au-dessus/dessous
 const GLYPH_H={pylone:17,mat:16,toit:16,chateau_eau:15,antenne:18,tour:20,dome:15,clocher:18,arc:13,colonne:18,chateau:14,musee:14.5};
+// taille et opacite continues selon la distance, pour tous les types (retour du 01/10) : 26 px / 100 % a
+// 300 m, 10 px / 50 % a 15 km (interpolation logarithmique : l'oeil juge les distances en rapport)
+function infraIconLook(d){ const t=Math.max(0,Math.min(1,Math.log(Math.max(d,.05)/.3)/Math.log(15/.3))); return {h:26-16*t,a:1-.5*t}; }
 function drawGlyph(type,x,yBase,h,color,alpha=1){
   const g=(GLYPH[type]||GLYPH.antenne)(h/16);
   ctx.save(); ctx.translate(x,yBase); ctx.globalAlpha=alpha; ctx.lineJoin='round'; ctx.lineCap='round';
@@ -1650,6 +1656,119 @@ async function loadMonuments(force){
 // un repere haut OSM qui EST un monument (Tour Eiffel, Montparnasse...) n'est dessine qu'une fois
 function markBuildingDupes(){
   for(const b of buildingSites) b.dupMon=monumentSites.some(m=>Math.abs(m.lat-b.lat)<0.003&&Math.abs(m.lon-b.lon)<0.004&&distBrg(m,b).dist<0.25);
+}
+
+// ---------- silhouette des batiments (calque "Silhouette", 06/10/2026) ----------
+// Source : tuiles vectorielles BD TOPO de l'IGN (couche des batiments, hauteur en metres ; a defaut
+// nombre d'etages x 3 m), zoom 15 (~1 km), CDN statique. L'appli les lit directement ; si le navigateur est
+// refuse, elle passe par le relais (/bdtopo). Pour chaque direction (pas de 0,5°), on garde l'angle du
+// batiment qui monte le plus haut dans le ciel : sommet = (hauteur - hauteur des yeux) / distance, le
+// terrain etant suppose plat entre soi et le batiment (limite de cette premiere version : pas de relief).
+// Les polygones ne sont gardes que sous forme de tableaux compacts (Float64Array) : ~20 Mo pour 40 tuiles.
+const URB_Z=15, URB_R_KM=2.5, URB_NB=720, URB_TPL='https://data.geopf.fr/tms/1.0.0/BDTOPO/{z}/{x}/{y}.pbf';
+let urbTiles=new Map(), urbBusy=false, urbAt=null, urbErrAt=null, urbErrDelay=30000, urbMsg='', urbAng=null, urbDist=null, urbVer=0, urbRelay=false, urbStats={}, urbLayersSeen='';
+function featureMVTRings(f){ // anneaux d'un POLYGONE (type 3) ; les trous (enroulement oppose au 1er anneau) sont ecartes
+  if(f.type!==3) return [];
+  const cmds=f.geometry, rings=[]; let x=0,y=0,i=0,cur=null;
+  while(i<cmds.length){
+    const c=cmds[i++], id=c&7, count=c>>>3;
+    if(id===1||id===2){ for(let k=0;k<count;k++){ x+=mvtZigzag(cmds[i++]); y+=mvtZigzag(cmds[i++]); if(id===1){ if(cur&&cur.length>2) rings.push(cur); cur=[]; } if(cur) cur.push([x,y]); } }
+    else if(id===7){ if(cur&&cur.length>2) rings.push(cur); cur=null; }
+    else break;
+  }
+  if(cur&&cur.length>2) rings.push(cur);
+  const area=r=>{ let a=0; for(let k=0;k<r.length;k++){ const p=r[k], q=r[(k+1)%r.length]; a+=p[0]*q[1]-q[0]*p[1]; } return a; };
+  if(!rings.length) return [];
+  const s0=Math.sign(area(rings[0]))||1;
+  return rings.filter(r=>Math.sign(area(r))===s0);
+}
+function mvtLayerNames(buf){ const pos={i:0}, out=[]; while(pos.i<buf.length){ const key=readVarint(buf,pos), field=key>>>3, wt=key&7;
+  if(field===3&&wt===2){ const len=readVarint(buf,pos); out.push(peekMVTLayerName(buf.subarray(pos.i,pos.i+len))); pos.i+=len; } else skipField(buf,pos,wt); } return out; }
+function urbDecodeTile(buf,t){ // -> {bl:[{h,pts:Float64Array}], n, nH}
+  const out={bl:[],n:0,nH:0}; if(!buf.length) return out;
+  const layers=decodeMVTTile(buf,{includes:n=>/bati/i.test(n)});
+  for(const L of Object.values(layers)) for(const f of L.features){
+    const tg=featureMVTTags(f,L); let h=parseFloat(tg.hauteur);
+    if(!(h>0)){ const e=parseFloat(tg.nombre_d_etages); if(e>0) h=e*3; else h=NaN; }
+    out.n++; if(h===h) out.nH++; else h=6; // sans donnee : 6 m (2 etages)
+    for(const ring of featureMVTRings(f)){
+      const pts=new Float64Array(ring.length*2);
+      for(let k=0;k<ring.length;k++){ const ll=tileLocalToLonLat(t.z,t.x,t.y,ring[k][0],ring[k][1],L.extent); pts[2*k]=ll.lat; pts[2*k+1]=ll.lon; }
+      out.bl.push({h,pts});
+    }
+  }
+  return out;
+}
+async function urbFetchTile(t){
+  const direct=URB_TPL.replace('{z}',t.z).replace('{x}',t.x).replace('{y}',t.y);
+  const viaRelay=()=>`${relayBase()}/bdtopo?z=${t.z}&x=${t.x}&y=${t.y}`;
+  const get=async u=>{ const r=await fetchT(u,{},15000); if(r.status===404) return new Uint8Array(0); if(!r.ok) throw new Error('HTTP '+r.status); return new Uint8Array(await r.arrayBuffer()); };
+  if(urbRelay&&relayBase()) return get(viaRelay());
+  try{ return await get(direct); }
+  catch(e){ if(!relayBase()) throw e; const b=await get(viaRelay()); urbRelay=true; return b; } // direct refuse : on bascule le reste de la session
+}
+function urbTilesAround(R){
+  const dLat=R/111, dLon=R/(111*Math.max(0.2,Math.cos(pos.lat*D)));
+  const tl=tileRangeForBBox({la1:pos.lat-dLat,la2:pos.lat+dLat,lo1:pos.lon-dLon,lo2:pos.lon+dLon},URB_Z);
+  for(const t of tl){ const c=tileLocalToLonLat(t.z,t.x,t.y,2048,2048,4096); t.d=distBrg(pos,{lat:c.lat,lon:c.lon}).dist; t.key=`${t.z}/${t.x}/${t.y}`; }
+  return tl.filter(t=>t.d<=R+0.7).sort((a,b)=>a.d-b.d).slice(0,70);
+}
+function urbCompute(){ // profil des angles par direction depuis la position courante
+  const ang=new Float32Array(URB_NB).fill(-99), dist=new Float32Array(URB_NB), eye=1.6+(S.obsHeight||0);
+  const kLat=111320, kLon=111320*Math.cos(pos.lat*D), Rm=URB_R_KM*1000+700, bw=360/URB_NB;
+  let nb=0;
+  for(const T of urbTiles.values()) for(const b of T.bl){
+    const p=b.pts, n=p.length/2, top=b.h-eye; nb++;
+    let pn=0,pe=0,pd=0,pbr=0,have=false;
+    for(let k=0;k<=n;k++){ // anneau ferme, aretes decoupees tous les ~20 m
+      const i=k%n, N=(p[2*i]-pos.lat)*kLat, E=(p[2*i+1]-pos.lon)*kLon, j=k===0?0:Math.ceil(Math.hypot(N-pn,E-pe)/20);
+      if(k===0){ pn=N; pe=E; pd=Math.hypot(N,E); pbr=Math.atan2(E,N)/D; have=true; continue; }
+      for(let s=1;s<=j;s++){
+        const f=s/j, n2=pn+(N-pn)*f, e2=pe+(E-pe)*f, d2=Math.hypot(n2,e2); if(d2<3||d2>Rm){ pd=d2; pbr=Math.atan2(e2,n2)/D; continue; }
+        const br=Math.atan2(e2,n2)/D;
+        let dd=br-pbr; dd=((dd+540)%360)-180;
+        if(Math.abs(dd)<=90&&pd>=3){
+          const a=Math.atan2(top,Math.min(pd,d2))/D, lo=Math.min(pbr,pbr+dd), hi=Math.max(pbr,pbr+dd);
+          for(let q=Math.floor(lo/bw);q<=Math.floor(hi/bw);q++){ const bi=((q%URB_NB)+URB_NB)%URB_NB; if(a>ang[bi]){ ang[bi]=a; dist[bi]=Math.min(pd,d2); } }
+        }
+        pd=d2; pbr=br;
+      }
+      pn=N; pe=E;
+    }
+  }
+  urbAng=ang; urbDist=dist; urbAt={...pos}; urbVer++; urbStats.nb=nb;
+}
+async function loadUrban(force){
+  if(!S.layers.urban||!pos||document.hidden) return;
+  if(urbBusy) return;
+  const moved=urbAt?distBrg(pos,urbAt).dist*1000:1e9;
+  if(!force&&urbAt&&moved<40&&urbTiles.size) return; // deja calcule ici
+  if(!force&&urbErrAt&&Date.now()-urbErrAt<urbErrDelay) return;
+  urbBusy=true; urbMsg='recherche…'; const t0=Date.now(), errs=[];
+  const dog=setTimeout(()=>{ if(urbBusy){ urbBusy=false; urbErrAt=Date.now(); urbMsg='delai global depasse (120 s)'; logNet('Silhouette',false,urbMsg); } },120000);
+  try{
+    const tiles=urbTilesAround(URB_R_KM), todo=tiles.filter(t=>!urbTiles.has(t.key));
+    let ok=tiles.length-todo.length, ko=0, bytes=0, last=Date.now();
+    if(todo.length){ urbMsg=`tuiles ${ok}/${tiles.length}…`;
+      const worker=async()=>{ while(todo.length){ const t=todo.shift();
+        try{ const buf=await urbFetchTile(t); bytes+=buf.length;
+          if(buf.length&&!urbLayersSeen) urbLayersSeen=mvtLayerNames(buf).join(', ')||'(aucune)';
+          urbTiles.set(t.key,urbDecodeTile(buf,t)); ok++; }
+        catch(e){ ko++; errs.push(`${t.key} : ${friendlyErr(e)}`); if(!ok&&ko>=3){ todo.length=0; } }
+        urbMsg=`tuiles ${ok}/${tiles.length}${ko?` (${ko} en echec)`:''}…`;
+        if(Date.now()-last>2000&&ok){ last=Date.now(); urbCompute(); } } };
+      await Promise.all([worker(),worker(),worker(),worker()]);
+      while(urbTiles.size>90){ urbTiles.delete(urbTiles.keys().next().value); } }
+    if(!ok){ urbErrAt=Date.now(); urbErrDelay=Math.min(Math.round(urbErrDelay*1.5),300000); urbMsg='indispo : '+(errs.slice(0,3).join(' | ')||'aucune tuile'); logNet('Silhouette',false,urbMsg); return; }
+    urbCompute();
+    let nB=0,nH=0; for(const T of urbTiles.values()){ nB+=T.n; nH+=T.nH; }
+    urbStats={...urbStats,tiles:ok,total:tiles.length,n:nB,nH,kb:Math.round(bytes/1024),mode:urbRelay?'relais':'direct'};
+    if(nB===0) urbMsg=`aucun batiment dans les tuiles (couches vues : ${urbLayersSeen||'aucune'})`;
+    else urbMsg=`${nB} batiment(s), ${Math.round(100*nH/Math.max(1,nB))} % avec hauteur · ${ok}/${tiles.length} tuile(s) · ${urbRelay?'relais':'direct IGN'}`+(ko?` · ${ko} en echec`:'');
+    if(ko){ urbErrAt=Date.now(); urbErrDelay=Math.min(Math.round(urbErrDelay*1.5),300000); urbAt=null; urbMsg+=' — nouvel essai automatique'; } else { urbErrAt=null; urbErrDelay=30000; }
+    logNet('Silhouette',!ko&&nB>0,urbMsg+` · ${urbStats.kb} Ko en ${Math.round((Date.now()-t0)/100)/10} s`+(errs.length?' · '+errs.slice(0,3).join(' ; '):''));
+  }catch(e){ urbErrAt=Date.now(); urbErrDelay=Math.min(Math.round(urbErrDelay*1.5),300000); urbMsg='erreur interne : '+friendlyErr(e); logNet('Silhouette',false,urbMsg); }
+  finally{ clearTimeout(dog); urbBusy=false; }
 }
 
 // ---------- reperes hauts (tours, clochers, cheminees, mats, chateaux d'eau, immeubles hauts) ----------
@@ -1919,6 +2038,30 @@ function draw(ts){
   ctx.strokeStyle='#E0A526'; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.moveTo(W/2,hy-9); ctx.lineTo(W/2,hy+9); ctx.moveTo(W/2-9,hy); ctx.lineTo(W/2+9,hy); ctx.stroke();
 
+  // silhouette des batiments (calque "Silhouette") : contour en creneaux de ce qui monte le plus haut dans
+  // chaque direction (pas de 0,5°), teinte legere jusqu'a la ligne d'horizon pour voir si le cap colle
+  if(S.layers.urban&&urbAng&&pos){
+    const bw=360/URB_NB, pts=[];
+    for(let x=-20;x<=W+20;x+=2){
+      const dB=Math.atan((x-W/2)/fh)/D, brg=((heading+dB)%360+360)%360, bi=Math.floor(brg/bw)%URB_NB, a=urbAng[bi];
+      pts.push(a<-50?null:{x,y:H/2+fh*Math.tan((pitch-a)*D),d:urbDist[bi]});
+    }
+    const runs=[]; let cur=[];
+    for(const q of pts){ if(q) cur.push(q); else if(cur.length){ runs.push(cur); cur=[]; } }
+    if(cur.length) runs.push(cur);
+    ctx.save(); ctx.lineJoin='round';
+    const stepPath=run=>{ ctx.moveTo(run[0].x,run[0].y); for(let i=1;i<run.length;i++){ ctx.lineTo(run[i].x,run[i-1].y); ctx.lineTo(run[i].x,run[i].y); } };
+    // teinte : de la silhouette vers l'horizon
+    ctx.fillStyle='rgba(199,155,232,.13)';
+    for(const run of runs){ if(run.length<2) continue; ctx.beginPath(); stepPath(run);
+      ctx.lineTo(run[run.length-1].x,Math.max(hy,run[run.length-1].y)); ctx.lineTo(run[0].x,Math.max(hy,run[0].y)); ctx.closePath(); ctx.fill(); }
+    // trait : halo sombre puis couleur, par troncons de profondeur (proche net, lointain plus fin)
+    for(const run of runs){ if(run.length<2) continue;
+      const near=run.reduce((a,q)=>a+(q.d<300?1:0),0)/run.length;
+      ctx.beginPath(); stepPath(run); ctx.strokeStyle='rgba(14,26,43,.55)'; ctx.lineWidth=3.6; ctx.stroke();
+      ctx.beginPath(); stepPath(run); ctx.strokeStyle=near>0.5?'rgba(222,190,250,.98)':'rgba(199,155,232,.85)'; ctx.lineWidth=near>0.5?1.9:1.4; ctx.stroke(); }
+    ctx.restore();
+  }
   // ligne d'horizon calculee (aide au calage) : silhouette du relief theorique (trait seul —
   // un remplissage jusqu'au bas de l'ecran recouvrait le premier plan de la camera, retire)
   // Trait "facon PeakFinder" : fin (≈1,2 px), creme, sur un halo sombre discret pour rester lisible
@@ -2158,7 +2301,9 @@ function draw(ts){
     vis.sort((a,b)=>a.x-b.x);
     const groups=[];
     for(const v of vis){
-      const g=groups.find(g=>g.name===v.t.name&&v.x-g.xs[g.xs.length-1]<=36);
+      // un groupe = meme type, espaces de 28 px au plus, sur 64 px de large au plus (sinon une rue entiere
+      // de toits-terrasses ne ferait qu'un seul groupe, ancre n'importe ou)
+      const g=groups.find(g=>g.name===v.t.name&&v.x-g.xs[g.xs.length-1]<=28&&v.x-g.xs[0]<=64);
       if(g){ g.items.push(v.t); g.xs.push(v.x); } else groups.push({name:v.t.name,items:[v.t],xs:[v.x]});
     }
     for(const g of groups) g.dmin=Math.min(...g.items.map(t=>t.dist));
@@ -2166,8 +2311,17 @@ function draw(ts){
     const size=13, step=20;
     ctx.textAlign='left'; ctx.textBaseline='alphabetic';
     // 1) icones : toutes, des plus lointaines aux plus proches (les proches par-dessus), taille selon distance
-    const icons=vis.slice().sort((a,b)=>b.t.dist-a.t.dist);
-    for(const {t,x} of icons){ const h=t.dist<1?19:t.dist<3?16:13; drawGlyph(t.icon||BLD_ICON[t.kind]||'antenne',x,hy,h,L.color.icon,t.dist<5?1:.8); }
+    // un groupe de plusieurs elements = UNE icone (la plus proche) + pastille du nombre, au lieu d'une
+    // icone par element (retour du 01/10 : "plein d'icones rouges", 50+ toits-terrasses cote a cote)
+    const byFar=groups.slice().sort((a,b)=>b.dmin-a.dmin);
+    for(const g of byFar){
+      const n=g.items.length, near=g.items.reduce((a,t)=>t.dist<a.dist?t:a), x=n>1?g.xs.reduce((a,b)=>a+b,0)/n:g.xs[0];
+      const lk=infraIconLook(near.dist), h=lk.h;
+      drawGlyph(near.icon||BLD_ICON[near.kind]||'antenne',x,hy,n>1?h+3:h,L.color.icon,lk.a);
+      if(n>1){ const txt=n>99?'99+':String(n), bx=x+h*0.45+4, by=hy-h-6;
+        ctx.beginPath(); ctx.arc(bx,by,7.5,0,7); ctx.fillStyle='rgba(14,26,43,.92)'; ctx.fill(); ctx.lineWidth=1.5; ctx.strokeStyle=L.color.icon; ctx.stroke();
+        ctx.font=`700 ${txt.length>2?7:9}px ${FM}`; ctx.fillStyle='#F3E9D2'; ctx.textAlign='center'; ctx.fillText(txt,bx,by+3.2); ctx.textAlign='left'; }
+    }
     // 2) etiquettes
     for(const g of groups){
       const n=g.items.length, near=g.items.reduce((a,t)=>t.dist<a.dist?t:a);
@@ -2183,7 +2337,7 @@ function draw(ts){
       const tw=nw+7+dw+opsW+g5W+4;
       const flip=x+6+tw>W-4, tx=flip?x-6-tw:x+6;
       const x0=flip?tx-4:x-2, x1=flip?x+2:x+6+tw;
-      const iconTop=hy-20;
+      const iconTop=hy-32;
       const yOf=k=>deck==='low'?lowTop+size+k*step:iconTop-6-k*step; // ligne de base du texte
       const fits=k=>{ const y=yOf(k); if(deck==='low'?y+4>lowBot:y-size-2<topLimit) return -1;
         return rectHit(x0,x1,y-size-2,y+4,6)?0:1; };
@@ -2196,16 +2350,15 @@ function draw(ts){
       // recuperent aussi le haut de l'ecran quand la bande du bas est pleine
       let upY=null;
       if(k0==null&&deck==='low'&&!S.layers.places&&!S.layers.monuments){
-        for(let k=0;k<maxLanes;k++){ const y=hy-26-k*step; if(y-size-2<topLimit) break; if(!rectHit(x0,x1,y-size-2,y+4,6)){ upY=y; break; } }
+        for(let k=0;k<maxLanes;k++){ const y=hy-38-k*step; if(y-size-2<topLimit) break; if(!rectHit(x0,x1,y-size-2,y+4,6)){ upY=y; break; } }
       }
       if(k0==null&&upY==null){ infraStats.iconOnly+=n;
-        if(L.hits) L.hits.push({t:near,g:g.items,roll,x0:Math.min(...g.xs)-8,x1:Math.max(...g.xs)+8,y0:hy-20,y1:hy+2}); continue; }
+        if(L.hits) L.hits.push({t:near,g:g.items,roll,x0:x-16,x1:x+20,y0:hy-36,y1:hy+2}); continue; }
       if(k0!=null) laneMem.set(key,k0); infraStats.labeled+=n;
       const ly=k0!=null?yOf(k0):upY, below=k0!=null&&deck==='low';
       placed.push([x0,x1,ly-size-2,ly+4]);
       ctx.strokeStyle=L.color.line; ctx.lineWidth=1; ctx.beginPath();
       if(below){ ctx.moveTo(x,hy+3); ctx.lineTo(x,ly-size-1); } else { ctx.moveTo(x,iconTop); ctx.lineTo(x,ly+3); }
-      if(n>1){ ctx.moveTo(g.xs[0],hy+(below?4:-20)); ctx.lineTo(g.xs[n-1],hy+(below?4:-20)); } // accolade du groupe
       ctx.stroke();
       ctx.font=`700 ${size}px ${FD}`; ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.lineWidth=3.5;
       ctx.strokeText(label,tx,ly); ctx.fillStyle=L.color.text; ctx.fillText(label,tx,ly);
@@ -2218,7 +2371,7 @@ function draw(ts){
       if(g5){ ctx.font=`700 9px ${FM}`; const bx=ox+2, bw=20;
         ctx.fillStyle='rgba(14,26,43,.9)'; ctx.fillRect(bx,ly-11,bw,12); ctx.strokeStyle=L.color.text; ctx.lineWidth=1; ctx.strokeRect(bx+.5,ly-10.5,bw-1,11);
         ctx.fillStyle=L.color.text; ctx.textAlign='center'; ctx.fillText('5G',bx+bw/2,ly-2); ctx.textAlign='left'; }
-      if(L.hits) L.hits.push({t:near,g:g.items,roll,x0,x1,y0:Math.min(ly-size-2,hy-20),y1:Math.max(ly+4,hy+2)});
+      if(L.hits) L.hits.push({t:near,g:g.items,roll,x0,x1,y0:Math.min(ly-size-2,hy-32),y1:Math.max(ly+4,hy+2)});
     }
   }
 
@@ -2499,6 +2652,7 @@ function renderDebug(){
     <div class="dbgline">avions : ${S.air?(tMsg.air||'en attente'):'desactive (Reglages → Avions)'}</div>
     <div class="dbgline">bateaux : ${S.sea?(tMsg.sea||'en attente'):'desactive (Reglages → Bateaux)'}</div>
     <div class="dbgline">monuments : ${S.layers.monuments?(monMsg||'en attente')+retryHint(monErrAt,monErrDelay)+` (${monumentSites.length} en memoire)`:'calque desactive (bouton Calques)'}</div>
+    <div class="dbgline">silhouette batiments : ${S.layers.urban?(urbMsg||'en attente')+retryHint(urbErrAt,urbErrDelay)+(urbLayersSeen?` · couches : ${urbLayersSeen}`:''):'calque desactive (bouton Calques)'}</div>
     <div class="dbgline">equipements : etiquettes ${infraStats.deck==='bas'?'sous':'au-dessus de'} l'horizon · ${infraStats.labeled} nommes, ${infraStats.iconOnly} en icone seule</div>
     <div class="dbgline">pylônes telecom : ${S.telecom?(tMsg2.telecom||'en attente')+retryHint(telecomErrAt,telecomErrDelay)+` (${telecomSites.length} en memoire)`:'desactive (Reglages → Pylônes)'}</div>
     <div class="dbgline">reperes hauts (OSM) : ${S.buildings?(bMsg.buildings||'en attente')+retryHint(buildingsErrAt,buildingsErrDelay)+` (${buildingSites.length} en memoire)`:'desactive (Reglages → Tours, clochers…)'}</div>
@@ -2750,12 +2904,13 @@ $('dst').onchange=e=>{S.showDist=e.target.checked;saveSettings();};
 // Lieux et Monuments : propres aux calques. Telecom et Reperes hauts : MEME reglage que les cases
 // de l'ecran Reglages (on pilote ces cases, pour garder un seul etat et un seul comportement).
 function syncLayersPanel(){
-  $('lyPlaces').checked=S.layers.places; $('lyMon').checked=S.layers.monuments;
+  $('lyPlaces').checked=S.layers.places; $('lyMon').checked=S.layers.monuments; $('lyUrb').checked=!!S.layers.urban;
+  $('lyInfoUrb').textContent=S.layers.urban?(urbMsg||'en attente')+retryHint(urbErrAt,urbErrDelay):'contour des immeubles (IGN BD TOPO) · France';
   $('lyTel').checked=S.telecom; $('lyBld').checked=S.buildings;
   $('lyInfoMon').textContent=S.layers.monuments&&monMsg?`${monumentSites.length} chargé(s) · ${monMsg}`:'lieux emblématiques (Wikipédia)';
   $('lyInfoTel').textContent=!relayBase()?'relais requis (config.js)':S.telecom?(tMsg2.telecom||'en attente')+(infraStats.iconOnly?` · ${infraStats.iconOnly} en icône seule`:''):'ANFR, France — via le relais';
   $('lyInfoBld').textContent=S.buildings?(bMsg.buildings||'en attente'):"tours, cheminées, châteaux d'eau (OSM)";
-  const nonDef=!S.layers.places||!S.layers.monuments||S.telecom||S.buildings;
+  const nonDef=!S.layers.places||!S.layers.monuments||S.telecom||S.buildings||S.layers.urban;
   $('btnLayers').classList.toggle('on',nonDef);
 }
 function setLayersOpen(o){ $('layers').classList.toggle('open',o); $('btnLayers').setAttribute('aria-expanded',String(o)); if(o) syncLayersPanel(); }
@@ -2763,10 +2918,11 @@ $('btnLayers').onclick=e=>{ e.stopPropagation(); setLayersOpen(!$('layers').clas
 document.addEventListener('pointerdown',e=>{ if($('layers').classList.contains('open')&&e.target&&e.target.closest&&!e.target.closest('#layers,#btnLayers')) setLayersOpen(false); });
 $('lyPlaces').onchange=e=>{ S.layers.places=e.target.checked; citiesVer++; saveSettings(); syncLayersPanel(); };
 $('lyMon').onchange=e=>{ S.layers.monuments=e.target.checked; citiesVer++; saveSettings(); if(S.layers.monuments) loadMonuments(true); syncLayersPanel(); };
+$('lyUrb').onchange=e=>{ S.layers.urban=e.target.checked; saveSettings(); if(S.layers.urban) loadUrban(true); syncLayersPanel(); };
 $('lyTel').onchange=e=>{ $('tel').checked=e.target.checked; $('tel').onchange({target:$('tel')}); if(S.telecom) pollTelecom(); syncLayersPanel(); };
 $('lyBld').onchange=e=>{ $('bld').checked=e.target.checked; $('bld').onchange({target:$('bld')}); if(S.buildings) pollBuildings(); syncLayersPanel(); };
 syncLayersPanel();
-$('btnReload').onclick=()=>{loadCities(true);computeTerrain(true);if(S.layers.monuments) loadMonuments(true);};
+$('btnReload').onclick=()=>{loadCities(true);computeTerrain(true);if(S.layers.monuments) loadMonuments(true); if(S.layers.urban){ urbTiles.clear(); loadUrban(true); }};
 
 // reflete les reglages charges (localStorage) sur les controles au demarrage
 (function syncControlsFromS(){
@@ -2848,7 +3004,7 @@ $('go').onclick=async()=>{
   appStarted=true;
   await startCamera();
   if(navigator.geolocation){
-    navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); computeTerrain(false); if(S.telecom) pollTelecom(); if(S.buildings) pollBuildings(); if(S.layers.monuments) loadMonuments(false); },
+    navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); computeTerrain(false); if(S.telecom) pollTelecom(); if(S.buildings) pollBuildings(); if(S.layers.monuments) loadMonuments(false); if(S.layers.urban) loadUrban(false); },
       err=>{ setStatus('GPS refusé : '+err.message); }, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
   } else setStatus('GPS indisponible');
   startTraffic();

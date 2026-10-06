@@ -150,6 +150,16 @@
   <div id="monOut" class="out"></div>
 </div>
 
+<div class="card">
+  <h2 style="color:#C79BE8">Silhouette bâtiments (IGN BD TOPO)</h2>
+  <div class="row">
+    <div class="field" style="flex:0 0 auto;align-self:flex-end"><button id="btnUrbDirect">Une tuile en direct (IGN)</button></div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end"><button id="btnUrbRelay">Une tuile via le relais</button></div>
+  </div>
+  <div class="hint">Télécharge la tuile (zoom 15, ~1 km) qui contient les coordonnées du haut de la page, et dit : couches présentes, nombre de bâtiments, noms des attributs (hauteur ? nombre d'étages ?) et quelques exemples. <b>En direct</b> dit aussi si le navigateur a le droit (CORS) : sinon l'appli passe par le relais.</div>
+  <div id="urbOut" class="out"></div>
+</div>
+
 <script src="config.js" onerror="void 0"></script>
 <script>
 (() => {
@@ -382,7 +392,60 @@ $('btnAirBusy').onclick=()=>{ $('lat').value='48.85'; $('lon').value='2.35'; $('
 // Detroit du Pas-de-Calais / Douvres : l'un des chenaux les plus frequentes au monde, sert de
 // zone temoin positive (si 0 bateau ici, le probleme est cote cle/relais, pas cote trafic reel)
 $('btnSeaBusy').onclick=()=>{ $('lat').value='50.95'; $('lon').value='1.45'; $('seaR').value=40; querySea(50.95,1.45,40,$('seaOut')); };
+// ---------- Silhouette bâtiments (tuile BD TOPO de l'IGN) ----------
+function pbfVar(b,p){ let r=0,sh=0,x; do{ x=b[p.i++]; r+=(x&0x7f)*Math.pow(2,sh); sh+=7; }while(x>=0x80); return r; }
+function pbfSkip(b,p,t){ if(t===0) pbfVar(b,p); else if(t===2){ const l=pbfVar(b,p); p.i+=l; } else if(t===5) p.i+=4; else if(t===1) p.i+=8; }
+function pbfStr(b,p){ const l=pbfVar(b,p), s=new TextDecoder().decode(b.subarray(p.i,p.i+l)); p.i+=l; return s; }
+function pbfValue(b,p){ const l=pbfVar(b,p), e=p.i+l; let v=null; while(p.i<e){ const k=pbfVar(b,p), f=k>>>3, t=k&7;
+  if(f===1&&t===2) v=pbfStr(b,p); else if(f===2&&t===5){ v=new DataView(b.buffer,b.byteOffset+p.i,4).getFloat32(0,true); p.i+=4; }
+  else if(f===3&&t===1){ v=new DataView(b.buffer,b.byteOffset+p.i,8).getFloat64(0,true); p.i+=8; } else if((f===4||f===5)&&t===0) v=pbfVar(b,p);
+  else if(f===6&&t===0){ const n=pbfVar(b,p); v=(n>>>1)^(-(n&1)); } else if(f===7&&t===0) v=!!pbfVar(b,p); else pbfSkip(b,p,t); } return v; }
+function pbfLayers(buf){ // [{name,keys,values,nFeat,samples:[tags]}]
+  const p={i:0}, out=[];
+  while(p.i<buf.length){ const k=pbfVar(buf,p), f=k>>>3, t=k&7;
+    if(f===3&&t===2){ const len=pbfVar(buf,p), end=p.i+len; const L={name:'',keys:[],values:[],nFeat:0,feats:[],geomTypes:{}};
+      while(p.i<end){ const k2=pbfVar(buf,p), f2=k2>>>3, t2=k2&7;
+        if(f2===1&&t2===2) L.name=pbfStr(buf,p); else if(f2===3&&t2===2) L.keys.push(pbfStr(buf,p)); else if(f2===4&&t2===2) L.values.push(pbfValue(buf,p));
+        else if(f2===2&&t2===2){ const fl=pbfVar(buf,p), fe=p.i+fl; L.nFeat++; const ft={tags:[],type:0};
+          while(p.i<fe){ const k3=pbfVar(buf,p), f3=k3>>>3, t3=k3&7;
+            if(f3===2&&t3===2){ const tl=pbfVar(buf,p), te=p.i+tl; while(p.i<te) ft.tags.push(pbfVar(buf,p)); }
+            else if(f3===3&&t3===0) ft.type=pbfVar(buf,p); else pbfSkip(buf,p,t3); }
+          L.geomTypes[ft.type]=(L.geomTypes[ft.type]||0)+1; if(L.feats.length<400) L.feats.push(ft); }
+        else pbfSkip(buf,p,t2); }
+      out.push(L); }
+    else pbfSkip(buf,p,t); }
+  return out;
+}
+async function urbTile(mode){
+  const out=$('urbOut'), lat=parseFloat($('lat').value), lon=parseFloat($('lon').value), z=15, n=Math.pow(2,z);
+  const x=Math.floor((lon+180)/360*n), r=lat*Math.PI/180, y=Math.floor((1-Math.log(Math.tan(r)+1/Math.cos(r))/Math.PI)/2*n);
+  const relay=relayBase();
+  const url=mode==='relay'?`${relay}/bdtopo?z=${z}&x=${x}&y=${y}`:`https://data.geopf.fr/tms/1.0.0/BDTOPO/${z}/${x}/${y}.pbf`;
+  if(mode==='relay'&&!relay){ out.innerHTML='<div class="msg bad">Aucun relais renseigné (en haut de page).</div>'; return; }
+  out.innerHTML=`<div class="msg">Téléchargement de la tuile ${z}/${x}/${y}…</div><div class="url">${esc(url)}</div>`;
+  const t0=performance.now();
+  try{
+    const resp=await fetchT(url,25000), ms=Math.round(performance.now()-t0);
+    if(!resp.ok){ out.innerHTML=`<div>${statLine([['HTTP',resp.status,'bad'],['durée',ms+' ms']])}</div><div class="url">${esc(url)}</div>`; return; }
+    const buf=new Uint8Array(await resp.arrayBuffer()), layers=pbfLayers(buf);
+    const bat=layers.find(l=>/bati/i.test(l.name));
+    let html=`<div>${statLine([['HTTP',resp.status,'ok'],['durée',ms+' ms'],['taille',Math.round(buf.length/1024)+' Ko'],['couches',layers.map(l=>l.name+' ('+l.nFeat+')').join(', ')||'aucune',layers.length?'ok':'bad'],['accès navigateur',mode==='relay'?'via le relais':'autorisé (CORS ok)','ok']])}</div>`;
+    if(!bat){ html+='<div class="msg bad">Aucune couche « bâtiment » dans cette tuile (tuile vide, ou couche nommée autrement : voir la liste ci-dessus).</div>'; }
+    else{
+      const get=(f,key)=>{ for(let i=0;i<f.tags.length;i+=2) if(bat.keys[f.tags[i]]===key) return bat.values[f.tags[i+1]]; return null; };
+      const withH=bat.feats.filter(f=>+get(f,'hauteur')>0).length, withE=bat.feats.filter(f=>+get(f,'nombre_d_etages')>0).length, m=bat.feats.length;
+      html+=`<div>${statLine([['bâtiments',bat.nFeat],['avec hauteur (échantillon '+m+')',Math.round(100*withH/Math.max(1,m))+' %',withH?'ok':'bad'],['avec nb d\'étages',Math.round(100*withE/Math.max(1,m))+' %'],['types de géométrie',Object.entries(bat.geomTypes).map(([k,v])=>k+':'+v).join(' ')+' (3 = polygone)']])}</div>`;
+      html+=`<div class="msg">Attributs présents : <code>${esc(bat.keys.join(', '))}</code></div>`;
+      html+='<table class="tbl"><tr><th>hauteur</th><th>étages</th><th>usage</th><th>nature</th></tr>'+bat.feats.slice(0,8).map(f=>`<tr><td>${esc(get(f,'hauteur')??'—')}</td><td>${esc(get(f,'nombre_d_etages')??'—')}</td><td>${esc(get(f,'usage_1')??'—')}</td><td>${esc(get(f,'nature')??'—')}</td></tr>`).join('')+'</table>';
+    }
+    out.innerHTML=html+`<div class="url">${esc(url)}</div>`;
+  }catch(e){ out.innerHTML=`<div class="msg bad">${mode==='direct'?'Bloqué : le navigateur n\'a pas le droit (CORS) ou pas de réseau — l\'appli utilisera alors le relais. ':''}${esc((e&&e.message)||e)}</div><div class="url">${esc(url)}</div>`; }
+}
+$('btnUrbDirect').onclick=()=>urbTile('direct');
+$('btnUrbRelay').onclick=()=>urbTile('relay');
+
 })();
+
 </script>
 </body>
 </html>
