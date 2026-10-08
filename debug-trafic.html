@@ -394,10 +394,10 @@ async function monDirect(lat,lon,km,minL){
 async function monExplore(lat,lon,km,minL){
   const out=$('monOut'); km=Math.min(8,km); minL=Math.max(1,minL);
   out.innerHTML=`<div class="msg">Wikidata, sans filtre de classe, rayon ${km} km, ≥ ${minL} langue(s) (jusqu'à ~30 s)…</div>`;
-  const q=`SELECT ?i ?iLabel ?sl ?lat ?lon (GROUP_CONCAT(DISTINCT ?tLabel; separator="|") AS ?types) (MAX(IF(BOUND(?mh),1,0)) AS ?mhf) WHERE {
+  const q=`SELECT ?i ?iLabel ?sl ?lat ?lon (GROUP_CONCAT(DISTINCT ?tLabel; separator="|") AS ?types) (GROUP_CONCAT(DISTINCT ?mhLabel; separator="|") AS ?desig) WHERE {
   SERVICE wikibase:around { ?i wdt:P625 ?loc . bd:serviceParam wikibase:center "Point(${lon.toFixed(5)} ${lat.toFixed(5)})"^^geo:wktLiteral . bd:serviceParam wikibase:radius "${km.toFixed(1)}" . }
   ?i wikibase:sitelinks ?sl . FILTER(?sl >= ${Math.round(minL)})
-  OPTIONAL { ?i wdt:P31 ?t }
+  ?i wdt:P31 ?t .
   OPTIONAL { ?i wdt:P1435 ?mh }
   BIND(geof:latitude(?loc) AS ?lat) BIND(geof:longitude(?loc) AS ?lon)
   SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
@@ -409,9 +409,9 @@ async function monExplore(lat,lon,km,minL){
     if(!r.ok){ out.innerHTML=`<div>${statLine([['HTTP',r.status,'bad'],['durée',ms+' ms']])}</div><div class="msg bad">Refusé ou trop lourd : réduire le rayon.</div><div class="msg">Requête : <a href="${esc(wdqLink(q))}" target="_blank" rel="noopener">ouvrir sur query.wikidata.org</a></div>`; return; }
     const b=(await r.json()).results.bindings||[];
     const rows=b.filter(x=>x.iLabel&&!/^Q\d+$/.test(x.iLabel.value)).map(x=>{ const d=Math.hypot((+x.lat.value-lat)*111,(+x.lon.value-lon)*111*Math.cos(lat*Math.PI/180));
-      return `${x.iLabel.value} — ${x.sl.value} l. · ${d.toFixed(1)} km${+(x.mhf&&x.mhf.value)?' · MONUMENT HISTORIQUE':''} · ${(x.types&&x.types.value)||'(sans classe)'}`; });
+      return `${x.iLabel.value} — ${x.sl.value} l. · ${d.toFixed(1)} km${x.desig&&x.desig.value?' · DÉSIGNATION : '+x.desig.value:''} · ${(x.types&&x.types.value)||'(sans classe)'}`; });
     out.innerHTML=`<div>${statLine([['HTTP',r.status,'ok'],['durée',ms+' ms'],['éléments',rows.length,rows.length?'ok':'bad']])}</div>`
-      +`<div class="msg">Classés par nombre de langues (l.). « MONUMENT HISTORIQUE » = protégé par l'État (propriété P1435). La classe entre ces lieux et le filtre de l'appli (tour, église, château, musée…) explique ce qui manque.</div><pre>${esc(rows.join('\n')||'(aucun)')}</pre>`
+      +`<div class="msg">Classés par nombre de langues (l.). « DÉSIGNATION » = valeur de la propriété P1435 de Wikidata (monument historique classé ou inscrit = protection de l'État ; « bien recensé dans l'Inventaire général » = simple inventaire, PAS une protection). La classe entre ces lieux et le filtre de l'appli (tour, église, château, musée…) explique ce qui manque.</div><pre>${esc(rows.join('\n')||'(aucun)')}</pre>`
       +`<div class="msg">Requête : <a href="${esc(wdqLink(q))}" target="_blank" rel="noopener">ouvrir sur query.wikidata.org</a></div>`;
   }catch(e){ out.innerHTML=`<div class="msg bad">Échec : ${esc((e&&e.message)||e)}</div>`; }
 }
