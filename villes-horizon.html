@@ -1571,10 +1571,11 @@ function monTypeFrom(types,name){
 function sparqlMon(lat,lon,radiusKm,minLinks,full){
   const cls=full?'VALUES ?root { wd:Q811979 wd:Q33506 wd:Q4989906 wd:Q570116 } ?i wdt:P31 ?t . ?t wdt:P279* ?root .'
     :'VALUES ?t { wd:Q12518 wd:Q1440300 wd:Q11303 wd:Q41176 wd:Q811979 wd:Q4989906 wd:Q570116 wd:Q16970 wd:Q2977 wd:Q317557 wd:Q108325 wd:Q23413 wd:Q16560 wd:Q33506 wd:Q12280 wd:Q483110 wd:Q179700 wd:Q1075 wd:Q1329623 wd:Q1081138 } ?i wdt:P31 ?t .';
-  return `SELECT ?i ?iLabel ?sl ?lat ?lon (MAX(?hh) AS ?h) (GROUP_CONCAT(DISTINCT ?tLabel; separator="|") AS ?types) WHERE {
+  return `SELECT ?i ?iLabel ?sl ?lat ?lon (MAX(?hh) AS ?h) (GROUP_CONCAT(DISTINCT ?tl; separator="|") AS ?types) WHERE {
   SERVICE wikibase:around { ?i wdt:P625 ?loc . bd:serviceParam wikibase:center "Point(${lon.toFixed(5)} ${lat.toFixed(5)})"^^geo:wktLiteral . bd:serviceParam wikibase:radius "${radiusKm.toFixed(1)}" . }
   ?i wikibase:sitelinks ?sl . FILTER(?sl >= ${Math.round(minLinks)})
   ${cls}
+  ?t rdfs:label ?tl . FILTER(LANG(?tl) IN ("fr","en"))
   BIND(geof:latitude(?loc) AS ?lat) BIND(geof:longitude(?loc) AS ?lon)
   OPTIONAL { ?i p:P2048/psn:P2048/wikibase:quantityAmount ?hh }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }

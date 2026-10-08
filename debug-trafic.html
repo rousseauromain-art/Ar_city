@@ -371,10 +371,11 @@ async function monRelay(lat,lon,km,minL,extra=''){
 }
 async function monDirect(lat,lon,km,minL){
   const out=$('monOut'); out.innerHTML='<div class="msg">Ce téléphone interroge Wikidata (jusqu\'à ~30 s)…</div>';
-  const q=`SELECT ?i ?iLabel ?sl ?lat ?lon (MAX(?hh) AS ?h) (GROUP_CONCAT(DISTINCT ?tLabel; separator="|") AS ?types) WHERE {
+  const q=`SELECT ?i ?iLabel ?sl ?lat ?lon (MAX(?hh) AS ?h) (GROUP_CONCAT(DISTINCT ?tl; separator="|") AS ?types) WHERE {
   SERVICE wikibase:around { ?i wdt:P625 ?loc . bd:serviceParam wikibase:center "Point(${lon.toFixed(5)} ${lat.toFixed(5)})"^^geo:wktLiteral . bd:serviceParam wikibase:radius "${km.toFixed(1)}" . }
   ?i wikibase:sitelinks ?sl . FILTER(?sl >= ${Math.round(minL)})
   VALUES ?root { wd:Q811979 wd:Q33506 wd:Q4989906 wd:Q570116 } ?i wdt:P31 ?t . ?t wdt:P279* ?root .
+  ?t rdfs:label ?tl . FILTER(LANG(?tl) IN ("fr","en"))
   BIND(geof:latitude(?loc) AS ?lat) BIND(geof:longitude(?loc) AS ?lon)
   OPTIONAL { ?i p:P2048/psn:P2048/wikibase:quantityAmount ?hh }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
@@ -394,11 +395,11 @@ async function monDirect(lat,lon,km,minL){
 async function monExplore(lat,lon,km,minL){
   const out=$('monOut'); km=Math.min(8,km); minL=Math.max(1,minL);
   out.innerHTML=`<div class="msg">Wikidata, sans filtre de classe, rayon ${km} km, ≥ ${minL} langue(s) (jusqu'à ~30 s)…</div>`;
-  const q=`SELECT ?i ?iLabel ?sl ?lat ?lon (GROUP_CONCAT(DISTINCT ?tLabel; separator="|") AS ?types) (GROUP_CONCAT(DISTINCT ?mhLabel; separator="|") AS ?desig) WHERE {
+  const q=`SELECT ?i ?iLabel ?sl ?lat ?lon (GROUP_CONCAT(DISTINCT ?tl; separator="|") AS ?types) (GROUP_CONCAT(DISTINCT ?dl; separator="|") AS ?desig) WHERE {
   SERVICE wikibase:around { ?i wdt:P625 ?loc . bd:serviceParam wikibase:center "Point(${lon.toFixed(5)} ${lat.toFixed(5)})"^^geo:wktLiteral . bd:serviceParam wikibase:radius "${km.toFixed(1)}" . }
   ?i wikibase:sitelinks ?sl . FILTER(?sl >= ${Math.round(minL)})
-  ?i wdt:P31 ?t .
-  OPTIONAL { ?i wdt:P1435 ?mh }
+  ?i wdt:P31 ?t . ?t rdfs:label ?tl . FILTER(LANG(?tl) IN ("fr","en"))
+  OPTIONAL { ?i wdt:P1435 ?mh . ?mh rdfs:label ?dl . FILTER(LANG(?dl) = "fr") }
   BIND(geof:latitude(?loc) AS ?lat) BIND(geof:longitude(?loc) AS ?lon)
   SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
 } GROUP BY ?i ?iLabel ?sl ?lat ?lon ORDER BY DESC(?sl) LIMIT 120`;
