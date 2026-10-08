@@ -1552,7 +1552,8 @@ const has5G=operators=>(operators||[]).some(o=>(o.systems||[]).some(s=>/5G/i.tes
 //  3) la derniere reponse memorisee sur cet appareil pour cette zone.
 // Hauteur : Wikidata, sinon valeur par type — sert au masquage par le relief et au critere de visibilite.
 let monumentSites=[], monAt=null, monBusy=false, monErrAt=null, monErrDelay=30000, monMsg='', monStats={};
-const MON_MIN_LINKS=40, MON_MIN_ANG=0.12, MON_STAR_LINKS=80, MON_MAX_SHOWN=40; // MAX_SHOWN : les plus celebres seulement, le reste en transparence
+let monTrim=0;
+const MON_MIN_LINKS=40, MON_LOW_LINKS=3, MON_KEEP=150, MON_MIN_ANG=0.12, MON_STAR_LINKS=80, MON_MAX_SHOWN=40; // MAX_SHOWN : les plus celebres seulement, le reste en transparence
 const MON_DEF_H={tour:60,dome:40,clocher:45,arc:25,colonne:25,chateau:20,musee:18};
 const monRadius=()=>Math.min(30,Math.max(15,S.radius)); // 30 km max : au-dela la requete Wikidata depasse le delai autour de Paris
 // type d'icone a partir des classes Wikidata (ex. "tour|tour d'observation|monument") et du nom
@@ -1608,25 +1609,32 @@ function monCacheWrite(list){ try{
   const all=monCacheRead().filter(z=>distBrg(z,pos).dist>3); all.unshift({lat:pos.lat,lon:pos.lon,t:Date.now(),list});
   localStorage.setItem(MON_KEY,JSON.stringify(all.slice(0,6))); }catch(e){} }
 function monCacheNear(){ const z=monCacheRead().find(z=>distBrg(z,pos).dist<10); return z||null; }
+// REGLE (08/10/2026, retour de Rennes : 0 monument avec "40 langues") : un lieu est retenu s'il est PROTEGE comme
+// monument historique (prot, quel que soit son nombre de langues) ou s'il a au moins minLinks langues (3 en
+// proche, 80 au-dela de 15 km, voir monFetchTile). S'il y en a trop (> MON_KEEP, une grande ville), on releve le
+// seuil de langues jusqu'a n'en garder que les MON_KEEP plus connus : Paris reste lisible, Rennes garde tout.
 function applyMonuments(list,how,errs,fromCache,R,minLinks){
-  const kept=[];
+  let kept=[];
   for(const m of list){
-    if(!m||!isFinite(m.lat)||!isFinite(m.lon)||(m.links||0)<minLinks) continue;
+    if(!m||!isFinite(m.lat)||!isFinite(m.lon)||(!m.prot&&(m.links||0)<minLinks)) continue;
     const type=monTypeFrom(m.types,m.name);
-    kept.push({name:m.name,lat:m.lat,lon:m.lon,kind:'monument',qid:m.qid,type,links:m.links,htWd:m.ht,htOsm:null,ht:m.ht||MON_DEF_H[type]||20,types:m.types});
+    kept.push({name:m.name,lat:m.lat,lon:m.lon,kind:'monument',qid:m.qid,type,links:m.links,prot:!!m.prot,htWd:m.ht,htOsm:null,ht:m.ht||MON_DEF_H[type]||20,types:m.types});
   }
+  let trim=0;
+  if(kept.length>MON_KEEP){ kept.sort((x,y)=>(y.links||0)-(x.links||0)||(x.qid<y.qid?-1:1)); kept=kept.slice(0,MON_KEEP); trim=kept[kept.length-1].links||0; } // les MON_KEEP plus connus ; trim = seuil de langues effectif
+  monTrim=trim;
   monumentSites=kept; monAt={...pos}; monErrAt=fromCache?Date.now():null; monErrDelay=fromCache?Math.min(Math.round(monErrDelay*1.5),300000):30000;
-  monStats={n:kept.length,how};
-  monMsg=`${kept.length} monument(s) · ${how}`+(errs.length&&!fromCache?` (repli après : ${errs.join(' ; ')})`:'')+(fromCache?` · sources injoignables : ${errs.join(' ; ')}`:'');
+  monStats={n:kept.length,how,prot:kept.filter(m=>m.prot).length,trim};
+  monMsg=`${kept.length} monument(s)${kept.some(m=>m.prot)?` dont ${kept.filter(m=>m.prot).length} historique(s)`:''} · ${how}${trim?` · seuil releve a ${trim} langues`:''}`+(errs.length&&!fromCache?` (repli après : ${errs.join(' ; ')})`:'')+(fromCache?` · sources injoignables : ${errs.join(' ; ')}`:'');
   citiesVer++; recompute(); markBuildingDupes();
-  logNet('Monuments',!fromCache&&!errs.length,`${kept.length} emblematique(s) via ${how}, rayon ${R} km, notoriete >= ${minLinks} langues`+(errs.length?` · ${errs.join(' ; ')}`:''));
+  logNet('Monuments',!fromCache&&!errs.length,`${kept.length} emblematique(s) (${kept.filter(m=>m.prot).length} monument(s) historique(s)) via ${how}, rayon ${R} km, regle : protege OU >= ${minLinks} langues`+(trim?`, trop de lieux -> seuil releve a ${trim} langues`:'')+(errs.length?` · ${errs.join(' ; ')}`:''));
 }
 // MODE TUILES (retour du 29/09/2026 : "le mode tuile est une bonne idee") : la zone est decoupee en tuiles de
 // 0,2° (~22 x 15 km) demandees separement au relais, de la plus proche a la plus lointaine, 3 a la fois. Chaque
 // requete Wikidata est ~5 fois plus petite qu'une zone de 30 km (quelques secondes au lieu de 20 a 30 s), les
 // monuments apparaissent au fur et a mesure, une tuile en echec n'invalide pas les autres, et chaque tuile
 // est memorisee sur l'appareil (30 jours) : se deplacer ne recharge que les tuiles nouvelles.
-const MON_TILE=0.2, MON_TILE_TTL=30*86400000, MON_TILE_KEY='vh_montile_v1', MON_NEAR_KM=15;
+const MON_TILE=0.2, MON_TILE_TTL=30*86400000, MON_TILE_KEY='vh_montile_v2', MON_NEAR_KM=15;
 const monTiles=new Map(); // "i,j" -> [monuments] (tuiles chargees pendant cette session)
 function monTileStoreRead(){ try{ return JSON.parse(localStorage.getItem(MON_TILE_KEY)||'{}')||{}; }catch(e){ return {}; } }
 function monTileStoreWrite(key,list){ try{ const st=monTileStoreRead(); st[key]={t:Date.now(),list};
@@ -1643,9 +1651,9 @@ function monTilesAround(R){
   return out.sort((x,y)=>x.d-y.d);
 }
 async function monFetchTile(t){
-  const ml=t.d<=MON_NEAR_KM?MON_MIN_LINKS:MON_STAR_LINKS; // au-dela de 15 km : seulement les tres celebres
-  const u=`${relayBase()}/monuments?lat=${t.lat.toFixed(3)}&lon=${t.lon.toFixed(3)}&radius_km=${t.rk}&pad=1&min_links=${ml}`;
-  const r=await fetchT(u,{},40000);
+  const near=t.d<=MON_NEAR_KM; // proche : monuments historiques + tout lieu a 3 langues ; au-dela de 15 km : seulement les tres celebres
+  const u=`${relayBase()}/monuments?lat=${t.lat.toFixed(3)}&lon=${t.lon.toFixed(3)}&radius_km=${t.rk}&pad=1&min_links=${near?MON_LOW_LINKS:MON_STAR_LINKS}${near?'&prot=1':''}`;
+  const r=await fetchT(u,{},70000);
   let j={}; try{ j=await r.json(); }catch(e){}
   if(!r.ok||j.monumentsOk===false){ const e=new Error(j.error||('HTTP '+r.status)); e.status=r.status; throw e; }
   if(!Array.isArray(j.monuments)) throw new Error('reponse du relais inattendue');
@@ -1676,17 +1684,17 @@ async function loadMonuments(force){
         const z=!force&&store[t.key]; if(z&&Date.now()-z.t<MON_TILE_TTL){ monTiles.set(t.key,z.list); tilesOk++; fromStore++; continue; }
         todo.push(t);
       }
-      if(tilesOk) applyMonuments(monMerged(R),'tuiles',[],false,R,MON_MIN_LINKS);
+      if(tilesOk) applyMonuments(monMerged(R),'tuiles',[],false,R,MON_LOW_LINKS);
       let lastApply=Date.now(), done=0; monMsg=`tuiles : ${tilesOk}/${nTiles}…`;
       const worker=async()=>{ while(!stop&&todo.length){ const t=todo.shift();
         try{ const r=await monFetchTile(t); monTiles.set(t.key,r.list); monTileStoreWrite(t.key,r.list); tilesOk++; if(r.cache) edge++; }
         catch(e){ tilesKo++; errs.push(`tuile ${t.key} : ${friendlyErr(e)}`); if((e&&e.status===429)||(!tilesOk&&tilesKo>=3)) stop=true; } // relais manifestement en panne : on n'insiste pas
         done++; monMsg=`tuiles : ${tilesOk}/${nTiles}${tilesKo?` (${tilesKo} en echec)`:''}…`;
-        if(Date.now()-lastApply>1500){ lastApply=Date.now(); applyMonuments(monMerged(R),'tuiles',[],false,R,MON_MIN_LINKS); monMsg=`tuiles : ${tilesOk}/${nTiles}…`; } } };
+        if(Date.now()-lastApply>1500){ lastApply=Date.now(); applyMonuments(monMerged(R),'tuiles',[],false,R,MON_LOW_LINKS); monMsg=`tuiles : ${tilesOk}/${nTiles}…`; } } };
       await Promise.all([worker(),worker(),worker()]);
       if(tilesOk){ // au moins une tuile : on affiche ce qu'on a
         const how=`relais, ${tilesOk}/${nTiles} tuile(s)${fromStore?` dont ${fromStore} en memoire`:''}${edge?`, ${edge} en cache relais`:''}`;
-        applyMonuments(monMerged(R),how,errs.slice(0,3),false,R,MON_MIN_LINKS);
+        applyMonuments(monMerged(R),how,errs.slice(0,3),false,R,MON_LOW_LINKS);
         if(tilesKo){ monAt=null; monErrAt=Date.now(); monErrDelay=Math.min(Math.round(monErrDelay*1.5),300000);
           monMsg+=` — ${tilesKo} tuile(s) en echec, nouvel essai automatique`; logNet('Monuments',false,monMsg+' · '+errs.slice(0,3).join(' ; ')); }
         return;
@@ -2645,7 +2653,7 @@ function showMonumentDetail(m){
     <div class="dbgline" style="font-size:18px;color:#F2C14E;font-weight:700">${esc(m.name)}</div>
     <div class="dbgline">${MON_TYPE_LBL[m.type]||'Monument'} · à ${m.dist<10?m.dist.toFixed(1):Math.round(m.dist)} km · ${vis}</div>
     <div class="dbgsec">Notoriété</div>
-    <div class="dbgline">${m.links!=null?`article Wikipédia dans <b>${m.links}</b> langue(s)`:'inconnue (Wikidata injoignable)'}</div>
+    <div class="dbgline">${m.links!=null?`article Wikipédia dans <b>${m.links}</b> langue(s)`:'inconnue (Wikidata injoignable)'}${m.prot?' · <b>monument historique</b> (protégé)':''}</div>
     <div class="dbgsec">Hauteur</div>
     <div class="dbgline">${m.htWd?Math.round(m.htWd)+' m (Wikidata)':`inconnue — ${MON_DEF_H[m.type]||20} m supposés pour le relief`}</div>
     <div class="dbgsec">En savoir plus</div>

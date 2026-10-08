@@ -137,10 +137,19 @@
       <input type="number" id="monL" value="40" min="1" max="300">
     </div>
     <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="monProt" checked> + monuments historiques</label>
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
       <button id="btnMonRelay">Via le relais</button>
     </div>
     <div class="field" style="flex:0 0 auto;align-self:flex-end">
-      <button id="btnMonTile" title="Une tuile de 0,2° comme le fait l'appli (requête plus petite, mode debug : toujours un appel Wikidata frais)">Une tuile (comme l'appli)</button>
+      <button id="btnMonTile" title="Une tuile de 0,2° comme le fait l'appli, avec sa règle (monument historique OU ≥ 3 langues). Mode debug : toujours un appel Wikidata frais">Une tuile (comme l'appli)</button>
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button id="btnMonRennes" title="Position de Rennes puis tuile avec la règle de l'appli">Tuile Rennes</button>
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button id="btnMonParis" title="Position de Paris puis tuile avec la règle de l'appli : cas le plus lourd (seuil relevé automatiquement si Wikidata n'y arrive pas)">Tuile Paris</button>
     </div>
     <div class="field" style="flex:0 0 auto;align-self:flex-end">
       <button class="ghost" id="btnMonDirect">En direct (Wikidata)</button>
@@ -333,12 +342,13 @@ $('btnTelRennes').onclick=()=>{ $('lat').value='48.1105'; $('lon').value='-1.679
 $('btnTelParis').onclick=()=>{ $('lat').value='48.8566'; $('lon').value='2.3522'; telDirect(...telArgs()); };
 
 // ---------- Monuments (Wikidata) ----------
-const TOP=(list,lat,lon)=>list.slice().sort((a,b)=>b.links-a.links).slice(0,15).map(m=>{
+const TOP=(list,lat,lon)=>list.slice().sort((a,b)=>b.links-a.links).slice(0,30).map(m=>{
   const d=Math.hypot((m.lat-lat)*111,(m.lon-lon)*111*Math.cos(lat*Math.PI/180));
-  return `${m.name} — ${m.links} langues${m.ht?' · '+m.ht+' m':''} · ${d.toFixed(1)} km · ${m.types||'?'}`; });
+  return `${m.name} — ${m.links} langues${m.prot?' · MH':''}${m.ht?' · '+m.ht+' m':''} · ${d.toFixed(1)} km · ${m.types||'?'}`; });
 const wdqLink=q=>'https://query.wikidata.org/#'+encodeURIComponent(q);
 function monList(list,lat,lon){
-  return `<pre>${esc(TOP(list,lat,lon).join('\n')||'(aucun)')}</pre>`;
+  const nh=list.filter(m=>m.prot).length;
+  return `<div class="msg">${list.length} lieu(x)${nh?` dont <b>${nh} monument(s) historique(s)</b> (MH)`:''} ; les 30 plus connus sont listés.</div><pre>${esc(TOP(list,lat,lon).join('\n')||'(aucun)')}</pre>`;
 }
 async function monRelay(lat,lon,km,minL,extra=''){
   const out=$('monOut'), relay=relayBase();
@@ -350,7 +360,8 @@ async function monRelay(lat,lon,km,minL,extra=''){
     const r=await fetchT(url,90000); const j=await r.json(); const ms=Math.round(performance.now()-t0);
     const d=j.debug||{}, att=d.attempts||[];
     const rows=att.map(a=>({name:a.route,ok:a.ok,http:a.http,info:(a.ok?`${a.rows} monument(s) · ${a.bytes||'?'} octets`:a.error)+` · ${a.ms} ms · rayon ${a.radiusKm} km`,urls:[]}));
-    out.innerHTML=`<div>${statLine([['HTTP',r.status,r.ok?'ok':'bad'],['durée',ms+' ms'],['route retenue',j.route||'aucune',j.route?'ok':'bad'],['monuments',(j.monuments||[]).length,(j.monuments||[]).length?'ok':'bad'],['cache',j.cache||'non (requête faite)']])}</div>`
+    out.innerHTML=`<div>${statLine([['HTTP',r.status,r.ok?'ok':'bad'],['durée',ms+' ms'],['route retenue',j.route||'aucune',j.route?'ok':'bad'],['monuments',(j.monuments||[]).length,(j.monuments||[]).length?'ok':'bad'],['seuil de langues utilisé',j.minLinksUsed!=null?j.minLinksUsed:'?',j.minLinksUsed>minL?'bad':'ok'],['règle',j.prot?'MH ou ≥ seuil':'≥ seuil seul'],['cache',j.cache||'non (requête faite)']])}</div>`
+      +(j.minLinksUsed>minL?`<div class="msg bad">Zone dense : Wikidata n'a pas pu répondre au seuil demandé (${minL}), le relais a relevé le seuil à ${j.minLinksUsed} langues.</div>`:'')
       +(j.error?`<div class="msg bad">${esc(j.error)}</div>`:'')+(rows.length?telTable(rows):'')
       +(j.monuments?monList(j.monuments,lat,lon):'')
       +`<div class="msg" style="margin-top:8px">Lien du relais (JSON brut) : <a href="${esc(url)}" target="_blank" rel="noopener">ouvrir</a></div>`
@@ -416,12 +427,15 @@ async function monWikipedia(lat,lon,km){
       +`<div class="msg">Requête : <a href="${esc(url.replace('&origin=*',''))}" target="_blank" rel="noopener">ouvrir</a></div>`;
   }catch(e){ out.innerHTML=`<div class="msg bad">Échec : ${esc((e&&e.message)||e)}</div>`; }
 }
-const monArgs=()=>[parseFloat($('lat').value),parseFloat($('lon').value),Math.min(45,parseFloat($('monR').value)||30),Math.min(300,Math.max(10,parseFloat($('monL').value)||40))];
-$('btnMonRelay').onclick=()=>monRelay(...monArgs());
-$('btnMonTile').onclick=()=>{ // meme decoupage que l'appli : tuile de 0,2° contenant le point, rayon = demi-diagonale
-  const [lat,lon,,minL]=monArgs(), T=0.2, cl=(Math.floor(lat/T)+.5)*T, co=(Math.floor(lon/T)+.5)*T;
+const monArgs=()=>[parseFloat($('lat').value),parseFloat($('lon').value),Math.min(45,parseFloat($('monR').value)||30),Math.min(300,Math.max(1,parseFloat($('monL').value)||40))];
+$('btnMonRelay').onclick=()=>monRelay(...monArgs(),$('monProt').checked?'&prot=1':'');
+function monTileRun(){ // meme decoupage ET meme regle que l'appli : tuile de 0,2° contenant le point, rayon = demi-diagonale, >= 3 langues OU monument historique
+  const [lat,lon]=monArgs(), T=0.2, cl=(Math.floor(lat/T)+.5)*T, co=(Math.floor(lon/T)+.5)*T;
   const rk=Math.ceil(Math.hypot(T*111.19/2,T*111.19*Math.cos(cl*Math.PI/180)/2));
-  monRelay(+cl.toFixed(3),+co.toFixed(3),rk,minL,'&pad=1'); };
+  monRelay(+cl.toFixed(3),+co.toFixed(3),rk,3,'&pad=1&prot=1'); }
+$('btnMonTile').onclick=monTileRun;
+$('btnMonRennes').onclick=()=>{ $('lat').value='48.1117'; $('lon').value='-1.6778'; monTileRun(); };
+$('btnMonParis').onclick=()=>{ $('lat').value='48.8566'; $('lon').value='2.3522'; monTileRun(); };
 $('btnMonDirect').onclick=()=>monDirect(...monArgs());
 $('btnMonExplore').onclick=()=>{ const a=monArgs(); monExplore(a[0],a[1],a[2],parseFloat($('monL').value)||1); };
 $('btnMonWiki').onclick=()=>{ const a=monArgs(); monWikipedia(a[0],a[1],Math.min(a[2],10)); };
