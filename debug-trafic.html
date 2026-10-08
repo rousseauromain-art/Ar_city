@@ -143,13 +143,13 @@
       <button id="btnMonRelay">Via le relais</button>
     </div>
     <div class="field" style="flex:0 0 auto;align-self:flex-end">
-      <button id="btnMonTile" title="Une tuile de 0,2° comme le fait l'appli, avec sa règle (monument historique OU ≥ 3 langues). Mode debug : toujours un appel Wikidata frais">Une tuile (comme l'appli)</button>
+      <button id="btnMonTile" title="La tuile de 0,1° qui contient le point, EXACTEMENT comme l'appli : tout Wikidata sans filtre de classe (route /wdtile), puis le même tri monument / équipement / écarté. Mode debug : toujours un appel Wikidata frais">Une tuile (comme l'appli)</button>
     </div>
     <div class="field" style="flex:0 0 auto;align-self:flex-end">
-      <button id="btnMonRennes" title="Position de Rennes puis tuile avec la règle de l'appli">Tuile Rennes</button>
+      <button id="btnMonRennes" title="Position de Rennes puis tuile 0,1° comme l'appli : vérifier canal, Roazhon Park, Jacobins, place Sainte-Anne, métro">Tuile Rennes</button>
     </div>
     <div class="field" style="flex:0 0 auto;align-self:flex-end">
-      <button id="btnMonParis" title="Position de Paris puis tuile avec la règle de l'appli : cas le plus lourd (seuil relevé automatiquement si Wikidata n'y arrive pas)">Tuile Paris</button>
+      <button id="btnMonParis" title="Position de Paris puis tuile 0,1° : cas le plus lourd (seuil de langues relevé automatiquement si Wikidata n'y arrive pas)">Tuile Paris</button>
     </div>
     <div class="field" style="flex:0 0 auto;align-self:flex-end">
       <button class="ghost" id="btnMonDirect">En direct (Wikidata)</button>
@@ -428,12 +428,92 @@ async function monWikipedia(lat,lon,km){
       +`<div class="msg">Requête : <a href="${esc(url.replace('&origin=*',''))}" target="_blank" rel="noopener">ouvrir</a></div>`;
   }catch(e){ out.innerHTML=`<div class="msg bad">Échec : ${esc((e&&e.message)||e)}</div>`; }
 }
+// <<WDCLASS (bloc partage avec debug-trafic.html : meme texte dans les deux fichiers, verifie par un test)
+// TRI des lieux Wikidata (08/10/2026). Le relais (/wdtile) renvoie TOUT lieu geolocalise d'une tuile avec ses classes
+// (P31, libelles fr/en) ; c'est ici qu'on decide ce que c'est :
+//   monument  = patrimoine bati (eglise, chateau, musee, tour, statue...) ou protege "monument historique"
+//   equip     = lieu de vie reperable sur l'horizon (stade, gare/metro, canal, parc, place, theatre, pont, hopital...)
+//   null      = ecarte (commune, quartier, ile, evenement, societe, oeuvre...) ou non reconnu
+// Ordre : protege (monument historique) > ecarte (commune, evenement...) > monument typique > equipement > monument generique
+// ("batiment", des 8 langues) > inconnu tres celebre. Un lieu PROTEGE est toujours un monument (ex. Mont-Saint-Michel, aussi "commune").
+const _W=src=>new RegExp("(?:^|[^a-zà-ÿ])(?:"+src+")s?(?![a-zà-ÿ])","i");
+const WD_MONS=_W("[ée]glise|church|chapelle|chapel|cath[ée]drale|cathedral|basilique|basilica|abbaye|abbey|monast[èe]re|monastery|couvent|convent|prieur[ée]|priory|clo[îi]tre|cloister|temple|mosqu[ée]e|mosque|synagogue|pagode|sanctuaire|shrine|calvaire|croix|oratoire|baptist[èe]re|ch[âa]teau|castle|palais|palace|forteresse|fortress|citadelle|citadel|fort|manoir|manor|h[ôo]tel particulier|h[ôo]tel de ville|town hall|mairie|maison forte|maison natale|maison-musée|historic house|country house|villa|donjon|rempart|fortification|enceinte|porte de ville|city gate|tour|tower|beffroi|belfry|clocher|phare|lighthouse|moulin|windmill|watermill|mus[ée]e|museum|monument|m[ée]morial|memorial|statue|sculpture|fontaine|fountain|ob[ée]lisque|obelisk|colonne|column|arc de triomphe|triumphal arch|mausol[ée]e|mausoleum|panth[ée]on|pantheon|gratte-ciel|skyscraper|ruines?|ruins?|vestiges?|site arch[ée]ologique|archaeological site|m[ée]galithe|menhir|dolmen|tumulus|amphith[ée][âa]tre|amphitheat(?:er|re)|ar[èe]nes|th[ée][âa]tre antique|colombier|pigeonnier|lavoir|ch[âa]teau d['’]eau|water tower|place forte|hôtel-dieu|ensemble architectural|palais de justice historique");
+// equipements, du plus specifique au plus general : [expression, icone, nb de langues minimum]
+const WD_EQUIP=[
+  [_W("stade|stadium|arena|aréna|hippodrome|v[ée]lodrome|circuit|palais des sports|salle omnisports|patinoire|ice rink|piscine|swimming pool|complexe sportif|sports? (?:complex|cent(?:er|re)|venue|facility)|gymnase|golf|skatepark|parc des expositions|parc d['’]attractions|amusement park|theme park"),'stade',1],
+  [_W("station de (?:m[ée]tro|tramway|tram|bus|rer|train|chemin de fer)|m[ée]tro station|metro station|subway station|rapid transit station|railway station|train station|gare|tram(?:way)? stop|halte|terminus|pôle d['’][ée]changes|a[ée]roport|airport|a[ée]rodrome|h[ée]liport|heliport|port|harbou?r|marina|ferry terminal|bus station|funiculaire|t[ée]l[ée]ph[ée]rique|cable car"),'gare',1],
+  [_W("canal|canaux|fleuve|rivi[èe]re|river|stream|ruisseau|lac|lake|[ée]tang|pond|cours d['’]eau|watercourse|waterway|voie navigable|bassin|basin|barrage|dam|[ée]cluse|lock|plan d['’]eau|r[ée]servoir|reservoir|chute d['’]eau|waterfall|cascade|plage|beach|baie|bay|estuaire|estuary|lagune|lagoon|marais|marsh|wetland"),'eau',1],
+  [_W("place|plaza|public square|town square|square|piazza|platz|rue|street|avenue|boulevard|mail|carrefour|rond-point|roundabout|esplanade|promenade|parvis"),'place',1],
+  [_W("parc|park|jardin|garden|bois|woodland|for[êe]t|forest|r[ée]serve naturelle|nature reserve|zoo|aquarium|arboretum|cimeti[èe]re|cemetery|coul[ée]e verte|espace vert|green space|pelouse|prairie|meadow|verger|orchard|vignoble|vineyard"),'parc',1],
+  [_W("th[ée][âa]tre|theat(?:er|re)|op[ée]ra|cin[ée]ma|movie theat(?:er|re)|salle de (?:concert|spectacle|cin[ée]ma)|concert hall|auditorium|centre culturel|cultural cent(?:er|re)|maison de la culture|biblioth[èe]que|library|m[ée]diath[èe]que|salle des f[êe]tes|casino|cirque|circus|salle de musiques? actuelles?|music venue"),'scene',1],
+  [_W("pont|bridge|viaduc|viaduct|passerelle|footbridge|aqueduc|aqueduct"),'pont',1],
+  [_W("h[ôo]pital|hospital|clinique|clinic|centre hospitalier|universit[ée]|university|[ée]cole sup[ée]rieure|grande [ée]cole|facult[ée]|campus|lyc[ée]e|coll[èe]ge|[ée]cole|school|centre commercial|shopping (?:cent(?:er|re)|mall)|mall|march[ée]|market|halles?|h[ôo]tel|hotel|prison|jail|caserne|barracks|pr[ée]fecture|tribunal|palais de justice|courthouse|parlement|parliament|assembl[ée]e|minist[èe]re|ministry|bureau de poste|post office|centrale [ée]lectrique|power station|station d['’][ée]puration|raffinerie|refinery"),'edifice',5],
+];
+const WD_EXCL=_W("communes?(?: nouvelle| déléguée| associée)?|ville|cit(?:y|é)|town|village|municipality|municipalité|human settlement|établissement humain|hameau|hamlet|localité|lieu-dit|quartier|neighbou?rhood|arrondissement|canton|d[ée]partement|r[ée]gion|province|pays|country|territoire|territory|[îi]le|island|[îi]lot|archipel|presqu['’][îi]le|péninsule|peninsula|cap|mont(?:agne)?|mountain|colline|hill|sommet|summit|vall[ée]e|valley|massif|district|circonscription|intercommunalité|communauté (?:de communes|d['’]agglomération|urbaine)|agglomération|métropole|aire urbaine|unité urbaine|bassin versant|watershed|zone d['’]activit[ée]|festival|[ée]v[ée]nement|event|salon|exposition|foire|compétition|championnat|tournoi|bataille|battle|course|race|[ée]preuve|rallye|rally|marathon|tour cycliste|attentat|accident|[ée]lection|guerre|war|club|[ée]quipe|team|entreprise|company|société|business|parti|syndicat|usine|factory|plant|manufacture|marque|brand|fonction|position|[œo]uvre|film|album|livre|book|roman|série|émission|chanson|song|personnage|character|esp[èe]ce|species|taxon|langue|language|religion|famille|family|dynastie|groupe|band|projet|project|programme|loi|law|trait[ée]|treaty|prix|award|ligne|line|route|road|itin[ée]raire|sentier|trail|toponyme|nom de famille|surname|prénom|given name|page d['’]homonymie");
+const WD_GENERIC=_W("b[âa]timent|building|[ée]difice|structure|architectural structure|ouvrage|construction|attraction touristique|tourist attraction|lieu de m[ée]moire|site historique|historic site|lieu historique|patrimoine|heritage|site class[ée]|landmark|point of interest");
+const WD_GENERIC_MIN=8; // simple "batiment" : retenu des 8 langues
+const WD_UNKNOWN_STAR=20; // classe inconnue : gardee comme equipement generique si tres connue (>= 20 langues)
+function monTypeFrom(types,name){
+  const t=(String(types||'')+' '+String(name||'')).toLowerCase();
+  if(/\barc\b|triumphal|porte de ville|city gate/.test(t)) return 'arc';
+  if(/ob[ée]lisque|obelisk|colonne|column|statue/.test(t)) return 'colonne';
+  if(/basilique|basilica|cath[ée]drale|cathedral|d[ôo]me|\bdome\b|mosqu[ée]e|mosque|synagogue|pantheon|panthéon|mausol[ée]e/.test(t)) return 'dome';
+  if(/[ée]glise|church|chapelle|chapel|clocher|abbaye|abbey|monast[èe]re|monastery|couvent|convent|prieur[ée]|priory|clo[îi]tre|cloister/.test(t)) return 'clocher';
+  if(/ch[âa]teau|castle|palais|palace|forteresse|fortress|citadelle|citadel|manoir|\bfort\b/.test(t)) return 'chateau';
+  if(/\btour\b|tower|gratte-ciel|skyscraper|beffroi|belfry|phare|lighthouse|pyl[ôo]ne/.test(t)) return 'tour';
+  return 'musee';
+}
+// m = {types:"classe|classe", name, links, prot} -> {cat:'monument'|'equip'|null, type, minLinks?, why}
+function wdClassify(m){
+  const t=String(m.types||'').toLowerCase(), links=m.links||0;
+  if(m.prot) return {cat:'monument',type:monTypeFrom(t,m.name),why:'protégé (monument historique)'};
+  if(WD_EXCL.test(t)) return {cat:null,why:'écarté (commune, quartier, événement, société, œuvre…)'};
+  if(WD_MONS.test(t)) return {cat:'monument',type:monTypeFrom(t,m.name),why:'monument typique'};
+  for(const [re,icon,min] of WD_EQUIP) if(re.test(t)) return {cat:'equip',type:icon,minLinks:min,why:'équipement : '+icon};
+  if(WD_GENERIC.test(t)) return {cat:'monument',type:monTypeFrom(t,m.name),minLinks:WD_GENERIC_MIN,why:'bâtiment / site patrimonial'};
+  if(links>=WD_UNKNOWN_STAR) return {cat:'equip',type:'edifice',minLinks:WD_UNKNOWN_STAR,why:'classe inconnue mais très connu'};
+  return {cat:null,why:t?'classe non reconnue':'sans classe'};
+}
+// WDCLASS>>
+
+// ---- tuile Wikidata comme l'appli (route /wdtile, tri par wdClassify) ----
+const WD_APP={monLinks:3,genericMin:8,unknownStar:20}; // memes seuils que l'appli (MON_LOW_LINKS = 3)
+function wdTri(rows){
+  const mon=[], eq=[], excl=[], low=[];
+  for(const m of rows){ const cl=wdClassify(m), links=m.links||0, it={...m,cl};
+    if(!cl.cat) excl.push(it);
+    else if(cl.cat==='monument'){ if(m.prot||links>=Math.max(WD_APP.monLinks,cl.minLinks||0)) mon.push(it); else low.push(it); }
+    else { if(links>=(cl.minLinks||1)) eq.push(it); else low.push(it); } }
+  return {mon,eq,excl,low};
+}
+const wdLine=m=>`${m.name} — ${m.links} l.${m.prot?' · MH':''}${m.ht?' · '+m.ht+' m':''}${m.cl.type?' · icône '+m.cl.type:''} · [${m.types||'sans classe'}] → ${m.cl.why}`;
+const wdSec=(titre,l,n=60)=>`<div class="msg" style="margin-top:8px"><b>${titre}</b> (${l.length})</div><pre>${esc(l.slice().sort((a,b)=>b.links-a.links).slice(0,n).map(wdLine).join('\n')||'(aucun)')}</pre>`;
+async function wdTileRun(lat,lon){
+  const out=$('monOut'), relay=relayBase();
+  if(!relay){ out.innerHTML='<div class="msg bad">Aucun relais renseigné (en haut de page).</div>'; return; }
+  const url=`${relay}/wdtile?lat=${lat}&lon=${lon}&min_links=1&debug=1&nocache=1`;
+  out.innerHTML=`<div class="msg">Le relais interroge Wikidata pour la tuile de 0,1° (jusqu'à ~80 s en zone dense)…</div><div class="url"><a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></div>`;
+  const t0=performance.now();
+  try{
+    const r=await fetchT(url,100000); const j=await r.json(); const ms=Math.round(performance.now()-t0);
+    const d=j.debug||{}, att=d.attempts||[], rows=j.rows||[];
+    const rowsT=att.map(a=>({name:'seuil '+a.minLinks+' langue(s)',ok:a.ok,http:a.http,info:(a.ok?`${a.rows} ligne(s) · ${a.bytes||'?'} octets${a.limited?' · LIMITE ATTEINTE (zone très dense)':''}`:a.error)+` · ${a.ms} ms`,urls:[]}));
+    const T=wdTri(rows);
+    out.innerHTML=`<div>${statLine([['HTTP',r.status,r.ok?'ok':'bad'],['durée',ms+' ms'],['tuile (sud-ouest)',j.tile?j.tile.join(' ; '):'?'],['lignes Wikidata',rows.length,rows.length?'ok':'bad'],['seuil de langues utilisé',j.minLinksUsed!=null?j.minLinksUsed:'?',j.minLinksUsed>1?'bad':'ok'],['monuments',T.mon.length,T.mon.length?'ok':'bad'],['équipements',T.eq.length,T.eq.length?'ok':'bad'],['écartés',T.excl.length],['sous le seuil',T.low.length],['cache',j.cache||'non (requête faite)']])}</div>`
+      +(j.minLinksUsed>1?`<div class="msg bad">Zone dense : Wikidata n'a pas pu répondre avec 1 langue, le relais a relevé le seuil à ${j.minLinksUsed} langues (les lieux à moins de ${j.minLinksUsed} langues ne sont pas dans la tuile, sauf monuments historiques).</div>`:'')
+      +(j.truncated?'<div class="msg bad">La tuile atteint la limite de 700 lignes : les lieux les moins connus manquent.</div>':'')
+      +(j.error?`<div class="msg bad">${esc(j.error)}</div>`:'')+(rowsT.length?telTable(rowsT):'')
+      +wdSec('Monuments (affichés avec l\'icône jaune)',T.mon)+wdSec('Équipements urbains (icône bleue)',T.eq)
+      +wdSec('Écartés ou non reconnus (pourquoi ?) — si un lieu attendu est ici, dire lequel : on ajuste la règle',T.excl,80)
+      +wdSec('Classés mais sous le seuil de langues (monument < 3 langues non protégé ; hôpital/université/école < 5)',T.low,40)
+      +`<div class="msg" style="margin-top:8px">Lien du relais (JSON brut) : <a href="${esc(url)}" target="_blank" rel="noopener">ouvrir</a></div>`
+      +(d.sparql?`<div class="msg">Requête SPARQL envoyée : <a href="${esc(wdqLink(d.sparql))}" target="_blank" rel="noopener">ouvrir sur query.wikidata.org</a> (puis ▶ Run)</div><details style="margin-top:8px"><summary style="cursor:pointer;font-size:12.5px">Texte de la requête</summary><pre>${esc(d.sparql)}</pre></details>`:'');
+    if(!att.length&&!j.error) out.insertAdjacentHTML('afterbegin','<div class="msg bad">Le relais n\'a pas renvoyé de détail : redéployer relais-worker.js (route /wdtile absente ?).</div>');
+  }catch(e){ out.innerHTML=`<div class="msg bad">Échec de l'appel au relais : ${esc((e&&e.message)||e)}</div><div class="url">${esc(url)}</div>`; }
+}
 const monArgs=()=>[parseFloat($('lat').value),parseFloat($('lon').value),Math.min(45,parseFloat($('monR').value)||30),Math.min(300,Math.max(1,parseFloat($('monL').value)||40))];
 $('btnMonRelay').onclick=()=>monRelay(...monArgs(),$('monProt').checked?'&prot=1':'');
-function monTileRun(){ // meme decoupage ET meme regle que l'appli : tuile de 0,2° contenant le point, rayon = demi-diagonale, >= 3 langues OU monument historique
-  const [lat,lon]=monArgs(), T=0.2, cl=(Math.floor(lat/T)+.5)*T, co=(Math.floor(lon/T)+.5)*T;
-  const rk=Math.ceil(Math.hypot(T*111.19/2,T*111.19*Math.cos(cl*Math.PI/180)/2));
-  monRelay(+cl.toFixed(3),+co.toFixed(3),rk,3,'&pad=1&prot=1'); }
+function monTileRun(){ const [lat,lon]=monArgs(); wdTileRun(lat,lon); } // meme decoupage (tuile de 0,1°) et meme tri que l'appli
 $('btnMonTile').onclick=monTileRun;
 $('btnMonRennes').onclick=()=>{ $('lat').value='48.1117'; $('lon').value='-1.6778'; monTileRun(); };
 $('btnMonParis').onclick=()=>{ $('lat').value='48.8566'; $('lon').value='2.3522'; monTileRun(); };

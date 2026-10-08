@@ -165,6 +165,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <div class="lyT">Calques</div>
     <label><svg viewBox="0 0 24 24" stroke="#F3E9D2"><path d="M4 19l5-14 5 14M6 14h6"/><path d="M15 19v-7a3 3 0 0 1 6 0v7M15 15h6"/></svg><span class="lyN">Lieux<em id="lyInfoPlaces">villes, villages, sommets…</em></span><input type="checkbox" id="lyPlaces"></label>
     <label><svg viewBox="0 0 24 24" stroke="#F2C14E"><path d="M7 21l4-15h2l4 15M9.2 13.5h5.6M10 21a2 2 0 0 1 4 0M12 6V2.5"/></svg><span class="lyN">Monuments<em id="lyInfoMon">lieux emblématiques (Wikipédia)</em></span><input type="checkbox" id="lyMon"></label>
+    <label class="lySub"><svg viewBox="0 0 24 24" stroke="#78CDE8"><path d="M3 20h18M5 20v-5q7-9 14 0v5M9 20v-3q3-4 6 0v3"/></svg><span class="lyN">Équipements urbains<em id="lyInfoEq">stades, gares et métros, canaux, parcs, places, théâtres, ponts</em></span><input type="checkbox" id="lyEq"></label>
     <label><svg viewBox="0 0 24 24" stroke="#E85A5A"><path d="M8 21l3.2-15h1.6L16 21M9.6 14.5l5.2-3M14.4 14.5l-5.2-3M8.8 18l6.8-2.6M15.2 18l-6.8-2.6M12 6V2.5M10 3.5h4"/></svg><span class="lyN">Pylônes télécom<em id="lyInfoTel">ANFR, France — via le relais</em></span><input type="checkbox" id="lyTel"></label>
     <label><svg viewBox="0 0 24 24" stroke="#7AA7E0"><path d="M6 21V8h7v13M13 12h5v9M8.5 11h2M8.5 14h2M8.5 17h2M15 15h1M15 18h1M9.5 8V4"/></svg><span class="lyN">Repères hauts<em id="lyInfoBld">tours, cheminées, châteaux d'eau (OSM)</em></span><input type="checkbox" id="lyBld"></label>
     <label><svg viewBox="0 0 24 24" stroke="#C79BE8"><path d="M3 20V11h3V8h3v4h3V6h3v6h3V9h3v11z"/></svg><span class="lyN">Silhouette bâtiments<em id="lyInfoUrb">contour des immeubles (IGN BD TOPO) · France</em></span><input type="checkbox" id="lyUrb"></label>
@@ -241,7 +242,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <button id="btnCacheClr">Vider le cache</button>
   </div>
   <div class="row">
-    <span class="hint">Supprime les tuiles de relief et l'atlas hors-ligne. Les réglages et le calage sont conservés.</span>
+    <span class="hint">Supprime les tuiles de relief, l'atlas hors-ligne et les données mémorisées (pylônes, bâtiments, monuments). Les réglages et le calage sont conservés.</span>
   </div>
   <div class="sec">Diagnostic</div>
   <div class="row">
@@ -333,9 +334,9 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-09-29 (a) · monuments : source Wikidata (relais, puis direct, puis mémoire de l\'appareil), plus d\'Overpass pour cette couche ; 40 monuments les plus célèbres nets, le reste en transparence';
+const APP_VERSION='2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
-  layers:{places:true,monuments:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
+  layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
   lighthouse:{label:'Phares, feux et balises',        max:40, q:['nwr["man_made"="lighthouse"]','nwr["seamark:type"~"^light"]']},
@@ -1030,6 +1031,18 @@ function kindOf(t){
 // Tout est calcule localement : aucune requete par point, seulement quelques dizaines de tuiles mises en cache.
 const TILE_URL_HR=(z,x,y)=>`https://tiles.mapterhorn.com/${z}/${x}/${y}.webp`;
 const TILE_URL_LEGACY=(z,x,y)=>`https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
+// ---------- cache de donnees durable (08/10/2026) : pylones ANFR et tuiles de batiments ----------
+// Jusqu'ici seuls le relief et les monuments survivaient a un redemarrage de l'appli : les pylones (ANFR) et
+// les ~12 Mo de batiments etaient retelecharges a chaque fois, alors qu'ils changent a peine. Cache API (comme
+// le relief) : pas la limite de ~5 Mo de localStorage. Entree = reponse + date ('x-t'), duree de vie par usage.
+const DCACHE='vh-data-v1', DC_BASE='https://vh.cache/';
+async function dcGet(key,ttl){ try{ if(!window.caches) return null; const c=await caches.open(DCACHE); const r=await c.match(DC_BASE+key); if(!r) return null;
+  const t=+r.headers.get('x-t')||0; if(Date.now()-t>ttl) return null; return {t,r}; }catch(e){ return null; } }
+async function dcPut(key,body,type){ try{ if(!window.caches) return false; const c=await caches.open(DCACHE);
+  await c.put(DC_BASE+key,new Response(body,{headers:{'x-t':String(Date.now()),'content-type':type||'application/octet-stream'}})); return true; }catch(e){ return false; } }
+async function dcPrune(prefix,max){ try{ if(!window.caches) return; const c=await caches.open(DCACHE); const ks=(await c.keys()).filter(k=>k.url.startsWith(DC_BASE+prefix));
+  for(const k of ks.slice(0,Math.max(0,ks.length-max))) await c.delete(k); }catch(e){} } // les plus anciennes d'abord (ordre d'insertion)
+const dcAgo=t=>{ const m=Math.round((Date.now()-t)/60000); return m<90?`${Math.max(1,m)} min`:m<2880?`${Math.round(m/60)} h`:`${Math.round(m/1440)} j`; };
 const TCACHE='vh-terrain-v1';
 /*TERRAIN-CORE-START*/
 // guaranteed=true : couverture mondiale garantie (404 == mer, remplace par une tuile "niveau de
@@ -1369,6 +1382,22 @@ async function pollSea(){
   }catch(e){ tMsg.sea='indispo'; logNet('AISStream',false,'relais : '+friendlyErr(e)); }
 }
 // ---------- pylones et points hauts telecom (France uniquement, source ANFR via le relais) ----------
+const TEL_DC_TTL=7*86400000, TEL_DC_CELL=0.05; let telBypass=false;
+// derniere reponse ANFR proche de la position (cases de 0,05° ~ 5 km, on regarde les 9 voisines) : valable 7 jours
+async function telDcFind(){
+  const ci=Math.round(pos.lat/TEL_DC_CELL), cj=Math.round(pos.lon/TEL_DC_CELL), tol=Math.max(1,S.telecomMax*0.3); let best=null;
+  for(let a=-1;a<=1;a++) for(let b=-1;b<=1;b++){
+    const z=await dcGet(`tel/${ci+a},${cj+b}`,TEL_DC_TTL); if(!z) continue;
+    let e; try{ e=await z.r.json(); }catch(x){ continue; }
+    if(!e||!e.pos||!e.j||!(e.rad>=S.telecomMax)) continue;
+    const d=distBrg(pos,e.pos).dist; if(d<tol&&(!best||d<best.d)) best={d,t:z.t,j:e.j};
+  }
+  return best;
+}
+function telDcSave(j){
+  const k=`tel/${Math.round(pos.lat/TEL_DC_CELL)},${Math.round(pos.lon/TEL_DC_CELL)}`;
+  dcPut(k,JSON.stringify({pos:{lat:pos.lat,lon:pos.lon},rad:S.telecomMax,j}),'application/json').then(()=>dcPrune('tel/',30));
+}
 let telecomIndoor=0, telecomSites=[], telecomAt=null, telecomBusy=false, telecomErrAt=null, telecomErrDelay=30000, tMsg2={telecom:''}, telecomHits=[];
 async function pollTelecom(){
   if(!S.telecom||!pos||document.hidden||telecomBusy) return; // re-entrance : un appel en cours suffit
@@ -1380,12 +1409,19 @@ async function pollTelecom(){
   // une requete quasi a chaque position GPS en conditions reelles (retour du 28/09/2026, Paris).
   telecomBusy=true; tMsg2.telecom='recherche…';
   try{
-    const r=await fetchT(`${relayBase()}/telecom?lat=${pos.lat.toFixed(5)}&lon=${pos.lon.toFixed(5)}&radius_km=${S.telecomMax}`,{},20000);
-    let j={}; try{ j=await r.json(); }catch(e){}
-    if(!r.ok||j.anfrOk===false) throw new Error(j.error||('HTTP '+r.status));
+    let j={}, dc=null;
+    if(!telBypass) dc=await telDcFind();
+    if(dc) j=dc.j;
+    else{
+      const r=await fetchT(`${relayBase()}/telecom?lat=${pos.lat.toFixed(5)}&lon=${pos.lon.toFixed(5)}&radius_km=${S.telecomMax}`,{},20000);
+      try{ j=await r.json(); }catch(e){}
+      if(!r.ok||j.anfrOk===false) throw new Error(j.error||('HTTP '+r.status));
+      telDcSave(j);
+    }
+    telBypass=false; const dcTxt=dc?` · en mémoire (il y a ${dcAgo(dc.t)})`:'';
     if(j.hors_france){
-      telecomSites=[]; telecomAt={...pos}; tMsg2.telecom='hors de France (ANFR)';
-      logNet('ANFR',true,'position hors de France : aucune donnee disponible ici');
+      telecomSites=[]; telecomAt={...pos}; tMsg2.telecom='hors de France (ANFR)'+dcTxt;
+      logNet('ANFR',true,'position hors de France : aucune donnee disponible ici'+dcTxt);
     }else{
       let indoor=0;
       telecomSites=(j.sites||[]).map(s=>{
@@ -1396,8 +1432,8 @@ async function pollTelecom(){
           ops:opsOf(s.operators), g5:has5G(s.operators) };
       }).filter(Boolean);
       telecomIndoor=indoor;
-      recompute(); telecomAt={...pos}; tMsg2.telecom=telecomSites.length+' site(s)'+(indoor?` (+${indoor} en intérieur/tunnel ignorés)`:'')+(j.radius_eff?` dans ${String(j.radius_eff).replace('.',',')} km (zone dense)`:'');
-      logNet('ANFR',true,`${telecomSites.length} site(s) telecom, ${(j.communes||[]).length} commune(s), rayon ${S.telecomMax} km`+(j.radius_eff?` · zone dense : rayon ramene a ${j.radius_eff} km pour tout recevoir`:'')+(j.route?` · route ANFR : ${j.route}`:'')+(j.truncated?' · liste tronquee':'')+(j.cache?' (cache relais)':''));
+      recompute(); telecomAt={...pos}; tMsg2.telecom=telecomSites.length+' site(s)'+(indoor?` (+${indoor} en intérieur/tunnel ignorés)`:'')+(j.radius_eff?` dans ${String(j.radius_eff).replace('.',',')} km (zone dense)`:'')+dcTxt;
+      logNet('ANFR',true,`${telecomSites.length} site(s) telecom, ${(j.communes||[]).length} commune(s), rayon ${S.telecomMax} km`+(j.radius_eff?` · zone dense : rayon ramene a ${j.radius_eff} km pour tout recevoir`:'')+(j.route?` · route ANFR : ${j.route}`:'')+(j.truncated?' · liste tronquee':'')+(j.cache?' (cache relais)':'')+dcTxt);
     }
     telecomErrAt=null; telecomErrDelay=30000; // succes : le recul est remis a zero
   }catch(e){
@@ -1440,9 +1476,23 @@ const GLYPH={
     F.lineTo(7*u,-12*u); F.lineTo(7*u,0); F.closePath(); return {fill:F}; },
   musee(u){ const F=new Path2D(); F.moveTo(-7.5*u,-10*u); F.lineTo(0,-14.5*u); F.lineTo(7.5*u,-10*u); F.closePath(); F.rect(-7.5*u,-1.6*u,15*u,1.6*u);
     for(const x of [-5.5,-1,3.5]) F.rect(x*u,-9.5*u,2*u,8*u); return {fill:F}; },
+  // equipements urbains (08/10/2026) : stade, gare/metro, eau, parc, place, scene, pont, edifice
+  stade(u){ const F=new Path2D(); F.moveTo(-8*u,0); F.lineTo(-8*u,-5*u); F.quadraticCurveTo(0,-13*u,8*u,-5*u); F.lineTo(8*u,0); F.closePath();
+    F.moveTo(-4.5*u,0); F.lineTo(-4.5*u,-3.5*u); F.quadraticCurveTo(0,-7.5*u,4.5*u,-3.5*u); F.lineTo(4.5*u,0); F.closePath();
+    const P=new Path2D(); for(const x of [-7,7]){ P.moveTo(x*u,-5*u); P.lineTo(x*u,-14*u); P.moveTo((x-2)*u,-14.5*u); P.lineTo((x+2)*u,-14.5*u); } return {fill:F,stroke:P,evenodd:true}; },
+  gare(u){ const F=new Path2D(); F.rect(-5.5*u,-13*u,11*u,11*u); F.rect(-3.8*u,-11.2*u,7.6*u,4.6*u); F.rect(-3.8*u,-5.2*u,1.6*u,1.4*u); F.rect(2.2*u,-5.2*u,1.6*u,1.4*u);
+    const P=new Path2D(); P.moveTo(-7*u,0); P.lineTo(7*u,0); P.moveTo(-3*u,-2*u); P.lineTo(-4*u,0); P.moveTo(3*u,-2*u); P.lineTo(4*u,0); P.moveTo(0,-13*u); P.lineTo(0,-15.5*u); P.moveTo(-2.5*u,-15.5*u); P.lineTo(2.5*u,-15.5*u); return {fill:F,stroke:P,evenodd:true}; },
+  eau(u){ const P=new Path2D(); for(const y of [-3,-8,-13]){ P.moveTo(-8*u,y*u); P.quadraticCurveTo(-5.5*u,(y-3.2)*u,-3*u,y*u); P.quadraticCurveTo(-0.5*u,(y+3.2)*u,2*u,y*u); P.quadraticCurveTo(4.5*u,(y-3.2)*u,7*u,y*u); } return {stroke:P}; },
+  parc(u){ const F=new Path2D(); F.arc(0,-10*u,5.2*u,0,Math.PI*2); F.moveTo(1.2*u,-4.8*u); F.lineTo(1.2*u,0); F.lineTo(-1.2*u,0); F.lineTo(-1.2*u,-4.8*u); F.closePath(); return {fill:F}; },
+  place(u){ const F=new Path2D(); F.moveTo(0,-15*u); F.lineTo(7.5*u,-7.5*u); F.lineTo(0,0); F.lineTo(-7.5*u,-7.5*u); F.closePath(); F.moveTo(2.4*u,-7.5*u); F.arc(0,-7.5*u,2.4*u,0,Math.PI*2,true); return {fill:F,evenodd:true}; },
+  scene(u){ const F=new Path2D(); F.rect(-8*u,-15*u,16*u,2.2*u); F.moveTo(-7*u,-12.8*u); F.lineTo(-1.2*u,-12.8*u); F.quadraticCurveTo(-3.4*u,-6*u,-1*u,0); F.lineTo(-7*u,0); F.closePath();
+    F.moveTo(7*u,-12.8*u); F.lineTo(1.2*u,-12.8*u); F.quadraticCurveTo(3.4*u,-6*u,1*u,0); F.lineTo(7*u,0); F.closePath(); return {fill:F}; },
+  pont(u){ const P=new Path2D(); P.moveTo(-8*u,-4*u); P.lineTo(8*u,-4*u); for(const x of [-4.5,4.5]){ P.moveTo(x*u,0); P.lineTo(x*u,-13*u); } P.moveTo(-8*u,-5*u); P.lineTo(-4.5*u,-13*u); P.moveTo(8*u,-5*u); P.lineTo(4.5*u,-13*u);
+    P.moveTo(-4.5*u,-13*u); P.quadraticCurveTo(0,-4.5*u,4.5*u,-13*u); return {stroke:P}; },
+  edifice(u){ const F=new Path2D(); F.rect(-5*u,-13*u,10*u,13*u); for(const y of [-10.5,-6.5,-2.5]) for(const x of [-3.2,0.8]) F.rect(x*u,y*u,2.4*u,2.4*u); return {fill:F,evenodd:true}; },
 };
 // hauteur totale approximative d'une icone (unites de 16) : pour placer l'etiquette au-dessus/dessous
-const GLYPH_H={pylone:17,mat:16,toit:16,chateau_eau:15,antenne:18,tour:20,dome:15,clocher:18,arc:13,colonne:18,chateau:14,musee:14.5};
+const GLYPH_H={pylone:17,mat:16,toit:16,chateau_eau:15,antenne:18,tour:20,dome:15,clocher:18,arc:13,colonne:18,chateau:14,musee:14.5,stade:15,gare:15.5,eau:16,parc:15,place:15,scene:15,pont:13,edifice:13};
 // ---------- silhouettes de monuments a leur taille reelle (07/10/2026) ----------
 // Un monument dont la hauteur apparente depasse ~26 px est dessine avec SA forme (profil simplifie), de son sol a son
 // sommet, a l'echelle exacte (largeur = rapport largeur/hauteur reel x hauteur a l'ecran). En dessous, l'icone
@@ -1554,19 +1604,60 @@ const has5G=operators=>(operators||[]).some(o=>(o.systems||[]).some(s=>/5G/i.tes
 let monumentSites=[], monAt=null, monBusy=false, monErrAt=null, monErrDelay=30000, monMsg='', monStats={};
 let monTrim=0;
 const MON_MIN_LINKS=40, MON_LOW_LINKS=3, MON_KEEP=150, MON_MIN_ANG=0.12, MON_STAR_LINKS=80, MON_MAX_SHOWN=40; // MAX_SHOWN : les plus celebres seulement, le reste en transparence
-const MON_DEF_H={tour:60,dome:40,clocher:45,arc:25,colonne:25,chateau:20,musee:18};
-const monRadius=()=>Math.min(30,Math.max(15,S.radius)); // 30 km max : au-dela la requete Wikidata depasse le delai autour de Paris
-// type d'icone a partir des classes Wikidata (ex. "tour|tour d'observation|monument") et du nom
+const MON_DEF_H={tour:60,dome:40,clocher:45,arc:25,colonne:25,chateau:20,musee:18,stade:25,gare:10,eau:0,parc:0,place:0,scene:18,pont:8,edifice:18};
+// equipements urbains (stade, gare, canal, parc, place, theatre, pont, hopital...) : meme moteur que les monuments (cat:'equip'),
+// icone seule (pas de silhouette), couleur bleue, calque propre ; visibles de pres (portee par type) et en nombre limite
+const EQUIP_MAX_SHOWN=25, EQUIP_MAX_KM=6, EQUIP_KEEP=300, EQUIP_RADIUS_KM=12, EQUIP_MAXD={stade:8,pont:8,edifice:5,gare:5,scene:5,eau:6,parc:5,place:4};
+const _clMemo=new WeakMap(); // classement memorise par ligne Wikidata (les lignes ne changent pas pendant la session)
+// <<WDCLASS (bloc partage avec debug-trafic.html : meme texte dans les deux fichiers, verifie par un test)
+// TRI des lieux Wikidata (08/10/2026). Le relais (/wdtile) renvoie TOUT lieu geolocalise d'une tuile avec ses classes
+// (P31, libelles fr/en) ; c'est ici qu'on decide ce que c'est :
+//   monument  = patrimoine bati (eglise, chateau, musee, tour, statue...) ou protege "monument historique"
+//   equip     = lieu de vie reperable sur l'horizon (stade, gare/metro, canal, parc, place, theatre, pont, hopital...)
+//   null      = ecarte (commune, quartier, ile, evenement, societe, oeuvre...) ou non reconnu
+// Ordre : protege (monument historique) > ecarte (commune, evenement...) > monument typique > equipement > monument generique
+// ("batiment", des 8 langues) > inconnu tres celebre. Un lieu PROTEGE est toujours un monument (ex. Mont-Saint-Michel, aussi "commune").
+const _W=src=>new RegExp("(?:^|[^a-zà-ÿ])(?:"+src+")s?(?![a-zà-ÿ])","i");
+const WD_MONS=_W("[ée]glise|church|chapelle|chapel|cath[ée]drale|cathedral|basilique|basilica|abbaye|abbey|monast[èe]re|monastery|couvent|convent|prieur[ée]|priory|clo[îi]tre|cloister|temple|mosqu[ée]e|mosque|synagogue|pagode|sanctuaire|shrine|calvaire|croix|oratoire|baptist[èe]re|ch[âa]teau|castle|palais|palace|forteresse|fortress|citadelle|citadel|fort|manoir|manor|h[ôo]tel particulier|h[ôo]tel de ville|town hall|mairie|maison forte|maison natale|maison-musée|historic house|country house|villa|donjon|rempart|fortification|enceinte|porte de ville|city gate|tour|tower|beffroi|belfry|clocher|phare|lighthouse|moulin|windmill|watermill|mus[ée]e|museum|monument|m[ée]morial|memorial|statue|sculpture|fontaine|fountain|ob[ée]lisque|obelisk|colonne|column|arc de triomphe|triumphal arch|mausol[ée]e|mausoleum|panth[ée]on|pantheon|gratte-ciel|skyscraper|ruines?|ruins?|vestiges?|site arch[ée]ologique|archaeological site|m[ée]galithe|menhir|dolmen|tumulus|amphith[ée][âa]tre|amphitheat(?:er|re)|ar[èe]nes|th[ée][âa]tre antique|colombier|pigeonnier|lavoir|ch[âa]teau d['’]eau|water tower|place forte|hôtel-dieu|ensemble architectural|palais de justice historique");
+// equipements, du plus specifique au plus general : [expression, icone, nb de langues minimum]
+const WD_EQUIP=[
+  [_W("stade|stadium|arena|aréna|hippodrome|v[ée]lodrome|circuit|palais des sports|salle omnisports|patinoire|ice rink|piscine|swimming pool|complexe sportif|sports? (?:complex|cent(?:er|re)|venue|facility)|gymnase|golf|skatepark|parc des expositions|parc d['’]attractions|amusement park|theme park"),'stade',1],
+  [_W("station de (?:m[ée]tro|tramway|tram|bus|rer|train|chemin de fer)|m[ée]tro station|metro station|subway station|rapid transit station|railway station|train station|gare|tram(?:way)? stop|halte|terminus|pôle d['’][ée]changes|a[ée]roport|airport|a[ée]rodrome|h[ée]liport|heliport|port|harbou?r|marina|ferry terminal|bus station|funiculaire|t[ée]l[ée]ph[ée]rique|cable car"),'gare',1],
+  [_W("canal|canaux|fleuve|rivi[èe]re|river|stream|ruisseau|lac|lake|[ée]tang|pond|cours d['’]eau|watercourse|waterway|voie navigable|bassin|basin|barrage|dam|[ée]cluse|lock|plan d['’]eau|r[ée]servoir|reservoir|chute d['’]eau|waterfall|cascade|plage|beach|baie|bay|estuaire|estuary|lagune|lagoon|marais|marsh|wetland"),'eau',1],
+  [_W("place|plaza|public square|town square|square|piazza|platz|rue|street|avenue|boulevard|mail|carrefour|rond-point|roundabout|esplanade|promenade|parvis"),'place',1],
+  [_W("parc|park|jardin|garden|bois|woodland|for[êe]t|forest|r[ée]serve naturelle|nature reserve|zoo|aquarium|arboretum|cimeti[èe]re|cemetery|coul[ée]e verte|espace vert|green space|pelouse|prairie|meadow|verger|orchard|vignoble|vineyard"),'parc',1],
+  [_W("th[ée][âa]tre|theat(?:er|re)|op[ée]ra|cin[ée]ma|movie theat(?:er|re)|salle de (?:concert|spectacle|cin[ée]ma)|concert hall|auditorium|centre culturel|cultural cent(?:er|re)|maison de la culture|biblioth[èe]que|library|m[ée]diath[èe]que|salle des f[êe]tes|casino|cirque|circus|salle de musiques? actuelles?|music venue"),'scene',1],
+  [_W("pont|bridge|viaduc|viaduct|passerelle|footbridge|aqueduc|aqueduct"),'pont',1],
+  [_W("h[ôo]pital|hospital|clinique|clinic|centre hospitalier|universit[ée]|university|[ée]cole sup[ée]rieure|grande [ée]cole|facult[ée]|campus|lyc[ée]e|coll[èe]ge|[ée]cole|school|centre commercial|shopping (?:cent(?:er|re)|mall)|mall|march[ée]|market|halles?|h[ôo]tel|hotel|prison|jail|caserne|barracks|pr[ée]fecture|tribunal|palais de justice|courthouse|parlement|parliament|assembl[ée]e|minist[èe]re|ministry|bureau de poste|post office|centrale [ée]lectrique|power station|station d['’][ée]puration|raffinerie|refinery"),'edifice',5],
+];
+const WD_EXCL=_W("communes?(?: nouvelle| déléguée| associée)?|ville|cit(?:y|é)|town|village|municipality|municipalité|human settlement|établissement humain|hameau|hamlet|localité|lieu-dit|quartier|neighbou?rhood|arrondissement|canton|d[ée]partement|r[ée]gion|province|pays|country|territoire|territory|[îi]le|island|[îi]lot|archipel|presqu['’][îi]le|péninsule|peninsula|cap|mont(?:agne)?|mountain|colline|hill|sommet|summit|vall[ée]e|valley|massif|district|circonscription|intercommunalité|communauté (?:de communes|d['’]agglomération|urbaine)|agglomération|métropole|aire urbaine|unité urbaine|bassin versant|watershed|zone d['’]activit[ée]|festival|[ée]v[ée]nement|event|salon|exposition|foire|compétition|championnat|tournoi|bataille|battle|course|race|[ée]preuve|rallye|rally|marathon|tour cycliste|attentat|accident|[ée]lection|guerre|war|club|[ée]quipe|team|entreprise|company|société|business|parti|syndicat|usine|factory|plant|manufacture|marque|brand|fonction|position|[œo]uvre|film|album|livre|book|roman|série|émission|chanson|song|personnage|character|esp[èe]ce|species|taxon|langue|language|religion|famille|family|dynastie|groupe|band|projet|project|programme|loi|law|trait[ée]|treaty|prix|award|ligne|line|route|road|itin[ée]raire|sentier|trail|toponyme|nom de famille|surname|prénom|given name|page d['’]homonymie");
+const WD_GENERIC=_W("b[âa]timent|building|[ée]difice|structure|architectural structure|ouvrage|construction|attraction touristique|tourist attraction|lieu de m[ée]moire|site historique|historic site|lieu historique|patrimoine|heritage|site class[ée]|landmark|point of interest");
+const WD_GENERIC_MIN=8; // simple "batiment" : retenu des 8 langues
+const WD_UNKNOWN_STAR=20; // classe inconnue : gardee comme equipement generique si tres connue (>= 20 langues)
 function monTypeFrom(types,name){
   const t=(String(types||'')+' '+String(name||'')).toLowerCase();
   if(/\barc\b|triumphal|porte de ville|city gate/.test(t)) return 'arc';
-  if(/ob[ée]lisque|obelisk|colonne|column/.test(t)) return 'colonne';
+  if(/ob[ée]lisque|obelisk|colonne|column|statue/.test(t)) return 'colonne';
   if(/basilique|basilica|cath[ée]drale|cathedral|d[ôo]me|\bdome\b|mosqu[ée]e|mosque|synagogue|pantheon|panthéon|mausol[ée]e/.test(t)) return 'dome';
-  if(/[ée]glise|church|chapelle|chapel|clocher|abbaye|abbey|monast[èe]re|monastery/.test(t)) return 'clocher';
+  if(/[ée]glise|church|chapelle|chapel|clocher|abbaye|abbey|monast[èe]re|monastery|couvent|convent|prieur[ée]|priory|clo[îi]tre|cloister/.test(t)) return 'clocher';
   if(/ch[âa]teau|castle|palais|palace|forteresse|fortress|citadelle|citadel|manoir|\bfort\b/.test(t)) return 'chateau';
   if(/\btour\b|tower|gratte-ciel|skyscraper|beffroi|belfry|phare|lighthouse|pyl[ôo]ne/.test(t)) return 'tour';
   return 'musee';
 }
+// m = {types:"classe|classe", name, links, prot} -> {cat:'monument'|'equip'|null, type, minLinks?, why}
+function wdClassify(m){
+  const t=String(m.types||'').toLowerCase(), links=m.links||0;
+  if(m.prot) return {cat:'monument',type:monTypeFrom(t,m.name),why:'protégé (monument historique)'};
+  if(WD_EXCL.test(t)) return {cat:null,why:'écarté (commune, quartier, événement, société, œuvre…)'};
+  if(WD_MONS.test(t)) return {cat:'monument',type:monTypeFrom(t,m.name),why:'monument typique'};
+  for(const [re,icon,min] of WD_EQUIP) if(re.test(t)) return {cat:'equip',type:icon,minLinks:min,why:'équipement : '+icon};
+  if(WD_GENERIC.test(t)) return {cat:'monument',type:monTypeFrom(t,m.name),minLinks:WD_GENERIC_MIN,why:'bâtiment / site patrimonial'};
+  if(links>=WD_UNKNOWN_STAR) return {cat:'equip',type:'edifice',minLinks:WD_UNKNOWN_STAR,why:'classe inconnue mais très connu'};
+  return {cat:null,why:t?'classe non reconnue':'sans classe'};
+}
+// WDCLASS>>
+
+const monRadius=()=>Math.min(30,Math.max(15,S.radius)); // 30 km max : au-dela la requete Wikidata depasse le delai autour de Paris
 // requete Wikidata (meme texte que le relais : voir sparqlMonuments() dans relais-worker.js)
 function sparqlMon(lat,lon,radiusKm,minLinks,full){
   const cls=full?'VALUES ?root { wd:Q811979 wd:Q33506 wd:Q4989906 wd:Q570116 } ?i wdt:P31 ?t . ?t wdt:P279* ?root .'
@@ -1610,25 +1701,34 @@ function monCacheWrite(list){ try{
   const all=monCacheRead().filter(z=>distBrg(z,pos).dist>3); all.unshift({lat:pos.lat,lon:pos.lon,t:Date.now(),list});
   localStorage.setItem(MON_KEY,JSON.stringify(all.slice(0,6))); }catch(e){} }
 function monCacheNear(){ const z=monCacheRead().find(z=>distBrg(z,pos).dist<10); return z||null; }
-// REGLE (08/10/2026, retour de Rennes : 0 monument avec "40 langues") : un lieu est retenu s'il est PROTEGE comme
-// monument historique (prot, quel que soit son nombre de langues) ou s'il a au moins minLinks langues (3 en
-// proche, 80 au-dela de 15 km, voir monFetchTile). S'il y en a trop (> MON_KEEP, une grande ville), on releve le
-// seuil de langues jusqu'a n'en garder que les MON_KEEP plus connus : Paris reste lisible, Rennes garde tout.
+// REGLE (08/10/2026) : chaque lieu Wikidata est TRIE par wdClassify() (bloc partage plus haut) :
+//  - monument : patrimoine bati, ou protege "monument historique" (quel que soit le nombre de langues), ou >= minLinks langues ;
+//  - equip : stade, gare/metro, canal, parc, place, theatre, pont, hopital... (des 1 langue, 5 pour hopitaux/universites/ecoles) ;
+//  - ecarte : communes, quartiers, iles, evenements, societes, oeuvres... et ce qu'on ne reconnait pas (liste visible dans le diagnostic).
+// S'il y a trop de monuments (> MON_KEEP, une grande ville), on releve le seuil de langues : Paris reste lisible, Rennes garde tout.
+let monExcl=[];
 function applyMonuments(list,how,errs,fromCache,R,minLinks){
-  let kept=[];
+  let mons=[], eqs=[], nExcl=0; const excl=[];
   for(const m of list){
-    if(!m||!isFinite(m.lat)||!isFinite(m.lon)||(!m.prot&&(m.links||0)<minLinks)) continue;
-    const type=monTypeFrom(m.types,m.name);
-    kept.push({name:m.name,lat:m.lat,lon:m.lon,kind:'monument',qid:m.qid,type,links:m.links,prot:!!m.prot,htWd:m.ht,htOsm:null,ht:m.ht||MON_DEF_H[type]||20,types:m.types});
+    if(!m||!isFinite(m.lat)||!isFinite(m.lon)) continue;
+    let cl=_clMemo.get(m); if(!cl){ cl=wdClassify(m); _clMemo.set(m,cl); }
+    const links=m.links||0;
+    if(!cl.cat){ nExcl++; if(excl.length<600) excl.push({name:m.name,links,types:m.types||'',why:cl.why}); continue; }
+    if(cl.cat==='monument'){ if(!m.prot&&links<Math.max(minLinks,cl.minLinks||0)) continue; }
+    else{ if(links<Math.max(cl.minLinks||1,minLinks>MON_LOW_LINKS?minLinks:1)) continue; if(pos&&distBrg(pos,m).dist>EQUIP_RADIUS_KM) continue; }
+    const type=cl.type, ht=m.ht||(MON_DEF_H[type]!=null?MON_DEF_H[type]:20);
+    (cl.cat==='equip'?eqs:mons).push({name:m.name,lat:m.lat,lon:m.lon,kind:'monument',cat:cl.cat,qid:m.qid,type,links,prot:!!m.prot,htWd:m.ht,htOsm:null,ht,types:m.types,why:cl.why});
   }
   let trim=0;
-  if(kept.length>MON_KEEP){ kept.sort((x,y)=>(y.links||0)-(x.links||0)||(x.qid<y.qid?-1:1)); kept=kept.slice(0,MON_KEEP); trim=kept[kept.length-1].links||0; } // les MON_KEEP plus connus ; trim = seuil de langues effectif
-  monTrim=trim;
+  if(mons.length>MON_KEEP){ mons.sort((x,y)=>(y.links||0)-(x.links||0)||(x.qid<y.qid?-1:1)); mons=mons.slice(0,MON_KEEP); trim=mons[mons.length-1].links||0; } // les MON_KEEP plus connus ; trim = seuil de langues effectif
+  if(eqs.length>EQUIP_KEEP){ eqs.sort((x,y)=>(y.links||0)-(x.links||0)); eqs=eqs.slice(0,EQUIP_KEEP); }
+  const kept=mons.concat(eqs), nProt=mons.filter(m=>m.prot).length;
+  monTrim=trim; monExcl=excl.sort((x,y)=>y.links-x.links);
   monumentSites=kept; monAt={...pos}; monErrAt=fromCache?Date.now():null; monErrDelay=fromCache?Math.min(Math.round(monErrDelay*1.5),300000):30000;
-  monStats={n:kept.length,how,prot:kept.filter(m=>m.prot).length,trim};
-  monMsg=`${kept.length} monument(s)${kept.some(m=>m.prot)?` dont ${kept.filter(m=>m.prot).length} historique(s)`:''} · ${how}${trim?` · seuil releve a ${trim} langues`:''}`+(errs.length&&!fromCache?` (repli après : ${errs.join(' ; ')})`:'')+(fromCache?` · sources injoignables : ${errs.join(' ; ')}`:'');
+  monStats={n:kept.length,nMon:mons.length,nEq:eqs.length,nExcl,how,prot:nProt,trim};
+  monMsg=`${mons.length} monument(s)${nProt?` dont ${nProt} historique(s)`:''}${eqs.length?` · ${eqs.length} équipement(s)`:''} · ${how}${trim?` · seuil relevé à ${trim} langues`:''}`+(errs.length&&!fromCache?` (repli après : ${errs.join(' ; ')})`:'')+(fromCache?` · sources injoignables : ${errs.join(' ; ')}`:'');
   citiesVer++; recompute(); markBuildingDupes();
-  logNet('Monuments',!fromCache&&!errs.length,`${kept.length} emblematique(s) (${kept.filter(m=>m.prot).length} monument(s) historique(s)) via ${how}, rayon ${R} km, regle : protege OU >= ${minLinks} langues`+(trim?`, trop de lieux -> seuil releve a ${trim} langues`:'')+(errs.length?` · ${errs.join(' ; ')}`:''));
+  logNet('Monuments',!fromCache&&!errs.length,`${mons.length} monument(s) dont ${nProt} historique(s), ${eqs.length} equipement(s), ${nExcl} ecarte(s) via ${how}, rayon ${R} km, regle : protege OU >= ${minLinks} langues`+(trim?`, trop de lieux -> seuil releve a ${trim} langues`:'')+(errs.length?` · ${errs.join(' ; ')}`:''));
 }
 // MODE TUILES (retour du 29/09/2026 : "le mode tuile est une bonne idee") : la zone est decoupee en tuiles de
 // 0,2° (~22 x 15 km) demandees separement au relais, de la plus proche a la plus lointaine, 3 a la fois. Chaque
@@ -1660,8 +1760,34 @@ async function monFetchTile(t){
   if(!Array.isArray(j.monuments)) throw new Error('reponse du relais inattendue');
   return {list:j.monuments,cache:j.cache||''};
 }
-function monMerged(R){ // union dedoublonnee des tuiles chargees
+// TUILES WIKIDATA (refonte du 08/10/2026) : dans les 15 km, le relais (/wdtile) renvoie pour chaque tuile de 0,1° (~7 x 11 km)
+// TOUT lieu geolocalise ayant un article Wikipedia, avec ses classes ; le tri monument / equipement / ecarte se fait ICI
+// (wdClassify), sur des donnees brutes gardees 30 jours sur l'appareil (Cache API) : changer une regle ne recharge rien.
+// Au-dela de 15 km, anciennes tuiles de 0,2° ("tres celebres" seulement). Relais pas encore mis a jour -> ancien mode.
+const WD_TILE=0.1, WD_TTL=30*86400000;
+const wdTiles=new Map(); let wdLegacy=false, wdStats={};
+function wdTilesNear(Rn){
+  const kmLat=111.19, kmLon=111.19*Math.cos(pos.lat*D), out=[];
+  const di=Math.ceil(Rn/(WD_TILE*kmLat))+1, dj=Math.ceil(Rn/(WD_TILE*Math.max(0.2,kmLon)))+1;
+  const i0=Math.floor(pos.lat/WD_TILE), j0=Math.floor(pos.lon/WD_TILE);
+  for(let i=i0-di;i<=i0+di;i++) for(let j=j0-dj;j<=j0+dj;j++){
+    const s=i*WD_TILE, w=j*WD_TILE;
+    const d=distBrg(pos,{lat:Math.min(s+WD_TILE,Math.max(s,pos.lat)),lon:Math.min(w+WD_TILE,Math.max(w,pos.lon))}).dist; // distance au point le plus proche de la tuile
+    if(d<=Rn) out.push({key:i+','+j,lat:s+WD_TILE/2,lon:w+WD_TILE/2,d});
+  }
+  return out.sort((x,y)=>x.d-y.d);
+}
+async function wdFetchTile(t){
+  const r=await fetchT(`${relayBase()}/wdtile?lat=${t.lat.toFixed(3)}&lon=${t.lon.toFixed(3)}&min_links=1`,{},95000);
+  let j={}; try{ j=await r.json(); }catch(e){}
+  if(!r.ok||j.wdOk===false||j.wdOk===undefined){ const e=new Error(j.error||('HTTP '+r.status)); e.status=r.status; e.noRoute=(j.wdOk===undefined&&r.status>=400&&r.status<500); throw e; }
+  if(!Array.isArray(j.rows)) throw new Error('reponse du relais inattendue');
+  dcPut('wd/'+t.key,JSON.stringify({rows:j.rows,minLinksUsed:j.minLinksUsed,truncated:!!j.truncated}),'application/json').then(()=>dcPrune('wd/',250));
+  return {rows:j.rows,cache:j.cache||'',used:j.minLinksUsed||1,truncated:!!j.truncated};
+}
+function monMerged(R){ // union dedoublonnee des tuiles chargees (les tuiles Wikidata d'abord : donnees les plus completes)
   const seen=new Set(), out=[];
+  for(const l of wdTiles.values()) for(const m of l){ if(!m||seen.has(m.qid)) continue; seen.add(m.qid); out.push(m); }
   for(const l of monTiles.values()) for(const m of l){ if(!m||seen.has(m.qid)) continue; seen.add(m.qid); out.push(m); }
   return out;
 }
@@ -1675,26 +1801,46 @@ async function loadMonuments(force){
   // garde-fou : quoi qu'il arrive (exception, reponse qui ne vient jamais), l'etat "recherche" est leve
   const dog=setTimeout(()=>{ if(monBusy){ monBusy=false; monErrAt=Date.now(); monMsg='delai global depasse (150 s)'; logNet('Monuments',false,monMsg); } },150000);
   try{
-    if(force) monTiles.clear();
-    let got=null, tilesOk=0, tilesKo=0, fromStore=0, edge=0, nTiles=0, stop=false;
+    if(force){ monTiles.clear(); wdTiles.clear(); }
+    let got=null, tilesOk=0, tilesKo=0, fromStore=0, edge=0, nTiles=0, stop=false, truncated=0, raised=0;
     if(relayBase()){
-      const tiles=monTilesAround(R); nTiles=tiles.length;
+      const jobs=[];
+      if(!wdLegacy) for(const t of wdTilesNear(Math.min(MON_NEAR_KM,R))) jobs.push({k:'wd',t});
+      for(const t of monTilesAround(R)) if(wdLegacy||t.d>MON_NEAR_KM) jobs.push({k:'old',t});
+      nTiles=jobs.length;
       const store=monTileStoreRead(), todo=[];
-      for(const t of tiles){
-        if(monTiles.has(t.key)){ tilesOk++; continue; }
-        const z=!force&&store[t.key]; if(z&&Date.now()-z.t<MON_TILE_TTL){ monTiles.set(t.key,z.list); tilesOk++; fromStore++; continue; }
-        todo.push(t);
+      for(const j of jobs){
+        const t=j.t;
+        if(j.k==='wd'){
+          if(wdTiles.has(t.key)){ tilesOk++; continue; }
+          const z=!force&&await dcGet('wd/'+t.key,WD_TTL);
+          if(z){ try{ const e=await z.r.json(); if(e&&Array.isArray(e.rows)){ wdTiles.set(t.key,e.rows); tilesOk++; fromStore++; if(e.truncated) truncated++; if(e.minLinksUsed>1) raised++; continue; } }catch(x){} }
+        } else {
+          if(monTiles.has(t.key)){ tilesOk++; continue; }
+          const z=!force&&store[t.key]; if(z&&Date.now()-z.t<MON_TILE_TTL){ monTiles.set(t.key,z.list); tilesOk++; fromStore++; continue; }
+        }
+        todo.push(j);
       }
       if(tilesOk) applyMonuments(monMerged(R),'tuiles',[],false,R,MON_LOW_LINKS);
-      let lastApply=Date.now(), done=0; monMsg=`tuiles : ${tilesOk}/${nTiles}…`;
-      const worker=async()=>{ while(!stop&&todo.length){ const t=todo.shift();
-        try{ const r=await monFetchTile(t); monTiles.set(t.key,r.list); monTileStoreWrite(t.key,r.list); tilesOk++; if(r.cache) edge++; }
-        catch(e){ tilesKo++; errs.push(`tuile ${t.key} : ${friendlyErr(e)}`); if((e&&e.status===429)||(!tilesOk&&tilesKo>=3)) stop=true; } // relais manifestement en panne : on n'insiste pas
-        done++; monMsg=`tuiles : ${tilesOk}/${nTiles}${tilesKo?` (${tilesKo} en echec)`:''}…`;
+      let lastApply=Date.now(); monMsg=`tuiles : ${tilesOk}/${nTiles}…`;
+      const worker=async()=>{ while(!stop&&todo.length){ const j=todo.shift(), t=j.t;
+        try{
+          if(j.k==='wd'){ const r=await wdFetchTile(t); wdTiles.set(t.key,r.rows); if(r.truncated) truncated++; if(r.used>1) raised++; if(r.cache) edge++; }
+          else{ const r=await monFetchTile(t); monTiles.set(t.key,r.list); monTileStoreWrite(t.key,r.list); if(r.cache) edge++; }
+          tilesOk++;
+        }catch(e){
+          if(j.k==='wd'&&e&&e.noRoute){ // relais pas encore mis a jour : on retombe sur l'ancienne route pour la zone proche
+            if(!wdLegacy){ wdLegacy=true; errs.push('relais sans /wdtile : ancien mode (mettre le relais a jour)');
+              for(let i=todo.length-1;i>=0;i--) if(todo[i].k==='wd'){ todo.splice(i,1); nTiles--; }
+              for(const o of monTilesAround(R)) if(o.d<=MON_NEAR_KM&&!monTiles.has(o.key)){ todo.unshift({k:'old',t:o}); nTiles++; } }
+            nTiles--; continue; } // (les requetes /wdtile deja parties en parallele echouent de la meme facon : on ne les compte pas)
+          tilesKo++; errs.push(`tuile ${t.key} : ${friendlyErr(e)}`); if((e&&e.status===429)||(!tilesOk&&tilesKo>=3)) stop=true; } // relais manifestement en panne : on n'insiste pas
+        monMsg=`tuiles : ${tilesOk}/${nTiles}${tilesKo?` (${tilesKo} en echec)`:''}…`;
         if(Date.now()-lastApply>1500){ lastApply=Date.now(); applyMonuments(monMerged(R),'tuiles',[],false,R,MON_LOW_LINKS); monMsg=`tuiles : ${tilesOk}/${nTiles}…`; } } };
       await Promise.all([worker(),worker(),worker()]);
+      wdStats={tiles:nTiles,ok:tilesOk,ko:tilesKo,store:fromStore,edge,truncated,raised,legacy:wdLegacy};
       if(tilesOk){ // au moins une tuile : on affiche ce qu'on a
-        const how=`relais, ${tilesOk}/${nTiles} tuile(s)${fromStore?` dont ${fromStore} en memoire`:''}${edge?`, ${edge} en cache relais`:''}`;
+        const how=`relais, ${tilesOk}/${nTiles} tuile(s)${fromStore?` dont ${fromStore} en memoire`:''}${edge?`, ${edge} en cache relais`:''}${truncated?`, ${truncated} tuile(s) tres dense(s)`:''}${raised?`, seuil de langues releve sur ${raised}`:''}${wdLegacy?', ancien mode':''}`;
         applyMonuments(monMerged(R),how,errs.slice(0,3),false,R,MON_LOW_LINKS);
         if(tilesKo){ monAt=null; monErrAt=Date.now(); monErrDelay=Math.min(Math.round(monErrDelay*1.5),300000);
           monMsg+=` — ${tilesKo} tuile(s) en echec, nouvel essai automatique`; logNet('Monuments',false,monMsg+' · '+errs.slice(0,3).join(' ; ')); }
@@ -1719,7 +1865,7 @@ async function loadMonuments(force){
 }
 // un repere haut OSM qui EST un monument (Tour Eiffel, Montparnasse...) n'est dessine qu'une fois
 function markBuildingDupes(){
-  for(const b of buildingSites) b.dupMon=monumentSites.some(m=>Math.abs(m.lat-b.lat)<0.003&&Math.abs(m.lon-b.lon)<0.004&&distBrg(m,b).dist<0.25);
+  for(const b of buildingSites) b.dupMon=monumentSites.some(m=>m.cat!=='equip'&&Math.abs(m.lat-b.lat)<0.003&&Math.abs(m.lon-b.lon)<0.004&&distBrg(m,b).dist<0.25);
 }
 
 // ---------- silhouette des batiments (calque "Silhouette", 06/10/2026) ----------
@@ -1767,10 +1913,19 @@ async function urbFetchTile(t){
   const direct=URB_TPL.replace('{z}',t.z).replace('{x}',t.x).replace('{y}',t.y);
   const viaRelay=()=>`${relayBase()}/bdtopo?z=${t.z}&x=${t.x}&y=${t.y}`;
   const get=async u=>{ const r=await fetchT(u,{},15000); if(r.status===404) return new Uint8Array(0); if(!r.ok) throw new Error('HTTP '+r.status); return new Uint8Array(await r.arrayBuffer()); };
-  if(urbRelay&&relayBase()) return get(viaRelay());
-  try{ return await get(direct); }
-  catch(e){ if(!relayBase()) throw e; const b=await get(viaRelay()); urbRelay=true; return b; } // direct refuse : on bascule le reste de la session
+  // memoire durable de l'appareil (30 jours) : les batiments changent a peine, ~12 Mo evites a chaque demarrage ; "Recharger" la contourne
+  const dk='bd/'+t.key;
+  if(!urbBypass){ const z=await dcGet(dk,URB_DC_TTL); if(z){ try{ const b=new Uint8Array(await z.r.arrayBuffer()); urbStats.fromDC=(urbStats.fromDC||0)+1; return b; }catch(e){} } }
+  const net=async()=>{
+    if(urbRelay&&relayBase()) return get(viaRelay());
+    try{ return await get(direct); }
+    catch(e){ if(!relayBase()) throw e; const b=await get(viaRelay()); urbRelay=true; return b; } // direct refuse : on bascule le reste de la session
+  };
+  const b=await net();
+  dcPut(dk,b).then(ok=>{ if(ok&&(++urbPuts%25)===0) dcPrune('bd/',400); });
+  return b;
 }
+const URB_DC_TTL=30*86400000; let urbBypass=false, urbPuts=0;
 function urbTilesAround(R){
   const dLat=R/111, dLon=R/(111*Math.max(0.2,Math.cos(pos.lat*D)));
   const tl=tileRangeForBBox({la1:pos.lat-dLat,la2:pos.lat+dLat,lo1:pos.lon-dLon,lo2:pos.lon+dLon},URB_Z);
@@ -1844,7 +1999,7 @@ async function loadUrban(force){
   const moved=urbAt?distBrg(pos,urbAt).dist*1000:1e9;
   if(!force&&urbAt&&moved<40&&urbTiles.size) return; // deja calcule ici
   if(!force&&urbErrAt&&Date.now()-urbErrAt<urbErrDelay) return;
-  urbBusy=true; urbMsg='recherche…'; const t0=Date.now(), errs=[];
+  urbBusy=true; urbMsg='recherche…'; const t0=Date.now(), errs=[]; urbBypass=!!force; urbStats.fromDC=0;
   const dog=setTimeout(()=>{ if(urbBusy){ urbBusy=false; urbErrAt=Date.now(); urbMsg='delai global depasse (120 s)'; logNet('Silhouette',false,urbMsg); } },120000);
   try{
     const tiles=urbTilesAround(URB_R_KM), todo=tiles.filter(t=>!urbTiles.has(t.key));
@@ -1864,7 +2019,7 @@ async function loadUrban(force){
     let nB=0,nH=0; for(const T of urbTiles.values()){ nB+=T.n; nH+=T.nH; }
     urbStats={...urbStats,tiles:ok,total:tiles.length,n:nB,nH,kb:Math.round(bytes/1024),mode:urbRelay?'relais':'direct'};
     if(nB===0) urbMsg=`aucun batiment dans les tuiles (couches vues : ${urbLayersSeen||'aucune'})`;
-    else urbMsg=`${nB} batiment(s), ${Math.round(100*nH/Math.max(1,nB))} % avec hauteur · ${ok}/${tiles.length} tuile(s) · ${urbRelay?'relais':'direct IGN'}`+(ko?` · ${ko} en echec`:'');
+    else urbMsg=`${nB} batiment(s), ${Math.round(100*nH/Math.max(1,nB))} % avec hauteur · ${ok}/${tiles.length} tuile(s) · ${urbRelay?'relais':'direct IGN'}`+(urbStats.fromDC?` · ${urbStats.fromDC} en mémoire de l'appareil`:'')+(ko?` · ${ko} en echec`:'');
     if(ko){ urbErrAt=Date.now(); urbErrDelay=Math.min(Math.round(urbErrDelay*1.5),300000); urbAt=null; urbMsg+=' — nouvel essai automatique'; } else { urbErrAt=null; urbErrDelay=30000; }
     logNet('Silhouette',!ko&&nB>0,urbMsg+` · ${urbStats.kb} Ko en ${Math.round((Date.now()-t0)/100)/10} s`+(errs.length?' · '+errs.slice(0,3).join(' ; '):''));
   }catch(e){ urbErrAt=Date.now(); urbErrDelay=Math.min(Math.round(urbErrDelay*1.5),300000); urbMsg='erreur interne : '+friendlyErr(e); logNet('Silhouette',false,urbMsg); }
@@ -2007,23 +2162,29 @@ let citiesVer=0, _visCache=[], _visVer=-1, _visRad=null;
 // voir (bouton oeil) comme les lieux caches par le relief — un seul mecanisme, pilote par l'oeil
 // (retour du 28/09/2026). Seul le rayon regle reste une exclusion franche ("ce qui m'interesse").
 let visStats={total:0,outRadius:0,tooFarForKind:0,farList:[],dup:0,kept:0};
+// notoriete d'un monument ; pour un equipement, ramenee a la proximite (un metro tout proche passe avant un stade lointain)
+const monScore=c=>c.cat==='equip'?(c.links||1)/(1+(c.dist||0)/2):(c.links||0);
 function visibleCities(){
   if(_visVer===citiesVer&&_visRad===S.radius) return _visCache;
   let outRadius=0, tooFarForKind=0; const farList=[];
-  const src=S.layers.monuments&&monumentSites.length?monumentSites.concat(cities):cities;
+  const eqOn=S.layers.equip!==false, msites=S.layers.monuments?monumentSites.filter(c=>c.cat!=='equip'||eqOn):[];
+  const src=msites.length?msites.concat(cities):cities;
   _visCache=src.filter(c=>{
     if(c.dist==null||c.dist>S.radius){ outRadius++; return false; }
-    if(c.kind==='monument'){ // visible d'ici si sa hauteur apparente depasse ~0,12° (ou s'il est tres celebre)
+    if(c.kind==='monument'&&c.cat==='equip'){ // equipement urbain : visible de pres seulement (portee selon le type), icone au sol
+      c.angH=Math.atan((c.ht||0)/Math.max(50,c.dist*1000))/D;
+      c.far=c.dist>(EQUIP_MAXD[c.type]||EQUIP_MAX_KM);
+    } else if(c.kind==='monument'){ // visible d'ici si sa hauteur apparente depasse ~0,12° (ou s'il est tres celebre)
       c.angH=Math.atan((c.ht||20)/Math.max(50,c.dist*1000))/D;
       c.far=c.angH<((c.links||0)>=MON_STAR_LINKS?0.05:MON_MIN_ANG); // tres celebre : seuil abaisse, jamais supprime
     } else { const m=MAXD[c.kind]; c.far=m!=null&&c.dist>m; }
     if(c.far){ tooFarForKind++; farList.push(c); }
     return true;
-  }).sort((a,b)=>(RANK[a.kind]??3)-(RANK[b.kind]??3)||(a.kind==='monument'?(b.links||0)-(a.links||0):0)||a.dist-b.dist);
+  }).sort((a,b)=>(RANK[a.kind]??3)-(RANK[b.kind]??3)||(a.kind==='monument'?monScore(b)-monScore(a):0)||a.dist-b.dist);
   // en ville dense on trouve des centaines de monuments : seuls les MON_MAX_SHOWN plus celebres (et visibles
   // d'ici) restent nets, classement par notoriete donc stable quand on tourne ; les autres, en transparence
-  { let n=0; for(const c of _visCache){ if(c.kind!=='monument') continue; c.cap=false;
-      if(!c.far&&++n>MON_MAX_SHOWN){ c.far=true; c.cap=true; tooFarForKind++; farList.push(c); } } }
+  { let n=0, ne=0; for(const c of _visCache){ if(c.kind!=='monument') continue; c.cap=false;
+      if(!c.far&&(c.cat==='equip'?++ne>EQUIP_MAX_SHOWN:++n>MON_MAX_SHOWN)){ c.far=true; c.cap=true; tooFarForKind++; farList.push(c); } } }
   const beforeDup=_visCache.length;
   // OSM decrit parfois un meme lieu par plusieurs objets (ile + sommet, commune + centre...) :
   // on garde le plus significatif (deja trie en tete) et on ecarte les homonymes a moins de 2 km
@@ -2268,9 +2429,9 @@ function draw(ts){
   // angles d'un monument : sol, et sommet reel (sol + hauteur) — partage entre reservation et dessin
   const monAng=c=>{ const hid=useRelief&&c.hidden, aGnd=useRelief&&c.aG!=null?c.aG:0;
     return {aGnd,aA:useRelief&&c.aP!=null?(hid?c.aG:c.aP):aGnd+(c.angH||0)}; };
-  const monGH=c=>(c.links||0)>=MON_STAR_LINKS?22:18;
+  const monGH=c=>c.cat==='equip'?15:(c.links||0)>=MON_STAR_LINKS?22:18;
   // silhouette a taille reelle si le monument est assez grand a l'ecran (sol -> sommet), sinon null (icone)
-  const monSpriteBox=(c,x,yTop)=>{ const {aGnd}=monAng(c), yBase=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-aGnd)*D)));
+  const monSpriteBox=(c,x,yTop)=>{ if(c.cat==='equip') return null; const {aGnd}=monAng(c), yBase=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-aGnd)*D)));
     const Hpx=yBase-yTop; if(!(Hpx>=SPRITE_MIN_PX)||Hpx>3*H) return null;
     const key=monSpriteKey(c), w=SPR[key].asp*Hpx; return {key,x0:x-w/2,x1:x+w/2,yTop,yBase,w}; };
   // les icones des monuments sont reservees AVANT tout le reste : aucune etiquette (equipement ou
@@ -2302,9 +2463,9 @@ function draw(ts){
     const ay=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-aA)*D)));
     const poi=!SETTLE.has(c.kind)&&!mon;
     const gH=mon?monGH(c):0; // hauteur de l'icone du monument
-    const size=mon?((c.links||0)>=MON_STAR_LINKS?17:15):c.kind==='city'?18:c.kind==='town'?16:c.kind==='village'?14:poi?13:12;
+    const size=mon?(c.cat==='equip'?13:(c.links||0)>=MON_STAR_LINKS?17:15):c.kind==='city'?18:c.kind==='town'?16:c.kind==='village'?14:poi?13:12;
     const alpha=(SETTLE.has(c.kind)?(c.kind==='city'||c.kind==='town'?1:.8):mon?1:.9)*(ghost?.5:1);
-    const tint=mon?'242,193,78':poi?'224,165,38':'243,233,210';
+    const tint=mon?(c.cat==='equip'?'120,205,232':'242,193,78'):poi?'224,165,38':'243,233,210';
     ctx.font=`700 ${size}px ${FD}`;
     const nw=ctx.measureText(c.name).width;
     const altTxt=!mon&&c.ele!=null?Math.round(c.ele)+' m':'';
@@ -2364,13 +2525,13 @@ function draw(ts){
         if(S.layers.urban&&urbLS){ const oa=urbOccluder(heading+Math.atan((x-W/2)/fh)/D,c.dist*1000); if(oa>-50) occY=H/2+fh*Math.tan((pitch-oa)*D); }
         drawSprite(sb.key,x,sb.yTop,sb.yBase,.26*alpha,.95*alpha,occY); iconBox=[sb.x0,sb.x1,sb.yTop,sb.yBase]; leadY=ay+1; }
       else{
-        if(yG-ay>8){ ctx.strokeStyle=`rgba(242,193,78,${.45*alpha})`; ctx.lineWidth=1; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(x,yG); ctx.lineTo(x,ay); ctx.stroke(); ctx.setLineDash([]); }
+        if(yG-ay>8){ ctx.strokeStyle=`rgba(${tint},${.45*alpha})`; ctx.lineWidth=1; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(x,yG); ctx.lineTo(x,ay); ctx.stroke(); ctx.setLineDash([]); }
         drawGlyph(c.type,x,ay,gH,`rgb(${tint})`,alpha); iconBox=[x-gH/2,x+gH/2,ay-gH,ay];
       }
       if(!got){ monHits.push({t:c,roll,poly:null,icon:iconBox}); continue; }
       if(flat){
         const ex=flat.side>0?flat.x-2:flat.x+flat.w+2, ey=flat.y-size*0.35; // bord du nom le plus proche de l'icone
-        if(Math.hypot(ex-x,ey-(ay-gH))>6){ ctx.strokeStyle=`rgba(242,193,78,${.8*alpha})`; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,iconBox[2]-1); ctx.lineTo(ex,ey); ctx.stroke(); }
+        if(Math.hypot(ex-x,ey-(ay-gH))>6){ ctx.strokeStyle=`rgba(${tint},${.8*alpha})`; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,iconBox[2]-1); ctx.lineTo(ex,ey); ctx.stroke(); }
         ctx.textAlign='left'; ctx.font=`700 ${size}px ${FD}`; ctx.strokeStyle=`rgba(14,26,43,${ghost?.6:.9})`; ctx.lineWidth=3.5;
         ctx.strokeText(c.name,flat.x,flat.y); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,flat.x,flat.y);
         if(dtxt){ ctx.font=`500 11px ${FM}`; ctx.lineWidth=3; ctx.strokeText(dtxt,flat.x+nw+7,flat.y); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,flat.x+nw+7,flat.y); }
@@ -2378,7 +2539,7 @@ function draw(ts){
         continue;
       }
     }
-    ctx.strokeStyle=mon?`rgba(242,193,78,${.8*alpha})`:poi?`rgba(224,165,38,${.8*alpha})`:`rgba(255,255,255,${.85*alpha})`; ctx.lineWidth=1;
+    ctx.strokeStyle=mon?`rgba(${tint},${.8*alpha})`:poi?`rgba(224,165,38,${.8*alpha})`:`rgba(255,255,255,${.85*alpha})`; ctx.lineWidth=1;
     if(ghost) ctx.setLineDash([2,3]);
     ctx.beginPath(); ctx.moveTo(mon?(leadX===x&&iconBox&&iconBox[3]-iconBox[2]>gH+4?x:x+sgn*(gH/2-2)):x,mon?leadY:ay); ctx.lineTo(lx,ly); ctx.stroke(); ctx.setLineDash([]);
     if(!mon){ ctx.fillStyle=poi?`rgba(224,165,38,${.95*alpha})`:`rgba(255,255,255,${.9*alpha})`;
@@ -2646,20 +2807,24 @@ function inQuad(P,x,y,m){
     if(d*(sgn||1)<-m) return false; }
   return true;
 }
-const MON_TYPE_LBL={tour:'Tour',dome:'Édifice à dôme',clocher:'Église, clocher',arc:'Arc, porte',colonne:'Colonne, obélisque',chateau:'Château, palais, fort',musee:'Monument, musée'};
+const MON_TYPE_LBL={tour:'Tour',dome:'Édifice à dôme',clocher:'Église, clocher',arc:'Arc, porte',colonne:'Colonne, statue, obélisque',chateau:'Château, palais, fort',musee:'Monument, musée',
+  stade:'Stade, salle de sport',gare:'Gare, station, aéroport, port',eau:'Cours d\'eau, canal, plan d\'eau',parc:'Parc, jardin, cimetière',place:'Place, rue',scene:'Théâtre, cinéma, bibliothèque',pont:'Pont, viaduc',edifice:'Hôpital, université, grand édifice'};
 function showMonumentDetail(m){
   const esc=v=>String(v).replace(/[<&"]/g,c=>({'<':'&lt;','&':'&amp;','"':'&quot;'})[c]);
-  const vis=m.hidden&&S.relief&&terrain?'masqué par le relief d\'ici':m.cap?'monument moins célèbre : affiché en transparence (bouton œil, Tout voir)':m.far?`trop petit pour être vu d'ici (${(m.angH||0).toFixed(2)}° de haut à l'écran)`:`visible d'ici (${(m.angH||0).toFixed(1)}° de haut à l'écran)`;
+  const eq=m.cat==='equip';
+  const vis=m.hidden&&S.relief&&terrain?'masqué par le relief d\'ici':m.cap?(eq?'équipement moins connu ou plus loin : affiché en transparence (bouton œil, Tout voir)':'monument moins célèbre : affiché en transparence (bouton œil, Tout voir)'):m.far?(eq?`hors de portée d'affichage (${EQUIP_MAXD[m.type]||EQUIP_MAX_KM} km pour ce type)`:`trop petit pour être vu d'ici (${(m.angH||0).toFixed(2)}° de haut à l'écran)`):(eq?'affiché (équipement proche)':`visible d'ici (${(m.angH||0).toFixed(1)}° de haut à l'écran)`);
   $('dbgBody').innerHTML=`
     <div class="dbgline" style="font-size:18px;color:#F2C14E;font-weight:700">${esc(m.name)}</div>
     <div class="dbgline">${MON_TYPE_LBL[m.type]||'Monument'} · à ${m.dist<10?m.dist.toFixed(1):Math.round(m.dist)} km · ${vis}</div>
     <div class="dbgsec">Notoriété</div>
     <div class="dbgline">${m.links!=null?`article Wikipédia dans <b>${m.links}</b> langue(s)`:'inconnue (Wikidata injoignable)'}${m.prot?' · <b>monument historique</b> (protégé)':''}</div>
     <div class="dbgsec">Hauteur</div>
-    <div class="dbgline">${m.htWd?Math.round(m.htWd)+' m (Wikidata)':`inconnue — ${MON_DEF_H[m.type]||20} m supposés pour le relief`}</div>
+    <div class="dbgline">${m.htWd?Math.round(m.htWd)+' m (Wikidata)':eq?'sans importance (icône posée au sol)':`inconnue — ${MON_DEF_H[m.type]||20} m supposés pour le relief`}</div>
+    <div class="dbgsec">Classement</div>
+    <div class="dbgline">${esc(m.types||'(sans classe)')} → ${esc(m.why||'')}</div>
     <div class="dbgsec">En savoir plus</div>
     <div class="dbgline"><a style="color:#F2C14E" target="_blank" rel="noopener" href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/frwiki/${m.qid}">Wikipédia</a> · <a style="color:#F2C14E" target="_blank" rel="noopener" href="https://www.wikidata.org/wiki/${m.qid}">fiche Wikidata ${m.qid}</a></div>`;
-  $('dbgTitle').textContent='Monument';
+  $('dbgTitle').textContent=eq?'Équipement':'Monument';
   $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null;
 }
 function telecomBlock(t){
@@ -2709,7 +2874,8 @@ function refreshStoreEst(){
   const done=()=>{ storeEst=parts.join(' · ')||'—'; };
   const p1=(navigator.storage&&navigator.storage.estimate)?navigator.storage.estimate().then(e=>parts.push(`${(e.usage/1048576).toFixed(1)} Mo utilises`)).catch(()=>{}):Promise.resolve();
   const p2=window.caches?caches.open(TCACHE).then(c=>c.keys()).then(k=>parts.push(`${k.length} tuiles de relief en cache`)).catch(()=>{}):Promise.resolve();
-  Promise.all([p1,p2]).then(done);
+  const p3=window.caches?caches.open(DCACHE).then(c=>c.keys()).then(k=>{ const bd=k.filter(x=>x.url.includes('/bd/')).length, tl=k.filter(x=>x.url.includes('/tel/')).length; parts.push(`${bd} tuiles de bâtiments, ${tl} zones pylônes en mémoire`); }).catch(()=>{}):Promise.resolve();
+  Promise.all([p1,p2,p3]).then(done);
 }
 function renderDebug(){
   const kc=kindCounts();
@@ -2769,6 +2935,8 @@ function renderDebug(){
     <div class="dbgline">avions : ${S.air?(tMsg.air||'en attente'):'desactive (Reglages → Avions)'}</div>
     <div class="dbgline">bateaux : ${S.sea?(tMsg.sea||'en attente'):'desactive (Reglages → Bateaux)'}</div>
     <div class="dbgline">monuments : ${S.layers.monuments?(monMsg||'en attente')+retryHint(monErrAt,monErrDelay)+` (${monumentSites.length} en memoire)`:'calque desactive (bouton Calques)'}</div>
+    ${S.layers.monuments&&monStats.nMon!=null?`<div class="dbgline">tri Wikidata : ${monStats.nMon} monument(s), ${monStats.nEq} équipement(s), ${monStats.nExcl} écarté(s)${wdStats.tiles?` · tuiles ${wdStats.ok}/${wdStats.tiles}${wdStats.truncated?`, ${wdStats.truncated} très dense(s)`:''}${wdStats.legacy?' · ANCIEN MODE (relais à mettre à jour)':''}`:''}</div>
+    ${monExcl.length?`<div class="dbgline">plus connus écartés : ${monExcl.slice(0,8).map(x=>`${x.name.replace(/[<&]/g,'')} (${x.links} l., ${(x.types||'sans classe').replace(/[<&]/g,'').slice(0,30)})`).join(' ; ')}</div>`:''}`:''}
     <div class="dbgline">silhouette batiments : ${S.layers.urban?(urbMsg||'en attente')+retryHint(urbErrAt,urbErrDelay)+(urbLayersSeen?` · couches : ${urbLayersSeen}`:''):'calque desactive (bouton Calques)'}</div>
     <div class="dbgline">equipements : etiquettes ${infraStats.deck==='bas'?'sous':'au-dessus de'} l'horizon · ${infraStats.labeled} nommes, ${infraStats.iconOnly} en icone seule</div>
     <div class="dbgline">pylônes telecom : ${S.telecom?(tMsg2.telecom||'en attente')+retryHint(telecomErrAt,telecomErrDelay)+` (${telecomSites.length} en memoire)`:'desactive (Reglages → Pylônes)'}</div>
@@ -2998,15 +3166,16 @@ $('bey').onchange=e=>setBeyond(e.target.checked);
 $('btnBeyond').classList.toggle('on',S.beyond); $('bey').checked=S.beyond; $('eyeLbl').textContent=S.beyond?'Tout voir':'Essentiel'; $('btnBeyond').setAttribute('aria-pressed',S.beyond?'true':'false');
 $('verInfo').textContent='Version '+APP_VERSION;
 async function clearAllCache(){
-  if(!confirm("Supprimer les tuiles de relief et l'atlas hors-ligne ?\nLes réglages et le calage sont conservés.")) return;
+  if(!confirm("Supprimer les tuiles de relief, l'atlas hors-ligne et les données mémorisées (pylônes, bâtiments, monuments) ?\nLes réglages et le calage sont conservés.")) return;
   let nt=0;
-  try{ if(window.caches){ const c=await caches.open(TCACHE); nt=(await c.keys()).length; await caches.delete(TCACHE); } }catch(e){}
+  let nd=0; try{ if(window.caches){ const c=await caches.open(TCACHE); nt=(await c.keys()).length; await caches.delete(TCACHE); nd=(await (await caches.open(DCACHE)).keys()).length; await caches.delete(DCACHE); } }catch(e){}
+  try{ localStorage.removeItem(MON_TILE_KEY); }catch(e){} monTiles.clear(); wdTiles.clear(); telecomAt=null; urbTiles.clear(); urbAt=null;
   const na=Object.keys(atlas.items).length;
   clearAtlas(); terrain=null; reliefState=skylineState='—'; reliefStats={checked:0,hidden:0,unknown:0}; hrDown=false;
   for(const c of cities){ c.hidden=false; c.aG=null; c.demT=null; }
   if(source.startsWith('atlas local')){ cities=FALLBACK.slice(); source='liste intégrée'; recompute(); }
   updateZoneInfo(); refreshStoreEst();
-  logNet('Cache',true,`vide : ${nt} tuiles de relief, ${na} lieux de l'atlas (reglages conserves)`);
+  logNet('Cache',true,`vide : ${nt} tuiles de relief, ${na} lieux de l'atlas, ${nd} entrees pylones/batiments (reglages conserves)`);
   const b=$('btnCacheClr'); b.textContent='Cache vidé'; setTimeout(()=>{ b.textContent='Vider le cache'; },2500);
 }
 $('btnCacheClr').onclick=clearAllCache;
@@ -3021,20 +3190,22 @@ $('dst').onchange=e=>{S.showDist=e.target.checked;saveSettings();};
 // Lieux et Monuments : propres aux calques. Telecom et Reperes hauts : MEME reglage que les cases
 // de l'ecran Reglages (on pilote ces cases, pour garder un seul etat et un seul comportement).
 function syncLayersPanel(){
-  $('lyPlaces').checked=S.layers.places; $('lyMon').checked=S.layers.monuments; $('lyUrb').checked=!!S.layers.urban; $('lyUrbClip').checked=S.layers.urbClip!==false; for(const id of ['lyUrbClip','lyUrbSmooth','lyUrbFill']) $(id).closest('label').style.display=S.layers.urban?'':'none';
+  $('lyPlaces').checked=S.layers.places; $('lyMon').checked=S.layers.monuments; $('lyEq').checked=S.layers.equip!==false; $('lyEq').closest('label').style.display=S.layers.monuments?'':'none'; $('lyUrb').checked=!!S.layers.urban; $('lyUrbClip').checked=S.layers.urbClip!==false; for(const id of ['lyUrbClip','lyUrbSmooth','lyUrbFill']) $(id).closest('label').style.display=S.layers.urban?'':'none';
   $('lyUrbSmooth').checked=S.layers.urbSmooth!==false; $('lyUrbFill').checked=S.layers.urbFill!==false;
   $('lyInfoUrb').textContent=S.layers.urban?(urbMsg||'en attente')+retryHint(urbErrAt,urbErrDelay):'contour des immeubles (IGN BD TOPO) · France';
   $('lyTel').checked=S.telecom; $('lyBld').checked=S.buildings;
+  $('lyInfoEq').textContent=S.layers.monuments&&monStats.nEq!=null?`${monStats.nEq} chargé(s) dans ${EQUIP_RADIUS_KM} km · affichés de près (≤ ${EQUIP_MAX_KM} km)`:'stades, gares et métros, canaux, parcs, places, théâtres, ponts';
   $('lyInfoMon').textContent=S.layers.monuments&&monMsg?`${monumentSites.length} chargé(s) · ${monMsg}`:'lieux emblématiques (Wikipédia)';
   $('lyInfoTel').textContent=!relayBase()?'relais requis (config.js)':S.telecom?(tMsg2.telecom||'en attente')+(infraStats.iconOnly?` · ${infraStats.iconOnly} en icône seule`:''):'ANFR, France — via le relais';
   $('lyInfoBld').textContent=S.buildings?(bMsg.buildings||'en attente'):"tours, cheminées, châteaux d'eau (OSM)";
-  const nonDef=!S.layers.places||!S.layers.monuments||S.telecom||S.buildings||S.layers.urban;
+  const nonDef=!S.layers.places||!S.layers.monuments||S.layers.equip===false||S.telecom||S.buildings||S.layers.urban;
   $('btnLayers').classList.toggle('on',nonDef);
 }
 function setLayersOpen(o){ $('layers').classList.toggle('open',o); $('btnLayers').setAttribute('aria-expanded',String(o)); if(o) syncLayersPanel(); }
 $('btnLayers').onclick=e=>{ e.stopPropagation(); setLayersOpen(!$('layers').classList.contains('open')); };
 document.addEventListener('pointerdown',e=>{ if($('layers').classList.contains('open')&&e.target&&e.target.closest&&!e.target.closest('#layers,#btnLayers')) setLayersOpen(false); });
 $('lyPlaces').onchange=e=>{ S.layers.places=e.target.checked; citiesVer++; saveSettings(); syncLayersPanel(); };
+$('lyEq').onchange=e=>{ S.layers.equip=e.target.checked; citiesVer++; saveSettings(); syncLayersPanel(); };
 $('lyMon').onchange=e=>{ S.layers.monuments=e.target.checked; citiesVer++; saveSettings(); if(S.layers.monuments) loadMonuments(true); syncLayersPanel(); };
 $('lyUrb').onchange=e=>{ S.layers.urban=e.target.checked; saveSettings(); if(S.layers.urban) loadUrban(true); syncLayersPanel(); };
 $('lyUrbClip').onchange=e=>{ S.layers.urbClip=e.target.checked; saveSettings(); if(urbTiles.size&&pos) urbCompute(); };
@@ -3043,7 +3214,7 @@ $('lyUrbFill').onchange=e=>{ S.layers.urbFill=e.target.checked; saveSettings(); 
 $('lyTel').onchange=e=>{ $('tel').checked=e.target.checked; $('tel').onchange({target:$('tel')}); if(S.telecom) pollTelecom(); syncLayersPanel(); };
 $('lyBld').onchange=e=>{ $('bld').checked=e.target.checked; $('bld').onchange({target:$('bld')}); if(S.buildings) pollBuildings(); syncLayersPanel(); };
 syncLayersPanel();
-$('btnReload').onclick=()=>{loadCities(true);computeTerrain(true);if(S.layers.monuments) loadMonuments(true); if(S.layers.urban){ urbTiles.clear(); loadUrban(true); }};
+$('btnReload').onclick=()=>{loadCities(true);computeTerrain(true);if(S.layers.monuments) loadMonuments(true); if(S.telecom){ telBypass=true; telecomAt=null; telecomErrAt=null; pollTelecom(); } if(S.layers.urban){ urbTiles.clear(); loadUrban(true); }};
 
 // reflete les reglages charges (localStorage) sur les controles au demarrage
 (function syncControlsFromS(){
