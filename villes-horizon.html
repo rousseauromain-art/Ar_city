@@ -1477,22 +1477,29 @@ const GLYPH={
   musee(u){ const F=new Path2D(); F.moveTo(-7.5*u,-10*u); F.lineTo(0,-14.5*u); F.lineTo(7.5*u,-10*u); F.closePath(); F.rect(-7.5*u,-1.6*u,15*u,1.6*u);
     for(const x of [-5.5,-1,3.5]) F.rect(x*u,-9.5*u,2*u,8*u); return {fill:F}; },
   // equipements urbains (08/10/2026) : stade, gare/metro, eau, parc, place, scene, pont, edifice
-  stade(u){ const F=new Path2D(); F.moveTo(-8*u,0); F.lineTo(-8*u,-5*u); F.quadraticCurveTo(0,-13*u,8*u,-5*u); F.lineTo(8*u,0); F.closePath();
-    F.moveTo(-4.5*u,0); F.lineTo(-4.5*u,-3.5*u); F.quadraticCurveTo(0,-7.5*u,4.5*u,-3.5*u); F.lineTo(4.5*u,0); F.closePath();
-    const P=new Path2D(); for(const x of [-7,7]){ P.moveTo(x*u,-5*u); P.lineTo(x*u,-14*u); P.moveTo((x-2)*u,-14.5*u); P.lineTo((x+2)*u,-14.5*u); } return {fill:F,stroke:P,evenodd:true}; },
+  stade(u){ const F=new Path2D(); // piste d'athletisme vue de dessus (capsule evidee) + deux mats d'eclairage
+    F.moveTo(-4.5*u,-12*u); F.lineTo(4.5*u,-12*u); F.arc(4.5*u,-7.5*u,4.5*u,-Math.PI/2,Math.PI/2); F.lineTo(-4.5*u,-3*u); F.arc(-4.5*u,-7.5*u,4.5*u,Math.PI/2,Math.PI*1.5); F.closePath();
+    F.moveTo(-4.2*u,-9.6*u); F.lineTo(4.2*u,-9.6*u); F.arc(4.2*u,-7.5*u,2.1*u,-Math.PI/2,Math.PI/2); F.lineTo(-4.2*u,-5.4*u); F.arc(-4.2*u,-7.5*u,2.1*u,Math.PI/2,Math.PI*1.5); F.closePath();
+    const P=new Path2D(); for(const x of [-8.5,8.5]){ P.moveTo(x*u,-3*u); P.lineTo(x*u,-14*u); P.moveTo((x-1.6)*u,-14.5*u); P.lineTo((x+1.6)*u,-14.5*u); } return {fill:F,stroke:P,evenodd:true}; },
   gare(u){ const F=new Path2D(); F.rect(-5.5*u,-13*u,11*u,11*u); F.rect(-3.8*u,-11.2*u,7.6*u,4.6*u); F.rect(-3.8*u,-5.2*u,1.6*u,1.4*u); F.rect(2.2*u,-5.2*u,1.6*u,1.4*u);
     const P=new Path2D(); P.moveTo(-7*u,0); P.lineTo(7*u,0); P.moveTo(-3*u,-2*u); P.lineTo(-4*u,0); P.moveTo(3*u,-2*u); P.lineTo(4*u,0); P.moveTo(0,-13*u); P.lineTo(0,-15.5*u); P.moveTo(-2.5*u,-15.5*u); P.lineTo(2.5*u,-15.5*u); return {fill:F,stroke:P,evenodd:true}; },
   eau(u){ const P=new Path2D(); for(const y of [-3,-8,-13]){ P.moveTo(-8*u,y*u); P.quadraticCurveTo(-5.5*u,(y-3.2)*u,-3*u,y*u); P.quadraticCurveTo(-0.5*u,(y+3.2)*u,2*u,y*u); P.quadraticCurveTo(4.5*u,(y-3.2)*u,7*u,y*u); } return {stroke:P}; },
   parc(u){ const F=new Path2D(); F.arc(0,-10*u,5.2*u,0,Math.PI*2); F.moveTo(1.2*u,-4.8*u); F.lineTo(1.2*u,0); F.lineTo(-1.2*u,0); F.lineTo(-1.2*u,-4.8*u); F.closePath(); return {fill:F}; },
   place(u){ const F=new Path2D(); F.moveTo(0,-15*u); F.lineTo(7.5*u,-7.5*u); F.lineTo(0,0); F.lineTo(-7.5*u,-7.5*u); F.closePath(); F.moveTo(2.4*u,-7.5*u); F.arc(0,-7.5*u,2.4*u,0,Math.PI*2,true); return {fill:F,evenodd:true}; },
-  scene(u){ const F=new Path2D(); F.rect(-8*u,-15*u,16*u,2.2*u); F.moveTo(-7*u,-12.8*u); F.lineTo(-1.2*u,-12.8*u); F.quadraticCurveTo(-3.4*u,-6*u,-1*u,0); F.lineTo(-7*u,0); F.closePath();
-    F.moveTo(7*u,-12.8*u); F.lineTo(1.2*u,-12.8*u); F.quadraticCurveTo(3.4*u,-6*u,1*u,0); F.lineTo(7*u,0); F.closePath(); return {fill:F}; },
+  scene(u){ const F=new Path2D(); // masque de theatre : visage avec deux yeux et un sourire evides
+    F.arc(0,-8*u,6.6*u,0,Math.PI*2);
+    F.moveTo(-1.4*u,-9.2*u); F.arc(-2.6*u,-9.2*u,1.2*u,0,Math.PI*2); F.moveTo(3.8*u,-9.2*u); F.arc(2.6*u,-9.2*u,1.2*u,0,Math.PI*2);
+    F.moveTo(-3.4*u,-6.2*u); F.arc(0,-6.2*u,3.4*u,Math.PI,0,true); F.closePath(); return {fill:F,evenodd:true}; },
   pont(u){ const P=new Path2D(); P.moveTo(-8*u,-4*u); P.lineTo(8*u,-4*u); for(const x of [-4.5,4.5]){ P.moveTo(x*u,0); P.lineTo(x*u,-13*u); } P.moveTo(-8*u,-5*u); P.lineTo(-4.5*u,-13*u); P.moveTo(8*u,-5*u); P.lineTo(4.5*u,-13*u);
     P.moveTo(-4.5*u,-13*u); P.quadraticCurveTo(0,-4.5*u,4.5*u,-13*u); return {stroke:P}; },
+  mairie(u){ const F=new Path2D(); F.moveTo(-8*u,-9*u); F.lineTo(0,-13*u); F.lineTo(8*u,-9*u); F.closePath(); F.rect(-8*u,-1.6*u,16*u,1.6*u); F.rect(-6.5*u,-8.5*u,13*u,6.9*u);
+    F.moveTo(2.2*u,-5.2*u); F.arc(0,-5.2*u,2.2*u,0,Math.PI*2,true); const P=new Path2D(); P.moveTo(0,-13*u); P.lineTo(0,-17*u); P.moveTo(0,-16.5*u); P.lineTo(3.5*u,-15.6*u); P.lineTo(0,-14.7*u); return {fill:F,stroke:P,evenodd:true}; },
+  maison(u){ const F=new Path2D(); F.moveTo(-8*u,-8*u); F.lineTo(0,-15*u); F.lineTo(8*u,-8*u); F.lineTo(6*u,-8*u); F.lineTo(6*u,0); F.lineTo(-6*u,0); F.lineTo(-6*u,-8*u); F.closePath();
+    F.rect(-1.6*u,-5*u,3.2*u,5*u); const P=new Path2D(); P.moveTo(4*u,-12*u); P.lineTo(4*u,-15*u); return {fill:F,stroke:P,evenodd:true}; },
   edifice(u){ const F=new Path2D(); F.rect(-5*u,-13*u,10*u,13*u); for(const y of [-10.5,-6.5,-2.5]) for(const x of [-3.2,0.8]) F.rect(x*u,y*u,2.4*u,2.4*u); return {fill:F,evenodd:true}; },
 };
 // hauteur totale approximative d'une icone (unites de 16) : pour placer l'etiquette au-dessus/dessous
-const GLYPH_H={pylone:17,mat:16,toit:16,chateau_eau:15,antenne:18,tour:20,dome:15,clocher:18,arc:13,colonne:18,chateau:14,musee:14.5,stade:15,gare:15.5,eau:16,parc:15,place:15,scene:15,pont:13,edifice:13};
+const GLYPH_H={pylone:17,mat:16,toit:16,chateau_eau:15,antenne:18,tour:20,dome:15,clocher:18,arc:13,colonne:18,chateau:14,musee:14.5,stade:15,gare:15.5,eau:16,parc:15,place:15,scene:15,pont:13,edifice:13,mairie:17,maison:15};
 // ---------- silhouettes de monuments a leur taille reelle (07/10/2026) ----------
 // Un monument dont la hauteur apparente depasse ~26 px est dessine avec SA forme (profil simplifie), de son sol a son
 // sommet, a l'echelle exacte (largeur = rapport largeur/hauteur reel x hauteur a l'ecran). En dessous, l'icone
@@ -1514,6 +1521,7 @@ const SPR={
   chateau:{asp:3.2,poly:[[-1.6,0],[1.6,0],[1.6,.62],[1.55,.62],[1.45,1],[1.35,.62],[.4,.62],[.4,.7],[-.4,.7],[-.4,.62],[-1.35,.62],[-1.45,1],[-1.55,.62],[-1.6,.62]]},
   musee:{asp:3.0,poly:[[-1.5,0],[1.5,0],[1.5,.7],[.3,.7],[0,1],[-.3,.7],[-1.5,.7]]},
 };
+const SPR_DISTINCT=new Set(['eiffel','arc','notredame','montparnasse','tour','dome','clocher','colonne','chateau']); // les gabarits "boite" (musee, mairie, maison) ne sont plus dessines : une icone vaut mieux qu'un rectangle
 function monSpriteKey(c){
   const n=c.name||'';
   if(c.qid==='Q243'||/^tour eiffel$/i.test(n)) return 'eiffel';
@@ -1604,7 +1612,7 @@ const has5G=operators=>(operators||[]).some(o=>(o.systems||[]).some(s=>/5G/i.tes
 let monumentSites=[], monAt=null, monBusy=false, monErrAt=null, monErrDelay=30000, monMsg='', monStats={};
 let monTrim=0;
 const MON_MIN_LINKS=40, MON_LOW_LINKS=3, MON_KEEP=150, MON_MIN_ANG=0.12, MON_STAR_LINKS=80, MON_MAX_SHOWN=40; // MAX_SHOWN : les plus celebres seulement, le reste en transparence
-const MON_DEF_H={tour:60,dome:40,clocher:45,arc:25,colonne:25,chateau:20,musee:18,stade:25,gare:10,eau:0,parc:0,place:0,scene:18,pont:8,edifice:18};
+const MON_DEF_H={tour:60,dome:40,clocher:45,arc:25,colonne:25,chateau:20,musee:18,stade:25,gare:10,eau:0,parc:0,place:0,scene:18,pont:8,edifice:18,mairie:25,maison:12};
 // equipements urbains (stade, gare, canal, parc, place, theatre, pont, hopital...) : meme moteur que les monuments (cat:'equip'),
 // icone seule (pas de silhouette), couleur bleue, calque propre ; visibles de pres (portee par type) et en nombre limite
 const EQUIP_MAX_SHOWN=25, EQUIP_MAX_KM=6, EQUIP_KEEP=300, EQUIP_RADIUS_KM=12, EQUIP_MAXD={stade:8,pont:8,edifice:5,gare:5,scene:5,eau:6,parc:5,place:4};
@@ -1642,6 +1650,8 @@ function monTypeFrom(types,name){
   if(/[ée]glise|church|chapelle|chapel|clocher|abbaye|abbey|monast[èe]re|monastery|couvent|convent|prieur[ée]|priory|clo[îi]tre|cloister/.test(t)) return 'clocher';
   if(/ch[âa]teau|castle|palais|palace|forteresse|fortress|citadelle|citadel|manoir|\bfort\b/.test(t)) return 'chateau';
   if(/\btour\b|tower|gratte-ciel|skyscraper|beffroi|belfry|phare|lighthouse|pyl[ôo]ne/.test(t)) return 'tour';
+  if(/h[ôo]tel de ville|town hall|mairie/.test(t)) return 'mairie';
+  if(/maison|house|villa|h[ôo]tel particulier|logis|ferme|farm|immeuble|b[âa]timent|building/.test(t)) return 'maison';
   return 'musee';
 }
 // m = {types:"classe|classe", name, links, prot} -> {cat:'monument'|'equip'|null, type, minLinks?, why}
@@ -2177,6 +2187,7 @@ function visibleCities(){
     } else if(c.kind==='monument'){ // visible d'ici si sa hauteur apparente depasse ~0,12° (ou s'il est tres celebre)
       c.angH=Math.atan((c.ht||20)/Math.max(50,c.dist*1000))/D;
       c.far=c.angH<((c.links||0)>=MON_STAR_LINKS?0.05:MON_MIN_ANG); // tres celebre : seuil abaisse, jamais supprime
+      if(!c.far&&c.type==='maison'&&!c.prot&&(c.links||0)<10) c.far=true; // maison / hotel particulier peu connu et non protege : en transparence seulement
     } else { const m=MAXD[c.kind]; c.far=m!=null&&c.dist>m; }
     if(c.far){ tooFarForKind++; farList.push(c); }
     return true;
@@ -2277,6 +2288,33 @@ function resize(){
 window.addEventListener('resize',()=>setTimeout(resize,80));
 
 // memoires de position d'une image a l'autre (lot 1) et zones tactiles des monuments
+// NOMS (08/10/2026) : "cathedrale Saint-Pierre de Rennes" -> "cathedrale Saint-Pierre" (suffixe = une commune connue) ;
+// equipements : le type devant quand le nom ne le dit pas ("gare · Rennes", "canal · Ille") ; 28 caracteres au plus
+const EQ_SHORT=[[/m[ée]tro|subway|rapid transit/,'métro'],[/tram/,'tram'],[/a[ée]roport|airport/,'aéroport'],[/gare|railway|train station/,'gare'],[/\bport\b|harbou?r|marina/,'port'],
+  [/canal|canaux/,'canal'],[/fleuve|rivi[èe]re|river|cours d.eau|stream|ruisseau/,'rivière'],[/lac\b|lake|[ée]tang|pond|plan d.eau/,'plan d’eau'],[/barrage|\bdam\b/,'barrage'],
+  [/jardin|garden/,'jardin'],[/cimeti|cemetery/,'cimetière'],[/for[êe]t|forest|\bbois\b/,'bois'],[/\bzoo\b/,'zoo'],[/parc|park/,'parc'],[/place|plaza|square|piazza/,'place'],
+  [/stade|stadium|arena/,'stade'],[/piscine|swimming/,'piscine'],[/patinoire|ice rink/,'patinoire'],[/hippodrome/,'hippodrome'],[/th[ée][âa]tre|theat/,'théâtre'],[/op[ée]ra/,'opéra'],
+  [/cin[ée]ma/,'cinéma'],[/biblioth|library|m[ée]diath/,'bibliothèque'],[/pont|bridge|viaduc|passerelle/,'pont'],[/h[ôo]pital|hospital|clinique/,'hôpital'],
+  [/universit|campus|facult/,'université'],[/lyc[ée]e|coll[èe]ge|[ée]cole|school/,'école'],[/prison/,'prison'],[/march[ée]|market|halles/,'marché']];
+const EQ_HAS=/^(place|rue|avenue|boulevard|mail|esplanade|square|parvis|rond-point|quai|cours|pont|parc|jardin|stade|gare|canal|lac|etang|theatre|opera|hopital|universite|lycee|college|ecole|piscine|patinoire|hippodrome|cimetiere|marche|halles|metro|station|cinema|bibliotheque|mediatheque)\b/;
+const EQ_PLURAL={stade:'stades',gare:'gares et stations',eau:'cours d’eau',parc:'parcs',place:'places',scene:'salles',pont:'ponts',edifice:'édifices'};
+const _nmMemo=new WeakMap(); let _townVer=-1, _townSet=null;
+function townSet(){ if(_townVer!==cities.length||!_townSet){ _townSet=new Set(cities.filter(c=>SETTLE.has(c.kind)).map(c=>norm(c.name))); _townVer=cities.length; } return _townSet; }
+const clip28=n=>{ if(n.length<=28) return n; const k=n.lastIndexOf(' ',27); return n.slice(0,k>12?k:27)+'…'; };
+function monName(c){
+  const mm=_nmMemo.get(c); if(mm&&mm.v===cities.length) return mm.s;
+  let n=String(c.name||'');
+  if(c.cat==='equip'){
+    const t=String(c.types||'').toLowerCase(), nn=norm(n); let pre='';
+    for(const [re,w] of EQ_SHORT) if(re.test(t)){ pre=w; break; }
+    if(!pre) pre=({gare:'gare',parc:'parc',place:'place',stade:'stade',pont:'pont'})[c.type]||'';
+    if(pre&&!nn.includes(norm(pre))&&!EQ_HAS.test(nn)) n=pre+' · '+n;
+  } else {
+    const m=/^(.*\S)\s+(?:de |d['’]|du |des |à )(.+)$/.exec(n);
+    if(m&&m[1].length>=5&&townSet().has(norm(m[2]))) n=m[1];
+  }
+  n=clip28(n); _nmMemo.set(c,{v:cities.length,s:n}); return n;
+}
 const lblMem=new Map(), laneMem=new Map(), monHits=[]; let infraStats={labeled:0,iconOnly:0,deck:'bas'};
 const BLD_ICON={tour:'mat',tour_telecom:'pylone',clocher:'clocher',chateau_eau:'chateau_eau',cheminee:'colonne',mat:'mat',immeuble:'toit'};
 let lastFrameT=0;
@@ -2407,6 +2445,9 @@ function draw(ts){
   const lowTop=hy+30, lowBot=H-Math.max(8,parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-b'))||0)-6;
   const lowDeck=lowBot-lowTop>=46;
   const infra=[];
+  { const eqItems=[]; if(S.layers.monuments&&S.layers.equip!==false) for(const c of list){ if(c.kind!=='monument'||c.cat!=='equip'||c.far||(useRelief&&c.hidden)||!passFilter(c,fq)) continue; eqItems.push({...c,_src:c,name:monName(c),icon:c.type}); }
+    // bande sous l'horizon, etagee sur 2 rangees (le plus proche en premier) ; icones regroupees par type quand elles se touchent
+    if(eqItems.length) infra.push({list:eqItems,max:99,color:{line:'rgba(120,205,232,.85)',text:'#78CDE8',icon:'#78CDE8'},hits:monHits,key:'eq',groupBy:'icon',rows:2,iconDy:17,sizeK:.72,beside:true}); }
   if(S.telecom&&telecomSites.length) infra.push({list:telecomSites,max:S.telecomMax,color:{line:'rgba(232,90,90,.85)',text:'#E85A5A',icon:'#E85A5A'},hits:telecomHits,key:'tel'});
   if(S.buildings&&buildingSites.length) infra.push({list:buildingSites,max:S.buildingsMax,color:{line:'rgba(122,167,224,.85)',text:'#7AA7E0',icon:'#7AA7E0'},hits:null,key:'bld'});
   telecomHits.length=0; monHits.length=0; infraStats={labeled:0,iconOnly:0,deck:lowDeck?'bas':'haut'};
@@ -2424,16 +2465,26 @@ function draw(ts){
   const showPlaces=S.layers.places;
   const isGhost=c=>!!c.far||(useRelief&&!!c.hidden);
   const layerOk=c=>showPlaces||c.kind==='monument';
-  const order=(S.beyond?list.filter(c=>!isGhost(c)).concat(list.filter(isGhost)):list.filter(c=>!isGhost(c))).filter(layerOk);
+  let order=(S.beyond?list.filter(c=>!isGhost(c)).concat(list.filter(isGhost)):list.filter(c=>!isGhost(c))).filter(layerOk).filter(c=>c.cat!=='equip'); // les equipements ont leur bande (drawInfra)
   const ANG_LBL=45*D, cAL=Math.cos(ANG_LBL), sAL=Math.sin(ANG_LBL);
   // angles d'un monument : sol, et sommet reel (sol + hauteur) — partage entre reservation et dessin
   const monAng=c=>{ const hid=useRelief&&c.hidden, aGnd=useRelief&&c.aG!=null?c.aG:0;
     return {aGnd,aA:useRelief&&c.aP!=null?(hid?c.aG:c.aP):aGnd+(c.angH||0)}; };
-  const monGH=c=>c.cat==='equip'?15:(c.links||0)>=MON_STAR_LINKS?22:18;
+  const monGH=c=>{ if(c.cat==='equip') return 15; const t=Math.max(0,Math.min(1,Math.log(Math.max(c.dist||.3,.05)/.3)/Math.log(15/.3))); // plus loin = plus petit (profondeur)
+    return Math.round(((c.links||0)>=MON_STAR_LINKS?22:18)*(1-.28*t)); };
   // silhouette a taille reelle si le monument est assez grand a l'ecran (sol -> sommet), sinon null (icone)
   const monSpriteBox=(c,x,yTop)=>{ if(c.cat==='equip') return null; const {aGnd}=monAng(c), yBase=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-aGnd)*D)));
     const Hpx=yBase-yTop; if(!(Hpx>=SPRITE_MIN_PX)||Hpx>3*H) return null;
-    const key=monSpriteKey(c), w=SPR[key].asp*Hpx; return {key,x0:x-w/2,x1:x+w/2,yTop,yBase,w}; };
+    const key=monSpriteKey(c); if(!SPR_DISTINCT.has(key)) return null; const w=SPR[key].asp*Hpx; return {key,x0:x-w/2,x1:x+w/2,yTop,yBase,w}; };
+  // REGROUPEMENT (08/10/2026, capture de Rennes : une dizaine de temples identiques empiles sur l'horizon) : parmi les icones de
+  // monument SANS silhouette qui se chevauchent, la plus connue reste (ordre de priorite deja trie), les autres sont regroupees
+  // derriere elle : pastille +N, noms listes dans sa fiche. Les silhouettes a l'echelle ne sont pas touchees.
+  { const kept=[], drop=new Set();
+    for(const c of order){ if(c.kind!=='monument'||c.cat==='equip') continue; c._more=0; c._hid=null; if(!passFilter(c,fq)) continue; const x=inView(c); if(x==null) continue;
+      const y=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-monAng(c).aA)*D))), g=monGH(c); if(monSpriteBox(c,x,y)) continue;
+      const b=[x-g/2,x+g/2,y-g,y], k=kept.find(o=>Math.min(o.b[1],b[1])-Math.max(o.b[0],b[0])>Math.min(g,o.g)*0.45&&b[2]<o.b[3]&&b[3]>o.b[2]);
+      if(k){ drop.add(c); k.c._more++; (k.c._hid=k.c._hid||[]).push(c.name); } else kept.push({c,b,g}); }
+    if(drop.size) order=order.filter(c=>!drop.has(c)); }
   // les icones des monuments sont reservees AVANT tout le reste : aucune etiquette (equipement ou
   // lieu) ne peut passer dessus (capture du 28/09 : "3 toits-terrasses" sous la Tour Eiffel)
   for(const c of order){ if(c.kind!=='monument'||!passFilter(c,fq)) continue; const x=inView(c); if(x==null) continue;
@@ -2444,7 +2495,7 @@ function draw(ts){
   if(!lowDeck) for(const L of infra) drawInfra(L,'up');
   ctx.textBaseline='alphabetic'; ctx.lineJoin='round';
   let shownCount=0, ghostCount=0, dEligible=0, dNoRoom=0, ghostInView=0;
-  if(!S.beyond) for(const c of list) if(isGhost(c)&&layerOk(c)&&passFilter(c,fq)&&inView(c)!=null) ghostInView++;
+  if(!S.beyond) for(const c of list) if(isGhost(c)&&layerOk(c)&&c.cat!=='equip'&&passFilter(c,fq)&&inView(c)!=null) ghostInView++;
   if(lblMem.size>3000) lblMem.clear();
   for(const c of order){
     const ghost=isGhost(c);
@@ -2467,7 +2518,8 @@ function draw(ts){
     const alpha=(SETTLE.has(c.kind)?(c.kind==='city'||c.kind==='town'?1:.8):mon?1:.9)*(ghost?.5:1);
     const tint=mon?(c.cat==='equip'?'120,205,232':'242,193,78'):poi?'224,165,38':'243,233,210';
     ctx.font=`700 ${size}px ${FD}`;
-    const nw=ctx.measureText(c.name).width;
+    const lab=mon?monName(c):c.name;
+    const nw=ctx.measureText(lab).width;
     const altTxt=!mon&&c.ele!=null?Math.round(c.ele)+' m':'';
     const distTxt=S.showDist?(c.dist<10?c.dist.toFixed(1):Math.round(c.dist))+' km':'';
     const dtxt=[altTxt,distTxt].filter(Boolean).join(' · ');
@@ -2527,13 +2579,16 @@ function draw(ts){
       else{
         if(yG-ay>8){ ctx.strokeStyle=`rgba(${tint},${.45*alpha})`; ctx.lineWidth=1; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(x,yG); ctx.lineTo(x,ay); ctx.stroke(); ctx.setLineDash([]); }
         drawGlyph(c.type,x,ay,gH,`rgb(${tint})`,alpha); iconBox=[x-gH/2,x+gH/2,ay-gH,ay];
+        if(c._more>0){ const txt='+'+(c._more>99?'99':c._more), bx=x+gH/2+1, by=ay-gH-1; // pastille : monuments regroupes derriere cette icone
+          ctx.beginPath(); ctx.arc(bx,by,7,0,7); ctx.fillStyle='rgba(14,26,43,.92)'; ctx.fill(); ctx.lineWidth=1.3; ctx.strokeStyle=`rgb(${tint})`; ctx.stroke();
+          ctx.font=`700 8px ${FM}`; ctx.fillStyle='#F3E9D2'; ctx.textAlign='center'; ctx.fillText(txt,bx,by+2.9); ctx.textAlign='left'; }
       }
       if(!got){ monHits.push({t:c,roll,poly:null,icon:iconBox}); continue; }
       if(flat){
         const ex=flat.side>0?flat.x-2:flat.x+flat.w+2, ey=flat.y-size*0.35; // bord du nom le plus proche de l'icone
         if(Math.hypot(ex-x,ey-(ay-gH))>6){ ctx.strokeStyle=`rgba(${tint},${.8*alpha})`; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,iconBox[2]-1); ctx.lineTo(ex,ey); ctx.stroke(); }
         ctx.textAlign='left'; ctx.font=`700 ${size}px ${FD}`; ctx.strokeStyle=`rgba(14,26,43,${ghost?.6:.9})`; ctx.lineWidth=3.5;
-        ctx.strokeText(c.name,flat.x,flat.y); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,flat.x,flat.y);
+        ctx.strokeText(lab,flat.x,flat.y); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(lab,flat.x,flat.y);
         if(dtxt){ ctx.font=`500 11px ${FM}`; ctx.lineWidth=3; ctx.strokeText(dtxt,flat.x+nw+7,flat.y); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,flat.x+nw+7,flat.y); }
         const pl=placed[placed.length-1]; monHits.push({t:c,roll,poly:[[pl[0],pl[2]],[pl[1],pl[2]],[pl[1],pl[3]],[pl[0],pl[3]]],icon:iconBox});
         continue;
@@ -2547,7 +2602,7 @@ function draw(ts){
     ctx.save(); ctx.translate(lx,ly); ctx.rotate(-sgn*ANG_LBL); ctx.textAlign=sgn>0?'left':'right';
     ctx.font=`700 ${size}px ${FD}`;
     ctx.strokeStyle=`rgba(14,26,43,${ghost?.6:.9})`; ctx.lineWidth=3.5;
-    ctx.strokeText(c.name,0,0); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(c.name,0,0);
+    ctx.strokeText(lab,0,0); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(lab,0,0);
     if(dtxt){ ctx.font=`500 11px ${FM}`;
       const dx=sgn*(nw+7);
       ctx.lineWidth=3; ctx.strokeText(dtxt,dx,0); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,dx,0); }
@@ -2581,30 +2636,41 @@ function draw(ts){
     for(const v of vis){
       // un groupe = meme type, espaces de 28 px au plus, sur 64 px de large au plus (sinon une rue entiere
       // de toits-terrasses ne ferait qu'un seul groupe, ancre n'importe ou)
-      const g=groups.find(g=>g.name===v.t.name&&v.x-g.xs[g.xs.length-1]<=28&&v.x-g.xs[0]<=64);
-      if(g){ g.items.push(v.t); g.xs.push(v.x); } else groups.push({name:v.t.name,items:[v.t],xs:[v.x]});
+      const gk=L.groupBy==='icon'?v.t.icon:v.t.name, gapX=L.groupBy?22:28, spanX=L.groupBy?44:64;
+      const g=groups.find(g=>g.gk===gk&&v.x-g.xs[g.xs.length-1]<=gapX&&v.x-g.xs[0]<=spanX);
+      if(g){ g.items.push(v.t); g.xs.push(v.x); } else groups.push({name:v.t.name,gk,items:[v.t],xs:[v.x]});
     }
     for(const g of groups) g.dmin=Math.min(...g.items.map(t=>t.dist));
     groups.sort((a,b)=>a.dmin-b.dmin); // les plus proches se placent en premier
     const size=13, step=20;
+    // bande des equipements : icone SOUS la ligne d'horizon, sur L.rows rangees (la plus proche d'abord, sans chevauchement) ;
+    // un fil pointille la relie a son azimut sur l'horizon ; le texte commence sous la derniere rangee
+    const dy=(deck==='low'&&L.iconDy)?L.iconDy:0, rowStep=15, rowsBusy=[];
+    for(const g of groups){ const near=g.items.reduce((a,t)=>t.dist<a.dist?t:a), n=g.items.length;
+      g.x=n>1?g.xs.reduce((a,b)=>a+b,0)/n:g.xs[0]; g.h=infraIconLook(near.dist).h*(L.sizeK||1)+(n>1?3:0); g.row=0;
+      if(dy&&L.rows){ let r=0; while(r<L.rows-1&&(rowsBusy[r]||[]).some(([a,b])=>g.x-g.h/2-2<b&&g.x+g.h/2+2>a)) r++; (rowsBusy[r]=rowsBusy[r]||[]).push([g.x-g.h/2-2,g.x+g.h/2+2]); g.row=r; }
+      g.base=hy+dy+g.row*rowStep; }
+    const lt=dy?hy+dy+groups.reduce((a,g)=>Math.max(a,g.row),0)*rowStep+12:lowTop;
     ctx.textAlign='left'; ctx.textBaseline='alphabetic';
     // 1) icones : toutes, des plus lointaines aux plus proches (les proches par-dessus), taille selon distance
     // un groupe de plusieurs elements = UNE icone (la plus proche) + pastille du nombre, au lieu d'une
     // icone par element (retour du 01/10 : "plein d'icones rouges", 50+ toits-terrasses cote a cote)
     const byFar=groups.slice().sort((a,b)=>b.dmin-a.dmin);
     for(const g of byFar){
-      const n=g.items.length, near=g.items.reduce((a,t)=>t.dist<a.dist?t:a), x=n>1?g.xs.reduce((a,b)=>a+b,0)/n:g.xs[0];
-      const lk=infraIconLook(near.dist), h=lk.h;
-      drawGlyph(near.icon||BLD_ICON[near.kind]||'antenne',x,hy,n>1?h+3:h,L.color.icon,lk.a);
-      if(n>1){ const txt=n>99?'99+':String(n), bx=x+h*0.45+4, by=hy-h-6;
+      const n=g.items.length, near=g.items.reduce((a,t)=>t.dist<a.dist?t:a), x=g.x;
+      const lk=infraIconLook(near.dist), h=g.h-(n>1?3:0)||lk.h;
+      if(dy){ ctx.save(); ctx.setLineDash([2,3]); ctx.strokeStyle=L.color.line; ctx.globalAlpha=.7; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,hy+1); ctx.lineTo(x,g.base-g.h-1); ctx.stroke(); ctx.restore();
+        placed.push([x-g.h/2-3,x+g.h/2+3,g.base-g.h-3,g.base+3,null,g]); }
+      drawGlyph(near.icon||BLD_ICON[near.kind]||'antenne',x,g.base,n>1?h+3:h,L.color.icon,lk.a);
+      if(n>1){ const txt=n>99?'99+':String(n), bx=x+h*0.45+4, by=g.base-h-6;
         ctx.beginPath(); ctx.arc(bx,by,7.5,0,7); ctx.fillStyle='rgba(14,26,43,.92)'; ctx.fill(); ctx.lineWidth=1.5; ctx.strokeStyle=L.color.icon; ctx.stroke();
         ctx.font=`700 ${txt.length>2?7:9}px ${FM}`; ctx.fillStyle='#F3E9D2'; ctx.textAlign='center'; ctx.fillText(txt,bx,by+3.2); ctx.textAlign='left'; }
     }
     // 2) etiquettes
     for(const g of groups){
       const n=g.items.length, near=g.items.reduce((a,t)=>t.dist<a.dist?t:a);
-      const x=n>1?g.xs.reduce((a,b)=>a+b,0)/n:g.xs[0];
-      const label=n>1?(PLURAL[g.name]?`${n} ${PLURAL[g.name]}`:`${n} × ${g.name}`):g.name;
+      const x=g.x;
+      const label=n>1?(L.groupBy==='icon'?`${n} ${EQ_PLURAL[near.icon]||'lieux'}`:PLURAL[g.name]?`${n} ${PLURAL[g.name]}`:`${n} × ${g.name}`):g.name;
       const dmax=Math.max(...g.items.map(t=>t.dist));
       const dtxt=(n>1&&fkm(g.dmin)!==fkm(dmax)?`${fkm(g.dmin)}–${fkm(dmax)}`:fkm(g.dmin))+' km';
       const ops=L.key==='tel'?opsOf(g.items.flatMap(t=>t.operators||[])):[];
@@ -2613,31 +2679,44 @@ function draw(ts){
       ctx.font=`500 11px ${FM}`; const dw=ctx.measureText(dtxt).width;
       const opsW=ops.length?ops.length*13+4:0, g5W=g5?24:0;
       const tw=nw+7+dw+opsW+g5W+4;
-      const flip=x+6+tw>W-4, tx=flip?x-6-tw:x+6;
-      const x0=flip?tx-4:x-2, x1=flip?x+2:x+6+tw;
+      const flip=x+6+tw>W-4; let tx=flip?x-6-tw:x+6;
+      let x0=flip?tx-4:x-2, x1=flip?x+2:x+6+tw;
+      // equipements : le nom se pose D'ABORD a cote de son icone (a droite, sinon a gauche), a la meme hauteur, sans fil ;
+      // ce n'est qu'a defaut qu'il descend dans les lignes du bandeau (avec un fil)
+      let bs=null;
+      if(dy&&L.beside){ const sides=x<W/2?[1,-1]:[-1,1], yb=g.base+3;
+        // 1) a cote de l'icone, un peu plus bas que le sommet de l'icone (le haut du bandeau est occupe par les icones des monuments)
+        for(const side of sides){ const bx=side>0?x+g.h/2+5:x-g.h/2-5-tw; if(bx<4||bx+tw>W-4||yb+4>lowBot) continue;
+          if(!rectHit(bx-3,bx+tw+3,yb-size-2,yb+4,2,g)){ bs={tx:bx,y:yb,x0:bx-3,x1:bx+tw+3,leader:false}; break; } }
+        // 2) sinon sous l'icone, ligne par ligne, d'un cote puis de l'autre, avec un fil
+        for(let k=0;k<maxLanes&&!bs;k++){ const y=lt+size+k*step; if(y+4>lowBot) break;
+          for(const side of sides){ const bx=Math.max(4,Math.min(W-4-tw,side>0?x-4:x+4-tw));
+            if(!rectHit(bx-2,bx+tw+2,y-size-2,y+4,4,g)){ bs={tx:bx,y,x0:bx-2,x1:bx+tw+2,leader:true}; break; } } } }
       const iconTop=hy-32;
-      const yOf=k=>deck==='low'?lowTop+size+k*step:iconTop-6-k*step; // ligne de base du texte
+      const yOf=k=>deck==='low'?lt+size+k*step:iconTop-6-k*step; // ligne de base du texte
       const fits=k=>{ const y=yOf(k); if(deck==='low'?y+4>lowBot:y-size-2<topLimit) return -1;
         return rectHit(x0,x1,y-size-2,y+4,6)?0:1; };
       const key=L.key+'|'+g.name+'|'+(near.sup_id||near.name+near.lat);
       const mem=laneMem.get(key); let k0=null;
       const kMax=deck==='low'?maxLanes:3;
-      if(mem!=null&&mem<kMax&&fits(mem)===1) k0=mem;
+      if(bs){ /* nom a cote de l'icone : pas de ligne a chercher */ }
+      else if(mem!=null&&mem<kMax&&fits(mem)===1) k0=mem;
       else for(let k=0;k<kMax;k++){ const r=fits(k); if(r<0) break; if(r===1){ k0=k; break; } }
       // rien au-dessus de l'horizon (calques Lieux et Monuments decoches) : les equipements
       // recuperent aussi le haut de l'ecran quand la bande du bas est pleine
       let upY=null;
-      if(k0==null&&deck==='low'&&!S.layers.places&&!S.layers.monuments){
+      if(!bs&&k0==null&&deck==='low'&&!S.layers.places&&!S.layers.monuments){
         for(let k=0;k<maxLanes;k++){ const y=hy-38-k*step; if(y-size-2<topLimit) break; if(!rectHit(x0,x1,y-size-2,y+4,6)){ upY=y; break; } }
       }
-      if(k0==null&&upY==null){ infraStats.iconOnly+=n;
-        if(L.hits) L.hits.push({t:near,g:g.items,roll,x0:x-16,x1:x+20,y0:hy-36,y1:hy+2}); continue; }
+      if(!bs&&k0==null&&upY==null){ infraStats.iconOnly+=n;
+        if(L.hits) L.hits.push({t:near._src||near,g:g.items,roll,x0:x-16,x1:x+20,y0:dy?g.base-g.h-4:hy-36,y1:dy?g.base+4:hy+2}); continue; }
       if(k0!=null) laneMem.set(key,k0); infraStats.labeled+=n;
-      const ly=k0!=null?yOf(k0):upY, below=k0!=null&&deck==='low';
+      const ly=bs?bs.y:k0!=null?yOf(k0):upY, below=!bs&&k0!=null&&deck==='low';
+      if(bs){ tx=bs.tx; x0=bs.x0; x1=bs.x1; }
       placed.push([x0,x1,ly-size-2,ly+4]);
-      ctx.strokeStyle=L.color.line; ctx.lineWidth=1; ctx.beginPath();
-      if(below){ ctx.moveTo(x,hy+3); ctx.lineTo(x,ly-size-1); } else { ctx.moveTo(x,iconTop); ctx.lineTo(x,ly+3); }
-      ctx.stroke();
+      if(!bs||bs.leader){ ctx.strokeStyle=L.color.line; ctx.lineWidth=1; ctx.beginPath();
+        if(bs||below){ ctx.moveTo(x,(dy?g.base:hy)+3); ctx.lineTo(x,ly-size-1); } else { ctx.moveTo(x,iconTop); ctx.lineTo(x,ly+3); }
+        ctx.stroke(); }
       ctx.font=`700 ${size}px ${FD}`; ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.lineWidth=3.5;
       ctx.strokeText(label,tx,ly); ctx.fillStyle=L.color.text; ctx.fillText(label,tx,ly);
       ctx.font=`500 11px ${FM}`; ctx.lineWidth=3;
@@ -2649,7 +2728,7 @@ function draw(ts){
       if(g5){ ctx.font=`700 9px ${FM}`; const bx=ox+2, bw=20;
         ctx.fillStyle='rgba(14,26,43,.9)'; ctx.fillRect(bx,ly-11,bw,12); ctx.strokeStyle=L.color.text; ctx.lineWidth=1; ctx.strokeRect(bx+.5,ly-10.5,bw-1,11);
         ctx.fillStyle=L.color.text; ctx.textAlign='center'; ctx.fillText('5G',bx+bw/2,ly-2); ctx.textAlign='left'; }
-      if(L.hits) L.hits.push({t:near,g:g.items,roll,x0,x1,y0:Math.min(ly-size-2,hy-32),y1:Math.max(ly+4,hy+2)});
+      if(L.hits) L.hits.push({t:near._src||near,g:g.items,roll,x0,x1,y0:Math.min(ly-size-2,dy?g.base-g.h-4:hy-32),y1:Math.max(ly+4,dy?g.base+4:hy+2)});
     }
   }
 
@@ -2807,7 +2886,7 @@ function inQuad(P,x,y,m){
     if(d*(sgn||1)<-m) return false; }
   return true;
 }
-const MON_TYPE_LBL={tour:'Tour',dome:'Édifice à dôme',clocher:'Église, clocher',arc:'Arc, porte',colonne:'Colonne, statue, obélisque',chateau:'Château, palais, fort',musee:'Monument, musée',
+const MON_TYPE_LBL={tour:'Tour',dome:'Édifice à dôme',clocher:'Église, clocher',arc:'Arc, porte',colonne:'Colonne, statue, obélisque',chateau:'Château, palais, fort',musee:'Monument, musée',mairie:'Hôtel de ville, mairie',maison:'Maison, hôtel particulier',
   stade:'Stade, salle de sport',gare:'Gare, station, aéroport, port',eau:'Cours d\'eau, canal, plan d\'eau',parc:'Parc, jardin, cimetière',place:'Place, rue',scene:'Théâtre, cinéma, bibliothèque',pont:'Pont, viaduc',edifice:'Hôpital, université, grand édifice'};
 function showMonumentDetail(m){
   const esc=v=>String(v).replace(/[<&"]/g,c=>({'<':'&lt;','&':'&amp;','"':'&quot;'})[c]);
@@ -2820,6 +2899,7 @@ function showMonumentDetail(m){
     <div class="dbgline">${m.links!=null?`article Wikipédia dans <b>${m.links}</b> langue(s)`:'inconnue (Wikidata injoignable)'}${m.prot?' · <b>monument historique</b> (protégé)':''}</div>
     <div class="dbgsec">Hauteur</div>
     <div class="dbgline">${m.htWd?Math.round(m.htWd)+' m (Wikidata)':eq?'sans importance (icône posée au sol)':`inconnue — ${MON_DEF_H[m.type]||20} m supposés pour le relief`}</div>
+    ${m._hid&&m._hid.length?`<div class="dbgsec">Regroupés derrière cette icône (${m._hid.length})</div><div class="dbgline">${m._hid.map(esc).join(' · ')}</div>`:''}
     <div class="dbgsec">Classement</div>
     <div class="dbgline">${esc(m.types||'(sans classe)')} → ${esc(m.why||'')}</div>
     <div class="dbgsec">En savoir plus</div>
