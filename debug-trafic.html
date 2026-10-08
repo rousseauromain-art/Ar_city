@@ -134,7 +134,7 @@
     </div>
     <div class="field">
       <label for="monL">Notoriété min. (langues)</label>
-      <input type="number" id="monL" value="40" min="10" max="300">
+      <input type="number" id="monL" value="40" min="1" max="300">
     </div>
     <div class="field" style="flex:0 0 auto;align-self:flex-end">
       <button id="btnMonRelay">Via le relais</button>
@@ -144,6 +144,12 @@
     </div>
     <div class="field" style="flex:0 0 auto;align-self:flex-end">
       <button class="ghost" id="btnMonDirect">En direct (Wikidata)</button>
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button class="ghost" id="btnMonExplore" title="Tout Wikidata autour du point, sans filtre de classe, seuil de langues librement réglable (même 1)">Explorer sans filtre de classe</button>
+    </div>
+    <div class="field" style="flex:0 0 auto;align-self:flex-end">
+      <button class="ghost" id="btnMonWiki" title="Autre source : articles Wikipédia géolocalisés autour du point">Wikipédia (GeoSearch)</button>
     </div>
   </div>
   <div class="hint">Utilise la position ci-dessus. <b>Via le relais</b> : il essaie sa requête complète puis sa variante légère et détaille chacune (code HTTP, durée, lignes) ; la 1re réponse d'une zone peut prendre 20–30 s, les suivantes sont servies par le cache (7 jours). <b>En direct</b> : ce téléphone interroge lui-même query.wikidata.org — dit aussi si le navigateur y a droit. Les 15 monuments les plus célèbres trouvés sont listés (classés par nombre de langues Wikipédia).</div>
@@ -183,9 +189,10 @@ function boxQuery(b){ // cotes limitees a 3,4° : le relais refuse au-dela de 3,
 }
 function qs(box){ return `lamin=${box.lamin.toFixed(3)}&lomin=${box.lomin.toFixed(3)}&lamax=${box.lamax.toFixed(3)}&lomax=${box.lomax.toFixed(3)}`; }
 
-function fetchT(url,ms){
+function fetchT(url,a,b){ // fetchT(url,ms) ou fetchT(url,{options fetch},ms) (POST Wikidata : avant, les options etaient ignorees et l'appel coupe aussitot)
+  const opts=(a&&typeof a==='object')?a:{}, ms=(typeof a==='number')?a:b;
   const ctrl=new AbortController(); const id=setTimeout(()=>ctrl.abort(),ms);
-  return fetch(url,{signal:ctrl.signal}).finally(()=>clearTimeout(id));
+  return fetch(url,{...opts,signal:ctrl.signal}).finally(()=>clearTimeout(id));
 }
 
 function statLine(items){
@@ -329,6 +336,7 @@ $('btnTelParis').onclick=()=>{ $('lat').value='48.8566'; $('lon').value='2.3522'
 const TOP=(list,lat,lon)=>list.slice().sort((a,b)=>b.links-a.links).slice(0,15).map(m=>{
   const d=Math.hypot((m.lat-lat)*111,(m.lon-lon)*111*Math.cos(lat*Math.PI/180));
   return `${m.name} — ${m.links} langues${m.ht?' · '+m.ht+' m':''} · ${d.toFixed(1)} km · ${m.types||'?'}`; });
+const wdqLink=q=>'https://query.wikidata.org/#'+encodeURIComponent(q);
 function monList(list,lat,lon){
   return `<pre>${esc(TOP(list,lat,lon).join('\n')||'(aucun)')}</pre>`;
 }
@@ -336,7 +344,7 @@ async function monRelay(lat,lon,km,minL,extra=''){
   const out=$('monOut'), relay=relayBase();
   if(!relay){ out.innerHTML='<div class="msg bad">Aucun relais renseigné (en haut de page).</div>'; return; }
   const url=`${relay}/monuments?lat=${lat}&lon=${lon}&radius_km=${km}&min_links=${minL}${extra}&debug=1`;
-  out.innerHTML=`<div class="msg">Le relais interroge Wikidata (jusqu'à ~45 s)…</div><div class="url">${esc(url)}</div>`;
+  out.innerHTML=`<div class="msg">Le relais interroge Wikidata (jusqu'à ~45 s)…</div><div class="url"><a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></div>`;
   const t0=performance.now();
   try{
     const r=await fetchT(url,90000); const j=await r.json(); const ms=Math.round(performance.now()-t0);
@@ -345,7 +353,8 @@ async function monRelay(lat,lon,km,minL,extra=''){
     out.innerHTML=`<div>${statLine([['HTTP',r.status,r.ok?'ok':'bad'],['durée',ms+' ms'],['route retenue',j.route||'aucune',j.route?'ok':'bad'],['monuments',(j.monuments||[]).length,(j.monuments||[]).length?'ok':'bad'],['cache',j.cache||'non (requête faite)']])}</div>`
       +(j.error?`<div class="msg bad">${esc(j.error)}</div>`:'')+(rows.length?telTable(rows):'')
       +(j.monuments?monList(j.monuments,lat,lon):'')
-      +(d.sparql?`<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12.5px">Requête SPARQL envoyée (à rejouer sur query.wikidata.org)</summary><pre>${esc(d.sparql)}</pre></details>`:'');
+      +`<div class="msg" style="margin-top:8px">Lien du relais (JSON brut) : <a href="${esc(url)}" target="_blank" rel="noopener">ouvrir</a></div>`
+      +(d.sparql?`<div class="msg">Requête SPARQL envoyée : <a href="${esc(wdqLink(d.sparql))}" target="_blank" rel="noopener">ouvrir sur query.wikidata.org</a> (puis ▶ Run)</div><details style="margin-top:8px"><summary style="cursor:pointer;font-size:12.5px">Texte de la requête</summary><pre>${esc(d.sparql)}</pre></details>`:'');
     if(!att.length&&!j.error) out.insertAdjacentHTML('afterbegin','<div class="msg bad">Le relais n\'a pas renvoyé de détail : redéployer relais-worker.js (route /monuments absente ?).</div>');
   }catch(e){ out.innerHTML=`<div class="msg bad">Échec de l'appel au relais : ${esc((e&&e.message)||e)}</div><div class="url">${esc(url)}</div>`; }
 }
@@ -365,8 +374,47 @@ async function monDirect(lat,lon,km,minL){
     const ms=Math.round(performance.now()-t0);
     if(!r.ok){ out.innerHTML=`<div>${statLine([['HTTP',r.status,'bad'],['durée',ms+' ms']])}</div><div class="msg bad">${r.status===429?'Wikidata limite le débit : réessayer dans une minute.':r.status>=500?'Requête trop lourde ou service surchargé (timeout côté Wikidata).':'Refusé.'}</div>`; return; }
     const j=await r.json(); const list=(j.results.bindings||[]).map(b=>({name:b.iLabel.value,links:parseInt(b.sl.value,10),lat:+b.lat.value,lon:+b.lon.value,ht:b.h?Math.round(+b.h.value):null,types:b.types?b.types.value:''}));
-    out.innerHTML=`<div>${statLine([['HTTP',r.status,'ok'],['durée',ms+' ms'],['monuments',list.length,list.length?'ok':'bad'],['accès navigateur (CORS)','autorisé','ok']])}</div>`+monList(list,lat,lon);
+    out.innerHTML=`<div>${statLine([['HTTP',r.status,'ok'],['durée',ms+' ms'],['monuments',list.length,list.length?'ok':'bad'],['accès navigateur (CORS)','autorisé','ok']])}</div>`+monList(list,lat,lon)+`<div class="msg" style="margin-top:8px">Requête : <a href="${esc(wdqLink(q))}" target="_blank" rel="noopener">ouvrir sur query.wikidata.org</a></div>`;
   }catch(e){ out.innerHTML=`<div class="msg bad">bloqué : le navigateur n'a pas le droit d'appeler query.wikidata.org (CORS), ou pas de réseau (${esc((e&&e.message)||e)})</div>`; }
+}
+
+// explorer : TOUT element Wikidata geolocalise autour du point (sans filtre de classe), avec ses classes ->
+// montre ce que le filtre de l'appli laisse de cote et pourquoi
+async function monExplore(lat,lon,km,minL){
+  const out=$('monOut'); km=Math.min(8,km); minL=Math.max(1,minL);
+  out.innerHTML=`<div class="msg">Wikidata, sans filtre de classe, rayon ${km} km, ≥ ${minL} langue(s) (jusqu'à ~30 s)…</div>`;
+  const q=`SELECT ?i ?iLabel ?sl ?lat ?lon (GROUP_CONCAT(DISTINCT ?tLabel; separator="|") AS ?types) (MAX(IF(BOUND(?mh),1,0)) AS ?mhf) WHERE {
+  SERVICE wikibase:around { ?i wdt:P625 ?loc . bd:serviceParam wikibase:center "Point(${lon.toFixed(5)} ${lat.toFixed(5)})"^^geo:wktLiteral . bd:serviceParam wikibase:radius "${km.toFixed(1)}" . }
+  ?i wikibase:sitelinks ?sl . FILTER(?sl >= ${Math.round(minL)})
+  OPTIONAL { ?i wdt:P31 ?t }
+  OPTIONAL { ?i wdt:P1435 ?mh }
+  BIND(geof:latitude(?loc) AS ?lat) BIND(geof:longitude(?loc) AS ?lon)
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "fr,en". }
+} GROUP BY ?i ?iLabel ?sl ?lat ?lon ORDER BY DESC(?sl) LIMIT 120`;
+  const t0=performance.now();
+  try{
+    const r=await fetchT('https://query.wikidata.org/sparql',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','Accept':'application/sparql-results+json'},body:'query='+encodeURIComponent(q)},40000);
+    const ms=Math.round(performance.now()-t0);
+    if(!r.ok){ out.innerHTML=`<div>${statLine([['HTTP',r.status,'bad'],['durée',ms+' ms']])}</div><div class="msg bad">Refusé ou trop lourd : réduire le rayon.</div><div class="msg">Requête : <a href="${esc(wdqLink(q))}" target="_blank" rel="noopener">ouvrir sur query.wikidata.org</a></div>`; return; }
+    const b=(await r.json()).results.bindings||[];
+    const rows=b.filter(x=>x.iLabel&&!/^Q\d+$/.test(x.iLabel.value)).map(x=>{ const d=Math.hypot((+x.lat.value-lat)*111,(+x.lon.value-lon)*111*Math.cos(lat*Math.PI/180));
+      return `${x.iLabel.value} — ${x.sl.value} l. · ${d.toFixed(1)} km${+(x.mhf&&x.mhf.value)?' · MONUMENT HISTORIQUE':''} · ${(x.types&&x.types.value)||'(sans classe)'}`; });
+    out.innerHTML=`<div>${statLine([['HTTP',r.status,'ok'],['durée',ms+' ms'],['éléments',rows.length,rows.length?'ok':'bad']])}</div>`
+      +`<div class="msg">Classés par nombre de langues (l.). « MONUMENT HISTORIQUE » = protégé par l'État (propriété P1435). La classe entre ces lieux et le filtre de l'appli (tour, église, château, musée…) explique ce qui manque.</div><pre>${esc(rows.join('\n')||'(aucun)')}</pre>`
+      +`<div class="msg">Requête : <a href="${esc(wdqLink(q))}" target="_blank" rel="noopener">ouvrir sur query.wikidata.org</a></div>`;
+  }catch(e){ out.innerHTML=`<div class="msg bad">Échec : ${esc((e&&e.message)||e)}</div>`; }
+}
+// autre source : articles Wikipedia geolocalises (API GeoSearch), les plus proches d'abord
+async function monWikipedia(lat,lon,km){
+  const out=$('monOut'); const rad=Math.min(10000,Math.round(km*1000));
+  const url=`https://fr.wikipedia.org/w/api.php?action=query&list=geosearch&gscoord=${lat}%7C${lon}&gsradius=${rad}&gslimit=100&format=json&origin=*`;
+  out.innerHTML=`<div class="msg">Wikipédia (GeoSearch), rayon ${(rad/1000).toFixed(0)} km…</div>`; const t0=performance.now();
+  try{
+    const r=await fetchT(url,20000); const j=await r.json(); const L=(j.query&&j.query.geosearch)||[];
+    out.innerHTML=`<div>${statLine([['HTTP',r.status,r.ok?'ok':'bad'],['durée',Math.round(performance.now()-t0)+' ms'],['articles',L.length,L.length?'ok':'bad']])}</div>`
+      +`<div class="msg">Tous les articles géolocalisés, sans notion de notoriété (rues, écoles, gares… inclus), du plus proche au plus loin.</div><pre>${esc(L.map(x=>`${x.title} — ${(x.dist/1000).toFixed(2)} km`).join('\n')||'(aucun)')}</pre>`
+      +`<div class="msg">Requête : <a href="${esc(url.replace('&origin=*',''))}" target="_blank" rel="noopener">ouvrir</a></div>`;
+  }catch(e){ out.innerHTML=`<div class="msg bad">Échec : ${esc((e&&e.message)||e)}</div>`; }
 }
 const monArgs=()=>[parseFloat($('lat').value),parseFloat($('lon').value),Math.min(45,parseFloat($('monR').value)||30),Math.min(300,Math.max(10,parseFloat($('monL').value)||40))];
 $('btnMonRelay').onclick=()=>monRelay(...monArgs());
@@ -375,6 +423,8 @@ $('btnMonTile').onclick=()=>{ // meme decoupage que l'appli : tuile de 0,2° con
   const rk=Math.ceil(Math.hypot(T*111.19/2,T*111.19*Math.cos(cl*Math.PI/180)/2));
   monRelay(+cl.toFixed(3),+co.toFixed(3),rk,minL,'&pad=1'); };
 $('btnMonDirect').onclick=()=>monDirect(...monArgs());
+$('btnMonExplore').onclick=()=>{ const a=monArgs(); monExplore(a[0],a[1],a[2],parseFloat($('monL').value)||1); };
+$('btnMonWiki').onclick=()=>{ const a=monArgs(); monWikipedia(a[0],a[1],Math.min(a[2],10)); };
 
 $('btnLoc').onclick=()=>{
   if(!navigator.geolocation) return alert('Géolocalisation indisponible dans ce navigateur');
