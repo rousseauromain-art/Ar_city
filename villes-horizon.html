@@ -55,6 +55,14 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #layers input{width:20px;height:20px;accent-color:#E0A526}
 #layers label.lySub{padding:2px 0 8px 32px;border-top:0}
 #layers label.lySub .lyN{font-size:12.5px;font-weight:500}
+#layers .lyBtn{display:block;width:100%;margin:8px 0 6px;padding:10px;border:1px dashed var(--line);border-radius:4px;color:var(--ochre);font:700 12px var(--mono,monospace);letter-spacing:.06em;text-transform:uppercase;text-align:center}
+#layers label.lyUsr svg{fill:currentColor;stroke:none}
+.usrRow{padding:12px 0;border-top:1px solid var(--line)}
+.usrRow input[type=text],.usrRow select{background:rgba(243,233,210,.08);border:1px solid var(--line);border-radius:3px;color:var(--cream);font:500 13px var(--mono,monospace);padding:7px 8px;max-width:100%}
+.usrRow .sw{display:inline-block;width:26px;height:26px;border-radius:50%;border:2px solid transparent;margin:6px 8px 0 0;vertical-align:middle}
+.usrRow .sw.on{border-color:#F3E9D2}
+.usrBtn{display:inline-block;padding:10px 14px;border:1px solid var(--ochre);border-radius:4px;color:var(--ochre);font:700 12px var(--mono,monospace);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin:4px 8px 4px 0}
+.usrBtn.danger{border-color:#E85A5A;color:#E85A5A}
 #layers .lyH{font:400 11.5px/1.35 var(--mono,monospace);color:rgba(243,233,210,.55);padding-top:8px;border-top:1px solid var(--line)}
 #btnFind.holding{background:rgba(224,165,38,.55);transition:background .15s}
 #btnFind.on,#btnAlign.on,#btnPoint.on{background:rgba(224,165,38,.85)}
@@ -172,6 +180,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <label class="lySub"><span class="lyN">Premier plan masqué<em>ignore les bâtiments à moins de 150 m (rue en canyon)</em></span><input type="checkbox" id="lyUrbClip"></label>
     <label class="lySub"><span class="lyN">Silhouette lissée<em>effet skyline : comble les rues étroites et les creux</em></span><input type="checkbox" id="lyUrbSmooth"></label>
     <label class="lySub"><span class="lyN">Remplissage<em>teinte par couches de distance (désactivé : contours seuls)</em></span><input type="checkbox" id="lyUrbFill"></label>
+    <div id="lyUser"></div>
     <div class="lyH">L'œil règle <b>combien</b> de noms ; les calques règlent <b>lesquels</b>.</div>
   </div>
   <div id="bar">
@@ -334,7 +343,7 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const APP_VERSION='2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
@@ -492,7 +501,7 @@ function distBrg(a,b){
   const h=Math.sin((la2-la1)/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dl/2)**2;
   return {dist:6371*2*Math.asin(Math.sqrt(h)),brg};
 }
-function recompute(){ if(!pos) return; for(const c of cities){ const r=distBrg(pos,c); c.dist=r.dist; c.brg=r.brg; } for(const t of telecomSites){ const r=distBrg(pos,t); t.dist=r.dist; t.brg=r.brg; } for(const b of buildingSites){ const r=distBrg(pos,b); b.dist=r.dist; b.brg=r.brg; } for(const m of monumentSites){ const r=distBrg(pos,m); m.dist=r.dist; m.brg=r.brg; } citiesVer++; applyOcclusion(false); }
+function recompute(){ if(!pos) return; for(const c of cities){ const r=distBrg(pos,c); c.dist=r.dist; c.brg=r.brg; } for(const t of telecomSites){ const r=distBrg(pos,t); t.dist=r.dist; t.brg=r.brg; } for(const b of buildingSites){ const r=distBrg(pos,b); b.dist=r.dist; b.brg=r.brg; } for(const m of monumentSites){ const r=distBrg(pos,m); m.dist=r.dist; m.brg=r.brg; } userRecompute(); citiesVer++; applyOcclusion(false); }
 
 // ---------- capteurs d'orientation ----------
 let gotAbs=false;
@@ -1493,6 +1502,9 @@ async function pollTelecom(){
 // jamais (principe des cartes : l'equipement reste, seul son texte peut ceder la place).
 // Tous generiques, dessines maison (aucune silhouette de marque ou d'oeuvre protegee).
 const GLYPH={
+  // points personnels (couches KMZ) : epingle
+  pin(u){ const F=new Path2D(); F.moveTo(0,0); F.lineTo(-4.4*u,-8.4*u); F.arc(0,-11*u,5.2*u,2.6,0.54+2*Math.PI,false); F.closePath();
+    F.moveTo(2*u,-11*u); F.arc(0,-11*u,2*u,0,2*Math.PI); return {fill:F,evenodd:true}; },
   // telecom
   pylone(u){ const P=new Path2D(); P.moveTo(-5*u,0); P.lineTo(-1*u,-14*u); P.moveTo(5*u,0); P.lineTo(1*u,-14*u);
     for(const [a,b] of [[0,-4.5],[-4.5,-9],[-9,-13]]){ const w=y=>5-(-y)*4/14; P.moveTo(-w(a)*u,a*u); P.lineTo(w(b)*u,b*u); P.moveTo(w(a)*u,a*u); P.lineTo(-w(b)*u,b*u); }
@@ -1544,7 +1556,7 @@ const GLYPH={
   edifice(u){ const F=new Path2D(); F.rect(-5*u,-13*u,10*u,13*u); for(const y of [-10.5,-6.5,-2.5]) for(const x of [-3.2,0.8]) F.rect(x*u,y*u,2.4*u,2.4*u); return {fill:F,evenodd:true}; },
 };
 // hauteur totale approximative d'une icone (unites de 16) : pour placer l'etiquette au-dessus/dessous
-const GLYPH_H={pylone:17,mat:16,toit:16,chateau_eau:15,antenne:18,tour:20,dome:15,clocher:18,arc:13,colonne:18,chateau:14,musee:14.5,stade:15,gare:15.5,eau:16,parc:15,place:15,scene:15,pont:13,edifice:13,mairie:17,maison:15};
+const GLYPH_H={pin:16,pylone:17,mat:16,toit:16,chateau_eau:15,antenne:18,tour:20,dome:15,clocher:18,arc:13,colonne:18,chateau:14,musee:14.5,stade:15,gare:15.5,eau:16,parc:15,place:15,scene:15,pont:13,edifice:13,mairie:17,maison:15};
 // ---------- silhouettes de monuments a leur taille reelle (07/10/2026) ----------
 // Un monument dont la hauteur apparente depasse ~26 px est dessine avec SA forme (profil simplifie), de son sol a son
 // sommet, a l'echelle exacte (largeur = rapport largeur/hauteur reel x hauteur a l'ecran). En dessous, l'icone
@@ -2579,6 +2591,7 @@ function draw(ts){
     if(eqItems.length) infra.push({list:eqItems,max:99,color:{line:'rgba(120,205,232,.85)',text:'#78CDE8',icon:'#78CDE8'},hits:monHits,key:'eq',groupBy:'icon',rows:2,iconDy:17,sizeK:.72,beside:true}); }
   if(S.telecom&&telecomSites.length) infra.push({list:telecomSites,max:S.telecomMax,color:{line:'rgba(232,90,90,.85)',text:'#E85A5A',icon:'#E85A5A'},hits:telecomHits,key:'tel'});
   if(S.buildings&&buildingSites.length) infra.push({list:buildingSites,max:S.buildingsMax,color:{line:'rgba(169,139,255,.85)',text:'#A98BFF',icon:'#A98BFF'},hits:null,key:'bld'});
+  for(const L of userLayers) if(L.on&&L.shown&&L.shown.length) infra.push({list:L.shown,max:L.max,color:{line:hexA(L.color,.85),text:L.color,icon:L.color},hits:telecomHits,key:'usr:'+L.id});
   telecomHits.length=0; monHits.length=0; infraStats={labeled:0,iconOnly:0,deck:lowDeck?'bas':'haut'};
 
   // --- lieux et monuments : ancres sur le relief (sol du lieu, ou crete qui le laisse entrevoir) ---
@@ -2778,6 +2791,11 @@ function draw(ts){
     for(const g of groups) g.dmin=Math.min(...g.items.map(t=>t.dist));
     groups.sort((a,b)=>a.dmin-b.dmin); // les plus proches se placent en premier
     const size=13, step=20;
+    // ZONES TACTILES (09/10/2026 : "des pylones regroupes ne s'ouvrent pas") : une zone pour l'ICONE (au plus pres de ce qui est dessine,
+    // pastille du nombre comprise) et une pour l'ETIQUETTE, au lieu d'un grand rectangle qui recouvrait les icones des monuments voisins
+    const pushHits=(g,near,x,lab)=>{ if(!L.hits) return; const n=g.items.length, b=g.base, base={t:near._src||near,g:g.items,roll};
+      L.hits.push({...base,x0:x-g.h/2-4,x1:n>1?x+g.h*.45+14:x+g.h/2+4,y0:b-g.h-(n>1?14:4),y1:b+4});
+      if(lab) L.hits.push({...base,...lab}); };
     // bande des equipements : icone SOUS la ligne d'horizon, sur L.rows rangees (la plus proche d'abord, sans chevauchement) ;
     // un fil pointille la relie a son azimut sur l'horizon ; le texte commence sous la derniere rangee
     const dy=(deck==='low'&&L.iconDy)?L.iconDy:0, rowStep=15, rowsBusy=[];
@@ -2844,7 +2862,7 @@ function draw(ts){
         for(let k=0;k<maxLanes;k++){ const y=hy-38-k*step; if(y-size-2<topLimit) break; if(!rectHit(x0,x1,y-size-2,y+4,6)){ upY=y; break; } }
       }
       if(!bs&&k0==null&&upY==null){ infraStats.iconOnly+=n;
-        if(L.hits) L.hits.push({t:near._src||near,g:g.items,roll,x0:x-16,x1:x+20,y0:dy?g.base-g.h-4:hy-36,y1:dy?g.base+4:hy+2}); continue; }
+        pushHits(g,near,x,null); continue; }
       if(k0!=null) laneMem.set(key,k0); infraStats.labeled+=n;
       const ly=bs?bs.y:k0!=null?yOf(k0):upY, below=!bs&&k0!=null&&deck==='low';
       if(bs){ tx=bs.tx; x0=bs.x0; x1=bs.x1; }
@@ -2863,7 +2881,7 @@ function draw(ts){
       if(g5){ ctx.font=`700 9px ${FM}`; const bx=ox+2, bw=20;
         ctx.fillStyle='rgba(14,26,43,.9)'; ctx.fillRect(bx,ly-11,bw,12); ctx.strokeStyle=L.color.text; ctx.lineWidth=1; ctx.strokeRect(bx+.5,ly-10.5,bw-1,11);
         ctx.fillStyle=L.color.text; ctx.textAlign='center'; ctx.fillText('5G',bx+bw/2,ly-2); ctx.textAlign='left'; }
-      if(L.hits) L.hits.push({t:near._src||near,g:g.items,roll,x0,x1,y0:Math.min(ly-size-2,dy?g.base-g.h-4:hy-32),y1:Math.max(ly+4,dy?g.base+4:hy+2)});
+      pushHits(g,near,x,{x0,x1,y0:ly-size-2,y1:ly+4});
     }
   }
 
@@ -2944,6 +2962,132 @@ function draw(ts){
   requestAnimationFrame(draw);
 }
 
+// ---------- COUCHES PERSONNELLES (KMZ / KML), 09/10/2026 ----------
+// Demande : "une couche personnalisee ou je charge un KMZ avec des POI, qui ne reste qu'en local". Le fichier est lu DANS le navigateur
+// (jamais envoye nulle part : aucune requete reseau dans tout ce bloc), decompresse ici (KMZ = ZIP), les points (Placemark/Point) sont
+// memorises dans la Cache API de l'appareil (cache separe : "Vider le cache" ne les efface pas) et affiches comme les pylones
+// (icone + etiquette, regroupement, toucher -> fiche a liste depliable). Lignes et polygones sont ignores (compte affiche).
+const USR_CACHE='vh-user-v1', USR_BASE='https://vh.user/', USR_COLORS=['#FF8A3D','#A98BFF','#4FD1C5','#FF6FB5','#9BE564','#FFD23F'], USR_SHOWN=300, USR_MAX_PTS=20000, USR_DISTS=[2,5,10,20,50,100,200];
+let userLayers=[];
+const hexA=(h,a)=>{ const n=parseInt(h.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; };
+function userMake(L){
+  L.items=L.pts.map(q=>({name:q[2]||'',lat:q[0],lon:q[1],desc:q[3]||'',links:q[4]||[],kind:'user',icon:'pin',layer:L.id,lname:L.name,col:L.color,dist:null,brg:null}));
+  L.shown=[]; return L;
+}
+function userRecompute(){
+  if(!pos) return;
+  for(const L of userLayers){ if(!L.items) continue;
+    for(const it of L.items){ const r=distBrg(pos,it); it.dist=r.dist; it.brg=r.brg; }
+    L.shown=L.items.filter(it=>it.dist<=L.max).sort((a,b)=>a.dist-b.dist).slice(0,USR_SHOWN); }
+}
+async function userSave(L){ try{ if(!window.caches) return false; const c=await caches.open(USR_CACHE);
+  await c.put(USR_BASE+L.id,new Response(JSON.stringify({id:L.id,name:L.name,color:L.color,on:L.on,max:L.max,pts:L.pts,ignored:L.ignored,added:L.added}),{headers:{'content-type':'application/json'}})); return true; }catch(e){ return false; } }
+async function userDelete(id){ try{ if(window.caches){ const c=await caches.open(USR_CACHE); await c.delete(USR_BASE+id); } }catch(e){} }
+async function userLoad(){
+  try{ if(window.caches){ const c=await caches.open(USR_CACHE), ks=await c.keys(), out=[];
+    for(const k of ks){ try{ const o=await (await c.match(k)).json(); if(o&&Array.isArray(o.pts)) out.push(userMake(o)); }catch(e){} }
+    out.sort((a,b)=>(a.added||0)-(b.added||0)); userLayers=out; } }catch(e){}
+  userRecompute(); renderUserMenu();
+}
+async function inflateRaw(u8){ const ds=new DecompressionStream('deflate-raw'), w=ds.writable.getWriter(); w.write(u8); w.close(); return new Uint8Array(await new Response(ds.readable).arrayBuffer()); }
+// KMZ = archive ZIP contenant un .kml (doc.kml en general) : lecture du repertoire central, extraction stockee (0) ou deflate (8)
+async function kmzToKml(buf){
+  const dv=new DataView(buf), u8=new Uint8Array(buf); let e=-1;
+  for(let i=buf.byteLength-22;i>=Math.max(0,buf.byteLength-66000);i--) if(dv.getUint32(i,true)===0x06054b50){ e=i; break; }
+  if(e<0) throw new Error('archive KMZ illisible (fin de répertoire introuvable)');
+  const n=dv.getUint16(e+10,true); let p=dv.getUint32(e+16,true); const ents=[], td=new TextDecoder();
+  for(let k=0;k<n;k++){ if(dv.getUint32(p,true)!==0x02014b50) break;
+    const meth=dv.getUint16(p+10,true), csz=dv.getUint32(p+20,true), nl=dv.getUint16(p+28,true), el=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true), off=dv.getUint32(p+42,true);
+    ents.push({name:td.decode(u8.subarray(p+46,p+46+nl)),meth,csz,off}); p+=46+nl+el+cl; }
+  const kmls=ents.filter(x=>/\.kml$/i.test(x.name)), pick=kmls.find(x=>/(^|\/)doc\.kml$/i.test(x.name))||kmls[0];
+  if(!pick) throw new Error('aucun fichier .kml dans cette archive');
+  const nl=dv.getUint16(pick.off+26,true), el=dv.getUint16(pick.off+28,true), st=pick.off+30+nl+el, data=u8.subarray(st,st+pick.csz);
+  if(pick.meth===0) return td.decode(data);
+  if(pick.meth===8){ if(typeof DecompressionStream==='undefined') throw new Error("ce navigateur ne sait pas décompresser les KMZ (exportez en .kml)"); return td.decode(await inflateRaw(data)); }
+  throw new Error('compression ZIP non gérée ('+pick.meth+')');
+}
+function kmlText(html){ // description KML (souvent du HTML) -> texte + liens http(s)
+  const h=String(html||'').replace(/<br\s*\/?>|<\/p>|<\/div>|<\/tr>/gi,'\n'), d=new DOMParser().parseFromString(h,'text/html'), links=[];
+  for(const a of d.querySelectorAll('a[href]')){ const u=a.getAttribute('href'); if(/^https?:\/\//i.test(u)&&!links.includes(u)) links.push(u); }
+  for(const u of (d.body.textContent.match(/https?:\/\/[^\s<>"']+/g)||[])) if(!links.includes(u)) links.push(u);
+  return {text:d.body.textContent.replace(/\n\s*\n+/g,'\n').trim().slice(0,800),links:links.slice(0,4)};
+}
+function parseKml(txt){
+  const doc=new DOMParser().parseFromString(txt,'application/xml'); if(doc.getElementsByTagName('parsererror').length) throw new Error('KML invalide (XML illisible)');
+  const out=[]; let ignored=0;
+  const child=(el,tag)=>{ for(const c of el.children) if(c.localName===tag) return c.textContent.trim(); return ''; };
+  for(const pm of doc.getElementsByTagName('Placemark')){
+    const pts=pm.getElementsByTagName('Point'); if(!pts.length){ ignored++; continue; }
+    const name=child(pm,'name').slice(0,120), d=kmlText(child(pm,'description'));
+    for(const pt of pts){ const c=(pt.getElementsByTagName('coordinates')[0]||{textContent:''}).textContent.trim().split(/\s+/)[0].split(','), lon=+c[0], lat=+c[1];
+      if(!isFinite(lat)||!isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180||(lat===0&&lon===0)) continue;
+      out.push([+lat.toFixed(6),+lon.toFixed(6),name,d.text,d.links]); }
+  }
+  return {pts:out,ignored};
+}
+async function userImport(file){
+  if(file.size>40e6) throw new Error('fichier trop gros (40 Mo maximum)');
+  const buf=await file.arrayBuffer(), u8=new Uint8Array(buf), zip=u8[0]===0x50&&u8[1]===0x4b;
+  const {pts,ignored}=parseKml(zip?await kmzToKml(buf):new TextDecoder('utf-8').decode(u8));
+  if(!pts.length) throw new Error('aucun point trouvé'+(ignored?` (${ignored} ligne(s)/polygone(s) ignorés : seuls les points sont affichés)`:''));
+  const L=userMake({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:file.name.replace(/\.(kmz|kml)$/i,'').slice(0,60),color:USR_COLORS[userLayers.length%USR_COLORS.length],on:true,max:50,pts:pts.slice(0,USR_MAX_PTS),ignored,added:Date.now()});
+  userLayers.push(L); const ok=await userSave(L); userRecompute(); renderUserMenu();
+  return {L,ok,cut:pts.length>USR_MAX_PTS};
+}
+const USR_PIN='<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 22l-5.4-9.6a6.2 6.2 0 1 1 10.8 0zM12 7.2a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0-5.2z"/></svg>';
+function renderUserMenu(){
+  const el=$('lyUser'); if(!el) return;
+  el.innerHTML=userLayers.map(L=>`<label class="lyUsr" style="color:${L.color}">${USR_PIN}<span class="lyN" style="color:var(--cream)">${dEsc(L.name)}<em>${L.pts.length} point(s) · jusqu'à ${L.max} km</em></span><input type="checkbox" data-usr="${L.id}" data-f="on"${L.on?' checked':''}></label>`).join('')
+    +`<button class="lyBtn" id="lyUserMgr">Couches perso · importer un KMZ</button>`;
+}
+function renderUserPanel(msg){
+  const sw=L=>USR_COLORS.map(c=>`<span class="sw${c===L.color?' on':''}" style="background:${c}" data-usr="${L.id}" data-f="color" data-v="${c}"></span>`).join('');
+  $('dbgTitle').textContent='Couches perso';
+  $('dbgBody').innerHTML=`<div class="dbgline">🔒 <b>Tout reste sur cet appareil.</b> Le fichier est lu dans le navigateur, jamais envoyé : aucune requête réseau n'est faite pour vos points. Ils sont mémorisés ici (« Vider le cache » ne les efface pas).</div>
+    <div style="margin-top:12px"><label class="usrBtn">+ Ajouter un KMZ / KML<input type="file" id="usrFile" accept=".kmz,.kml,application/vnd.google-earth.kmz,application/vnd.google-earth.kml+xml,application/xml,text/xml" style="display:none"></label></div>
+    <div id="usrMsg" class="dbgline" style="min-height:18px">${msg||''}</div>`
+    +(userLayers.length?userLayers.map(L=>`<div class="usrRow"><div class="dbgline" style="color:${L.color};font-weight:700">${L.pts.length} point(s)${L.ignored?` · ${L.ignored} ligne(s)/polygone(s) ignorés`:''}${L.shown?` · ${L.shown.length} affiché(s) maintenant`:''}</div>
+      <input type="text" value="${dEsc(L.name)}" data-usr="${L.id}" data-f="name" style="width:100%;margin:6px 0">
+      <div>${sw(L)}</div>
+      <div style="margin-top:8px">Afficher jusqu'à <select data-usr="${L.id}" data-f="max">${USR_DISTS.map(d=>`<option value="${d}"${d===L.max?' selected':''}>${d} km</option>`).join('')}</select>
+      <label style="margin-left:10px"><input type="checkbox" data-usr="${L.id}" data-f="on"${L.on?' checked':''}> visible</label></div>
+      <div style="margin-top:6px"><span class="usrBtn danger" data-usr="${L.id}" data-f="del">Supprimer</span></div></div>`).join(''):`<div class="dbgline" style="opacity:.7;margin-top:10px">Aucune couche. Les points (Placemark) d'un fichier Google Earth / My Maps / QGIS s'affichent comme les pylônes : icône, nom, distance ; un toucher ouvre la fiche (description, liens).</div>`);
+  $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null; $('layers').classList.remove('open');
+}
+// une seule delegation d'evenements pour le menu Calques et le panneau (interrupteurs, couleur, distance, nom, suppression, import)
+async function userAction(e){
+  const t=e.target.closest&&e.target.closest('[data-usr]'); if(t){
+    const L=userLayers.find(x=>x.id===t.dataset.usr); if(!L) return; const f=t.dataset.f;
+    if(f==='on'&&e.type==='change') L.on=t.checked;
+    else if(f==='max'&&e.type==='change') L.max=+t.value;
+    else if(f==='name'&&e.type==='change'){ L.name=t.value.trim().slice(0,60)||L.name; for(const it of L.items) it.lname=L.name; }
+    else if(f==='color'&&e.type==='click'){ L.color=t.dataset.v; for(const it of L.items) it.col=L.color; }
+    else if(f==='del'&&e.type==='click'){ if(!confirm(`Supprimer la couche « ${L.name} » de cet appareil ?`)) return; userLayers=userLayers.filter(x=>x!==L); await userDelete(L.id); renderUserMenu(); renderUserPanel(); return; }
+    else return;
+    await userSave(L); userRecompute(); renderUserMenu(); if($('dbgTitle').textContent==='Couches perso') renderUserPanel(); return; }
+  if(e.type==='click'&&e.target.closest&&e.target.closest('#lyUserMgr')) renderUserPanel();
+  if(e.type==='change'&&e.target.id==='usrFile'){ const f=e.target.files&&e.target.files[0]; if(!f) return;
+    $('usrMsg').textContent='Lecture de '+f.name+'…';
+    try{ const r=await userImport(f); renderUserPanel(`✓ « ${dEsc(r.L.name)} » : ${r.L.pts.length} point(s)${r.L.ignored?`, ${r.L.ignored} ligne(s)/polygone(s) ignorés`:''}${r.cut?` (limité à ${USR_MAX_PTS})`:''}${r.ok?'':' — mémorisation impossible (affiché pour cette session seulement)'}.`); }
+    catch(err){ renderUserPanel('✗ '+dEsc(err.message||err)); } }
+}
+for(const ev of ['click','change']){ $('layers').addEventListener(ev,userAction); $('dbgBody').addEventListener(ev,userAction); }
+function userBlock(x,withName){
+  const A=(u,tx)=>`<a style="color:#F2C14E" target="_blank" rel="noopener" href="${dEsc(u)}">${dEsc(tx)}</a>`;
+  return `${withName?`<div class="dbgline" style="font-size:18px;color:${x.col};font-weight:700">${dEsc(x.name||'(sans nom)')}</div>`:''}
+    <div class="dbgline">${dEsc(x.lname)} · à ${dKm(x.dist)} km · ${x.lat.toFixed(5)}, ${x.lon.toFixed(5)}</div>
+    ${x.desc?`<div class="dbgsec">Description</div><div class="dbgline" style="white-space:pre-wrap">${dEsc(x.desc)}</div>`:''}
+    <div class="dbgsec">En savoir plus</div><div class="dbgline">${x.links.map((u,i)=>A(u,x.links.length>1?'lien '+(i+1):'lien du fichier')).concat([linksHtml({lat:x.lat,lon:x.lon})]).join(' · ')}</div>`;
+}
+function showUserSheet(t,grp){
+  showGroupSheet({items:grp&&grp.length>1?grp:[t],color:t.col,
+    title1:t.lname, titleN:n=>`${n} points · ${t.lname}`,
+    single:x=>userBlock(x,true),
+    head:l=>`${l.length} points regroupés · ${dKm(l[0].dist)}–${dKm(l[l.length-1].dist)} km`,
+    summary:x=>`${dEsc(x.name||'(sans nom)')}</b> · ${dKm(x.dist)} km<br><span style="opacity:.75">${dEsc(x.lname)}</span><b>`,
+    block:x=>userBlock(x,false)});
+}
+
 // ---------- calage au doigt ----------
 let drag=null;
 ov.addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,t:Date.now(),h:S.headOff,p:S.pitchOff,moved:false}; ov.setPointerCapture(e.pointerId); });
@@ -2991,27 +3135,27 @@ function pointCalibrate(px,py){
 }
 // une case tactile est enregistree dans le repere compense du roulis (voir la boucle de rendu) :
 // on y ramene le point tape avant de tester les intersections
-function hitTelecom(px,py,arr=telecomHits){
-  // deux passes : d'abord un toucher franchement DANS une zone, ensuite seulement avec 6 px de marge
-  // (des noms voisins espaces de 5 px auraient sinon des zones tactiles qui se recouvrent)
-  lastHitGrp=null;
-  for(const m of [0,6]){ const h=hitAt(px,py,arr,m); if(h){ lastHitGrp=h.g||null; return h.t; } }
-  return null;
+// UN SEUL test de toucher pour tout ce qui se touche (monuments, equipements, pylones, points perso) : toutes les zones sont
+// testees ensemble, d'abord franchement DANS la zone, puis avec 6 px de marge ; s'il y en a plusieurs, celle dont le centre est
+// le plus proche du doigt l'emporte (avant : les monuments etaient testes en premier, avec marge, et masquaient les pylones voisins).
+let lastHitGrp=null; // elements regroupes sous l'etiquette ou l'icone touchee (ex. "13 toits-terrasses")
+function hitLocal(px,py,h){ const cx=W/2, cy=H/2, dx=px-cx, dy=py-cy, r=h.roll*D; return [cx+dx*Math.cos(r)+dy*Math.sin(r), cy-dx*Math.sin(r)+dy*Math.cos(r)]; } // repere compense du roulis
+function hitIn(px,py,h,mg){
+  const [lx,ly]=hitLocal(px,py,h);
+  if(h.icon){ const ic=h.icon; if(lx>=ic[0]-mg&&lx<=ic[1]+mg&&ly>=ic[2]-mg&&ly<=ic[3]+mg) return true; return !!(h.poly&&inQuad(h.poly,lx,ly,mg)); }
+  return lx>=h.x0-mg&&lx<=h.x1+mg&&ly>=h.y0-mg&&ly<=h.y1+mg;
 }
-let lastHitGrp=null; // elements regroupes sous l'etiquette touchee (ex. "13 toits-terrasses")
-function hitAt(px,py,arr,mg){
-  for(let i=arr.length-1;i>=0;i--){
-    const h=arr[i], cx=W/2, cy=H/2, dx=px-cx, dy=py-cy, r=h.roll*D;
-    const lx=cx+dx*Math.cos(r)+dy*Math.sin(r), ly=cy-dx*Math.sin(r)+dy*Math.cos(r);
-    if(h.icon){
-      const ic=h.icon; if(lx>=ic[0]-mg&&lx<=ic[1]+mg&&ly>=ic[2]-mg&&ly<=ic[3]+mg) return h;
-      if(h.poly&&inQuad(h.poly,lx,ly,mg)) return h;
-      continue;
-    }
-    if(lx>=h.x0-mg&&lx<=h.x1+mg&&ly>=h.y0-mg&&ly<=h.y1+mg) return h;
+function hitDist(px,py,h){ const [lx,ly]=hitLocal(px,py,h), b=h.icon||[h.x0,h.x1,h.y0,h.y1]; return Math.hypot(lx-(b[0]+b[1])/2,ly-(b[2]+b[3])/2); }
+function hitBest(px,py,arrs){
+  for(const mg of [0,6]){
+    let best=null, bd=1e9;
+    for(const arr of arrs) for(const h of arr){ if(!hitIn(px,py,h,mg)) continue; const d=hitDist(px,py,h); if(d<bd){ bd=d; best=h; } }
+    if(best){ lastHitGrp=best.g||null; return best; }
   }
-  return null;
+  lastHitGrp=null; return null;
 }
+function hitTelecom(px,py,arr=telecomHits){ const h=hitBest(px,py,[arr]); return h?h.t:null; }
+function hitAt(px,py,arr,mg){ for(let i=arr.length-1;i>=0;i--) if(hitIn(px,py,arr[i],mg)) return arr[i]; return null; }
 // point dans un quadrilatere convexe, avec une marge m (distance signee a chaque cote)
 function inQuad(P,x,y,m){
   let sgn=0;
@@ -3097,11 +3241,15 @@ function telecomBlock(t){
     <div class="dbgsec">Operateurs presents (${(t.operators||[]).length})</div>
     ${ops||'<div class="dbgline">aucun</div>'}`;
 }
+// detail d'un element touche : une seule entree, aiguillee selon sa nature (monument/equipement, pylone ANFR, point perso...)
+const TAP_DETAIL={ monument:(t,g)=>showMonumentDetail(t,g), telecom:(t,g)=>showTelecomSheet(t,g), user:(t,g)=>showUserSheet(t,g) };
 function showTelecomDetail(px,py){
-  const m=hitTelecom(px,py,monHits); if(m){ showMonumentDetail(m,lastHitGrp); return; }
-  const t=hitTelecom(px,py); if(!t) return;
+  const h=hitBest(px,py,[telecomHits,monHits]); if(!h) return;
+  (TAP_DETAIL[h.t.kind]||TAP_DETAIL.telecom)(h.t,lastHitGrp);
+}
+function showTelecomSheet(t,grp){
   const opsTxt=x=>(x.operators||[]).map(o=>o.name).join(', ');
-  showGroupSheet({items:lastHitGrp&&lastHitGrp.length>1?lastHitGrp:[t],color:'#E85A5A',
+  showGroupSheet({items:grp&&grp.length>1?grp:[t],color:'#E85A5A',
     title1:'Support telecom', titleN:n=>`${n} supports telecom`,
     single:x=>`<div class="dbgsec">Support telecom</div>`+telecomBlock(x),
     head:l=>`${l.length} supports regroupes · ${dKm(l[0].dist)}–${dKm(l[l.length-1].dist)} km`,
@@ -3560,6 +3708,7 @@ $('go').onclick=async()=>{
   try{ await document.fonts.ready; }catch(e){}
   resize(); requestAnimationFrame(draw);
 };
+userLoad();
 resize();
 })();
 </script>
