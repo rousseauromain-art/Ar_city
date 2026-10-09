@@ -45,7 +45,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #tools button:active{background:rgba(243,233,210,.2)}
 #btnLayers.on{background:rgba(224,165,38,.3)}
 /* calques (lots 2 et 5, 28/09/2026) : quoi afficher ; l'oeil regle combien */
-#layers{position:absolute;top:calc(var(--safe-t) + 34px);right:62px;width:min(272px,calc(100vw - 80px));background:rgba(14,26,43,.95);border:1px solid var(--line);border-radius:6px;padding:10px 12px 8px;display:none;z-index:6;backdrop-filter:blur(8px)}
+#layers{position:absolute;top:calc(var(--safe-t) + 34px);right:62px;max-height:calc(100% - var(--safe-t) - 34px - 12px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;width:min(272px,calc(100vw - 80px));background:rgba(14,26,43,.95);border:1px solid var(--line);border-radius:6px;padding:10px 12px 8px;display:none;z-index:6;backdrop-filter:blur(8px)}
 #layers.open{display:block}
 #layers .lyT{font:700 12px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--ochre);margin:2px 0 8px}
 #layers label{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
@@ -167,7 +167,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <label><svg viewBox="0 0 24 24" stroke="#F2C14E"><path d="M7 21l4-15h2l4 15M9.2 13.5h5.6M10 21a2 2 0 0 1 4 0M12 6V2.5"/></svg><span class="lyN">Monuments<em id="lyInfoMon">lieux emblématiques (Wikipédia)</em></span><input type="checkbox" id="lyMon"></label>
     <label class="lySub"><svg viewBox="0 0 24 24" stroke="#78CDE8"><path d="M3 20h18M5 20v-5q7-9 14 0v5M9 20v-3q3-4 6 0v3"/></svg><span class="lyN">Équipements urbains<em id="lyInfoEq">stades, gares et métros, canaux, parcs, places, théâtres, ponts</em></span><input type="checkbox" id="lyEq"></label>
     <label><svg viewBox="0 0 24 24" stroke="#E85A5A"><path d="M8 21l3.2-15h1.6L16 21M9.6 14.5l5.2-3M14.4 14.5l-5.2-3M8.8 18l6.8-2.6M15.2 18l-6.8-2.6M12 6V2.5M10 3.5h4"/></svg><span class="lyN">Pylônes télécom<em id="lyInfoTel">ANFR, France — via le relais</em></span><input type="checkbox" id="lyTel"></label>
-    <label><svg viewBox="0 0 24 24" stroke="#7AA7E0"><path d="M6 21V8h7v13M13 12h5v9M8.5 11h2M8.5 14h2M8.5 17h2M15 15h1M15 18h1M9.5 8V4"/></svg><span class="lyN">Repères hauts<em id="lyInfoBld">tours, cheminées, châteaux d'eau (OSM)</em></span><input type="checkbox" id="lyBld"></label>
+    <label><svg viewBox="0 0 24 24" stroke="#A98BFF"><path d="M6 21V8h7v13M13 12h5v9M8.5 11h2M8.5 14h2M8.5 17h2M15 15h1M15 18h1M9.5 8V4"/></svg><span class="lyN">Repères hauts<em id="lyInfoBld">tours, cheminées, châteaux d'eau (OSM)</em></span><input type="checkbox" id="lyBld"></label>
     <label><svg viewBox="0 0 24 24" stroke="#C79BE8"><path d="M3 20V11h3V8h3v4h3V6h3v6h3V9h3v11z"/></svg><span class="lyN">Silhouette bâtiments<em id="lyInfoUrb">contour des immeubles (IGN BD TOPO) · France</em></span><input type="checkbox" id="lyUrb"></label>
     <label class="lySub"><span class="lyN">Premier plan masqué<em>ignore les bâtiments à moins de 150 m (rue en canyon)</em></span><input type="checkbox" id="lyUrbClip"></label>
     <label class="lySub"><span class="lyN">Silhouette lissée<em>effet skyline : comble les rues étroites et les creux</em></span><input type="checkbox" id="lyUrbSmooth"></label>
@@ -264,7 +264,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <label for="tel">Afficher (en rouge)<em>ANFR &le; 8 km</em></label><input type="checkbox" id="tel">
     <span class="hint">France uniquement (source ANFR, via le relais). Propriétaire du support et opérateurs présents en appuyant sur une étiquette. Un pylône lointain peut mettre quelques secondes à apparaître.</span>
   </div>
-  <div class="sec" style="color:#7AA7E0">Tours, clochers et immeubles hauts</div>
+  <div class="sec" style="color:#A98BFF">Tours, clochers et immeubles hauts</div>
   <div class="row">
     <label for="bld">Afficher (en bleu)<em>OSM &le; 12 km</em></label><input type="checkbox" id="bld">
     <span class="hint">Tours, clochers, cheminées, mâts, châteaux d'eau et immeubles élevés (source OpenStreetMap : tag "height" ou "building:levels"), affichés comme les pylônes télécom ci-dessus — sans correction de relief.</span>
@@ -334,7 +334,7 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const APP_VERSION='2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
@@ -1626,7 +1626,7 @@ const _clMemo=new WeakMap(); // classement memorise par ligne Wikidata (les lign
 // Ordre : protege (monument historique) > ecarte (commune, evenement...) > monument typique > equipement > monument generique
 // ("batiment", des 8 langues) > inconnu tres celebre. Un lieu PROTEGE est toujours un monument (ex. Mont-Saint-Michel, aussi "commune").
 const _W=src=>new RegExp("(?:^|[^a-zà-ÿ])(?:"+src+")s?(?![a-zà-ÿ])","i");
-const WD_MONS=_W("[ée]glise|church|chapelle|chapel|cath[ée]drale|cathedral|basilique|basilica|abbaye|abbey|monast[èe]re|monastery|couvent|convent|prieur[ée]|priory|clo[îi]tre|cloister|temple|mosqu[ée]e|mosque|synagogue|pagode|sanctuaire|shrine|calvaire|croix|oratoire|baptist[èe]re|ch[âa]teau|castle|palais|palace|forteresse|fortress|citadelle|citadel|fort|manoir|manor|h[ôo]tel particulier|h[ôo]tel de ville|town hall|mairie|maison forte|maison natale|maison-musée|historic house|country house|villa|donjon|rempart|fortification|enceinte|porte de ville|city gate|tour|tower|beffroi|belfry|clocher|phare|lighthouse|moulin|windmill|watermill|mus[ée]e|museum|monument|m[ée]morial|memorial|statue|sculpture|fontaine|fountain|ob[ée]lisque|obelisk|colonne|column|arc de triomphe|triumphal arch|mausol[ée]e|mausoleum|panth[ée]on|pantheon|gratte-ciel|skyscraper|ruines?|ruins?|vestiges?|site arch[ée]ologique|archaeological site|m[ée]galithe|menhir|dolmen|tumulus|amphith[ée][âa]tre|amphitheat(?:er|re)|ar[èe]nes|th[ée][âa]tre antique|colombier|pigeonnier|lavoir|ch[âa]teau d['’]eau|water tower|place forte|hôtel-dieu|ensemble architectural|palais de justice historique");
+const WD_MONS=_W("[ée]metteur|transmitter|pyl[ôo]ne|pylon|radio mast|antenna tower|antenne|[ée]glise|church|chapelle|chapel|cath[ée]drale|cathedral|basilique|basilica|abbaye|abbey|monast[èe]re|monastery|couvent|convent|prieur[ée]|priory|clo[îi]tre|cloister|temple|mosqu[ée]e|mosque|synagogue|pagode|sanctuaire|shrine|calvaire|croix|oratoire|baptist[èe]re|ch[âa]teau|castle|palais|palace|forteresse|fortress|citadelle|citadel|fort|manoir|manor|h[ôo]tel particulier|h[ôo]tel de ville|town hall|mairie|maison forte|maison natale|maison-musée|historic house|country house|villa|donjon|rempart|fortification|enceinte|porte de ville|city gate|tour|tower|beffroi|belfry|clocher|phare|lighthouse|moulin|windmill|watermill|mus[ée]e|museum|monument|m[ée]morial|memorial|statue|sculpture|fontaine|fountain|ob[ée]lisque|obelisk|colonne|column|arc de triomphe|triumphal arch|mausol[ée]e|mausoleum|panth[ée]on|pantheon|gratte-ciel|skyscraper|ruines?|ruins?|vestiges?|site arch[ée]ologique|archaeological site|m[ée]galithe|menhir|dolmen|tumulus|amphith[ée][âa]tre|amphitheat(?:er|re)|ar[èe]nes|th[ée][âa]tre antique|colombier|pigeonnier|lavoir|ch[âa]teau d['’]eau|water tower|place forte|hôtel-dieu|ensemble architectural|palais de justice historique");
 // equipements, du plus specifique au plus general : [expression, icone, nb de langues minimum]
 const WD_EQUIP=[
   [_W("stade|stadium|arena|aréna|hippodrome|v[ée]lodrome|circuit|palais des sports|salle omnisports|patinoire|ice rink|piscine|swimming pool|complexe sportif|sports? (?:complex|cent(?:er|re)|venue|facility)|gymnase|golf|skatepark|parc des expositions|parc d['’]attractions|amusement park|theme park"),'stade',1],
@@ -1649,7 +1649,7 @@ function monTypeFrom(types,name){
   if(/basilique|basilica|cath[ée]drale|cathedral|d[ôo]me|\bdome\b|mosqu[ée]e|mosque|synagogue|pantheon|panthéon|mausol[ée]e/.test(t)) return 'dome';
   if(/[ée]glise|church|chapelle|chapel|clocher|abbaye|abbey|monast[èe]re|monastery|couvent|convent|prieur[ée]|priory|clo[îi]tre|cloister/.test(t)) return 'clocher';
   if(/ch[âa]teau|castle|palais|palace|forteresse|fortress|citadelle|citadel|manoir|\bfort\b/.test(t)) return 'chateau';
-  if(/\btour\b|tower|gratte-ciel|skyscraper|beffroi|belfry|phare|lighthouse|pyl[ôo]ne/.test(t)) return 'tour';
+  if(/\btour\b|tower|gratte-ciel|skyscraper|beffroi|belfry|phare|lighthouse|pyl[ôo]ne|pylon|[ée]metteur|transmitter|antenne/.test(t)) return 'tour';
   if(/h[ôo]tel de ville|town hall|mairie/.test(t)) return 'mairie';
   if(/maison|house|villa|h[ôo]tel particulier|logis|ferme|farm|immeuble|b[âa]timent|building/.test(t)) return 'maison';
   return 'musee';
@@ -2048,6 +2048,7 @@ function kindOfBuilding(t){
     if(t['tower:type']==='communication') return 'tour_telecom';
     return 'tour';
   }
+  if(t.man_made==='communications_tower') return 'tour_telecom'; // tag courant des grandes tours TV/radio (ex. tours TDF)
   if(t.man_made==='water_tower') return 'chateau_eau';
   if(t.man_made==='chimney') return 'cheminee';
   if(t.man_made==='mast') return 'mat';
@@ -2065,35 +2066,53 @@ function parseBuildings(j){
     const kind=kindOfBuilding(t);
     const hv=parseFloat(t.height), lv=parseFloat(t['building:levels']);
     const height_m=isFinite(hv)?hv:(isFinite(lv)?lv*3:null);
-    const name=t['name:fr']||t.name||(BUILD_LABEL[kind]+(height_m?` (${Math.round(height_m)} m)`:''));
+    const opr=t.operator||t.owner||'', name=t['name:fr']||t.name||(BUILD_LABEL[kind]+(opr&&opr.length<=24?' '+opr:'')+(height_m?` (${Math.round(height_m)} m)`:''));
     const key=name+'@'+lat.toFixed(4)+','+lon.toFixed(4);
     if(seen.has(key)) continue; seen.add(key);
     got.push({name,lat,lon,kind,height_m});
   }
   return got;
 }
+// REPERES HAUTS (OSM). 09/10/2026 : "indispo" en boucle (3 miroirs Overpass en 504 / delai depasse) car UNE seule requete
+// melait les tours (rapide, indexe) et les immeubles hauts (scan de tous les "building" du rayon, tres lourd). Maintenant :
+//  1. memoire locale (Cache API, 3 jours) : un lieu deja vu s'affiche sans reseau ;
+//  2. requete LEGERE d'abord (tours, tours de telecom, chateaux d'eau, cheminees, mats) : c'est elle qui porte la tour TDF ;
+//  3. immeubles hauts en requete SEPAREE, au mieux : son echec ne fait plus perdre les tours ;
+//  4. echec total : on reutilise la derniere memoire connue (meme ancienne) plutot que "indispo".
+const BLD_TTL=3*864e5, BLD_TTL_PARTIAL=6*36e5, BLD_TTL_STALE=60*864e5;
+const bldKey=r=>`bld/${pos.lat.toFixed(2)},${pos.lon.toFixed(2)},${r}`;
+async function bldRead(key,ttl){ const h=await dcGet(key,ttl); if(!h) return null; try{ const o=await h.r.json(); return o&&Array.isArray(o.list)?{...o,t:h.t}:null; }catch(e){ return null; } }
+function bldMerge(a,b){ const seen=new Set(), out=[]; for(const x of a.concat(b)){ const k=x.name+'@'+x.lat.toFixed(4)+','+x.lon.toFixed(4); if(!seen.has(k)){ seen.add(k); out.push(x); } } return out; }
 async function pollBuildings(){
   if(!S.buildings||!pos||buildingsBusy||document.hidden) return;
   if(buildingsAt&&distBrg(pos,buildingsAt).dist<Math.max(1,S.buildingsMax*0.3)) return; // deja couvert
   if(buildingsErrAt&&Date.now()-buildingsErrAt<buildingsErrDelay) return; // echec recent : on patiente avant de reessayer
   buildingsBusy=true; bMsg.buildings='recherche…';
-  const r=Math.round(S.buildingsMax*1000), C=`${pos.lat},${pos.lon}`;
-  const q=`[out:json][timeout:25];(`
-    +`nwr["man_made"="tower"](around:${r},${C});`
-    +`nwr["man_made"="water_tower"](around:${r},${C});`
-    +`nwr["man_made"="chimney"](around:${r},${C});`
-    +`nwr["man_made"="mast"](around:${r},${C});`
-    +`nwr["building"]["height"](if:t["height"]>30)(around:${r},${C});`
-    +`nwr["building"]["building:levels"](if:t["building:levels"]>9)(around:${r},${C});`
-    +`);out center;`;
+  const r=Math.round(S.buildingsMax*1000), C=`${pos.lat},${pos.lon}`, key=bldKey(r), here={...pos};
+  const apply=(list,note)=>{ buildingSites=list; recompute(); markBuildingDupes(); buildingsAt=here; bMsg.buildings=list.length+' repere(s)'+(note||''); };
   try{
-    buildingSites=await overpassQuery(q,15000,parseBuildings);
-    recompute(); markBuildingDupes(); buildingsAt={...pos}; bMsg.buildings=buildingSites.length+' repere(s)';
-    logNet('OSM (reperes)',true,`${buildingSites.length} repere(s) haut(s), rayon ${S.buildingsMax} km`);
+    const hit=await bldRead(key,BLD_TTL);
+    if(hit&&(!hit.partial||Date.now()-hit.t<BLD_TTL_PARTIAL)){ apply(hit.list,' · mémoire'); logNet('OSM (reperes)',true,`${hit.list.length} repere(s) haut(s) depuis la mémoire (il y a ${dcAgo(hit.t)}), rayon ${S.buildingsMax} km`); buildingsErrAt=null; buildingsErrDelay=30000; buildingsBusy=false; return; }
+    const qLight=`[out:json][timeout:25];(`
+      +`nwr["man_made"~"^(tower|communications_tower|water_tower|chimney|mast)$"](around:${r},${C});`
+      +`);out center qt;`;
+    const qHeavy=`[out:json][timeout:25];(`
+      +`nwr["building"]["height"](if:t["height"]>30)(around:${r},${C});`
+      +`nwr["building"]["building:levels"](if:t["building:levels"]>9)(around:${r},${C});`
+      +`);out center qt;`;
+    const light=await overpassQuery(qLight,15000,parseBuildings);
+    let heavy=[], partial=false;
+    try{ heavy=await overpassQuery(qHeavy,15000,parseBuildings); }catch(e){ partial=true; logNet('OSM (reperes)',false,'immeubles hauts indisponibles (tours et mâts conservés) : '+friendlyErr(e)); }
+    const list=bldMerge(light,heavy);
+    apply(list,partial?' · sans immeubles':'');
+    dcPut(key,JSON.stringify({list,partial}),'application/json'); dcPrune('bld/',40);
+    logNet('OSM (reperes)',true,`${list.length} repere(s) haut(s), rayon ${S.buildingsMax} km${partial?' (immeubles hauts non chargés)':''}`);
     buildingsErrAt=null; buildingsErrDelay=30000;
   }catch(e){
-    bMsg.buildings='indispo'; buildingsErrAt=Date.now(); buildingsErrDelay=Math.min(Math.round(buildingsErrDelay*1.5),300000);
-    logNet('OSM (reperes)',false,friendlyErr(e));
+    const old=await bldRead(key,BLD_TTL_STALE);
+    if(old){ apply(old.list,` · mémoire d'il y a ${dcAgo(old.t)}`); buildingsAt=null; /* on retentera (attente progressive) */ logNet('OSM (reperes)',false,friendlyErr(e)+` → dernière mémoire utilisée (${old.list.length} repères, il y a ${dcAgo(old.t)})`); }
+    else{ bMsg.buildings='indispo'; logNet('OSM (reperes)',false,friendlyErr(e)); }
+    buildingsErrAt=Date.now(); buildingsErrDelay=Math.min(Math.round(buildingsErrDelay*1.5),300000);
   }
   buildingsBusy=false;
 }
@@ -2449,7 +2468,7 @@ function draw(ts){
     // bande sous l'horizon, etagee sur 2 rangees (le plus proche en premier) ; icones regroupees par type quand elles se touchent
     if(eqItems.length) infra.push({list:eqItems,max:99,color:{line:'rgba(120,205,232,.85)',text:'#78CDE8',icon:'#78CDE8'},hits:monHits,key:'eq',groupBy:'icon',rows:2,iconDy:17,sizeK:.72,beside:true}); }
   if(S.telecom&&telecomSites.length) infra.push({list:telecomSites,max:S.telecomMax,color:{line:'rgba(232,90,90,.85)',text:'#E85A5A',icon:'#E85A5A'},hits:telecomHits,key:'tel'});
-  if(S.buildings&&buildingSites.length) infra.push({list:buildingSites,max:S.buildingsMax,color:{line:'rgba(122,167,224,.85)',text:'#7AA7E0',icon:'#7AA7E0'},hits:null,key:'bld'});
+  if(S.buildings&&buildingSites.length) infra.push({list:buildingSites,max:S.buildingsMax,color:{line:'rgba(169,139,255,.85)',text:'#A98BFF',icon:'#A98BFF'},hits:null,key:'bld'});
   telecomHits.length=0; monHits.length=0; infraStats={labeled:0,iconOnly:0,deck:lowDeck?'bas':'haut'};
 
   // --- lieux et monuments : ancres sur le relief (sol du lieu, ou crete qui le laisse entrevoir) ---
@@ -2486,10 +2505,10 @@ function draw(ts){
   // monument SANS silhouette qui se chevauchent, la plus connue reste (ordre de priorite deja trie), les autres sont regroupees
   // derriere elle : pastille +N, noms listes dans sa fiche. Les silhouettes a l'echelle ne sont pas touchees.
   { const kept=[], drop=new Set();
-    for(const c of order){ if(c.kind!=='monument'||c.cat==='equip') continue; c._more=0; c._hid=null; if(!passFilter(c,fq)) continue; const x=inView(c); if(x==null) continue;
+    for(const c of order){ if(c.kind!=='monument'||c.cat==='equip') continue; c._more=0; c._hid=null; c._hidObjs=null; if(!passFilter(c,fq)) continue; const x=inView(c); if(x==null) continue;
       const y=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-monAng(c).aA)*D))), g=monGH(c); if(monSpriteBox(c,x,y)) continue;
       const b=[x-g/2,x+g/2,y-g,y], k=kept.find(o=>Math.min(o.b[1],b[1])-Math.max(o.b[0],b[0])>Math.min(g,o.g)*0.45&&b[2]<o.b[3]&&b[3]>o.b[2]);
-      if(k){ drop.add(c); k.c._more++; (k.c._hid=k.c._hid||[]).push(c.name); } else kept.push({c,b,g}); }
+      if(k){ drop.add(c); k.c._more++; (k.c._hid=k.c._hid||[]).push(c.name); (k.c._hidObjs=k.c._hidObjs||[]).push(c); } else kept.push({c,b,g}); }
     if(drop.size) order=order.filter(c=>!drop.has(c)); }
   // les icones des monuments sont reservees AVANT tout le reste : aucune etiquette (equipement ou
   // lieu) ne peut passer dessus (capture du 28/09 : "3 toits-terrasses" sous la Tour Eiffel)
@@ -2894,24 +2913,47 @@ function inQuad(P,x,y,m){
 }
 const MON_TYPE_LBL={tour:'Tour',dome:'Édifice à dôme',clocher:'Église, clocher',arc:'Arc, porte',colonne:'Colonne, statue, obélisque',chateau:'Château, palais, fort',musee:'Monument, musée',mairie:'Hôtel de ville, mairie',maison:'Maison, hôtel particulier',
   stade:'Stade, salle de sport',gare:'Gare, station, aéroport, port',eau:'Cours d\'eau, canal, plan d\'eau',parc:'Parc, jardin, cimetière',place:'Place, rue',scene:'Théâtre, cinéma, bibliothèque',pont:'Pont, viaduc',edifice:'Hôpital, université, grand édifice'};
-function showMonumentDetail(m){
-  const esc=v=>String(v).replace(/[<&"]/g,c=>({'<':'&lt;','&':'&amp;','"':'&quot;'})[c]);
+const dEsc=v=>String(v==null?'':v).replace(/[<&"]/g,c=>({'<':'&lt;','&':'&amp;','"':'&quot;'})[c]);
+const dKm=d=>d<10?d.toFixed(1):String(Math.round(d));
+// FICHE A LISTE DEPLIABLE, commune a tout ce qui peut etre regroupe sous une icone ou une etiquette
+// (pylones telecom, equipements urbains, monuments regroupes derriere une icone) : tous les elements,
+// du plus proche au plus lointain, le plus proche deplie. Un seul element : fiche simple.
+//   {items, title1/titleN : titre de la fiche, head : en-tete de la liste, color, summary(x), block(x)}
+function showGroupSheet(o){
+  const items=o.keepOrder?o.items.slice():o.items.slice().sort((a,b)=>(a.dist||0)-(b.dist||0)), n=items.length;
+  if(n===1){ $('dbgBody').innerHTML=o.single(items[0]); $('dbgTitle').textContent=o.title1; }
+  else{
+    $('dbgBody').innerHTML=`<div class="dbgsec">${o.head(items)}</div>`+
+      items.map((x,i)=>`<details class="telgrp"${i===0?' open':''}><summary style="cursor:pointer;padding:8px 0;border-bottom:1px solid rgba(243,233,210,.15)"><b style="color:${o.color}">${o.summary(x)}</b></summary>${o.block(x)}</details>`).join('');
+    $('dbgTitle').textContent=o.titleN(n);
+  }
+  $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null;
+}
+function monumentBlock(m,withName){
   const eq=m.cat==='equip';
   const vis=m.hidden&&S.relief&&terrain?'masqué par le relief d\'ici':m.cap?(eq?'équipement moins connu ou plus loin : affiché en transparence (bouton œil, Tout voir)':'monument moins célèbre : affiché en transparence (bouton œil, Tout voir)'):m.far?(eq?`hors de portée d'affichage (${EQUIP_MAXD[m.type]||EQUIP_MAX_KM} km pour ce type)`:`trop petit pour être vu d'ici (${(m.angH||0).toFixed(2)}° de haut à l'écran)`):(eq?'affiché (équipement proche)':`visible d'ici (${(m.angH||0).toFixed(1)}° de haut à l'écran)`);
-  $('dbgBody').innerHTML=`
-    <div class="dbgline" style="font-size:18px;color:#F2C14E;font-weight:700">${esc(m.name)}</div>
-    <div class="dbgline">${MON_TYPE_LBL[m.type]||'Monument'} · à ${m.dist<10?m.dist.toFixed(1):Math.round(m.dist)} km · ${vis}</div>
+  return `${withName?`<div class="dbgline" style="font-size:18px;color:#F2C14E;font-weight:700">${dEsc(m.name)}</div>`:''}
+    <div class="dbgline">${MON_TYPE_LBL[m.type]||'Monument'} · à ${dKm(m.dist)} km · ${vis}</div>
     <div class="dbgsec">Notoriété</div>
     <div class="dbgline">${m.links!=null?`article Wikipédia dans <b>${m.links}</b> langue(s)`:'inconnue (Wikidata injoignable)'}${m.prot?' · <b>monument historique</b> (protégé)':''}</div>
     <div class="dbgsec">Hauteur</div>
     <div class="dbgline">${m.htWd?Math.round(m.htWd)+' m (Wikidata)':eq?'sans importance (icône posée au sol)':`inconnue — ${MON_DEF_H[m.type]||20} m supposés pour le relief`}</div>
-    ${m._hid&&m._hid.length?`<div class="dbgsec">Regroupés derrière cette icône (${m._hid.length})</div><div class="dbgline">${m._hid.map(esc).join(' · ')}</div>`:''}
     <div class="dbgsec">Classement</div>
-    <div class="dbgline">${esc(m.types||'(sans classe)')} → ${esc(m.why||'')}</div>
+    <div class="dbgline">${dEsc(m.types||'(sans classe)')} → ${dEsc(m.why||'')}</div>
     <div class="dbgsec">En savoir plus</div>
     <div class="dbgline"><a style="color:#F2C14E" target="_blank" rel="noopener" href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/frwiki/${m.qid}">Wikipédia</a> · <a style="color:#F2C14E" target="_blank" rel="noopener" href="https://www.wikidata.org/wiki/${m.qid}">fiche Wikidata ${m.qid}</a></div>`;
-  $('dbgTitle').textContent=eq?'Équipement':'Monument';
-  $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null;
+}
+// grp : elements regroupes sous l'etiquette touchee (equipements) ; m._hidObjs : monuments regroupes derriere l'icone (+N)
+function showMonumentDetail(m,grp){
+  let items=(grp&&grp.length>1?grp.map(x=>x._src||x):[m]);
+  if(items.length===1&&m._hidObjs&&m._hidObjs.length) items=[m,...m._hidObjs];
+  const eq=items.every(x=>x.cat==='equip');
+  showGroupSheet({items,keepOrder:items.length>1&&!(grp&&grp.length>1),color:eq?'#78CDE8':'#F2C14E',
+    title1:eq?'Équipement':'Monument', titleN:n=>`${n} ${eq?'équipements':'monuments'}`,
+    single:x=>monumentBlock(x,true),
+    head:l=>`${l.length} ${eq?'équipements regroupés':'monuments regroupés'} · ${dKm(l[0].dist)}–${dKm(l[l.length-1].dist)} km`,
+    summary:x=>`${dEsc(x.name)}</b> · ${dKm(x.dist)} km<br><span style="opacity:.75">${dEsc(MON_TYPE_LBL[x.type]||'Monument')}${x.links!=null?` · ${x.links} langue(s)`:''}</span><b>`,
+    block:x=>monumentBlock(x,false)});
 }
 function telecomBlock(t){
   const ops=(t.operators||[]).map(o=>{
@@ -2931,21 +2973,15 @@ function telecomBlock(t){
     ${ops||'<div class="dbgline">aucun</div>'}`;
 }
 function showTelecomDetail(px,py){
-  const m=hitTelecom(px,py,monHits); if(m){ showMonumentDetail(m); return; }
+  const m=hitTelecom(px,py,monHits); if(m){ showMonumentDetail(m,lastHitGrp); return; }
   const t=hitTelecom(px,py); if(!t) return;
-  const grp=(lastHitGrp&&lastHitGrp.length>1?lastHitGrp:[t]).slice().sort((a,b)=>a.dist-b.dist);
-  if(grp.length===1){
-    $('dbgBody').innerHTML=`<div class="dbgsec">Support telecom</div>`+telecomBlock(t);
-    $('dbgTitle').textContent='Support telecom';
-  }else{
-    // groupe : tous les elements, du plus proche au plus lointain ; le plus proche est deplie
-    const esc=v=>String(v==null?'':v).replace(/[<&"]/g,c=>({'<':'&lt;','&':'&amp;','"':'&quot;'})[c]);
-    const opsTxt=x=>(x.operators||[]).map(o=>o.name).join(', '), fkm=d=>d<10?d.toFixed(1):String(Math.round(d));
-    $('dbgBody').innerHTML=`<div class="dbgsec">${grp.length} supports regroupes · ${fkm(grp[0].dist)}–${fkm(grp[grp.length-1].dist)} km</div>`+
-      grp.map((x,i)=>`<details class="telgrp"${i===0?' open':''}><summary style="cursor:pointer;padding:8px 0;border-bottom:1px solid rgba(243,233,210,.15)"><b style="color:#E85A5A">${esc(x.nature||x.name)}${x.g5?' · 5G':''}</b> · ${fkm(x.dist)} km${x.height_m?` · ${x.height_m} m`:''}<br><span style="opacity:.75">${esc(x.address||x.place||'adresse inconnue')}${x.cp?' · '+esc(x.cp):''}${opsTxt(x)?' · '+esc(opsTxt(x)):''}</span></summary>${telecomBlock(x)}</details>`).join('');
-    $('dbgTitle').textContent=`${grp.length} supports telecom`;
-  }
-  $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null;
+  const opsTxt=x=>(x.operators||[]).map(o=>o.name).join(', ');
+  showGroupSheet({items:lastHitGrp&&lastHitGrp.length>1?lastHitGrp:[t],color:'#E85A5A',
+    title1:'Support telecom', titleN:n=>`${n} supports telecom`,
+    single:x=>`<div class="dbgsec">Support telecom</div>`+telecomBlock(x),
+    head:l=>`${l.length} supports regroupes · ${dKm(l[0].dist)}–${dKm(l[l.length-1].dist)} km`,
+    summary:x=>`${dEsc(x.nature||x.name)}${x.g5?' · 5G':''}</b> · ${dKm(x.dist)} km${x.height_m?` · ${x.height_m} m`:''}<br><span style="opacity:.75">${dEsc(x.address||x.place||'adresse inconnue')}${x.cp?' · '+dEsc(x.cp):''}${opsTxt(x)?' · '+dEsc(opsTxt(x)):''}</span><b>`,
+    block:telecomBlock});
 }
 $('calib').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;saveSettings();});
 $('reset').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;saveSettings();});
