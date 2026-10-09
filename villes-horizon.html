@@ -334,7 +334,7 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const APP_VERSION='2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
@@ -896,14 +896,21 @@ function scheduleRetry(){
   retryDelay=Math.min(Math.round(retryDelay*1.5),60000); // recul progressif, plafonne a 60s
 }
 function stopRetry(){ clearTimeout(retryTimer); retryTimer=null; nextRetryAt=null; retryDelay=15000; }
+const PL_TTL=7*86400000; // memoire des lieux : 7 jours
 const LIVE_SOURCE_TOKENS=new Set(['OSM','OpenFreeMap','Geoapify','GeoNames']);
 const isLiveSource=s=>!!s&&s.split('+').every(t=>LIVE_SOURCE_TOKENS.has(t));
 async function loadCities(force){
   if(!pos||loading) return;
   if(!force&&lastFetch&&isLiveSource(source)&&loadedR>=S.radius&&distBrg(pos,lastFetch).dist<S.radius*0.25) return;
   loading=true; setStatus('Chargement des lieux…');
-  const r=Math.round(S.radius*1000), cap=km=>Math.min(r,km*1000);
-  const cl=clausesFor(pos,r,S.hamlets,S.poi,cap);
+  // CACHE GENERIQUE (09/10/2026) : chaque source est memorisee sur l'appareil par zone. La requete est centree sur la case
+  // (arrondie) et son rayon agrandi d'une marge : une meme memoire sert a tout deplacement dans la case. Recharger la contourne.
+  const cellD=Math.max(0.01,Math.min(0.05,S.radius/1200)), pc={lat:Math.round(pos.lat/cellD)*cellD,lon:Math.round(pos.lon/cellD)*cellD};
+  const rQ=Math.ceil(S.radius+cellD*111*0.75), r=Math.round(rQ*1000), cap=km=>Math.min(r,km*1000);
+  const poiKey=Object.keys(S.poi).filter(k=>S.poi[k]).sort().join('.');
+  const pk=`${pc.lat.toFixed(3)},${pc.lon.toFixed(3)}/${S.radius}/${S.hamlets?1:0}/${poiKey}`;
+  const cf=(src,load)=>dcFetch('pl','pl/'+src+'/'+pk,{ttl:PL_TTL,prune:['pl/',48],load});
+  const cl=clausesFor(pc,r,S.hamlets,S.poi,cap);
   const q=`[out:json][timeout:25];(${cl.join(';')};);out center;`;
   // Overpass (calcule a la volee, tres complet, fragile), OpenFreeMap (tuiles pre-calculees, tres
   // robuste) et, si un relais est configure, Geoapify + GeoNames (identifiants geres cote serveur)
@@ -911,28 +918,29 @@ async function loadCities(force){
   // du 27/09/2026 : les 3 miroirs Overpass en panne simultanement -> ecran vide).
   const wantRelay=!!relayBase();
   const srcNames=['OSM','OpenFreeMap']; const tasks=[
-    overpassQuery(q,20000), // 20 s par miroir, miroirs echelonnes de 5 s : ~30 s au pire
-    loadFromOpenFreeMap(pos,S.radius,S.hamlets),
+    cf('osm',()=>overpassQuery(q,20000)), // 20 s par miroir, miroirs echelonnes de 5 s : ~30 s au pire
+    cf('ofm',()=>loadFromOpenFreeMap(pc,rQ,S.hamlets)),
   ];
   if(wantRelay){
     srcNames.push('Geoapify','GeoNames');
-    tasks.push(loadFromGeoapify(pos,S.radius,S.poi), loadFromGeoNames(pos,S.radius,S.poi));
+    tasks.push(cf('gpf',()=>loadFromGeoapify(pc,rQ,S.poi)), cf('gnm',()=>loadFromGeoNames(pc,rQ,S.poi)));
   }
   const settled=await Promise.allSettled(tasks);
   const [ovpR,ofmR,gpfR,gnmR]=settled;
-  if(ovpR.status==='fulfilled') logNet('OSM',true,`${ovpR.value.length} lieux, rayon ${S.radius} km (via ${overpassLastEp})`);
+  if(ovpR.status==='fulfilled') logNet('OSM',true,`${ovpR.value.data.length} lieux, rayon ${S.radius} km`+(ovpR.value.from==='net'?` (via ${overpassLastEp})`:dcFromTxt(ovpR.value)));
   else logNet('OSM',false,friendlyErr(ovpR.reason));
-  if(ofmR.status==='fulfilled') logNet('OpenFreeMap',true,`${ofmR.value.length} lieux (tuiles, zoom ${zoomForRadius(S.radius,pos.lat)})`);
+  if(ofmR.status==='fulfilled') logNet('OpenFreeMap',true,`${ofmR.value.data.length} lieux (tuiles, zoom ${zoomForRadius(S.radius,pos.lat)})`+dcFromTxt(ofmR.value));
   else logNet('OpenFreeMap',false,friendlyErr(ofmR.reason));
   if(wantRelay){
-    if(gpfR.status==='fulfilled') logNet('Geoapify',true,`${gpfR.value.length} lieux`);
+    if(gpfR.status==='fulfilled') logNet('Geoapify',true,`${gpfR.value.data.length} lieux`+dcFromTxt(gpfR.value));
     else logNet('Geoapify',false,friendlyErr(gpfR.reason));
-    if(gnmR.status==='fulfilled') logNet('GeoNames',true,`${gnmR.value.length} lieux`);
+    if(gnmR.status==='fulfilled') logNet('GeoNames',true,`${gnmR.value.data.length} lieux`+dcFromTxt(gnmR.value));
     else logNet('GeoNames',false,friendlyErr(gnmR.reason));
   }
 
   const lists=[], used=[];
-  settled.forEach((res,i)=>{ if(res.status==='fulfilled'){ lists.push(res.value); used.push(srcNames[i]); } });
+  let anyStale=false;
+  settled.forEach((res,i)=>{ if(res.status==='fulfilled'){ lists.push(res.value.data); const st=res.value.from==='stale'; if(st) anyStale=true; used.push(srcNames[i]+(st?'(mémoire)':'')); } });
   if(lists.length){
     let got=mergeByNameProximity(lists,1.5);
     if(!S.hamlets) got=got.filter(c=>c.kind!=='hamlet'&&c.kind!=='isolated_dwelling'); // filtre uniforme, quelle que soit la source d'origine
@@ -941,7 +949,7 @@ async function loadCities(force){
     // on retombe sur ces lieux plutot que sur la petite liste integree (France uniquement)
     const added=absorbIntoAtlas(got,pos,S.radius);
     if(added) logNet('Atlas',true,`+${added} lieux memorises (${Object.keys(atlas.items).length} au total)`);
-    stopRetry();
+    if(anyStale) scheduleRetry(); else stopRetry(); // source en secours (memoire perimee) : on retentera le reseau
   }else{
     if(!isLiveSource(source)){
       if(useZoneCache()) logNet('repli',true,`atlas local (${cities.length} lieux)`);
@@ -1043,6 +1051,36 @@ async function dcPut(key,body,type){ try{ if(!window.caches) return false; const
 async function dcPrune(prefix,max){ try{ if(!window.caches) return; const c=await caches.open(DCACHE); const ks=(await c.keys()).filter(k=>k.url.startsWith(DC_BASE+prefix));
   for(const k of ks.slice(0,Math.max(0,ks.length-max))) await c.delete(k); }catch(e){} } // les plus anciennes d'abord (ordre d'insertion)
 const dcAgo=t=>{ const m=Math.round((Date.now()-t)/60000); return m<90?`${Math.max(1,m)} min`:m<2880?`${Math.round(m/60)} h`:`${Math.round(m/1440)} j`; };
+// ---------- COUCHE DE CACHE GENERIQUE (09/10/2026) ----------
+// UNE seule politique pour toute donnee reseau qui change peu (lieux, monuments, tours, repères hauts, bâtiments, pylônes) :
+//   1. memoire de l'appareil encore fraiche (ttl)  -> aucune requete ;
+//   2. sinon requete reseau, enregistree au retour ;
+//   3. reseau en echec -> derniere memoire connue, MEME perimee (secours), plutot qu'un calque vide ou "indispo".
+// Le bouton Recharger (dcForceT) contourne l'etape 1 pour toutes les couches a la fois. Compteurs par couche -> Diagnostic.
+//   o = { ttl, stale, load(), bin, ttlOf(data) (duree selon le contenu), bypass, prune:[prefixe,max] }
+const dcStats={}, dcPuts={}; let dcForceT=0;
+const dcForced=()=>Date.now()<dcForceT;
+const dcStat=(k,ev)=>{ const s=dcStats[k]||(dcStats[k]={hit:0,net:0,stale:0,fail:0}); s[ev]++; };
+const DC_STALE=365*86400000;
+async function dcRead(key,ttl,bin){
+  const h=await dcGet(key,ttl); if(!h) return null;
+  try{ const d=bin?new Uint8Array(await h.r.arrayBuffer()):await h.r.json(); return d==null?null:{d,t:h.t}; }catch(e){ return null; }
+}
+async function dcFetch(kind,key,o){
+  const bin=!!o.bin, bypass=o.bypass===undefined?dcForced():!!o.bypass;
+  if(!bypass){ const h=await dcRead(key,o.ttl,bin); if(h&&(!o.ttlOf||Date.now()-h.t<o.ttlOf(h.d))){ dcStat(kind,'hit'); return {data:h.d,from:'cache',t:h.t}; } }
+  try{
+    const d=await o.load(); dcStat(kind,'net');
+    const ok=await dcPut(key,bin?d:JSON.stringify(d),bin?'application/octet-stream':'application/json'); // attendu : le rappel suivant trouve deja la memoire
+    if(ok&&o.prune&&(dcPuts[kind]=(dcPuts[kind]||0)+1)%10===1) dcPrune(o.prune[0],o.prune[1]);
+    return {data:d,from:'net',t:Date.now()};
+  }catch(e){
+    const h=await dcRead(key,o.stale||DC_STALE,bin);
+    if(h){ dcStat(kind,'stale'); return {data:h.d,from:'stale',t:h.t,err:e}; }
+    dcStat(kind,'fail'); throw e;
+  }
+}
+const dcFromTxt=r=>r&&r.from!=='net'?` · ${r.from==='cache'?'mémoire':'mémoire périmée (secours)'} d'il y a ${dcAgo(r.t)}`:'';
 const TCACHE='vh-terrain-v1';
 /*TERRAIN-CORE-START*/
 // guaranteed=true : couverture mondiale garantie (404 == mer, remplace par une tuile "niveau de
@@ -1384,10 +1422,10 @@ async function pollSea(){
 // ---------- pylones et points hauts telecom (France uniquement, source ANFR via le relais) ----------
 const TEL_DC_TTL=7*86400000, TEL_DC_CELL=0.05; let telBypass=false;
 // derniere reponse ANFR proche de la position (cases de 0,05° ~ 5 km, on regarde les 9 voisines) : valable 7 jours
-async function telDcFind(){
+async function telDcFind(ttl=TEL_DC_TTL){
   const ci=Math.round(pos.lat/TEL_DC_CELL), cj=Math.round(pos.lon/TEL_DC_CELL), tol=Math.max(1,S.telecomMax*0.3); let best=null;
   for(let a=-1;a<=1;a++) for(let b=-1;b<=1;b++){
-    const z=await dcGet(`tel/${ci+a},${cj+b}`,TEL_DC_TTL); if(!z) continue;
+    const z=await dcGet(`tel/${ci+a},${cj+b}`,ttl); if(!z) continue;
     let e; try{ e=await z.r.json(); }catch(x){ continue; }
     if(!e||!e.pos||!e.j||!(e.rad>=S.telecomMax)) continue;
     const d=distBrg(pos,e.pos).dist; if(d<tol&&(!best||d<best.d)) best={d,t:z.t,j:e.j};
@@ -1409,16 +1447,22 @@ async function pollTelecom(){
   // une requete quasi a chaque position GPS en conditions reelles (retour du 28/09/2026, Paris).
   telecomBusy=true; tMsg2.telecom='recherche…';
   try{
-    let j={}, dc=null;
-    if(!telBypass) dc=await telDcFind();
+    let j={}, dc=null, telStale=false;
+    if(!telBypass&&!dcForced()){ dc=await telDcFind(); if(dc) dcStat('tel','hit'); }
     if(dc) j=dc.j;
     else{
-      const r=await fetchT(`${relayBase()}/telecom?lat=${pos.lat.toFixed(5)}&lon=${pos.lon.toFixed(5)}&radius_km=${S.telecomMax}`,{},20000);
-      try{ j=await r.json(); }catch(e){}
-      if(!r.ok||j.anfrOk===false) throw new Error(j.error||('HTTP '+r.status));
-      telDcSave(j);
+      try{
+        const r=await fetchT(`${relayBase()}/telecom?lat=${pos.lat.toFixed(5)}&lon=${pos.lon.toFixed(5)}&radius_km=${S.telecomMax}`,{},20000);
+        try{ j=await r.json(); }catch(e){}
+        if(!r.ok||j.anfrOk===false) throw new Error(j.error||('HTTP '+r.status));
+        dcStat('tel','net'); telDcSave(j);
+      }catch(e){
+        dc=await telDcFind(DC_STALE); // reseau en echec : derniere memoire connue, meme perimee
+        if(!dc){ dcStat('tel','fail'); throw e; }
+        dcStat('tel','stale'); j=dc.j; telStale=true; // on retentera (plus bas)
+      }
     }
-    telBypass=false; const dcTxt=dc?` · en mémoire (il y a ${dcAgo(dc.t)})`:'';
+    telBypass=false; const dcTxt=dc?(telStale?` · mémoire périmée (secours, réseau en échec) d'il y a ${dcAgo(dc.t)}`:` · en mémoire (il y a ${dcAgo(dc.t)})`):'';
     if(j.hors_france){
       telecomSites=[]; telecomAt={...pos}; tMsg2.telecom='hors de France (ANFR)'+dcTxt;
       logNet('ANFR',true,'position hors de France : aucune donnee disponible ici'+dcTxt);
@@ -1435,7 +1479,8 @@ async function pollTelecom(){
       recompute(); telecomAt={...pos}; tMsg2.telecom=telecomSites.length+' site(s)'+(indoor?` (+${indoor} en intérieur/tunnel ignorés)`:'')+(j.radius_eff?` dans ${String(j.radius_eff).replace('.',',')} km (zone dense)`:'')+dcTxt;
       logNet('ANFR',true,`${telecomSites.length} site(s) telecom, ${(j.communes||[]).length} commune(s), rayon ${S.telecomMax} km`+(j.radius_eff?` · zone dense : rayon ramene a ${j.radius_eff} km pour tout recevoir`:'')+(j.route?` · route ANFR : ${j.route}`:'')+(j.truncated?' · liste tronquee':'')+(j.cache?' (cache relais)':'')+dcTxt);
     }
-    telecomErrAt=null; telecomErrDelay=30000; // succes : le recul est remis a zero
+    if(telStale){ telecomAt=null; telecomErrAt=Date.now(); telecomErrDelay=Math.min(Math.round(telecomErrDelay*1.5),300000); } // secours : on retentera le reseau
+    else{ telecomErrAt=null; telecomErrDelay=30000; } // succes : le recul est remis a zero
   }catch(e){
     tMsg2.telecom='indispo'; telecomErrAt=Date.now(); telecomErrDelay=Math.min(Math.round(telecomErrDelay*1.5),300000); // recul progressif, plafonne a 5 min
     logNet('ANFR',false,friendlyErr(e));
@@ -1734,7 +1779,7 @@ function applyMonuments(list,how,errs,fromCache,R,minLinks){
   if(eqs.length>EQUIP_KEEP){ eqs.sort((x,y)=>(y.links||0)-(x.links||0)); eqs=eqs.slice(0,EQUIP_KEEP); }
   const kept=mons.concat(eqs), nProt=mons.filter(m=>m.prot).length;
   monTrim=trim; monExcl=excl.sort((x,y)=>y.links-x.links);
-  monumentSites=kept; monAt={...pos}; monErrAt=fromCache?Date.now():null; monErrDelay=fromCache?Math.min(Math.round(monErrDelay*1.5),300000):30000;
+  monBase=kept; monumentSites=monCombine(); monAt={...pos}; monErrAt=fromCache?Date.now():null; monErrDelay=fromCache?Math.min(Math.round(monErrDelay*1.5),300000):30000;
   monStats={n:kept.length,nMon:mons.length,nEq:eqs.length,nExcl,how,prot:nProt,trim};
   monMsg=`${mons.length} monument(s)${nProt?` dont ${nProt} historique(s)`:''}${eqs.length?` · ${eqs.length} équipement(s)`:''} · ${how}${trim?` · seuil relevé à ${trim} langues`:''}`+(errs.length&&!fromCache?` (repli après : ${errs.join(' ; ')})`:'')+(fromCache?` · sources injoignables : ${errs.join(' ; ')}`:'');
   citiesVer++; recompute(); markBuildingDupes();
@@ -1792,7 +1837,7 @@ async function wdFetchTile(t){
   let j={}; try{ j=await r.json(); }catch(e){}
   if(!r.ok||j.wdOk===false||j.wdOk===undefined){ const e=new Error(j.error||('HTTP '+r.status)); e.status=r.status; e.noRoute=(j.wdOk===undefined&&r.status>=400&&r.status<500); throw e; }
   if(!Array.isArray(j.rows)) throw new Error('reponse du relais inattendue');
-  dcPut('wd/'+t.key,JSON.stringify({rows:j.rows,minLinksUsed:j.minLinksUsed,truncated:!!j.truncated}),'application/json').then(()=>dcPrune('wd/',250));
+  dcStat('wd','net'); dcPut('wd/'+t.key,JSON.stringify({rows:j.rows,minLinksUsed:j.minLinksUsed,truncated:!!j.truncated}),'application/json').then(()=>{ if((dcPuts.wd=(dcPuts.wd||0)+1)%10===1) dcPrune('wd/',250); });
   return {rows:j.rows,cache:j.cache||'',used:j.minLinksUsed||1,truncated:!!j.truncated};
 }
 function monMerged(R){ // union dedoublonnee des tuiles chargees (les tuiles Wikidata d'abord : donnees les plus completes)
@@ -1802,6 +1847,7 @@ function monMerged(R){ // union dedoublonnee des tuiles chargees (les tuiles Wik
   return out;
 }
 async function loadMonuments(force){
+  if(S.layers.monuments&&pos&&!document.hidden) loadTowers(!!force); // les tours TDF / telecom sont des monuments (bloc plus bas)
   if(!S.layers.monuments||!pos||monBusy||document.hidden) return;
   const R=monRadius();
   if(!force&&monAt&&distBrg(pos,monAt).dist<R*0.25) return;
@@ -1812,7 +1858,7 @@ async function loadMonuments(force){
   const dog=setTimeout(()=>{ if(monBusy){ monBusy=false; monErrAt=Date.now(); monMsg='delai global depasse (150 s)'; logNet('Monuments',false,monMsg); } },150000);
   try{
     if(force){ monTiles.clear(); wdTiles.clear(); }
-    let got=null, tilesOk=0, tilesKo=0, fromStore=0, edge=0, nTiles=0, stop=false, truncated=0, raised=0;
+    let got=null, tilesOk=0, tilesKo=0, fromStore=0, staleN=0, edge=0, nTiles=0, stop=false, truncated=0, raised=0;
     if(relayBase()){
       const jobs=[];
       if(!wdLegacy) for(const t of wdTilesNear(Math.min(MON_NEAR_KM,R))) jobs.push({k:'wd',t});
@@ -1824,7 +1870,7 @@ async function loadMonuments(force){
         if(j.k==='wd'){
           if(wdTiles.has(t.key)){ tilesOk++; continue; }
           const z=!force&&await dcGet('wd/'+t.key,WD_TTL);
-          if(z){ try{ const e=await z.r.json(); if(e&&Array.isArray(e.rows)){ wdTiles.set(t.key,e.rows); tilesOk++; fromStore++; if(e.truncated) truncated++; if(e.minLinksUsed>1) raised++; continue; } }catch(x){} }
+          if(z){ try{ const e=await z.r.json(); if(e&&Array.isArray(e.rows)){ wdTiles.set(t.key,e.rows); tilesOk++; fromStore++; dcStat('wd','hit'); if(e.truncated) truncated++; if(e.minLinksUsed>1) raised++; continue; } }catch(x){} }
         } else {
           if(monTiles.has(t.key)){ tilesOk++; continue; }
           const z=!force&&store[t.key]; if(z&&Date.now()-z.t<MON_TILE_TTL){ monTiles.set(t.key,z.list); tilesOk++; fromStore++; continue; }
@@ -1844,13 +1890,15 @@ async function loadMonuments(force){
               for(let i=todo.length-1;i>=0;i--) if(todo[i].k==='wd'){ todo.splice(i,1); nTiles--; }
               for(const o of monTilesAround(R)) if(o.d<=MON_NEAR_KM&&!monTiles.has(o.key)){ todo.unshift({k:'old',t:o}); nTiles++; } }
             nTiles--; continue; } // (les requetes /wdtile deja parties en parallele echouent de la meme facon : on ne les compte pas)
+          if(j.k==='wd'){ const z=await dcRead('wd/'+t.key,DC_STALE); if(z&&Array.isArray(z.d.rows)){ wdTiles.set(t.key,z.d.rows); tilesOk++; staleN++; dcStat('wd','stale'); continue; } } // reseau en echec : memoire perimee plutot qu'un trou
+          if(j.k==='wd') dcStat('wd','fail');
           tilesKo++; errs.push(`tuile ${t.key} : ${friendlyErr(e)}`); if((e&&e.status===429)||(!tilesOk&&tilesKo>=3)) stop=true; } // relais manifestement en panne : on n'insiste pas
         monMsg=`tuiles : ${tilesOk}/${nTiles}${tilesKo?` (${tilesKo} en echec)`:''}…`;
         if(Date.now()-lastApply>1500){ lastApply=Date.now(); applyMonuments(monMerged(R),'tuiles',[],false,R,MON_LOW_LINKS); monMsg=`tuiles : ${tilesOk}/${nTiles}…`; } } };
       await Promise.all([worker(),worker(),worker()]);
       wdStats={tiles:nTiles,ok:tilesOk,ko:tilesKo,store:fromStore,edge,truncated,raised,legacy:wdLegacy};
       if(tilesOk){ // au moins une tuile : on affiche ce qu'on a
-        const how=`relais, ${tilesOk}/${nTiles} tuile(s)${fromStore?` dont ${fromStore} en memoire`:''}${edge?`, ${edge} en cache relais`:''}${truncated?`, ${truncated} tuile(s) tres dense(s)`:''}${raised?`, seuil de langues releve sur ${raised}`:''}${wdLegacy?', ancien mode':''}`;
+        const how=`relais, ${tilesOk}/${nTiles} tuile(s)${fromStore?` dont ${fromStore} en memoire`:''}${staleN?`, ${staleN} en memoire perimee (reseau en echec)`:''}${edge?`, ${edge} en cache relais`:''}${truncated?`, ${truncated} tuile(s) tres dense(s)`:''}${raised?`, seuil de langues releve sur ${raised}`:''}${wdLegacy?', ancien mode':''}`;
         applyMonuments(monMerged(R),how,errs.slice(0,3),false,R,MON_LOW_LINKS);
         if(tilesKo){ monAt=null; monErrAt=Date.now(); monErrDelay=Math.min(Math.round(monErrDelay*1.5),300000);
           monMsg+=` — ${tilesKo} tuile(s) en echec, nouvel essai automatique`; logNet('Monuments',false,monMsg+' · '+errs.slice(0,3).join(' ; ')); }
@@ -1872,6 +1920,71 @@ async function loadMonuments(force){
     monErrAt=Date.now(); monErrDelay=Math.min(Math.round(monErrDelay*1.5),300000);
     monMsg='erreur interne : '+friendlyErr(e); logNet('Monuments',false,monMsg+' ('+Math.round((Date.now()-t0)/1000)+' s)');
   }finally{ clearTimeout(dog); monBusy=false; }
+}
+// ---------- TOURS (TDF, telecom, TV/radio) COMME MONUMENTS (09/10/2026) ----------
+// Retour : "la tour TDF doit etre dans les monuments, avec son vrai nom et un lien". Wikidata n'en connait qu'une partie ; OpenStreetMap
+// les a presque toutes (man_made=communications_tower, tower:type=communication, grands mats). Requete LEGERE (tags indexes), gardee 30 jours
+// par la couche de cache generique, independante du calque "Reperes hauts" : elles suivent le calque Monuments.
+// Nom : le vrai nom OSM s'il existe ; sinon "Tour TDF · <localite la plus proche> (hauteur)". Liens : OSM, Wikipedia/Wikidata, site web, TDF.
+let monBase=[], towerRaw=[], towerAt=null, towerBusy=false, towerErrAt=null, towerErrDelay=30000, towerMsg='', towerMons=[], towerMonsKey=null;
+const TW_TTL=30*86400000, TW_CELL=0.1, TW_TAGS=['name','name:fr','official_name','alt_name','operator','owner','brand','height','wikidata','wikipedia','website','contact:website','ref','tower:type','man_made','description'];
+const isTdf=t=>/(^|[^a-z])TDF([^a-z]|$)|t[ée]l[ée]diffusion/i.test([t.operator,t.owner,t.brand,t.name].filter(Boolean).join(' '));
+function parseTowers(j){
+  const seen=new Set(), got=[];
+  for(const n of (j.elements||[])){
+    const lat=n.lat??(n.center&&n.center.lat), lon=n.lon??(n.center&&n.center.lon); if(lat==null||lon==null||!n.tags) continue;
+    const id=n.type+'/'+n.id; if(seen.has(id)) continue; seen.add(id);
+    const tags={}; for(const k of TW_TAGS) if(n.tags[k]!=null) tags[k]=n.tags[k];
+    got.push({id,lat,lon,tags});
+  }
+  return got;
+}
+function nearestLocality(p){ let best=null, bd=8;
+  for(const c of cities){ if(c.kind!=='city'&&c.kind!=='town'&&c.kind!=='village') continue; if(Math.abs(c.lat-p.lat)>0.1||Math.abs(c.lon-p.lon)>0.15) continue; const d=distBrg(p,c).dist; if(d<bd){ bd=d; best=c; } }
+  return best?best.name:''; }
+function towerMonuments(){
+  if(towerMonsKey&&towerMonsKey.raw===towerRaw&&towerMonsKey.cities===cities) return towerMons;
+  const R=monRadius();
+  towerMons=!pos?[]:towerRaw.filter(t=>distBrg(pos,t).dist<=R).map(t=>{
+    const tg=t.tags, tdf=isTdf(tg), h=parseFloat(tg.height), hOk=isFinite(h)&&h>0;
+    const real=(tg['name:fr']||tg.name||tg.official_name||tg.alt_name||'').trim(), named=real&&!/^(tdf|tour|m[âa]t|pyl[ôo]ne|antenne)$/i.test(real);
+    const loc=nearestLocality(t), base=tg.man_made==='mast'?'Mât':'Tour';
+    const name=named?real:`${base}${tdf?' TDF':''}${tg.ref?' '+tg.ref:''}${loc?' · '+loc:''}${hOk?` (${Math.round(h)} m)`:''}`;
+    return {name,lat:t.lat,lon:t.lon,kind:'monument',cat:'monument',qid:null,src:'osm',osm:t.id,tdf,loc,tags:tg,type:'tour',
+      links:(tdf||h>=100)?90:30,prot:false,htWd:null,htOsm:hOk?h:null,ht:hOk?h:(MON_DEF_H.tour||40),
+      types:'tour de télécommunications (OpenStreetMap)'+(tdf?' · exploitant TDF':''),why:'tour TDF / télécom (OpenStreetMap)'};
+  });
+  towerMonsKey={raw:towerRaw,cities}; return towerMons;
+}
+// monuments Wikidata + tours OSM ; une tour deja connue de Wikidata (monument a moins de 150 m) n'est pas doublee
+function monCombine(){
+  const tw=towerMonuments(); if(!tw.length) return monBase;
+  return monBase.concat(tw.filter(t=>!monBase.some(m=>m.cat!=='equip'&&Math.abs(m.lat-t.lat)<0.002&&Math.abs(m.lon-t.lon)<0.003&&distBrg(m,t).dist<0.15)));
+}
+async function loadTowers(force){
+  if(!S.layers.monuments||!pos||towerBusy||document.hidden) return;
+  const R=monRadius();
+  if(!force&&towerAt&&distBrg(pos,towerAt).dist<R*0.25) return;
+  if(!force&&towerErrAt&&Date.now()-towerErrAt<towerErrDelay) return;
+  towerBusy=true; towerMsg='recherche…';
+  try{
+    const pc={lat:Math.round(pos.lat/TW_CELL)*TW_CELL,lon:Math.round(pos.lon/TW_CELL)*TW_CELL}, rq=Math.ceil(R+TW_CELL*111*0.75), r=rq*1000, C=`${pc.lat.toFixed(4)},${pc.lon.toFixed(4)}`;
+    const q=`[out:json][timeout:25];(`
+      +`nwr["man_made"="communications_tower"](around:${r},${C});`
+      +`nwr["man_made"="tower"]["tower:type"="communication"](around:${r},${C});`
+      +`nwr["man_made"="mast"]["tower:type"="communication"]["height"](if:t["height"]>=50)(around:${r},${C});`
+      +`nwr["man_made"~"^(tower|mast)$"]["operator"~"TDF|Télédiffusion"](around:${r},${C});`
+      +`);out center qt;`;
+    const res=await dcFetch('tw',`tw/${pc.lat.toFixed(1)},${pc.lon.toFixed(1)}/${rq}`,{ttl:TW_TTL,prune:['tw/',30],load:()=>overpassQuery(q,20000,parseTowers)});
+    towerRaw=res.data; towerMonsKey=null; towerAt=res.from==='stale'?null:{...pos};
+    monumentSites=monCombine(); citiesVer++; recompute(); markBuildingDupes();
+    const n=towerMonuments().length; towerMsg=`${n} tour(s)`+dcFromTxt(res);
+    logNet('Tours',res.from!=='stale',`${n} tour(s) telecom/TDF dans ${R} km`+dcFromTxt(res)+(res.from==='stale'?` — réseau : ${friendlyErr(res.err)}`:''));
+    if(res.from==='stale'){ towerErrAt=Date.now(); towerErrDelay=Math.min(Math.round(towerErrDelay*1.5),300000); } else{ towerErrAt=null; towerErrDelay=30000; }
+  }catch(e){
+    towerMsg='indispo'; towerErrAt=Date.now(); towerErrDelay=Math.min(Math.round(towerErrDelay*1.5),300000); logNet('Tours',false,friendlyErr(e));
+  }
+  towerBusy=false;
 }
 // un repere haut OSM qui EST un monument (Tour Eiffel, Montparnasse...) n'est dessine qu'une fois
 function markBuildingDupes(){
@@ -1923,17 +2036,16 @@ async function urbFetchTile(t){
   const direct=URB_TPL.replace('{z}',t.z).replace('{x}',t.x).replace('{y}',t.y);
   const viaRelay=()=>`${relayBase()}/bdtopo?z=${t.z}&x=${t.x}&y=${t.y}`;
   const get=async u=>{ const r=await fetchT(u,{},15000); if(r.status===404) return new Uint8Array(0); if(!r.ok) throw new Error('HTTP '+r.status); return new Uint8Array(await r.arrayBuffer()); };
-  // memoire durable de l'appareil (30 jours) : les batiments changent a peine, ~12 Mo evites a chaque demarrage ; "Recharger" la contourne
+  // memoire durable de l'appareil (cache generique, 30 jours + secours perime) : ~12 Mo evites a chaque demarrage ; "Recharger" la contourne
   const dk='bd/'+t.key;
-  if(!urbBypass){ const z=await dcGet(dk,URB_DC_TTL); if(z){ try{ const b=new Uint8Array(await z.r.arrayBuffer()); urbStats.fromDC=(urbStats.fromDC||0)+1; return b; }catch(e){} } }
   const net=async()=>{
     if(urbRelay&&relayBase()) return get(viaRelay());
     try{ return await get(direct); }
     catch(e){ if(!relayBase()) throw e; const b=await get(viaRelay()); urbRelay=true; return b; } // direct refuse : on bascule le reste de la session
   };
-  const b=await net();
-  dcPut(dk,b).then(ok=>{ if(ok&&(++urbPuts%25)===0) dcPrune('bd/',400); });
-  return b;
+  const res=await dcFetch('bd',dk,{bin:true,ttl:URB_DC_TTL,bypass:urbBypass||dcForced(),prune:['bd/',400],load:net});
+  if(res.from!=='net') urbStats.fromDC=(urbStats.fromDC||0)+1;
+  return res.data;
 }
 const URB_DC_TTL=30*86400000; let urbBypass=false, urbPuts=0;
 function urbTilesAround(R){
@@ -2079,39 +2191,37 @@ function parseBuildings(j){
 //  2. requete LEGERE d'abord (tours, tours de telecom, chateaux d'eau, cheminees, mats) : c'est elle qui porte la tour TDF ;
 //  3. immeubles hauts en requete SEPAREE, au mieux : son echec ne fait plus perdre les tours ;
 //  4. echec total : on reutilise la derniere memoire connue (meme ancienne) plutot que "indispo".
-const BLD_TTL=3*864e5, BLD_TTL_PARTIAL=6*36e5, BLD_TTL_STALE=60*864e5;
+const BLD_TTL=3*864e5, BLD_TTL_PARTIAL=6*36e5;
 const bldKey=r=>`bld/${pos.lat.toFixed(2)},${pos.lon.toFixed(2)},${r}`;
-async function bldRead(key,ttl){ const h=await dcGet(key,ttl); if(!h) return null; try{ const o=await h.r.json(); return o&&Array.isArray(o.list)?{...o,t:h.t}:null; }catch(e){ return null; } }
 function bldMerge(a,b){ const seen=new Set(), out=[]; for(const x of a.concat(b)){ const k=x.name+'@'+x.lat.toFixed(4)+','+x.lon.toFixed(4); if(!seen.has(k)){ seen.add(k); out.push(x); } } return out; }
 async function pollBuildings(){
   if(!S.buildings||!pos||buildingsBusy||document.hidden) return;
   if(buildingsAt&&distBrg(pos,buildingsAt).dist<Math.max(1,S.buildingsMax*0.3)) return; // deja couvert
   if(buildingsErrAt&&Date.now()-buildingsErrAt<buildingsErrDelay) return; // echec recent : on patiente avant de reessayer
   buildingsBusy=true; bMsg.buildings='recherche…';
-  const r=Math.round(S.buildingsMax*1000), C=`${pos.lat},${pos.lon}`, key=bldKey(r), here={...pos};
+  const r=Math.round(S.buildingsMax*1000), C=`${pos.lat},${pos.lon}`, here={...pos};
   const apply=(list,note)=>{ buildingSites=list; recompute(); markBuildingDupes(); buildingsAt=here; bMsg.buildings=list.length+' repere(s)'+(note||''); };
   try{
-    const hit=await bldRead(key,BLD_TTL);
-    if(hit&&(!hit.partial||Date.now()-hit.t<BLD_TTL_PARTIAL)){ apply(hit.list,' · mémoire'); logNet('OSM (reperes)',true,`${hit.list.length} repere(s) haut(s) depuis la mémoire (il y a ${dcAgo(hit.t)}), rayon ${S.buildingsMax} km`); buildingsErrAt=null; buildingsErrDelay=30000; buildingsBusy=false; return; }
-    const qLight=`[out:json][timeout:25];(`
-      +`nwr["man_made"~"^(tower|communications_tower|water_tower|chimney|mast)$"](around:${r},${C});`
-      +`);out center qt;`;
-    const qHeavy=`[out:json][timeout:25];(`
-      +`nwr["building"]["height"](if:t["height"]>30)(around:${r},${C});`
-      +`nwr["building"]["building:levels"](if:t["building:levels"]>9)(around:${r},${C});`
-      +`);out center qt;`;
-    const light=await overpassQuery(qLight,15000,parseBuildings);
-    let heavy=[], partial=false;
-    try{ heavy=await overpassQuery(qHeavy,15000,parseBuildings); }catch(e){ partial=true; logNet('OSM (reperes)',false,'immeubles hauts indisponibles (tours et mâts conservés) : '+friendlyErr(e)); }
-    const list=bldMerge(light,heavy);
-    apply(list,partial?' · sans immeubles':'');
-    dcPut(key,JSON.stringify({list,partial}),'application/json'); dcPrune('bld/',40);
-    logNet('OSM (reperes)',true,`${list.length} repere(s) haut(s), rayon ${S.buildingsMax} km${partial?' (immeubles hauts non chargés)':''}`);
-    buildingsErrAt=null; buildingsErrDelay=30000;
+    const res=await dcFetch('bld',bldKey(r),{ttl:BLD_TTL,ttlOf:d=>d.partial?BLD_TTL_PARTIAL:BLD_TTL,prune:['bld/',40],load:async()=>{
+      const qLight=`[out:json][timeout:25];(`
+        +`nwr["man_made"~"^(tower|communications_tower|water_tower|chimney|mast)$"](around:${r},${C});`
+        +`);out center qt;`;
+      const qHeavy=`[out:json][timeout:25];(`
+        +`nwr["building"]["height"](if:t["height"]>30)(around:${r},${C});`
+        +`nwr["building"]["building:levels"](if:t["building:levels"]>9)(around:${r},${C});`
+        +`);out center qt;`;
+      const light=await overpassQuery(qLight,15000,parseBuildings);
+      let heavy=[], partial=false;
+      try{ heavy=await overpassQuery(qHeavy,15000,parseBuildings); }catch(e){ partial=true; logNet('OSM (reperes)',false,'immeubles hauts indisponibles (tours et mâts conservés) : '+friendlyErr(e)); }
+      return {list:bldMerge(light,heavy),partial};
+    }});
+    const d=res.data, note=(d.partial?' · sans immeubles':'')+(res.from==='net'?'':res.from==='cache'?' · mémoire':` · mémoire d'il y a ${dcAgo(res.t)}`);
+    apply(d.list,note);
+    logNet('OSM (reperes)',res.from!=='stale',`${d.list.length} repere(s) haut(s), rayon ${S.buildingsMax} km${d.partial?' (immeubles hauts non chargés)':''}`+dcFromTxt(res)+(res.from==='stale'?` — réseau : ${friendlyErr(res.err)}`:''));
+    if(res.from==='stale'){ buildingsAt=null; buildingsErrAt=Date.now(); buildingsErrDelay=Math.min(Math.round(buildingsErrDelay*1.5),300000); } // on retentera (attente progressive)
+    else{ buildingsErrAt=null; buildingsErrDelay=30000; }
   }catch(e){
-    const old=await bldRead(key,BLD_TTL_STALE);
-    if(old){ apply(old.list,` · mémoire d'il y a ${dcAgo(old.t)}`); buildingsAt=null; /* on retentera (attente progressive) */ logNet('OSM (reperes)',false,friendlyErr(e)+` → dernière mémoire utilisée (${old.list.length} repères, il y a ${dcAgo(old.t)})`); }
-    else{ bMsg.buildings='indispo'; logNet('OSM (reperes)',false,friendlyErr(e)); }
+    bMsg.buildings='indispo'; logNet('OSM (reperes)',false,friendlyErr(e));
     buildingsErrAt=Date.now(); buildingsErrDelay=Math.min(Math.round(buildingsErrDelay*1.5),300000);
   }
   buildingsBusy=false;
@@ -2929,19 +3039,32 @@ function showGroupSheet(o){
   }
   $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null;
 }
+// liens cliquables d'un element : fiche Wikipedia / Wikidata, OpenStreetMap, site web, exploitant TDF, carte
+function linksHtml(m){
+  const A=(u,t)=>`<a style="color:#F2C14E" target="_blank" rel="noopener" href="${dEsc(u)}">${dEsc(t)}</a>`, tg=m.tags||{}, out=[];
+  const qid=m.qid||(/^Q\d+$/.test(tg.wikidata||'')?tg.wikidata:null);
+  if(m.qid) out.push(A(`https://www.wikidata.org/wiki/Special:GoToLinkedPage/frwiki/${m.qid}`,'Wikipédia'));
+  else if(tg.wikipedia&&/^[a-z-]+:/.test(tg.wikipedia)){ const [lg,...t]=tg.wikipedia.split(':'); out.push(A(`https://${lg}.wikipedia.org/wiki/${encodeURIComponent(t.join(':').replace(/ /g,'_'))}`,'Wikipédia')); }
+  if(qid) out.push(A(`https://www.wikidata.org/wiki/${qid}`,`fiche Wikidata ${qid}`));
+  if(m.osm) out.push(A(`https://www.openstreetmap.org/${m.osm}`,'OpenStreetMap'));
+  const web=tg.website||tg['contact:website']; if(web&&/^https?:\/\//i.test(web)) out.push(A(web,'site web'));
+  if(m.tdf) out.push(A('https://www.tdf.fr','TDF (exploitant)'));
+  if(m.lat!=null) out.push(A(`https://www.openstreetmap.org/?mlat=${m.lat}&mlon=${m.lon}#map=17/${m.lat}/${m.lon}`,'voir sur la carte'));
+  return out.join(' · ');
+}
 function monumentBlock(m,withName){
   const eq=m.cat==='equip';
   const vis=m.hidden&&S.relief&&terrain?'masqué par le relief d\'ici':m.cap?(eq?'équipement moins connu ou plus loin : affiché en transparence (bouton œil, Tout voir)':'monument moins célèbre : affiché en transparence (bouton œil, Tout voir)'):m.far?(eq?`hors de portée d'affichage (${EQUIP_MAXD[m.type]||EQUIP_MAX_KM} km pour ce type)`:`trop petit pour être vu d'ici (${(m.angH||0).toFixed(2)}° de haut à l'écran)`):(eq?'affiché (équipement proche)':`visible d'ici (${(m.angH||0).toFixed(1)}° de haut à l'écran)`);
   return `${withName?`<div class="dbgline" style="font-size:18px;color:#F2C14E;font-weight:700">${dEsc(m.name)}</div>`:''}
     <div class="dbgline">${MON_TYPE_LBL[m.type]||'Monument'} · à ${dKm(m.dist)} km · ${vis}</div>
-    <div class="dbgsec">Notoriété</div>
-    <div class="dbgline">${m.links!=null?`article Wikipédia dans <b>${m.links}</b> langue(s)`:'inconnue (Wikidata injoignable)'}${m.prot?' · <b>monument historique</b> (protégé)':''}</div>
+    <div class="dbgsec">${m.src==='osm'?'Source':'Notoriété'}</div>
+    <div class="dbgline">${m.src==='osm'?`tour référencée dans OpenStreetMap${m.tags&&(m.tags.operator||m.tags.owner)?' · exploitant <b>'+dEsc(m.tags.operator||m.tags.owner)+'</b>':''}${m.loc?' · près de '+dEsc(m.loc):''}`:m.links!=null?`article Wikipédia dans <b>${m.links}</b> langue(s)`:'inconnue (Wikidata injoignable)'}${m.prot?' · <b>monument historique</b> (protégé)':''}</div>
     <div class="dbgsec">Hauteur</div>
-    <div class="dbgline">${m.htWd?Math.round(m.htWd)+' m (Wikidata)':eq?'sans importance (icône posée au sol)':`inconnue — ${MON_DEF_H[m.type]||20} m supposés pour le relief`}</div>
+    <div class="dbgline">${m.htWd?Math.round(m.htWd)+' m (Wikidata)':m.htOsm?Math.round(m.htOsm)+' m (OpenStreetMap)':eq?'sans importance (icône posée au sol)':`inconnue — ${MON_DEF_H[m.type]||20} m supposés pour le relief`}</div>
     <div class="dbgsec">Classement</div>
     <div class="dbgline">${dEsc(m.types||'(sans classe)')} → ${dEsc(m.why||'')}</div>
     <div class="dbgsec">En savoir plus</div>
-    <div class="dbgline"><a style="color:#F2C14E" target="_blank" rel="noopener" href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/frwiki/${m.qid}">Wikipédia</a> · <a style="color:#F2C14E" target="_blank" rel="noopener" href="https://www.wikidata.org/wiki/${m.qid}">fiche Wikidata ${m.qid}</a></div>`;
+    <div class="dbgline">${linksHtml(m)}</div>`;
 }
 // grp : elements regroupes sous l'etiquette touchee (equipements) ; m._hidObjs : monuments regroupes derriere l'icone (+N)
 function showMonumentDetail(m,grp){
@@ -2969,6 +3092,8 @@ function telecomBlock(t){
     <div class="dbgline">${t.address||'—'}${t.cp?' · '+t.cp:''}</div>
     <div class="dbgsec">Identifiants</div>
     <div class="dbgline">ANFR ${t.anfr||'—'} · support ANFR n°${t.sup_id}</div>
+    <div class="dbgsec">En savoir plus</div>
+    <div class="dbgline">${linksHtml({lat:t.lat,lon:t.lon,tdf:/(^|[^a-z])TDF([^a-z]|$)|t[ée]l[ée]diffusion/i.test(t.owner||'')})}</div>
     <div class="dbgsec">Operateurs presents (${(t.operators||[]).length})</div>
     ${ops||'<div class="dbgline">aucun</div>'}`;
 }
@@ -2996,8 +3121,16 @@ function refreshStoreEst(){
   const done=()=>{ storeEst=parts.join(' · ')||'—'; };
   const p1=(navigator.storage&&navigator.storage.estimate)?navigator.storage.estimate().then(e=>parts.push(`${(e.usage/1048576).toFixed(1)} Mo utilises`)).catch(()=>{}):Promise.resolve();
   const p2=window.caches?caches.open(TCACHE).then(c=>c.keys()).then(k=>parts.push(`${k.length} tuiles de relief en cache`)).catch(()=>{}):Promise.resolve();
-  const p3=window.caches?caches.open(DCACHE).then(c=>c.keys()).then(k=>{ const bd=k.filter(x=>x.url.includes('/bd/')).length, tl=k.filter(x=>x.url.includes('/tel/')).length; parts.push(`${bd} tuiles de bâtiments, ${tl} zones pylônes en mémoire`); }).catch(()=>{}):Promise.resolve();
+  const DCN={pl:'zones de lieux',bld:'zones de repères hauts',tw:'zones de tours',wd:'tuiles de monuments',bd:'tuiles de bâtiments',tel:'zones de pylônes'};
+  const p3=window.caches?caches.open(DCACHE).then(c=>c.keys()).then(k=>{ const n={}; for(const x of k){ const m=x.url.slice(DC_BASE.length).split('/')[0]; n[m]=(n[m]||0)+1; }
+    parts.push(Object.entries(DCN).filter(([id])=>n[id]).map(([id,l])=>`${n[id]} ${l}`).join(', ')+' en mémoire'); }).catch(()=>{}):Promise.resolve();
   Promise.all([p1,p2,p3]).then(done);
+}
+// compteurs de la couche de cache generique, par couche : memoire fraiche / reseau / secours perime / echec
+function dcStatsHtml(){
+  const N={pl:'Lieux',bld:'Repères hauts',tw:'Tours',wd:'Monuments',bd:'Bâtiments',tel:'Pylônes'}, rows=Object.keys(N).filter(k=>dcStats[k]);
+  if(!rows.length) return 'Cette session : aucune donnée encore lue.';
+  return 'Cette session (mémoire / réseau / secours périmé / échec) :<br>'+rows.map(k=>{ const t=dcStats[k]; return `${N[k]} : ${t.hit} / ${t.net} / ${t.stale} / ${t.fail}`; }).join('<br>');
 }
 function renderDebug(){
   const kc=kindCounts();
@@ -3034,6 +3167,7 @@ function renderDebug(){
     <div class="dbgline">${APP_VERSION}</div>
     <div class="dbgsec">Stockage</div>
     <div class="dbgline">${storeEst}</div>
+    <div class="dbgline" style="opacity:.85">${dcStatsHtml()}</div>
     <div class="dbgsec">A l'ecran maintenant</div>
     <div class="dbgline">${lastShown} lieux affiches (source : ${source}) · GPS ${pos?'±'+Math.round(acc||0)+' m':'en attente'}</div>
     <div class="dbgsec">Pourquoi certains lieux ne s'affichent pas</div>
@@ -3336,7 +3470,7 @@ $('lyUrbFill').onchange=e=>{ S.layers.urbFill=e.target.checked; saveSettings(); 
 $('lyTel').onchange=e=>{ $('tel').checked=e.target.checked; $('tel').onchange({target:$('tel')}); if(S.telecom) pollTelecom(); syncLayersPanel(); };
 $('lyBld').onchange=e=>{ $('bld').checked=e.target.checked; $('bld').onchange({target:$('bld')}); if(S.buildings) pollBuildings(); syncLayersPanel(); };
 syncLayersPanel();
-$('btnReload').onclick=()=>{loadCities(true);computeTerrain(true);if(S.layers.monuments) loadMonuments(true); if(S.telecom){ telBypass=true; telecomAt=null; telecomErrAt=null; pollTelecom(); } if(S.layers.urban){ urbTiles.clear(); loadUrban(true); }};
+$('btnReload').onclick=()=>{dcForceT=Date.now()+90000; if(S.buildings){ buildingsAt=null; buildingsErrAt=null; pollBuildings(); } if(typeof loadTowers==='function') loadTowers(true); loadCities(true);computeTerrain(true);if(S.layers.monuments) loadMonuments(true); if(S.telecom){ telBypass=true; telecomAt=null; telecomErrAt=null; pollTelecom(); } if(S.layers.urban){ urbTiles.clear(); loadUrban(true); }};
 
 // reflete les reglages charges (localStorage) sur les controles au demarrage
 (function syncControlsFromS(){
