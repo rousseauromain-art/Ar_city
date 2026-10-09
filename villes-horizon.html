@@ -15,7 +15,9 @@
   --ink:#0E1A2B; --ink2:#182A42; --cream:#F3E9D2; --ochre:#E0A526; --line:rgba(243,233,210,.22);
   --display:"Barlow Condensed","Roboto Condensed","Avenir Next Condensed","Arial Narrow",sans-serif;
   --mono:"IBM Plex Mono","SF Mono",Menlo,Consolas,monospace;
-  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px); --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+  /* UX 09/10/2026 : cibles tactiles >= 44 px (Apple HIG / Material 48 dp), bords de securite en paysage (encoche), colonne d'outils sur 1 ou 2 colonnes */
+  --tb:44px; --tg:8px; --tcols:1; --toolsW:var(--tb);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--ink);color:var(--cream);font-family:var(--display);overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
@@ -26,26 +28,26 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #safe{position:absolute;top:0;left:0;width:1px;height:var(--safe-t);visibility:hidden}
 
 /* status + calibration chips */
-.chips{position:absolute;top:calc(var(--safe-t) + 34px);left:12px;max-width:calc(100% - 80px);display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none}
+.chips{position:absolute;top:calc(var(--safe-t) + 34px);left:calc(12px + var(--safe-l));max-width:calc(100% - var(--toolsW) - var(--safe-l) - var(--safe-r) - 40px);display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none}
 .chip{padding:5px 9px;border-radius:4px;background:rgba(14,26,43,.72);font:500 12px/1 var(--mono);color:var(--cream);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;backdrop-filter:blur(6px)}
 #calib,#filt{color:var(--ochre);display:none;pointer-events:auto}
 #note{display:none;color:var(--ochre);white-space:normal;line-height:1.35}
 #calib b,#filt b{font-weight:500;text-decoration:underline;margin-left:8px;color:var(--cream)}
 /* bouton replier/deplier : toujours visible, quel que soit l'etat, pour pouvoir revenir en arriere */
 .chiprow{display:flex;align-items:center;gap:6px;pointer-events:none}
-#btnFold{pointer-events:auto;flex:0 0 auto;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.85);backdrop-filter:blur(6px)}
+#btnFold{pointer-events:auto;flex:0 0 auto;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.85);backdrop-filter:blur(6px)}
 #btnFold svg{width:15px;height:15px;stroke:var(--ochre);stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
 #btnFold:active{background:rgba(243,233,210,.2)}
 .chips.folded #btnFold svg{transform:rotate(-90deg)}
 /* replie : tout le bandeau (compteur de lieux inclus) disparait, seul le bouton reste */
 .chips.folded #status,.chips.folded #calib,.chips.folded #filt,.chips.folded #note{display:none!important}
-#tools{position:absolute;top:calc(var(--safe-t) + 34px);right:12px;display:flex;flex-direction:column;gap:8px}
-#tools button{width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.72);backdrop-filter:blur(6px)}
+#tools{position:absolute;top:calc(var(--safe-t) + 34px);right:calc(12px + var(--safe-r));display:grid;grid-template-columns:repeat(var(--tcols),var(--tb));gap:var(--tg)}
+#tools button{width:var(--tb);height:var(--tb);display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.72);backdrop-filter:blur(6px)}
 #tools svg{width:19px;height:19px;stroke:var(--cream);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 #tools button:active{background:rgba(243,233,210,.2)}
 #btnLayers.on{background:rgba(224,165,38,.3)}
 /* calques (lots 2 et 5, 28/09/2026) : quoi afficher ; l'oeil regle combien */
-#layers{position:absolute;top:calc(var(--safe-t) + 34px);right:62px;max-height:calc(100% - var(--safe-t) - 34px - 12px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;width:min(272px,calc(100vw - 80px));background:rgba(14,26,43,.95);border:1px solid var(--line);border-radius:6px;padding:10px 12px 8px;display:none;z-index:6;backdrop-filter:blur(8px)}
+#layers{position:absolute;top:calc(var(--safe-t) + 34px);right:calc(12px + var(--safe-r) + var(--toolsW) + 10px);max-height:calc(100% - var(--safe-t) - 34px - 12px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;width:min(272px,calc(100vw - var(--toolsW) - var(--safe-l) - var(--safe-r) - 84px));background:rgba(14,26,43,.95);border:1px solid var(--line);border-radius:6px;padding:10px 12px 8px;display:none;z-index:6;backdrop-filter:blur(8px)}
 #layers.open{display:block}
 #layers .lyT{font:700 12px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--ochre);margin:2px 0 8px}
 #layers label{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
@@ -62,6 +64,8 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .usrRow .sw{display:inline-block;width:26px;height:26px;border-radius:50%;border:2px solid transparent;margin:6px 8px 0 0;vertical-align:middle}
 .usrRow .sw.on{border-color:#F3E9D2}
 .usrBtn{display:inline-block;padding:10px 14px;border:1px solid var(--ochre);border-radius:4px;color:var(--ochre);font:700 12px var(--mono,monospace);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin:4px 8px 4px 0}
+.usrQ{display:flex;align-items:center;gap:8px;margin:10px 0 4px}.usrQ input{flex:1;min-width:0;background:rgba(243,233,210,.08);border:1px solid #FFD23F;border-radius:3px;color:var(--cream);font:700 14px var(--mono,monospace);padding:8px}.usrQ em{font:500 11px var(--mono,monospace);color:#FFD23F;white-space:nowrap}.usrHit{padding:9px 0;border-top:1px solid var(--line);cursor:pointer;font-size:13px}.usrHit b{color:#FFD23F}.usrHit span{opacity:.75}
+.usrDiagBox{margin:8px 0;border:1px solid var(--line);border-radius:4px;padding:8px}.usrDiagBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}.usrDiagBar label{flex:1;display:flex;align-items:center;gap:6px;min-width:150px}.usrDiagBar .usrBtn{margin:0}#usrDiagPre{margin:8px 0;max-height:46vh;overflow:auto;white-space:pre-wrap;word-break:break-word;font:400 11px/1.45 var(--mono);color:var(--cream);-webkit-user-select:text;user-select:text}
 .usrBtn.danger{border-color:#E85A5A;color:#E85A5A}
 #layers .lyH{font:400 11.5px/1.35 var(--mono,monospace);color:rgba(243,233,210,.55);padding-top:8px;border-top:1px solid var(--line)}
 #btnFind.holding{background:rgba(224,165,38,.55);transition:background .15s}
@@ -69,7 +73,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #btnFind.on svg,#btnAlign.on svg,#btnPoint.on svg{stroke:var(--ink)}
 /* bouton oeil : a portee de pouce, a cote du declencheur, avec son etat ecrit et un badge "+N"
    (nombre de lieux que "Tout voir" ajouterait dans la direction visee) */
-#btnBeyond{position:relative;display:flex;align-items:center;gap:7px;width:142px;justify-content:center;white-space:nowrap;letter-spacing:.1em;background:rgba(14,26,43,.55)}
+#btnBeyond{position:relative;display:flex;align-items:center;gap:7px;width:100%;max-width:142px;padding-left:8px;padding-right:8px;justify-content:center;white-space:nowrap;letter-spacing:.1em;background:rgba(14,26,43,.55)}
 #btnBeyond svg{width:17px;height:17px;flex:0 0 auto;stroke:var(--cream);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
 #btnBeyond.on{background:rgba(224,165,38,.9);color:var(--ink);border-color:transparent}
 #btnBeyond.on svg{stroke:var(--ink)}
@@ -86,13 +90,27 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #btnDbgRetry,#btnDbgRelay{grid-column:1/-1;background:rgba(224,165,38,.15);border-color:rgba(224,165,38,.5);color:var(--ochre);font:700 12px var(--mono);padding:9px 12px;border-radius:3px;text-transform:uppercase;letter-spacing:.06em}
 
 /* bottom bar */
-#bar{position:absolute;left:0;right:0;bottom:0;padding:14px 20px calc(var(--safe-b) + 16px);display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:linear-gradient(to top,rgba(14,26,43,.85),rgba(14,26,43,0))}
-.side{font:700 14px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;padding:11px 12px;border:1px solid var(--line);border-radius:3px;justify-self:center;color:var(--cream)}
+#bar{position:absolute;left:0;right:0;bottom:0;pointer-events:none;column-gap:10px;padding:14px max(20px,var(--safe-l)) calc(var(--safe-b) + 16px) max(20px,var(--safe-r));display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:linear-gradient(to top,rgba(14,26,43,.85),rgba(14,26,43,0))}
+.side,#shutter{pointer-events:auto}
+.side{min-height:44px;font:700 14px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;padding:11px 12px;border:1px solid var(--line);border-radius:3px;justify-self:center;color:var(--cream)}
 .side:active{background:rgba(243,233,210,.12)}
 #shutter{width:70px;height:70px;border-radius:50%;border:3px solid var(--cream);padding:4px;justify-self:center}
 #shutter i{display:block;width:100%;height:100%;border-radius:50%;background:var(--cream);transition:transform .1s}
 #shutter:active i{transform:scale(.85)}
 #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
+
+/* paysage / ecran bas (telephone tenu a l'horizontale, barre du navigateur comprise) : tout doit rester atteignable.
+   Cause du bug "plein ecran injoignable" : la barre du bas (100 px de haut, toute la largeur) recouvrait le bas de la colonne d'outils
+   (6 x 40 px + espaces = 280 px) des que l'ecran faisait moins de ~390 px de haut. Maintenant : barre transparente aux touchers hors boutons,
+   outils sur 2 colonnes, declencheur reduit. */
+@media (max-height:460px){
+  :root{--tb:42px; --tg:6px; --tcols:2; --toolsW:calc(2*var(--tb) + var(--tg))}
+  #bar{padding-top:6px;padding-bottom:calc(var(--safe-b) + 8px)}
+  #shutter{width:58px;height:58px}
+  .side{padding:9px 12px}
+}
+@media (max-height:460px) and (max-width:700px){ #tools{--tb:38px} }
+@media (max-width:380px){ #bar{padding-left:max(12px,var(--safe-l));padding-right:max(12px,var(--safe-r));column-gap:6px} .side{letter-spacing:.08em;padding-left:8px;padding-right:8px;font-size:13px} #btnBeyond{min-width:0} }
 
 /* start panel */
 #start{position:absolute;inset:0;background:var(--ink);display:flex;flex-direction:column;justify-content:flex-end;padding:0 26px calc(var(--safe-b) + 32px);z-index:5}
@@ -106,6 +124,14 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #go:active{background:var(--ochre)}
 #start small{display:block;margin-top:14px;font:400 12px/1.4 var(--mono);color:rgba(243,233,210,.5)}
 #rose{position:absolute;top:calc(var(--safe-t) + 24px);right:22px;width:120px;height:120px;opacity:.9}
+/* ecran d'accueil en paysage : deux colonnes (texte | liste + bouton), sans rien rogner */
+@media (max-height:460px){
+  #start{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:32px;align-content:safe center;justify-content:normal;padding:calc(var(--safe-t) + 12px) max(26px,var(--safe-r)) calc(var(--safe-b) + 14px) max(26px,var(--safe-l));overflow-y:auto}
+  #start .eyebrow,#start h1,#start p{grid-column:1} #start ul,#start #go,#start small{grid-column:2}
+  #start ul{grid-row:1/4;margin-bottom:12px} #start #go{grid-row:4} #start small{grid-row:5}
+  #start .eyebrow{margin-bottom:8px;align-self:end} #start h1{font-size:36px;margin-bottom:10px;align-self:start}
+  #start p{font-size:15px;margin-bottom:0} #start li{padding:7px 0;font-size:14px} #go{padding:14px;font-size:18px} #rose{display:none}
+}
 
 /* settings sheet */
 #sheet{position:absolute;left:0;right:0;bottom:0;max-height:calc(100% - 10px);overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--ink);border-top:1px solid var(--line);padding:0 22px calc(var(--safe-b) + 22px);transform:translateY(105%);transition:transform .25s;z-index:4}
@@ -322,7 +348,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <li><span>CALAGE</span>Glissez sur l'image pour aligner le cap et l'horizon.</li>
   </ul>
   <button id="go">Ouvrir la caméra</button>
-  <small>Nécessite une page en HTTPS (Safari ou Chrome). Tenez le téléphone en portrait, à la verticale.</small>
+  <small>Nécessite une page en HTTPS (Safari ou Chrome). Fonctionne en portrait comme en paysage.</small>
 </div>
 
 <script src="config.js" onerror="void 0"></script>
@@ -343,7 +369,7 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const APP_VERSION='2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
@@ -2763,6 +2789,7 @@ function draw(ts){
   placeStats={eligible:dEligible,shown:shownCount,ghost:ghostCount,noRoom:dNoRoom,ghostInView};
   updateEyeBadge(ghostInView);
   if(lowDeck) for(const L of infra) drawInfra(L,'low');
+  drawHlPointers();
 
   // --- equipements : telecom (ANFR) et reperes hauts (OSM) ---
   // Icone TOUJOURS dessinee sur l'horizon (pylone, mat, toit-terrasse, chateau d'eau...) ; seule
@@ -2772,7 +2799,7 @@ function draw(ts){
   function drawInfra(L,deck){
     const vis=[];
     for(const t of L.list){
-      if(t.dist==null||t.dist>L.max||t.dupMon) continue; // dupMon : deja dessine comme monument
+      if(t.dist==null||(t.dist>L.max&&!t.hl)||t.dupMon) continue; // t.hl : site trouve par la recherche (couches perso), montre meme au-dela de la distance reglee // dupMon : deja dessine comme monument
       const dB=wrap(t.brg-heading);
       if(Math.abs(dB)>Math.min(80,FOVH*0.8)) continue;
       const x=W/2+fh*Math.tan(dB*D);
@@ -2784,12 +2811,12 @@ function draw(ts){
     for(const v of vis){
       // un groupe = meme type, espaces de 28 px au plus, sur 64 px de large au plus (sinon une rue entiere
       // de toits-terrasses ne ferait qu'un seul groupe, ancre n'importe ou)
-      const gk=L.groupBy==='icon'?v.t.icon:v.t.name, gapX=L.groupBy?22:28, spanX=L.groupBy?44:64;
+      const gk=L.groupBy==='icon'?v.t.icon:(v.t.hl?'*':'')+(v.t.lab||v.t.name), gapX=L.groupBy?22:28, spanX=L.groupBy?44:64;
       const g=groups.find(g=>g.gk===gk&&v.x-g.xs[g.xs.length-1]<=gapX&&v.x-g.xs[0]<=spanX);
-      if(g){ g.items.push(v.t); g.xs.push(v.x); } else groups.push({name:v.t.name,gk,items:[v.t],xs:[v.x]});
+      if(g){ g.items.push(v.t); g.xs.push(v.x); } else groups.push({name:v.t.lab||v.t.name,gk,items:[v.t],xs:[v.x]});
     }
-    for(const g of groups) g.dmin=Math.min(...g.items.map(t=>t.dist));
-    groups.sort((a,b)=>a.dmin-b.dmin); // les plus proches se placent en premier
+    for(const g of groups){ g.dmin=Math.min(...g.items.map(t=>t.dist)); g.hl=g.items.some(t=>t.hl); }
+    groups.sort((a,b)=>(b.hl-a.hl)||a.dmin-b.dmin); // les plus proches se placent en premier
     const size=13, step=20;
     // ZONES TACTILES (09/10/2026 : "des pylones regroupes ne s'ouvrent pas") : une zone pour l'ICONE (au plus pres de ce qui est dessine,
     // pastille du nombre comprise) et une pour l'ETIQUETTE, au lieu d'un grand rectangle qui recouvrait les icones des monuments voisins
@@ -2800,7 +2827,7 @@ function draw(ts){
     // un fil pointille la relie a son azimut sur l'horizon ; le texte commence sous la derniere rangee
     const dy=(deck==='low'&&L.iconDy)?L.iconDy:0, rowStep=15, rowsBusy=[];
     for(const g of groups){ const near=g.items.reduce((a,t)=>t.dist<a.dist?t:a), n=g.items.length;
-      g.x=n>1?g.xs.reduce((a,b)=>a+b,0)/n:g.xs[0]; g.h=infraIconLook(near.dist).h*(L.sizeK||1)+(n>1?3:0); g.row=0;
+      g.x=n>1?g.xs.reduce((a,b)=>a+b,0)/n:g.xs[0]; g.h=(g.hl?Math.max(24,infraIconLook(near.dist).h*1.35):infraIconLook(near.dist).h*(L.sizeK||1))+(n>1?3:0); g.row=0;
       if(dy&&L.rows){ let r=0; while(r<L.rows-1&&(rowsBusy[r]||[]).some(([a,b])=>g.x-g.h/2-2<b&&g.x+g.h/2+2>a)) r++; (rowsBusy[r]=rowsBusy[r]||[]).push([g.x-g.h/2-2,g.x+g.h/2+2]); g.row=r; }
       g.base=hy+dy+g.row*rowStep; }
     const lt=dy?hy+dy+groups.reduce((a,g)=>Math.max(a,g.row),0)*rowStep+12:lowTop;
@@ -2814,21 +2841,22 @@ function draw(ts){
       const lk=infraIconLook(near.dist), h=g.h-(n>1?3:0)||lk.h;
       if(dy){ ctx.save(); ctx.setLineDash([2,3]); ctx.strokeStyle=L.color.line; ctx.globalAlpha=.7; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,hy+1); ctx.lineTo(x,g.base-g.h-1); ctx.stroke(); ctx.restore();
         placed.push([x-g.h/2-3,x+g.h/2+3,g.base-g.h-3,g.base+3,null,g]); }
-      drawGlyph(near.icon||BLD_ICON[near.kind]||'antenne',x,g.base,n>1?h+3:h,L.color.icon,lk.a);
+      if(g.hl){ ctx.beginPath(); ctx.arc(x,g.base-h/2,h*.78,0,7); ctx.fillStyle='rgba(255,210,63,.22)'; ctx.fill(); ctx.lineWidth=2.5; ctx.strokeStyle='#FFD23F'; ctx.stroke(); }
+      drawGlyph(near.icon||BLD_ICON[near.kind]||'antenne',x,g.base,n>1?h+3:h,L.color.icon,g.hl?1:lk.a);
       if(n>1){ const txt=n>99?'99+':String(n), bx=x+h*0.45+4, by=g.base-h-6;
         ctx.beginPath(); ctx.arc(bx,by,7.5,0,7); ctx.fillStyle='rgba(14,26,43,.92)'; ctx.fill(); ctx.lineWidth=1.5; ctx.strokeStyle=L.color.icon; ctx.stroke();
         ctx.font=`700 ${txt.length>2?7:9}px ${FM}`; ctx.fillStyle='#F3E9D2'; ctx.textAlign='center'; ctx.fillText(txt,bx,by+3.2); ctx.textAlign='left'; }
     }
     // 2) etiquettes
     for(const g of groups){
-      const n=g.items.length, near=g.items.reduce((a,t)=>t.dist<a.dist?t:a);
+      const sz=g.hl?17:size, n=g.items.length, near=g.items.reduce((a,t)=>t.dist<a.dist?t:a);
       const x=g.x;
       const label=n>1?(L.groupBy==='icon'?`${n} ${EQ_PLURAL[near.icon]||'lieux'}`:PLURAL[g.name]?`${n} ${PLURAL[g.name]}`:`${n} × ${g.name}`):g.name;
       const dmax=Math.max(...g.items.map(t=>t.dist));
       const dtxt=(n>1&&fkm(g.dmin)!==fkm(dmax)?`${fkm(g.dmin)}–${fkm(dmax)}`:fkm(g.dmin))+' km';
       const ops=L.key==='tel'?opsOf(g.items.flatMap(t=>t.operators||[])):[];
       const g5=L.key==='tel'&&g.items.some(t=>t.g5);
-      ctx.font=`700 ${size}px ${FD}`; const nw=ctx.measureText(label).width;
+      ctx.font=`${g.hl?800:700} ${sz}px ${FD}`; const nw=ctx.measureText(label).width;
       ctx.font=`500 11px ${FM}`; const dw=ctx.measureText(dtxt).width;
       const opsW=ops.length?ops.length*13+4:0, g5W=g5?24:0;
       const tw=nw+7+dw+opsW+g5W+4;
@@ -2840,18 +2868,18 @@ function draw(ts){
       if(dy&&L.beside){ const sides=x<W/2?[1,-1]:[-1,1], yb=g.base+3;
         // 1) a cote de l'icone, un peu plus bas que le sommet de l'icone (le haut du bandeau est occupe par les icones des monuments)
         for(const side of sides){ const bx=side>0?x+g.h/2+5:x-g.h/2-5-tw; if(bx<4||bx+tw>W-4||yb+4>lowBot) continue;
-          if(!rectHit(bx-3,bx+tw+3,yb-size-2,yb+4,2,g)){ bs={tx:bx,y:yb,x0:bx-3,x1:bx+tw+3,leader:false}; break; } }
+          if(!rectHit(bx-3,bx+tw+3,yb-sz-2,yb+4,2,g)){ bs={tx:bx,y:yb,x0:bx-3,x1:bx+tw+3,leader:false}; break; } }
         // 2) sinon sous l'icone, ligne par ligne, d'un cote puis de l'autre, avec un fil
-        for(let k=0;k<maxLanes&&!bs;k++){ const y=lt+size+k*step; if(y+4>lowBot) break;
+        for(let k=0;k<maxLanes&&!bs;k++){ const y=lt+sz+k*step; if(y+4>lowBot) break;
           for(const side of sides){ const bx=Math.max(4,Math.min(W-4-tw,side>0?x-4:x+4-tw));
-            if(!rectHit(bx-2,bx+tw+2,y-size-2,y+4,4,g)){ bs={tx:bx,y,x0:bx-2,x1:bx+tw+2,leader:true}; break; } } } }
+            if(!rectHit(bx-2,bx+tw+2,y-sz-2,y+4,4,g)){ bs={tx:bx,y,x0:bx-2,x1:bx+tw+2,leader:true}; break; } } } }
       const iconTop=hy-32;
-      const yOf=k=>deck==='low'?lt+size+k*step:iconTop-6-k*step; // ligne de base du texte
-      const fits=k=>{ const y=yOf(k); if(deck==='low'?y+4>lowBot:y-size-2<topLimit) return -1;
-        return rectHit(x0,x1,y-size-2,y+4,6)?0:1; };
+      const yOf=k=>deck==='low'?lt+sz+k*step:iconTop-6-k*step; // ligne de base du texte
+      const fits=k=>{ const y=yOf(k); if(deck==='low'?y+4>lowBot:y-sz-2<topLimit) return -1;
+        return rectHit(x0,x1,y-sz-2,y+4,6)?0:1; };
       const key=L.key+'|'+g.name+'|'+(near.sup_id||near.name+near.lat);
       const mem=laneMem.get(key); let k0=null;
-      const kMax=deck==='low'?maxLanes:3;
+      const kMax=g.hl?maxLanes:deck==='low'?maxLanes:3;
       if(bs){ /* nom a cote de l'icone : pas de ligne a chercher */ }
       else if(mem!=null&&mem<kMax&&fits(mem)===1) k0=mem;
       else for(let k=0;k<kMax;k++){ const r=fits(k); if(r<0) break; if(r===1){ k0=k; break; } }
@@ -2859,19 +2887,21 @@ function draw(ts){
       // recuperent aussi le haut de l'ecran quand la bande du bas est pleine
       let upY=null;
       if(!bs&&k0==null&&deck==='low'&&!S.layers.places&&!S.layers.monuments){
-        for(let k=0;k<maxLanes;k++){ const y=hy-38-k*step; if(y-size-2<topLimit) break; if(!rectHit(x0,x1,y-size-2,y+4,6)){ upY=y; break; } }
+        for(let k=0;k<maxLanes;k++){ const y=hy-38-k*step; if(y-sz-2<topLimit) break; if(!rectHit(x0,x1,y-sz-2,y+4,6)){ upY=y; break; } }
       }
+      if(g.hl&&!bs&&k0==null&&upY==null) k0=0; // site recherche : son nom s'affiche toujours (au pire par-dessus d'autres)
       if(!bs&&k0==null&&upY==null){ infraStats.iconOnly+=n;
         pushHits(g,near,x,null); continue; }
       if(k0!=null) laneMem.set(key,k0); infraStats.labeled+=n;
       const ly=bs?bs.y:k0!=null?yOf(k0):upY, below=!bs&&k0!=null&&deck==='low';
       if(bs){ tx=bs.tx; x0=bs.x0; x1=bs.x1; }
-      placed.push([x0,x1,ly-size-2,ly+4]);
+      placed.push([x0,x1,ly-sz-2,ly+4]);
       if(!bs||bs.leader){ ctx.strokeStyle=L.color.line; ctx.lineWidth=1; ctx.beginPath();
-        if(bs||below){ ctx.moveTo(x,(dy?g.base:hy)+3); ctx.lineTo(x,ly-size-1); } else { ctx.moveTo(x,iconTop); ctx.lineTo(x,ly+3); }
+        if(bs||below){ ctx.moveTo(x,(dy?g.base:hy)+3); ctx.lineTo(x,ly-sz-1); } else { ctx.moveTo(x,iconTop); ctx.lineTo(x,ly+3); }
         ctx.stroke(); }
-      ctx.font=`700 ${size}px ${FD}`; ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.lineWidth=3.5;
-      ctx.strokeText(label,tx,ly); ctx.fillStyle=L.color.text; ctx.fillText(label,tx,ly);
+      ctx.font=`${g.hl?800:700} ${sz}px ${FD}`; ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.lineWidth=3.5;
+      if(g.hl){ ctx.fillStyle='rgba(14,26,43,.94)'; ctx.fillRect(x0,ly-sz-2,x1-x0,sz+8); ctx.lineWidth=2; ctx.strokeStyle='#FFD23F'; ctx.strokeRect(x0+1,ly-sz-1,x1-x0-2,sz+6); ctx.lineWidth=3.5; ctx.strokeStyle='rgba(14,26,43,.9)'; }
+      ctx.strokeText(label,tx,ly); ctx.fillStyle=g.hl?'#FFF3C4':L.color.text; ctx.fillText(label,tx,ly);
       ctx.font=`500 11px ${FM}`; ctx.lineWidth=3;
       ctx.strokeText(dtxt,tx+nw+7,ly); ctx.fillStyle=L.color.line; ctx.fillText(dtxt,tx+nw+7,ly);
       let ox=tx+nw+7+dw+6;
@@ -2881,8 +2911,21 @@ function draw(ts){
       if(g5){ ctx.font=`700 9px ${FM}`; const bx=ox+2, bw=20;
         ctx.fillStyle='rgba(14,26,43,.9)'; ctx.fillRect(bx,ly-11,bw,12); ctx.strokeStyle=L.color.text; ctx.lineWidth=1; ctx.strokeRect(bx+.5,ly-10.5,bw-1,11);
         ctx.fillStyle=L.color.text; ctx.textAlign='center'; ctx.fillText('5G',bx+bw/2,ly-2); ctx.textAlign='left'; }
-      pushHits(g,near,x,{x0,x1,y0:ly-size-2,y1:ly+4});
+      pushHits(g,near,x,{x0,x1,y0:ly-sz-2,y1:ly+4});
     }
+  }
+
+  // sites trouves par la recherche mais hors de l'ecran : une pastille au bord, du cote ou tourner (nom, distance)
+  function drawHlPointers(){
+    const hl=[]; for(const L of userLayers) if(L.on&&L.items) for(const t of L.items) if(t.hl&&t.dist!=null) hl.push(t);
+    hl.sort((a,b)=>a.dist-b.dist); let k=0;
+    for(const t of hl){ if(k>=3) break; const dB=wrap(t.brg-heading), x=W/2+fh*Math.tan(Math.max(-85,Math.min(85,dB))*D);
+      if(Math.abs(dB)<=Math.min(80,FOVH*0.8)&&x>=-20&&x<=W+20) continue; // visible : deja dessine par drawInfra
+      const right=dB>0, lab=`${right?'':'◀ '}${(t.lab||t.name||'site').slice(0,22)} · ${fkm(t.dist)} km${right?' ▶':''}`;
+      ctx.font=`800 13px ${FD}`; const w=ctx.measureText(lab).width+14; let y=hy-70-k*30; const x0=right?W-6-w:6;
+      for(let a=0;a<6&&rectHit(x0,x0+w,y-17,y+7,2);a++) y-=30;
+      placed.push([x0,x0+w,y-17,y+7]); ctx.fillStyle='rgba(14,26,43,.94)'; ctx.fillRect(x0,y-17,w,24); ctx.lineWidth=2; ctx.strokeStyle='#FFD23F'; ctx.strokeRect(x0+1,y-16,w-2,22);
+      ctx.textAlign='left'; ctx.fillStyle='#FFF3C4'; ctx.fillText(lab,x0+7,y); k++; }
   }
 
   // --- mobiles : avions et bateaux, places a leur hauteur angulaire reelle ---
@@ -2970,18 +3013,35 @@ function draw(ts){
 const USR_CACHE='vh-user-v1', USR_BASE='https://vh.user/', USR_COLORS=['#FF8A3D','#A98BFF','#4FD1C5','#FF6FB5','#9BE564','#FFD23F'], USR_SHOWN=300, USR_MAX_PTS=20000, USR_DISTS=[2,5,10,20,50,100,200];
 let userLayers=[];
 const hexA=(h,a)=>{ const n=parseInt(h.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; };
+// champs : q[5] = {nom du champ : valeur} (ExtendedData / SimpleData / tableau de la description) ; absent des couches memorisees avant le 09/10 (d)
+// L.field = champ choisi dans la liste deroulante ('' aucun, '@name', '@desc' ou un nom de champ) : ses 10 premiers caracteres precedent le nom
+const USR_PREF=10, userNorm=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+let userQ='';
+const userFieldVal=(it,f)=>f==='@name'?it.name:f==='@desc'?it.desc:(it.fields&&it.fields[f])||'';
+function userLabels(L){ for(const it of L.items){ const v=Array.from(String(userFieldVal(it,L.field)).replace(/\s+/g,' ').trim()).slice(0,USR_PREF).join('');
+  it.lab=!L.field||!v?'':L.field==='@name'?v:(it.name?`${v} · ${it.name}`:v); } }
 function userMake(L){
-  L.items=L.pts.map(q=>({name:q[2]||'',lat:q[0],lon:q[1],desc:q[3]||'',links:q[4]||[],kind:'user',icon:'pin',layer:L.id,lname:L.name,col:L.color,dist:null,brg:null}));
-  L.shown=[]; return L;
+  L.field=L.field||'';
+  L.items=L.pts.map(q=>({name:q[2]||'',lat:q[0],lon:q[1],desc:q[3]||'',links:q[4]||[],fields:q[5]||{},kind:'user',icon:'pin',layer:L.id,lname:L.name,col:L.color,dist:null,brg:null,hl:false,lab:''}));
+  const cnt={}; for(const q of L.pts) for(const k in (q[5]||{})) cnt[k]=(cnt[k]||0)+1;
+  L.keys=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]||a.localeCompare(b)); if(L.field&&L.field[0]!=='@'&&!cnt[L.field]) L.field='';
+  userLabels(L); L.shown=[]; userFlag(L); return L;
 }
+// RECHERCHE : tous les mots doivent se trouver (nom, description ou n'importe quel champ), sans accents ni majuscules ; les sites trouves sont mis en gras
+function userFlag(L){ const qs=userNorm(userQ).split(' ').filter(Boolean), on=userNorm(userQ).length>=2;
+  for(const it of L.items){ if(!on){ it.hl=false; continue; }
+    const h=it._h||(it._h=userNorm([it.name,it.desc].concat(Object.values(it.fields||{})).join(' '))); it.hl=qs.every(w=>h.includes(w)); } }
+function userSearch(q){ userQ=String(q||'').slice(0,60); for(const L of userLayers) userFlag(L); userRecompute(); }
+const userHits=()=>userLayers.filter(L=>L.on).flatMap(L=>L.items.filter(it=>it.hl)).sort((a,b)=>(a.dist==null)-(b.dist==null)||a.dist-b.dist);
 function userRecompute(){
   if(!pos) return;
   for(const L of userLayers){ if(!L.items) continue;
     for(const it of L.items){ const r=distBrg(pos,it); it.dist=r.dist; it.brg=r.brg; }
-    L.shown=L.items.filter(it=>it.dist<=L.max).sort((a,b)=>a.dist-b.dist).slice(0,USR_SHOWN); }
+    const inr=L.items.filter(it=>it.dist<=L.max||it.hl).sort((a,b)=>a.dist-b.dist); // les sites recherches passent toujours, meme au-dela de la distance
+    L.shown=inr.filter(it=>it.hl).slice(0,60).concat(inr.filter(it=>!it.hl).slice(0,USR_SHOWN)).sort((a,b)=>a.dist-b.dist); }
 }
 async function userSave(L){ try{ if(!window.caches) return false; const c=await caches.open(USR_CACHE);
-  await c.put(USR_BASE+L.id,new Response(JSON.stringify({id:L.id,name:L.name,color:L.color,on:L.on,max:L.max,pts:L.pts,ignored:L.ignored,added:L.added}),{headers:{'content-type':'application/json'}})); return true; }catch(e){ return false; } }
+  await c.put(USR_BASE+L.id,new Response(JSON.stringify({id:L.id,name:L.name,color:L.color,on:L.on,max:L.max,pts:L.pts,field:L.field||'',ignored:L.ignored,added:L.added,diag:L.diag||''}),{headers:{'content-type':'application/json'}})); return true; }catch(e){ return false; } }
 async function userDelete(id){ try{ if(window.caches){ const c=await caches.open(USR_CACHE); await c.delete(USR_BASE+id); } }catch(e){} }
 async function userLoad(){
   try{ if(window.caches){ const c=await caches.open(USR_CACHE), ks=await c.keys(), out=[];
@@ -2991,7 +3051,7 @@ async function userLoad(){
 }
 async function inflateRaw(u8){ const ds=new DecompressionStream('deflate-raw'), w=ds.writable.getWriter(); w.write(u8); w.close(); return new Uint8Array(await new Response(ds.readable).arrayBuffer()); }
 // KMZ = archive ZIP contenant un .kml (doc.kml en general) : lecture du repertoire central, extraction stockee (0) ou deflate (8)
-async function kmzToKml(buf){
+async function kmzToKml(buf,info){
   const dv=new DataView(buf), u8=new Uint8Array(buf); let e=-1;
   for(let i=buf.byteLength-22;i>=Math.max(0,buf.byteLength-66000);i--) if(dv.getUint32(i,true)===0x06054b50){ e=i; break; }
   if(e<0) throw new Error('archive KMZ illisible (fin de répertoire introuvable)');
@@ -3000,6 +3060,7 @@ async function kmzToKml(buf){
     const meth=dv.getUint16(p+10,true), csz=dv.getUint32(p+20,true), nl=dv.getUint16(p+28,true), el=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true), off=dv.getUint32(p+42,true);
     ents.push({name:td.decode(u8.subarray(p+46,p+46+nl)),meth,csz,off}); p+=46+nl+el+cl; }
   const kmls=ents.filter(x=>/\.kml$/i.test(x.name)), pick=kmls.find(x=>/(^|\/)doc\.kml$/i.test(x.name))||kmls[0];
+  if(info) info(ents,pick&&pick.name);
   if(!pick) throw new Error('aucun fichier .kml dans cette archive');
   const nl=dv.getUint16(pick.off+26,true), el=dv.getUint16(pick.off+28,true), st=pick.off+30+nl+el, data=u8.subarray(st,st+pick.csz);
   if(pick.meth===0) return td.decode(data);
@@ -3010,7 +3071,9 @@ function kmlText(html){ // description KML (souvent du HTML) -> texte + liens ht
   const h=String(html||'').replace(/<br\s*\/?>|<\/p>|<\/div>|<\/tr>/gi,'\n'), d=new DOMParser().parseFromString(h,'text/html'), links=[];
   for(const a of d.querySelectorAll('a[href]')){ const u=a.getAttribute('href'); if(/^https?:\/\//i.test(u)&&!links.includes(u)) links.push(u); }
   for(const u of (d.body.textContent.match(/https?:\/\/[^\s<>"']+/g)||[])) if(!links.includes(u)) links.push(u);
-  return {text:d.body.textContent.replace(/\n\s*\n+/g,'\n').trim().slice(0,800),links:links.slice(0,4)};
+  const rows=[]; for(const tr of d.querySelectorAll('tr')){ const c=[...tr.children].filter(x=>/^t[dh]$/i.test(x.localName)); if(c.length===2) rows.push([c[0].textContent,c[1].textContent]); }
+  if(!rows.length) for(const ln of d.body.textContent.split('\n')){ const m=ln.trim().match(/^([^:=]{1,40}?)\s*[:=]\s*(\S.*)$/); if(m&&!/^\/\//.test(m[2])) rows.push([m[1],m[2]]); } // sans tableau : lignes « libellé : valeur »
+  return {text:d.body.textContent.replace(/\n\s*\n+/g,'\n').trim().slice(0,800),links:links.slice(0,4),rows};
 }
 function parseKml(txt){
   const doc=new DOMParser().parseFromString(txt,'application/xml'); if(doc.getElementsByTagName('parsererror').length) throw new Error('KML invalide (XML illisible)');
@@ -3018,26 +3081,101 @@ function parseKml(txt){
   const child=(el,tag)=>{ for(const c of el.children) if(c.localName===tag) return c.textContent.trim(); return ''; };
   for(const pm of doc.getElementsByTagName('Placemark')){
     const pts=pm.getElementsByTagName('Point'); if(!pts.length){ ignored++; continue; }
-    const name=child(pm,'name').slice(0,120), d=kmlText(child(pm,'description'));
+    const name=child(pm,'name').slice(0,120), d=kmlText(child(pm,'description')), f={};
+    const put=(k,v)=>{ k=String(k||'').replace(/\s+/g,' ').trim().slice(0,40); v=String(v||'').replace(/\s+/g,' ').trim().slice(0,200); if(k&&v&&k[0]!=='@'&&!(k in f)&&Object.keys(f).length<40) f[k]=v; };
+    for(const e of pm.getElementsByTagName('*')){ if(e.localName==='Data') put(e.getAttribute('name'),child(e,'value')||e.textContent); else if(e.localName==='SimpleData') put(e.getAttribute('name'),e.textContent); }
+    for(const [k,v] of d.rows) put(k,v);
     for(const pt of pts){ const c=(pt.getElementsByTagName('coordinates')[0]||{textContent:''}).textContent.trim().split(/\s+/)[0].split(','), lon=+c[0], lat=+c[1];
       if(!isFinite(lat)||!isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180||(lat===0&&lon===0)) continue;
-      out.push([+lat.toFixed(6),+lon.toFixed(6),name,d.text,d.links]); }
+      out.push([+lat.toFixed(6),+lon.toFixed(6),name,d.text,d.links,f]); }
   }
   return {pts:out,ignored};
 }
+async function userRead(file){ // lecture locale d'un .kmz/.kml -> {txt, meta} (meta : infos d'archive pour le diagnostic)
+  const buf=await file.arrayBuffer(), u8=new Uint8Array(buf), zip=u8[0]===0x50&&u8[1]===0x4b; let ents=null, pick='';
+  const txt=zip?await kmzToKml(buf,(e,p)=>{ ents=e; pick=p; }):new TextDecoder('utf-8').decode(u8);
+  return {txt,meta:{zip,size:file.size,ents,pick}};
+}
 async function userImport(file){
   if(file.size>40e6) throw new Error('fichier trop gros (40 Mo maximum)');
-  const buf=await file.arrayBuffer(), u8=new Uint8Array(buf), zip=u8[0]===0x50&&u8[1]===0x4b;
-  const {pts,ignored}=parseKml(zip?await kmzToKml(buf):new TextDecoder('utf-8').decode(u8));
+  const {txt,meta}=await userRead(file), {pts,ignored}=parseKml(txt);
+  let diag=''; try{ diag=kmlDiag(txt,meta).slice(0,16000); }catch(e){}
   if(!pts.length) throw new Error('aucun point trouvé'+(ignored?` (${ignored} ligne(s)/polygone(s) ignorés : seuls les points sont affichés)`:''));
-  const L=userMake({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:file.name.replace(/\.(kmz|kml)$/i,'').slice(0,60),color:USR_COLORS[userLayers.length%USR_COLORS.length],on:true,max:50,pts:pts.slice(0,USR_MAX_PTS),ignored,added:Date.now()});
+  const L=userMake({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:file.name.replace(/\.(kmz|kml)$/i,'').slice(0,60),color:USR_COLORS[userLayers.length%USR_COLORS.length],on:true,max:50,pts:pts.slice(0,USR_MAX_PTS),ignored,added:Date.now(),diag});
   userLayers.push(L); const ok=await userSave(L); userRecompute(); renderUserMenu();
   return {L,ok,cut:pts.length>USR_MAX_PTS};
 }
+// ---------- DIAGNOSTIC DE STRUCTURE (10/10/2026 : "afficher le detail de la structure de ce que tu lis sans indiquer le contenu") ----------
+// Decrit comment le fichier est construit (archive, elements XML, squelette d'un Placemark, tableau de la description, champs retenus)
+// SANS jamais reproduire une valeur : pour chaque texte, seulement sa longueur et sa "forme" (chiffre -> 9, minuscule -> a, majuscule -> A,
+// ponctuation conservee). Les NOMS de champs (en-tetes de colonnes) sont repris entre ⟦ ⟧ : l'affichage peut les masquer (champ#1, champ#2...).
+const dgK=n=>'⟦'+String(n==null?'':n).replace(/[⟦⟧]/g,'').trim().slice(0,40)+'⟧';
+const dgShape=v=>{ v=String(v==null?'':v).replace(/\s+/g,' ').trim(); return `${v.length} car. « ${Array.from(v).slice(0,26).map(c=>/[0-9]/.test(c)?'9':/[a-zß-ÿ]/.test(c)?'a':/[A-ZÀ-Þ]/.test(c)?'A':c).join('')}${v.length>26?'…':''} »`; };
+function dgDesc(raw,out,ind){
+  raw=String(raw||''); if(!raw){ out(ind+'description : vide'); return; }
+  const html=/<[a-z!\/][^>]*>/i.test(raw);
+  out(`${ind}description : ${raw.length} car., ${html?'HTML':'texte brut'}`);
+  const d=new DOMParser().parseFromString(raw.replace(/<br\s*\/?>/gi,'\n'),'text/html'), tags={};
+  for(const e of d.body.querySelectorAll('*')) tags[e.localName]=(tags[e.localName]||0)+1;
+  if(html) out(`${ind}  balises : ${Object.entries(tags).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([k,v])=>k+' '+v).join(', ')||'aucune'}`);
+  const trs=[...d.body.querySelectorAll('tr')], hist={}, cells=tr=>[...tr.children].filter(x=>/^t[dh]$/i.test(x.localName));
+  if(trs.length){ for(const tr of trs){ const n=cells(tr).length; hist[n]=(hist[n]||0)+1; }
+    let depth=0; for(const t of d.body.querySelectorAll('table')){ let k=0,n=t; while((n=n.parentElement)) if(n.localName==='table') k++; depth=Math.max(depth,k+1); }
+    out(`${ind}  tableau : ${d.body.querySelectorAll('table').length} table(s), imbrication ${depth}, ${trs.length} ligne(s) ; lignes par nombre de cellules : ${Object.entries(hist).map(([k,v])=>k+' cell.→'+v).join(', ')}`);
+    trs.slice(0,16).forEach((tr,i)=>{ const c=cells(tr); const th=c.some(x=>x.localName==='th'); const nested=tr.querySelector('table')?' [contient un sous-tableau]':'';
+      out(`${ind}    ligne ${i+1} (${c.length} cell.${th?', en-tête':''})${nested} : `+(c.length===2?`${dgK(c[0].textContent)} → ${dgShape(c[1].textContent)}`:c.slice(0,5).map(x=>dgShape(x.textContent)).join(' | '))); });
+    if(trs.length>16) out(`${ind}    … ${trs.length-16} ligne(s) de plus`); }
+  const lines=d.body.textContent.split('\n').map(x=>x.trim()).filter(Boolean), kv=lines.filter(x=>/^[^:]{1,40}:\s*\S/.test(x));
+  out(`${ind}  texte : ${lines.length} ligne(s), dont ${kv.length} de forme « libellé : valeur »`);
+  kv.slice(0,10).forEach(x=>{ const i=x.indexOf(':'); out(`${ind}    ${dgK(x.slice(0,i))} → ${dgShape(x.slice(i+1))}`); });
+  const lk=(raw.match(/https?:\/\//g)||[]).length; if(lk) out(`${ind}  liens http(s) : ${lk}`);
+}
+function kmlDiag(txt,meta){
+  const L=[], out=x=>L.push(x); meta=meta||{};
+  out('== Fichier =='); out(`type : ${meta.zip?'KMZ (archive ZIP)':'KML (XML brut)'} · ${meta.size!=null?Math.round(meta.size/1024)+' Ko':''}`);
+  if(meta.ents){ out(`archive : ${meta.ents.length} entrée(s), KML lu : ${meta.pick||'aucun'}`); meta.ents.slice(0,15).forEach(e=>out(`  ${e.name} (compression ${e.meth}, ${e.csz} octets)`)); if(meta.ents.length>15) out(`  … ${meta.ents.length-15} de plus`); }
+  const doc=new DOMParser().parseFromString(txt,'application/xml'); if(doc.getElementsByTagName('parsererror').length){ out('XML illisible'); return L.join('\n'); }
+  const all=[...doc.getElementsByTagName('*')], cnt={}; let maxD=0;
+  for(const e of all){ cnt[e.localName]=(cnt[e.localName]||0)+1; let d=0,n=e; while(n.parentNode&&n.parentNode.nodeType===1){ d++; n=n.parentNode; } if(d>maxD) maxD=d; }
+  out(`XML : racine ${doc.documentElement.localName}, ${all.length} éléments, profondeur ${maxD}, ${txt.length} caractères`);
+  out('éléments (nombre) : '+Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,45).map(([k,v])=>k+' '+v).join(', '));
+  const pms=[...doc.getElementsByTagName('Placemark')], paths={}, geo={sans:0};
+  for(const pm of pms){ const a=[]; let n=pm.parentElement; while(n){ a.unshift(n.localName); n=n.parentElement; } const k=a.join('/'); paths[k]=(paths[k]||0)+1;
+    let g=0; for(const t of ['Point','LineString','LinearRing','Polygon','MultiGeometry','Track','Model']) if(pm.getElementsByTagName(t).length){ geo[t]=(geo[t]||0)+1; g=1; } if(!g) geo.sans++; }
+  out(''); out('== Placemarks =='); out(`${pms.length} Placemark(s) ; géométries : ${Object.entries(geo).filter(([k,v])=>v).map(([k,v])=>k+' '+v).join(', ')}`);
+  Object.entries(paths).slice(0,8).forEach(([k,v])=>out(`  emplacement : ${k} ×${v}`));
+  const skel=(el,d)=>{ const kids=[...el.children]; if(!kids.length||d>4) return el.localName; const g=[]; for(const k of kids){ const l=g[g.length-1]; if(l&&l.t===k.localName) l.n++; else g.push({t:k.localName,n:1,e:k}); } return el.localName+'{'+g.map(x=>skel(x.e,d+1)+(x.n>1?'×'+x.n:'')).join(',')+'}'; };
+  const sig=new Map(); for(const pm of pms){ const k=skel(pm,0); if(!sig.has(k)) sig.set(k,{n:0,pm}); sig.get(k).n++; }
+  const sigs=[...sig.entries()].sort((a,b)=>b[1].n-a[1].n); out(`${sigs.length} structure(s) distincte(s) de Placemark :`);
+  sigs.slice(0,6).forEach(([k,v],i)=>out(`  #${i+1} ×${v.n} : ${k.length>300?k.slice(0,300)+'…':k}`));
+  sigs.slice(0,3).forEach(([k,v],i)=>{ out(''); out(`-- détail de la structure #${i+1} (1er exemple, valeurs masquées) --`); const pm=v.pm;
+    for(const c of pm.children){ const t=c.localName;
+      if(t==='description'){ dgDesc(c.textContent,out,'  '); continue; }
+      if(t==='ExtendedData'){ const rows=[...c.getElementsByTagName('*')].filter(e=>e.localName==='Data'||e.localName==='SimpleData'); out(`  ExtendedData : ${rows.length} champ(s) (${[...new Set(rows.map(e=>e.localName))].join(', ')||'aucun'})${[...c.children].some(e=>e.localName==='SchemaData')?', via SchemaData':''}`);
+        rows.slice(0,45).forEach(e=>out(`    ${e.localName} ${dgK(e.getAttribute('name'))} → ${dgShape(e.localName==='Data'?((([...e.children].find(x=>x.localName==='value'))||e).textContent):e.textContent)}`)); if(rows.length>45) out(`    … ${rows.length-45} de plus`); continue; }
+      if(c.children.length){ out(`  ${t} : élément composé (${[...c.children].map(x=>x.localName).slice(0,8).join(', ')}) [attributs : ${[...c.attributes].map(a=>a.name).join(',')||'aucun'}]`); continue; }
+      out(`  ${t} : ${dgShape(c.textContent)}${c.attributes.length?' [attributs : '+[...c.attributes].map(a=>a.name).join(',')+']':''}`); } });
+  // Ce que l'application retient reellement de ces donnees
+  out(''); out('== Retenu par l\'application ==');
+  const r=parseKml(txt); out(`${r.pts.length} point(s) retenu(s), ${r.ignored} Placemark(s) sans point ignoré(s)`);
+  const fc={}; for(const q of r.pts) for(const k in (q[5]||{})) fc[k]=(fc[k]||0)+1;
+  const ks=Object.keys(fc).sort((a,b)=>fc[b]-fc[a]); out(ks.length?`${ks.length} champ(s) détecté(s) :`:'AUCUN champ détecté (la liste déroulante ne proposera que Nom et Description)');
+  const ex=r.pts.find(q=>q[5]&&Object.keys(q[5]).length)||r.pts[0];
+  ks.slice(0,45).forEach(k=>out(`  ${dgK(k)} : présent sur ${fc[k]}/${r.pts.length} point(s) ; exemple ${dgShape(ex&&ex[5]&&ex[5][k])}`));
+  if(r.pts.length) out(`nom : ${dgShape(r.pts[0][2])} (1er point) ; description : ${r.pts.filter(q=>q[3]).length}/${r.pts.length} non vides`);
+  return L.join('\n');
+}
+// affichage : noms de champs visibles, ou masques (champ#1, champ#2... par ordre d'apparition)
+function dgRender(t,mask){ const m=new Map(); return String(t||'').replace(/⟦([^⟧]*)⟧/g,(x,n)=>mask?('champ#'+(m.has(n)?m.get(n):(m.set(n,m.size+1),m.size))):n); }
+let userDiagTxt='', userDiagMask=false;
 const USR_PIN='<svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 22l-5.4-9.6a6.2 6.2 0 1 1 10.8 0zM12 7.2a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0-5.2z"/></svg>';
+const userQn=()=>userNorm(userQ).length<2?'':(n=>n?`${n} trouvé(s)`:'aucun site trouvé')(userHits().length);
+function userHitsHtml(){ const h=userHits(); if(userNorm(userQ).length<2) return '';
+  return h.length?h.slice(0,8).map((it,i)=>`<div class="usrHit" data-hit="${it.layer}|${i}"><b>${dEsc(it.name||'(sans nom)')}</b> <span>${it.dist!=null?dKm(it.dist)+' km':''} · ${dEsc(it.lname)}</span></div>`).join('')+(h.length>8?`<div class="dbgline" style="opacity:.7">… et ${h.length-8} autre(s) en gras sur la vue</div>`:''):'<div class="dbgline" style="opacity:.7">Aucun site ne correspond.</div>'; }
 function renderUserMenu(){
   const el=$('lyUser'); if(!el) return;
   el.innerHTML=userLayers.map(L=>`<label class="lyUsr" style="color:${L.color}">${USR_PIN}<span class="lyN" style="color:var(--cream)">${dEsc(L.name)}<em>${L.pts.length} point(s) · jusqu'à ${L.max} km</em></span><input type="checkbox" data-usr="${L.id}" data-f="on"${L.on?' checked':''}></label>`).join('')
+    +(userLayers.length?`<div class="usrQ"><input type="search" data-usrq placeholder="Rechercher un site (gras)…" value="${dEsc(userQ)}" autocomplete="off"><em id="usrQn">${userQn()}</em></div>`:'')
     +`<button class="lyBtn" id="lyUserMgr">Couches perso · importer un KMZ</button>`;
 }
 function renderUserPanel(msg){
@@ -3045,13 +3183,17 @@ function renderUserPanel(msg){
   $('dbgTitle').textContent='Couches perso';
   $('dbgBody').innerHTML=`<div class="dbgline">🔒 <b>Tout reste sur cet appareil.</b> Le fichier est lu dans le navigateur, jamais envoyé : aucune requête réseau n'est faite pour vos points. Ils sont mémorisés ici (« Vider le cache » ne les efface pas).</div>
     <div style="margin-top:12px"><label class="usrBtn">+ Ajouter un KMZ / KML<input type="file" id="usrFile" accept=".kmz,.kml,application/vnd.google-earth.kmz,application/vnd.google-earth.kml+xml,application/xml,text/xml" style="display:none"></label></div>
-    <div id="usrMsg" class="dbgline" style="min-height:18px">${msg||''}</div>`
+    <div id="usrMsg" class="dbgline" style="min-height:18px">${msg||''}</div>
+    <div style="margin-top:4px"><label class="usrBtn" style="font-size:11px">Diagnostic d'un fichier (structure seule)<input type="file" id="usrDiag" accept=".kmz,.kml,application/vnd.google-earth.kmz,application/vnd.google-earth.kml+xml,application/xml,text/xml" style="display:none"></label></div>
+    ${userDiagTxt?`<div class="usrDiagBox"><div class="usrDiagBar"><label><input type="checkbox" id="usrMask"${userDiagMask?' checked':''}> masquer les noms de champs</label><span class="usrBtn" id="usrCopy">Copier</span><span class="usrBtn" id="usrDiagX">Fermer</span></div><pre id="usrDiagPre">${dEsc(dgRender(userDiagTxt,userDiagMask))}</pre><div class="dbgline" style="opacity:.7">Aucune valeur n'apparaît : seulement la longueur et la forme (9 = chiffre, a = minuscule, A = majuscule).</div></div>`:''}
+    ${userLayers.length?`<div class="usrQ"><input type="search" data-usrq placeholder="Rechercher un site : mis en gras sur la vue" value="${dEsc(userQ)}" autocomplete="off"><em id="usrQn">${userQn()}</em></div><div id="usrHits">${userHitsHtml()}</div>`:''}`
     +(userLayers.length?userLayers.map(L=>`<div class="usrRow"><div class="dbgline" style="color:${L.color};font-weight:700">${L.pts.length} point(s)${L.ignored?` · ${L.ignored} ligne(s)/polygone(s) ignorés`:''}${L.shown?` · ${L.shown.length} affiché(s) maintenant`:''}</div>
       <input type="text" value="${dEsc(L.name)}" data-usr="${L.id}" data-f="name" style="width:100%;margin:6px 0">
       <div>${sw(L)}</div>
+      <div style="margin-top:8px">Champ affiché (10 premiers caractères) <select data-usr="${L.id}" data-f="field"><option value="">— aucun —</option><option value="@name"${L.field==='@name'?' selected':''}>Nom</option><option value="@desc"${L.field==='@desc'?' selected':''}>Description</option>${L.keys.map(k=>`<option value="${dEsc(k)}"${k===L.field?' selected':''}>${dEsc(k)}</option>`).join('')}</select></div>
       <div style="margin-top:8px">Afficher jusqu'à <select data-usr="${L.id}" data-f="max">${USR_DISTS.map(d=>`<option value="${d}"${d===L.max?' selected':''}>${d} km</option>`).join('')}</select>
       <label style="margin-left:10px"><input type="checkbox" data-usr="${L.id}" data-f="on"${L.on?' checked':''}> visible</label></div>
-      <div style="margin-top:6px"><span class="usrBtn danger" data-usr="${L.id}" data-f="del">Supprimer</span></div></div>`).join(''):`<div class="dbgline" style="opacity:.7;margin-top:10px">Aucune couche. Les points (Placemark) d'un fichier Google Earth / My Maps / QGIS s'affichent comme les pylônes : icône, nom, distance ; un toucher ouvre la fiche (description, liens).</div>`);
+      <div style="margin-top:6px"><span class="usrBtn" data-usr="${L.id}" data-f="diag">Structure du fichier</span><span class="usrBtn danger" data-usr="${L.id}" data-f="del">Supprimer</span></div></div>`).join(''):`<div class="dbgline" style="opacity:.7;margin-top:10px">Aucune couche. Les points (Placemark) d'un fichier Google Earth / My Maps / QGIS s'affichent comme les pylônes : icône, nom, distance ; un toucher ouvre la fiche (description, liens).</div>`);
   $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null; $('layers').classList.remove('open');
 }
 // une seule delegation d'evenements pour le menu Calques et le panneau (interrupteurs, couleur, distance, nom, suppression, import)
@@ -3060,22 +3202,38 @@ async function userAction(e){
     const L=userLayers.find(x=>x.id===t.dataset.usr); if(!L) return; const f=t.dataset.f;
     if(f==='on'&&e.type==='change') L.on=t.checked;
     else if(f==='max'&&e.type==='change') L.max=+t.value;
+    else if(f==='diag'&&e.type==='click'){ userDiagTxt=L.diag||'Aucun rapport mémorisé pour cette couche (importée avant cette version) : utilisez « Diagnostic d\'un fichier » en choisissant le même fichier.'; renderUserPanel(); return; }
+    else if(f==='field'&&e.type==='change'){ L.field=t.value; userLabels(L); }
     else if(f==='name'&&e.type==='change'){ L.name=t.value.trim().slice(0,60)||L.name; for(const it of L.items) it.lname=L.name; }
     else if(f==='color'&&e.type==='click'){ L.color=t.dataset.v; for(const it of L.items) it.col=L.color; }
     else if(f==='del'&&e.type==='click'){ if(!confirm(`Supprimer la couche « ${L.name} » de cet appareil ?`)) return; userLayers=userLayers.filter(x=>x!==L); await userDelete(L.id); renderUserMenu(); renderUserPanel(); return; }
     else return;
-    await userSave(L); userRecompute(); renderUserMenu(); if($('dbgTitle').textContent==='Couches perso') renderUserPanel(); return; }
+    await userSave(L); userRecompute(); renderUserMenu(); if($('dbgTitle').textContent==='Couches perso'&&$('dbg').classList.contains('open')) renderUserPanel(); return; } // (pas de reouverture si le panneau a ete ferme pendant l'enregistrement)
   if(e.type==='click'&&e.target.closest&&e.target.closest('#lyUserMgr')) renderUserPanel();
+  const hit=e.type==='click'&&e.target.closest&&e.target.closest('[data-hit]'); if(hit){ const it=userHits()[+hit.dataset.hit.split('|')[1]]; if(it) showUserSheet(it,null); return; }
+  if(e.type==='change'&&e.target.id==='usrDiag'){ const f=e.target.files&&e.target.files[0]; if(!f) return;
+    try{ const {txt,meta}=await userRead(f); userDiagTxt=kmlDiag(txt,meta); }catch(err){ userDiagTxt='Lecture impossible : '+(err.message||err); } renderUserPanel(); return; }
+  if(e.type==='change'&&e.target.id==='usrMask'){ userDiagMask=e.target.checked; const pr=$('usrDiagPre'); if(pr) pr.textContent=dgRender(userDiagTxt,userDiagMask); return; }
+  if(e.type==='click'&&e.target.closest&&e.target.closest('#usrDiagX')){ userDiagTxt=''; renderUserPanel(); return; }
+  if(e.type==='click'&&e.target.closest&&e.target.closest('#usrCopy')){ const tx=dgRender(userDiagTxt,userDiagMask), b=e.target.closest('#usrCopy');
+    let ok=false; try{ await navigator.clipboard.writeText(tx); ok=true; }catch(x){ try{ const r=document.createRange(); r.selectNodeContents($('usrDiagPre')); const se=getSelection(); se.removeAllRanges(); se.addRange(r); ok=document.execCommand('copy'); }catch(y){} }
+    b.textContent=ok?'Copié ✓':'Sélectionné : copiez'; setTimeout(()=>{ b.textContent='Copier'; },2000); return; }
   if(e.type==='change'&&e.target.id==='usrFile'){ const f=e.target.files&&e.target.files[0]; if(!f) return;
     $('usrMsg').textContent='Lecture de '+f.name+'…';
     try{ const r=await userImport(f); renderUserPanel(`✓ « ${dEsc(r.L.name)} » : ${r.L.pts.length} point(s)${r.L.ignored?`, ${r.L.ignored} ligne(s)/polygone(s) ignorés`:''}${r.cut?` (limité à ${USR_MAX_PTS})`:''}${r.ok?'':' — mémorisation impossible (affiché pour cette session seulement)'}.`); }
     catch(err){ renderUserPanel('✗ '+dEsc(err.message||err)); } }
 }
 for(const ev of ['click','change']){ $('layers').addEventListener(ev,userAction); $('dbgBody').addEventListener(ev,userAction); }
+// saisie de la recherche : pas de re-rendu (le clavier garde le focus) ; on met a jour le compteur, la liste et l'autre champ de recherche
+function userInput(e){ const q=e.target.closest&&e.target.closest('[data-usrq]'); if(!q) return; userSearch(q.value);
+  for(const o of document.querySelectorAll('[data-usrq]')) if(o!==q) o.value=q.value;
+  for(const n of document.querySelectorAll('#usrQn')) n.textContent=userQn(); const h=$('usrHits'); if(h) h.innerHTML=userHitsHtml(); }
+$('layers').addEventListener('input',userInput); $('dbgBody').addEventListener('input',userInput);
 function userBlock(x,withName){
   const A=(u,tx)=>`<a style="color:#F2C14E" target="_blank" rel="noopener" href="${dEsc(u)}">${dEsc(tx)}</a>`;
   return `${withName?`<div class="dbgline" style="font-size:18px;color:${x.col};font-weight:700">${dEsc(x.name||'(sans nom)')}</div>`:''}
     <div class="dbgline">${dEsc(x.lname)} · à ${dKm(x.dist)} km · ${x.lat.toFixed(5)}, ${x.lon.toFixed(5)}</div>
+    ${Object.keys(x.fields||{}).length?`<div class="dbgsec">Champs</div><div class="dbgline">${Object.entries(x.fields).slice(0,20).map(([k,v])=>`<b>${dEsc(k)}</b> : ${dEsc(v)}`).join('<br>')}</div>`:''}
     ${x.desc?`<div class="dbgsec">Description</div><div class="dbgline" style="white-space:pre-wrap">${dEsc(x.desc)}</div>`:''}
     <div class="dbgsec">En savoir plus</div><div class="dbgline">${x.links.map((u,i)=>A(u,x.links.length>1?'lien '+(i+1):'lien du fichier')).concat([linksHtml({lat:x.lat,lon:x.lon})]).join(' · ')}</div>`;
 }
