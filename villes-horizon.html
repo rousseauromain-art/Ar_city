@@ -334,7 +334,7 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const APP_VERSION='2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
@@ -1297,7 +1297,7 @@ function applyOcclusion(log){
   reliefStats={checked,hidden,unknown};
   if(log) logNet('Relief',true,`${checked} lieux verifies, ${hidden} masques par le relief`+(unknown?`, ${unknown} hors couverture (altitude supposee 0 m)`:''));
 }
-function skylineElevAt(brg){ return terrain?maskFrom(terrain.pm,brg,1e9):null; }
+function skylineElevAt(brg){ return terrain&&terrain.pm?maskFrom(terrain.pm,brg,1e9):null; }
 // distance (km) du point de relief qui dessine la silhouette, par relevement : premier echantillon
 // ou le masque cumule atteint sa valeur finale. Sert a "graduer" le trait (proche = net, lointain =
 // plus fin et plus transparent), comme la profondeur rendue par PeakFinder. Calcule une fois par relief.
@@ -2468,8 +2468,14 @@ function draw(ts){
   let order=(S.beyond?list.filter(c=>!isGhost(c)).concat(list.filter(isGhost)):list.filter(c=>!isGhost(c))).filter(layerOk).filter(c=>c.cat!=='equip'); // les equipements ont leur bande (drawInfra)
   const ANG_LBL=45*D, cAL=Math.cos(ANG_LBL), sAL=Math.sin(ANG_LBL);
   // angles d'un monument : sol, et sommet reel (sol + hauteur) — partage entre reservation et dessin
-  const monAng=c=>{ const hid=useRelief&&c.hidden, aGnd=useRelief&&c.aG!=null?c.aG:0;
-    return {aGnd,aA:useRelief&&c.aP!=null?(hid?c.aG:c.aP):aGnd+(c.angH||0)}; };
+  // 09/10/2026 (capture de Saint-Gregoire : la cathedrale a 0,6 km avait sa base SOUS la ligne de relief, le sol proche
+  // etant sous l'angle de l'horizon) : un monument visible ne descend jamais sous la ligne de relief a son cap —
+  // base, sommet et icone sont remontes du meme ecart ("poses sur la ligne"). Les fantomes (caches) ne bougent pas.
+  const monLift=c=>{ if(!useRelief||c.hidden||c.aG==null||c.brg==null) return 0;
+    if(c._skyT!==terrain.at){ const e=skylineElevAt(c.brg); c._sky=e!=null&&e===e?e:null; c._skyT=terrain.at; }
+    return c._sky!=null&&c._sky>c.aG?c._sky-c.aG:0; };
+  const monAng=c=>{ const hid=useRelief&&c.hidden, lift=monLift(c), aGnd=(useRelief&&c.aG!=null?c.aG:0)+lift;
+    return {aGnd,aA:(useRelief&&c.aP!=null?(hid?c.aG:c.aP):(useRelief&&c.aG!=null?c.aG:0)+(c.angH||0))+lift}; };
   const monGH=c=>{ if(c.cat==='equip') return 15; const t=Math.max(0,Math.min(1,Math.log(Math.max(c.dist||.3,.05)/.3)/Math.log(15/.3))); // plus loin = plus petit (profondeur)
     return Math.round(((c.links||0)>=MON_STAR_LINKS?22:18)*(1-.28*t)); };
   // silhouette a taille reelle si le monument est assez grand a l'ecran (sol -> sommet), sinon null (icone)
