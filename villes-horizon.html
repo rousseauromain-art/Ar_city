@@ -369,7 +369,7 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const APP_VERSION='2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
@@ -3010,27 +3010,30 @@ function draw(ts){
 // (jamais envoye nulle part : aucune requete reseau dans tout ce bloc), decompresse ici (KMZ = ZIP), les points (Placemark/Point) sont
 // memorises dans la Cache API de l'appareil (cache separe : "Vider le cache" ne les efface pas) et affiches comme les pylones
 // (icone + etiquette, regroupement, toucher -> fiche a liste depliable). Lignes et polygones sont ignores (compte affiche).
-const USR_CACHE='vh-user-v1', USR_BASE='https://vh.user/', USR_COLORS=['#FF8A3D','#A98BFF','#4FD1C5','#FF6FB5','#9BE564','#FFD23F'], USR_SHOWN=300, USR_MAX_PTS=20000, USR_DISTS=[2,5,10,20,50,100,200];
+const USR_CACHE='vh-user-v1', USR_BASE='https://vh.user/', USR_COLORS=['#FF8A3D','#A98BFF','#4FD1C5','#FF6FB5','#9BE564','#FFD23F'], USR_SHOWN=300, USR_MAX_PTS=60000, USR_DISTS=[2,5,10,20,50,100,200];
 let userLayers=[];
 const hexA=(h,a)=>{ const n=parseInt(h.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; };
-// champs : q[5] = {nom du champ : valeur} (ExtendedData / SimpleData / tableau de la description) ; absent des couches memorisees avant le 09/10 (d)
+// champs : L.cols = noms des champs (ordre du fichier : ExtendedData / SimpleData / tableau de la description), q[5] = valeurs dans le meme ordre
+// (stockage compact : 25 000 points x 21 champs). Les couches du 09/10 (e) stockaient un objet {nom:valeur} : converti au chargement.
 // L.field = champ choisi dans la liste deroulante ('' aucun, '@name', '@desc' ou un nom de champ) : ses 10 premiers caracteres precedent le nom
 const USR_PREF=10, userNorm=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
 let userQ='';
-const userFieldVal=(it,f)=>f==='@name'?it.name:f==='@desc'?it.desc:(it.fields&&it.fields[f])||'';
-function userLabels(L){ for(const it of L.items){ const v=Array.from(String(userFieldVal(it,L.field)).replace(/\s+/g,' ').trim()).slice(0,USR_PREF).join('');
+const userFieldVal=(it,fi,f)=>f==='@name'?it.name:f==='@desc'?it.desc:(fi>=0&&it.vals[fi])||'';
+function userLabels(L){ const fi=L.field&&L.field[0]!=='@'?L.cols.indexOf(L.field):-1; for(const it of L.items){ const v=Array.from(String(userFieldVal(it,fi,L.field)).replace(/\s+/g,' ').trim()).slice(0,USR_PREF).join('');
   it.lab=!L.field||!v?'':L.field==='@name'?v:(it.name?`${v} · ${it.name}`:v); } }
 function userMake(L){
   L.field=L.field||'';
-  L.items=L.pts.map(q=>({name:q[2]||'',lat:q[0],lon:q[1],desc:q[3]||'',links:q[4]||[],fields:q[5]||{},kind:'user',icon:'pin',layer:L.id,lname:L.name,col:L.color,dist:null,brg:null,hl:false,lab:''}));
-  const cnt={}; for(const q of L.pts) for(const k in (q[5]||{})) cnt[k]=(cnt[k]||0)+1;
-  L.keys=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]||a.localeCompare(b)); if(L.field&&L.field[0]!=='@'&&!cnt[L.field]) L.field='';
+  if(!Array.isArray(L.cols)){ const seen=new Set(); L.cols=[]; for(const q of L.pts) if(q[5]&&!Array.isArray(q[5])) for(const k in q[5]) if(!seen.has(k)){ seen.add(k); L.cols.push(k); } }
+  const cols=L.cols;
+  L.items=L.pts.map(q=>{ let v=q[5]; if(v&&!Array.isArray(v)) v=cols.map(k=>v[k]||''); // ancien format (objet)
+    return {name:q[2]||'',lat:q[0],lon:q[1],desc:q[3]||'',links:q[4]||[],vals:v||[],cols,kind:'user',icon:'pin',layer:L.id,lname:L.name,col:L.color,dist:null,brg:null,hl:false,lab:''}; });
+  L.hasDesc=L.pts.some(q=>q[3]); if(L.field&&L.field[0]!=='@'&&!cols.includes(L.field)) L.field='';
   userLabels(L); L.shown=[]; userFlag(L); return L;
 }
 // RECHERCHE : tous les mots doivent se trouver (nom, description ou n'importe quel champ), sans accents ni majuscules ; les sites trouves sont mis en gras
 function userFlag(L){ const qs=userNorm(userQ).split(' ').filter(Boolean), on=userNorm(userQ).length>=2;
   for(const it of L.items){ if(!on){ it.hl=false; continue; }
-    const h=it._h||(it._h=userNorm([it.name,it.desc].concat(Object.values(it.fields||{})).join(' '))); it.hl=qs.every(w=>h.includes(w)); } }
+    const h=it._h||(it._h=userNorm([it.name,it.desc].concat(it.vals).join(' '))); it.hl=qs.every(w=>h.includes(w)); } }
 function userSearch(q){ userQ=String(q||'').slice(0,60); for(const L of userLayers) userFlag(L); userRecompute(); }
 const userHits=()=>userLayers.filter(L=>L.on).flatMap(L=>L.items.filter(it=>it.hl)).sort((a,b)=>(a.dist==null)-(b.dist==null)||a.dist-b.dist);
 function userRecompute(){
@@ -3041,7 +3044,7 @@ function userRecompute(){
     L.shown=inr.filter(it=>it.hl).slice(0,60).concat(inr.filter(it=>!it.hl).slice(0,USR_SHOWN)).sort((a,b)=>a.dist-b.dist); }
 }
 async function userSave(L){ try{ if(!window.caches) return false; const c=await caches.open(USR_CACHE);
-  await c.put(USR_BASE+L.id,new Response(JSON.stringify({id:L.id,name:L.name,color:L.color,on:L.on,max:L.max,pts:L.pts,field:L.field||'',ignored:L.ignored,added:L.added,diag:L.diag||''}),{headers:{'content-type':'application/json'}})); return true; }catch(e){ return false; } }
+  await c.put(USR_BASE+L.id,new Response(JSON.stringify({id:L.id,name:L.name,color:L.color,on:L.on,max:L.max,pts:L.pts,cols:L.cols,field:L.field||'',ignored:L.ignored,added:L.added,diag:L.diag||''}),{headers:{'content-type':'application/json'}})); return true; }catch(e){ return false; } }
 async function userDelete(id){ try{ if(window.caches){ const c=await caches.open(USR_CACHE); await c.delete(USR_BASE+id); } }catch(e){} }
 async function userLoad(){
   try{ if(window.caches){ const c=await caches.open(USR_CACHE), ks=await c.keys(), out=[];
@@ -3075,21 +3078,34 @@ function kmlText(html){ // description KML (souvent du HTML) -> texte + liens ht
   if(!rows.length) for(const ln of d.body.textContent.split('\n')){ const m=ln.trim().match(/^([^:=]{1,40}?)\s*[:=]\s*(\S.*)$/); if(m&&!/^\/\//.test(m[2])) rows.push([m[1],m[2]]); } // sans tableau : lignes « libellé : valeur »
   return {text:d.body.textContent.replace(/\n\s*\n+/g,'\n').trim().slice(0,800),links:links.slice(0,4),rows};
 }
-function parseKml(txt){
-  const doc=new DOMParser().parseFromString(txt,'application/xml'); if(doc.getElementsByTagName('parsererror').length) throw new Error('KML invalide (XML illisible)');
-  const out=[]; let ignored=0;
+// tableau HTML simple (une table, lignes a 2 cellules : champ | valeur) lu sans DOMParser (25 000 descriptions : 20 fois plus rapide) ; null si plus complexe
+function kmlFast(raw){
+  if(!/<table/i.test(raw)||(raw.match(/<table/gi)||[]).length!==1) return null;
+  const trN=(raw.match(/<tr[\s>]/gi)||[]).length, rows=[], re=/<tr[^>]*>\s*<t[dh][^>]*>([\s\S]*?)<\/t[dh]>\s*<t[dh][^>]*>([\s\S]*?)<\/t[dh]>\s*<\/tr>/gi; let m;
+  const tx=h=>h.replace(/<[^>]*>/g,' ').replace(/&nbsp;/g,' ').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;|&apos;/g,"'").replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
+  while((m=re.exec(raw))) rows.push([tx(m[1]),tx(m[2])]);
+  if(!rows.length||rows.length!==trN) return null;
+  const links=[]; for(const u of (raw.match(/https?:\/\/[^\s<>"']+/g)||[])){ const w=u.replace(/&amp;/g,'&'); if(!links.includes(w)) links.push(w); }
+  return {text:'',links:links.slice(0,4),rows};
+}
+function parseKml(txt,doc){
+  doc=doc||new DOMParser().parseFromString(txt,'application/xml'); if(doc.getElementsByTagName('parsererror').length) throw new Error('KML invalide (XML illisible)');
+  const out=[], cols=[], colIx=new Map(); let ignored=0;
   const child=(el,tag)=>{ for(const c of el.children) if(c.localName===tag) return c.textContent.trim(); return ''; };
   for(const pm of doc.getElementsByTagName('Placemark')){
     const pts=pm.getElementsByTagName('Point'); if(!pts.length){ ignored++; continue; }
-    const name=child(pm,'name').slice(0,120), d=kmlText(child(pm,'description')), f={};
-    const put=(k,v)=>{ k=String(k||'').replace(/\s+/g,' ').trim().slice(0,40); v=String(v||'').replace(/\s+/g,' ').trim().slice(0,200); if(k&&v&&k[0]!=='@'&&!(k in f)&&Object.keys(f).length<40) f[k]=v; };
+    const name=child(pm,'name').slice(0,120), rawD=child(pm,'description'), d=kmlFast(rawD)||kmlText(rawD), vals=[];
+    const put=(k,v)=>{ k=String(k||'').replace(/\s+/g,' ').trim().slice(0,40); v=String(v||'').replace(/\s+/g,' ').trim().slice(0,200); if(!k||k[0]==='@') return;
+      let i=colIx.get(k); if(i==null){ if(cols.length>=60) return; i=cols.length; colIx.set(k,i); cols.push(k); } if(vals[i]===undefined) vals[i]=v; };
     for(const e of pm.getElementsByTagName('*')){ if(e.localName==='Data') put(e.getAttribute('name'),child(e,'value')||e.textContent); else if(e.localName==='SimpleData') put(e.getAttribute('name'),e.textContent); }
     for(const [k,v] of d.rows) put(k,v);
+    const desc=d.rows.length>=2?'':d.text; // les champs repris d'un tableau remplacent la description (sinon doublon x 25 000)
     for(const pt of pts){ const c=(pt.getElementsByTagName('coordinates')[0]||{textContent:''}).textContent.trim().split(/\s+/)[0].split(','), lon=+c[0], lat=+c[1];
       if(!isFinite(lat)||!isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180||(lat===0&&lon===0)) continue;
-      out.push([+lat.toFixed(6),+lon.toFixed(6),name,d.text,d.links,f]); }
+      out.push([+lat.toFixed(6),+lon.toFixed(6),name,desc,d.links,vals]); }
   }
-  return {pts:out,ignored};
+  for(const q of out){ const v=q[5]; q[5]=cols.map((_,i)=>v[i]||''); }
+  return {pts:out,ignored,cols};
 }
 async function userRead(file){ // lecture locale d'un .kmz/.kml -> {txt, meta} (meta : infos d'archive pour le diagnostic)
   const buf=await file.arrayBuffer(), u8=new Uint8Array(buf), zip=u8[0]===0x50&&u8[1]===0x4b; let ents=null, pick='';
@@ -3098,10 +3114,10 @@ async function userRead(file){ // lecture locale d'un .kmz/.kml -> {txt, meta} (
 }
 async function userImport(file){
   if(file.size>40e6) throw new Error('fichier trop gros (40 Mo maximum)');
-  const {txt,meta}=await userRead(file), {pts,ignored}=parseKml(txt);
-  let diag=''; try{ diag=kmlDiag(txt,meta).slice(0,16000); }catch(e){}
+  const {txt,meta}=await userRead(file), doc=new DOMParser().parseFromString(txt,'application/xml'), res=parseKml(txt,doc), {pts,ignored,cols}=res;
+  let diag=''; try{ diag=kmlDiag(txt,meta,{doc,res}).slice(0,24000); }catch(e){}
   if(!pts.length) throw new Error('aucun point trouvé'+(ignored?` (${ignored} ligne(s)/polygone(s) ignorés : seuls les points sont affichés)`:''));
-  const L=userMake({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:file.name.replace(/\.(kmz|kml)$/i,'').slice(0,60),color:USR_COLORS[userLayers.length%USR_COLORS.length],on:true,max:50,pts:pts.slice(0,USR_MAX_PTS),ignored,added:Date.now(),diag});
+  const L=userMake({id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:file.name.replace(/\.(kmz|kml)$/i,'').slice(0,60),color:USR_COLORS[userLayers.length%USR_COLORS.length],on:true,max:50,pts:pts.slice(0,USR_MAX_PTS),cols,ignored,added:Date.now(),diag});
   userLayers.push(L); const ok=await userSave(L); userRecompute(); renderUserMenu();
   return {L,ok,cut:pts.length>USR_MAX_PTS};
 }
@@ -3122,19 +3138,19 @@ function dgDesc(raw,out,ind){
   if(trs.length){ for(const tr of trs){ const n=cells(tr).length; hist[n]=(hist[n]||0)+1; }
     let depth=0; for(const t of d.body.querySelectorAll('table')){ let k=0,n=t; while((n=n.parentElement)) if(n.localName==='table') k++; depth=Math.max(depth,k+1); }
     out(`${ind}  tableau : ${d.body.querySelectorAll('table').length} table(s), imbrication ${depth}, ${trs.length} ligne(s) ; lignes par nombre de cellules : ${Object.entries(hist).map(([k,v])=>k+' cell.→'+v).join(', ')}`);
-    trs.slice(0,16).forEach((tr,i)=>{ const c=cells(tr); const th=c.some(x=>x.localName==='th'); const nested=tr.querySelector('table')?' [contient un sous-tableau]':'';
+    trs.slice(0,60).forEach((tr,i)=>{ const c=cells(tr); const th=c.some(x=>x.localName==='th'); const nested=tr.querySelector('table')?' [contient un sous-tableau]':'';
       out(`${ind}    ligne ${i+1} (${c.length} cell.${th?', en-tête':''})${nested} : `+(c.length===2?`${dgK(c[0].textContent)} → ${dgShape(c[1].textContent)}`:c.slice(0,5).map(x=>dgShape(x.textContent)).join(' | '))); });
-    if(trs.length>16) out(`${ind}    … ${trs.length-16} ligne(s) de plus`); }
+    if(trs.length>60) out(`${ind}    … ${trs.length-60} ligne(s) de plus`); }
   const lines=d.body.textContent.split('\n').map(x=>x.trim()).filter(Boolean), kv=lines.filter(x=>/^[^:]{1,40}:\s*\S/.test(x));
   out(`${ind}  texte : ${lines.length} ligne(s), dont ${kv.length} de forme « libellé : valeur »`);
   kv.slice(0,10).forEach(x=>{ const i=x.indexOf(':'); out(`${ind}    ${dgK(x.slice(0,i))} → ${dgShape(x.slice(i+1))}`); });
   const lk=(raw.match(/https?:\/\//g)||[]).length; if(lk) out(`${ind}  liens http(s) : ${lk}`);
 }
-function kmlDiag(txt,meta){
+function kmlDiag(txt,meta,pre){
   const L=[], out=x=>L.push(x); meta=meta||{};
   out('== Fichier =='); out(`type : ${meta.zip?'KMZ (archive ZIP)':'KML (XML brut)'} · ${meta.size!=null?Math.round(meta.size/1024)+' Ko':''}`);
   if(meta.ents){ out(`archive : ${meta.ents.length} entrée(s), KML lu : ${meta.pick||'aucun'}`); meta.ents.slice(0,15).forEach(e=>out(`  ${e.name} (compression ${e.meth}, ${e.csz} octets)`)); if(meta.ents.length>15) out(`  … ${meta.ents.length-15} de plus`); }
-  const doc=new DOMParser().parseFromString(txt,'application/xml'); if(doc.getElementsByTagName('parsererror').length){ out('XML illisible'); return L.join('\n'); }
+  const doc=pre?pre.doc:new DOMParser().parseFromString(txt,'application/xml'); if(doc.getElementsByTagName('parsererror').length){ out('XML illisible'); return L.join('\n'); }
   const all=[...doc.getElementsByTagName('*')], cnt={}; let maxD=0;
   for(const e of all){ cnt[e.localName]=(cnt[e.localName]||0)+1; let d=0,n=e; while(n.parentNode&&n.parentNode.nodeType===1){ d++; n=n.parentNode; } if(d>maxD) maxD=d; }
   out(`XML : racine ${doc.documentElement.localName}, ${all.length} éléments, profondeur ${maxD}, ${txt.length} caractères`);
@@ -3157,12 +3173,11 @@ function kmlDiag(txt,meta){
       out(`  ${t} : ${dgShape(c.textContent)}${c.attributes.length?' [attributs : '+[...c.attributes].map(a=>a.name).join(',')+']':''}`); } });
   // Ce que l'application retient reellement de ces donnees
   out(''); out('== Retenu par l\'application ==');
-  const r=parseKml(txt); out(`${r.pts.length} point(s) retenu(s), ${r.ignored} Placemark(s) sans point ignoré(s)`);
-  const fc={}; for(const q of r.pts) for(const k in (q[5]||{})) fc[k]=(fc[k]||0)+1;
-  const ks=Object.keys(fc).sort((a,b)=>fc[b]-fc[a]); out(ks.length?`${ks.length} champ(s) détecté(s) :`:'AUCUN champ détecté (la liste déroulante ne proposera que Nom et Description)');
-  const ex=r.pts.find(q=>q[5]&&Object.keys(q[5]).length)||r.pts[0];
-  ks.slice(0,45).forEach(k=>out(`  ${dgK(k)} : présent sur ${fc[k]}/${r.pts.length} point(s) ; exemple ${dgShape(ex&&ex[5]&&ex[5][k])}`));
-  if(r.pts.length) out(`nom : ${dgShape(r.pts[0][2])} (1er point) ; description : ${r.pts.filter(q=>q[3]).length}/${r.pts.length} non vides`);
+  const r=pre?pre.res:parseKml(txt,doc); out(`${r.pts.length} point(s) retenu(s), ${r.ignored} Placemark(s) sans point ignoré(s)`);
+  const fc=r.cols.map((k,i)=>r.pts.reduce((a,q)=>a+(q[5][i]?1:0),0));
+  out(r.cols.length?`${r.cols.length} champ(s) détecté(s), dans l'ordre du fichier (n° = ordre de la liste déroulante) :`:'AUCUN champ détecté (la liste déroulante ne proposera que Nom et Description)');
+  r.cols.slice(0,60).forEach((k,i)=>{ const q=r.pts.find(q=>q[5][i]); out(`  n°${i+1} ${dgK(k)} : renseigné sur ${fc[i]}/${r.pts.length} point(s) ; exemple ${dgShape(q?q[5][i]:'')}`); });
+  if(r.pts.length) out(`nom : ${dgShape(r.pts[0][2])} (1er point) ; description conservée : ${r.pts.filter(q=>q[3]).length}/${r.pts.length} point(s) (vide quand les champs la remplacent)`);
   return L.join('\n');
 }
 // affichage : noms de champs visibles, ou masques (champ#1, champ#2... par ordre d'apparition)
@@ -3190,7 +3205,8 @@ function renderUserPanel(msg){
     +(userLayers.length?userLayers.map(L=>`<div class="usrRow"><div class="dbgline" style="color:${L.color};font-weight:700">${L.pts.length} point(s)${L.ignored?` · ${L.ignored} ligne(s)/polygone(s) ignorés`:''}${L.shown?` · ${L.shown.length} affiché(s) maintenant`:''}</div>
       <input type="text" value="${dEsc(L.name)}" data-usr="${L.id}" data-f="name" style="width:100%;margin:6px 0">
       <div>${sw(L)}</div>
-      <div style="margin-top:8px">Champ affiché (10 premiers caractères) <select data-usr="${L.id}" data-f="field"><option value="">— aucun —</option><option value="@name"${L.field==='@name'?' selected':''}>Nom</option><option value="@desc"${L.field==='@desc'?' selected':''}>Description</option>${L.keys.map(k=>`<option value="${dEsc(k)}"${k===L.field?' selected':''}>${dEsc(k)}</option>`).join('')}</select></div>
+      <div style="margin-top:8px">Champ affiché (10 premiers caractères) <select data-usr="${L.id}" data-f="field"><option value="">— aucun —</option><option value="@name"${L.field==='@name'?' selected':''}>Nom</option>${L.hasDesc?`<option value="@desc"${L.field==='@desc'?' selected':''}>Description</option>`:''}${L.cols.map((k,i)=>`<option value="${dEsc(k)}"${k===L.field?' selected':''}>n°${i+1} · ${dEsc(k)}</option>`).join('')}</select></div>
+      ${L.cols.length?'':`<div class="dbgline" style="color:#F2C14E">Aucun champ mémorisé pour cette couche (importée avant la prise en charge des champs, ou fichier sans champs) : supprimez-la puis réimportez le fichier.</div>`}
       <div style="margin-top:8px">Afficher jusqu'à <select data-usr="${L.id}" data-f="max">${USR_DISTS.map(d=>`<option value="${d}"${d===L.max?' selected':''}>${d} km</option>`).join('')}</select>
       <label style="margin-left:10px"><input type="checkbox" data-usr="${L.id}" data-f="on"${L.on?' checked':''}> visible</label></div>
       <div style="margin-top:6px"><span class="usrBtn" data-usr="${L.id}" data-f="diag">Structure du fichier</span><span class="usrBtn danger" data-usr="${L.id}" data-f="del">Supprimer</span></div></div>`).join(''):`<div class="dbgline" style="opacity:.7;margin-top:10px">Aucune couche. Les points (Placemark) d'un fichier Google Earth / My Maps / QGIS s'affichent comme les pylônes : icône, nom, distance ; un toucher ouvre la fiche (description, liens).</div>`);
@@ -3233,7 +3249,7 @@ function userBlock(x,withName){
   const A=(u,tx)=>`<a style="color:#F2C14E" target="_blank" rel="noopener" href="${dEsc(u)}">${dEsc(tx)}</a>`;
   return `${withName?`<div class="dbgline" style="font-size:18px;color:${x.col};font-weight:700">${dEsc(x.name||'(sans nom)')}</div>`:''}
     <div class="dbgline">${dEsc(x.lname)} · à ${dKm(x.dist)} km · ${x.lat.toFixed(5)}, ${x.lon.toFixed(5)}</div>
-    ${Object.keys(x.fields||{}).length?`<div class="dbgsec">Champs</div><div class="dbgline">${Object.entries(x.fields).slice(0,20).map(([k,v])=>`<b>${dEsc(k)}</b> : ${dEsc(v)}`).join('<br>')}</div>`:''}
+    ${x.vals.some(Boolean)?`<div class="dbgsec">Champs</div><div class="dbgline">${x.cols.map((k,i)=>x.vals[i]?`<b>${dEsc(k)}</b> : ${dEsc(x.vals[i])}`:'').filter(Boolean).slice(0,40).join('<br>')}</div>`:''}
     ${x.desc?`<div class="dbgsec">Description</div><div class="dbgline" style="white-space:pre-wrap">${dEsc(x.desc)}</div>`:''}
     <div class="dbgsec">En savoir plus</div><div class="dbgline">${x.links.map((u,i)=>A(u,x.links.length>1?'lien '+(i+1):'lien du fichier')).concat([linksHtml({lat:x.lat,lon:x.lon})]).join(' · ')}</div>`;
 }
