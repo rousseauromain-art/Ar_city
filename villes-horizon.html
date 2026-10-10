@@ -369,7 +369,7 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const APP_VERSION='2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
@@ -1363,7 +1363,8 @@ function applyOcclusion(log){
     if(c.dist==null) continue;
     if(c.demT!==terrain.at){ const e=elevAt(terrain.bands,c.lat,c.lon,c.dist); c.dem=e===e?e:null; c.demT=terrain.at; }
     const r=assessPlace(terrain,c,c.ht??HT[c.kind]??12,tol,peakTol); // c.ht : hauteur reelle d'un monument (Tour Eiffel : 330 m, pas 10)
-    c.aG=r.aG; c.aP=r.aP; c.mask=r.mask; c.hidden=r.hidden;
+    c.aG=r.aG; c.aP=r.aP; c.mask=r.mask; c.hidden=r.hidden; c.low=false;
+    if(c.src==='osm'&&!c.hidden&&c.dist>NEAR_KM&&r.aP-r.mask<TOWER_CLEAR){ c.hidden=true; c.low=true; } // tour sous / a peine au-dessus de la crete : transparente
     if(c.dist>S.radius) continue; // hors rayon : calcule quand meme (rayon modifiable) mais pas compte
     checked++; if(r.hidden) hidden++; if(r.unknown) unknown++;
   }
@@ -1694,6 +1695,7 @@ const has5G=operators=>(operators||[]).some(o=>(o.systems||[]).some(s=>/5G/i.tes
 // Hauteur : Wikidata, sinon valeur par type — sert au masquage par le relief et au critere de visibilite.
 let monumentSites=[], monAt=null, monBusy=false, monErrAt=null, monErrDelay=30000, monMsg='', monStats={};
 let monTrim=0;
+const MON_CLOSE_N=15, MON_CLOSE_KM=1.5, TOWER_CLEAR=0.15; // 10/10/2026 : les N monuments les plus proches (<= 1,5 km) sont toujours nets ; une tour OSM n'est nette que si son sommet depasse la crete de 0,15 deg
 const MON_MIN_LINKS=40, MON_LOW_LINKS=3, MON_KEEP=150, MON_MIN_ANG=0.12, MON_STAR_LINKS=80, MON_MAX_SHOWN=40; // MAX_SHOWN : les plus celebres seulement, le reste en transparence
 const MON_DEF_H={tour:60,dome:40,clocher:45,arc:25,colonne:25,chateau:20,musee:18,stade:25,gare:10,eau:0,parc:0,place:0,scene:18,pont:8,edifice:18,mairie:25,maison:12};
 // equipements urbains (stade, gare, canal, parc, place, theatre, pont, hopital...) : meme moteur que les monuments (cat:'equip'),
@@ -1964,6 +1966,29 @@ async function loadMonuments(force){
 // les a presque toutes (man_made=communications_tower, tower:type=communication, grands mats). Requete LEGERE (tags indexes), gardee 30 jours
 // par la couche de cache generique, independante du calque "Reperes hauts" : elles suivent le calque Monuments.
 // Nom : le vrai nom OSM s'il existe ; sinon "Tour TDF · <localite la plus proche> (hauteur)". Liens : OSM, Wikipedia/Wikidata, site web, TDF.
+// 10/10/2026 (tour OSM sans nom : le noeud n'a que man_made=tower, mais sa derniere modification dit « updated Mabilay ») : regle generique,
+// pour un objet OSM SANS nom on lit le commentaire de sa derniere modification (API OSM, a l'ouverture de la fiche seulement, mis en memoire 30 j) ;
+// si le commentaire est de la forme « <verbe> <lieu> » (updated / added / created / mise a jour...), le lieu devient le nom d'usage, retenu sur l'appareil.
+const OSM_API='https://api.openstreetmap.org/api/0.6/';
+let osmHints={}; try{ osmHints=JSON.parse(localStorage.getItem('vh-oshints')||'{}')||{}; }catch(e){}
+function osmHintFrom(c){ c=String(c||'').trim(); const t=c.replace(/^\s*(updated?|added?|created?|fix(ed)?|edit(ed)?|modif(i[ée]e?|ied)|mise?\s+[àa]\s+jour|maj|ajout(é|ée|e)?)\s*:?\s+/i,'').trim();
+  return t!==c&&t.length>=3&&t.length<=40&&!/#|https?:|^\d+$/.test(t)&&!/^(survey|tags?|tower|mast|tour|m[âa]t|pyl[ôo]ne|antenne|communication|data|info)$/i.test(t)?t:''; }
+async function osmLastEdit(id){
+  const r=await dcFetch('cs','cs/'+id,{ttl:30*864e5,load:async()=>{
+    const a=await fetch(OSM_API+id+'.json'); if(!a.ok) throw new Error('OSM '+a.status); const e=((await a.json()).elements||[])[0]; if(!e) throw new Error('objet introuvable');
+    let comment=''; try{ const b=await fetch(OSM_API+'changeset/'+e.changeset+'.json'); if(b.ok){ const j=await b.json(); comment=(((j.elements&&j.elements[0])||j.changeset||{}).tags||{}).comment||''; } }catch(x){}
+    return {comment,cs:e.changeset,ts:e.timestamp,user:e.user,v:e.version}; }});
+  return r.data;
+}
+async function fillOsmEdits(){
+  for(const el of [...document.querySelectorAll('#dbgBody .osmcs:not([data-done])')].slice(0,8)){ el.dataset.done='1'; const id=el.dataset.osm;
+    try{ const d=await osmLastEdit(id), hint=osmHintFrom(d.comment);
+      el.innerHTML=(d.comment?`« ${dEsc(d.comment)} »`:'(pas de commentaire)')+` · ${dEsc(String(d.ts||'').slice(0,10))}${d.user?' · '+dEsc(d.user):''}`
+        +(hint?`<br>→ nom d'usage retenu : <b>${dEsc(hint)}</b> (déduit du commentaire, à vérifier)`:'');
+      if(hint&&osmHints[id]!==hint){ osmHints[id]=hint; try{ localStorage.setItem('vh-oshints',JSON.stringify(osmHints)); }catch(e){}
+        towerMonsKey=null; monumentSites=monCombine(); citiesVer++; recompute(); }
+    }catch(e){ el.textContent='indisponible : '+friendlyErr(e); } }
+}
 let monBase=[], towerRaw=[], towerAt=null, towerBusy=false, towerErrAt=null, towerErrDelay=30000, towerMsg='', towerMons=[], towerMonsKey=null;
 const TW_TTL=30*86400000, TW_CELL=0.1, TW_TAGS=['name','name:fr','official_name','alt_name','operator','owner','brand','height','wikidata','wikipedia','website','contact:website','ref','tower:type','man_made','description'];
 const isTdf=t=>/(^|[^a-z])TDF([^a-z]|$)|t[ée]l[ée]diffusion/i.test([t.operator,t.owner,t.brand,t.name].filter(Boolean).join(' '));
@@ -1986,10 +2011,10 @@ function towerMonuments(){
   towerMons=!pos?[]:towerRaw.filter(t=>distBrg(pos,t).dist<=R).map(t=>{
     const tg=t.tags, tdf=isTdf(tg), h=parseFloat(tg.height), hOk=isFinite(h)&&h>0;
     const real=(tg['name:fr']||tg.name||tg.official_name||tg.alt_name||'').trim(), named=real&&!/^(tdf|tour|m[âa]t|pyl[ôo]ne|antenne)$/i.test(real);
-    const loc=nearestLocality(t), base=tg.man_made==='mast'?'Mât':'Tour';
-    const name=named?real:`${base}${tdf?' TDF':''}${tg.ref?' '+tg.ref:''}${loc?' · '+loc:''}${hOk?` (${Math.round(h)} m)`:''}`;
-    return {name,lat:t.lat,lon:t.lon,kind:'monument',cat:'monument',qid:null,src:'osm',osm:t.id,tdf,loc,tags:tg,type:'tour',
-      links:(tdf||h>=100)?90:30,prot:false,htWd:null,htOsm:hOk?h:null,ht:hOk?h:(MON_DEF_H.tour||40),
+    const loc=nearestLocality(t), base=tg.man_made==='mast'?'Mât':'Tour', hint=!real?osmHints[t.id]:'', place=hint||loc;
+    const name=named?real:`${base}${tdf?' TDF':''}${tg.ref?' '+tg.ref:''}${place?' · '+place:''}${hOk?` (${Math.round(h)} m)`:''}`;
+    return {name,lat:t.lat,lon:t.lon,kind:'monument',cat:'monument',qid:null,src:'osm',osm:t.id,tdf,loc,tags:tg,type:'tour',unnamed:!named,hint,
+      links:MON_LOW_LINKS,prot:false,htWd:null,htOsm:hOk?h:null,ht:hOk?h:(MON_DEF_H.tour||40),
       types:'tour de télécommunications (OpenStreetMap)'+(tdf?' · exploitant TDF':''),why:'tour TDF / télécom (OpenStreetMap)'};
   });
   towerMonsKey={raw:towerRaw,cities}; return towerMons;
@@ -2361,7 +2386,13 @@ function visibleCities(){
   }).sort((a,b)=>(RANK[a.kind]??3)-(RANK[b.kind]??3)||(a.kind==='monument'?monScore(b)-monScore(a):0)||a.dist-b.dist);
   // en ville dense on trouve des centaines de monuments : seuls les MON_MAX_SHOWN plus celebres (et visibles
   // d'ici) restent nets, classement par notoriete donc stable quand on tourne ; les autres, en transparence
-  { let n=0, ne=0; for(const c of _visCache){ if(c.kind!=='monument') continue; c.cap=false;
+  { let n=0, ne=0;
+    // 10/10/2026 (couvent des Calvairiennes a 200 m en transparence : le plafond ne comptait que la notoriete) : les monuments les plus
+    // proches sont toujours nets et ne comptent pas dans le plafond ; la celebrite ne departage que le reste
+    const near=new Set(_visCache.filter(c=>c.kind==='monument'&&c.cat!=='equip'&&!c.far&&c.dist<=MON_CLOSE_KM).sort((a,b)=>a.dist-b.dist).slice(0,MON_CLOSE_N));
+    for(const c of _visCache){ if(c.kind!=='monument') continue; c.cap=false; c.near=near.has(c);
+      c._rk=c.far||c.near?null:(c.cat==='equip'?ne+1:n+1); // rang de notoriete (debug fiche)
+      if(c.near) continue;
       if(!c.far&&(c.cat==='equip'?++ne>EQUIP_MAX_SHOWN:++n>MON_MAX_SHOWN)){ c.far=true; c.cap=true; tooFarForKind++; farList.push(c); } } }
   const beforeDup=_visCache.length;
   // OSM decrit parfois un meme lieu par plusieurs objets (ile + sommet, commune + centre...) :
@@ -3377,12 +3408,33 @@ function monumentBlock(m,withName){
     <div class="dbgline">${MON_TYPE_LBL[m.type]||'Monument'} · à ${dKm(m.dist)} km · ${vis}</div>
     <div class="dbgsec">${m.src==='osm'?'Source':'Notoriété'}</div>
     <div class="dbgline">${m.src==='osm'?`tour référencée dans OpenStreetMap${m.tags&&(m.tags.operator||m.tags.owner)?' · exploitant <b>'+dEsc(m.tags.operator||m.tags.owner)+'</b>':''}${m.loc?' · près de '+dEsc(m.loc):''}`:m.links!=null?`article Wikipédia dans <b>${m.links}</b> langue(s)`:'inconnue (Wikidata injoignable)'}${m.prot?' · <b>monument historique</b> (protégé)':''}</div>
+    ${m.src==='osm'&&m.unnamed?`<div class="dbgsec">Dernière modification OpenStreetMap</div><div class="dbgline osmcs" data-osm="${dEsc(m.osm)}">chargement…</div>`:''}
     <div class="dbgsec">Hauteur</div>
     <div class="dbgline">${m.htWd?Math.round(m.htWd)+' m (Wikidata)':m.htOsm?Math.round(m.htOsm)+' m (OpenStreetMap)':eq?'sans importance (icône posée au sol)':`inconnue — ${MON_DEF_H[m.type]||20} m supposés pour le relief`}</div>
     <div class="dbgsec">Classement</div>
     <div class="dbgline">${dEsc(m.types||'(sans classe)')} → ${dEsc(m.why||'')}</div>
     <div class="dbgsec">En savoir plus</div>
-    <div class="dbgline">${linksHtml(m)}</div>`;
+    <div class="dbgline">${linksHtml(m)}</div>
+    ${monDiag(m)}`;
+}
+// DEBUG 10/10/2026 ("le couvent des Jacobins est transparent alors que je le vois") : toutes les valeurs qui decident net / transparent,
+// pour pouvoir dire pourquoi, sans rien deviner. Repliable, en bas de chaque fiche de monument.
+function monDiag(m){
+  const f=(x,d=1)=>x==null||!isFinite(x)?'—':(+x).toFixed(d), T=terrain, eq=m.cat==='equip', rel=S.relief&&T;
+  const tol=S.reliefV1?0.02:0.18, margin=rel&&m.aP!=null&&m.mask!=null?m.aP+tol-m.mask:null;
+  const reasons=[]; if(m.far&&!m.cap) reasons.push(eq?'hors de portée de ce type d\'équipement':`trop petit à l'écran : hauteur apparente ${f(m.angH,2)}° < seuil ${(m.links||0)>=MON_STAR_LINKS?0.05:MON_MIN_ANG}°`+(m.type==='maison'&&!m.prot?' (ou maison peu connue)':''));
+  if(m.cap) reasons.push(`au-delà du plafond : rang ${m._rk==null?'?':m._rk}, plafond ${eq?EQUIP_MAX_SHOWN:MON_MAX_SHOWN} (classement par notoriété ${f(monScore(m),0)})`);
+  if(rel&&m.hidden&&m.low) reasons.push(`tour qui ne dépasse pas la crête : sommet ${f(m.aP,2)}° − crête ${f(m.mask,2)}° = ${f(m.aP-m.mask,2)}° < ${TOWER_CLEAR}° requis`);
+  else if(rel&&m.hidden) reasons.push(`masqué par le relief : sommet ${f(m.aP,2)}° + tolérance ${tol}° < crête ${f(m.mask,2)}°`);
+  const rows=[['verdict',reasons.length?'TRANSPARENT — '+reasons.join(' ; '):m.near?`net — garanti : parmi les ${MON_CLOSE_N} monuments les plus proches (≤ ${MON_CLOSE_KM} km)`:'net'],
+   ['distance / cap',`${f(m.dist,2)} km · ${f(m.brg,0)}°`],['notoriété (liens) / score',`${m.links==null?'—':m.links} / ${f(monScore(m),1)}`],
+   ['rang parmi les monuments nets',m._rk==null?'—':`${m._rk} (plafond ${eq?EQUIP_MAX_SHOWN:MON_MAX_SHOWN})`],
+   ['hauteur utilisée',`${f(m.ht,0)} m${m.htWd?' (Wikidata)':m.htOsm?' (OSM)':' (supposée)'}`],['hauteur apparente',`${f(m.angH,2)}°`],
+   ['relief',rel?`actif · source ${T.src||'?'} · œil à ${f(T.h0,1)} m`:S.relief?'activé mais pas encore calculé':'désactivé'],
+   ['altitude du sol sous le monument',m.dem==null?'inconnue':`${f(m.dem,1)} m`],['angle sol / sommet',`${f(m.aG,2)}° / ${f(m.aP,2)}°`],
+   ['crête devant (relief)',`${f(m.mask,2)}°`],['marge de visibilité',margin==null?'—':`${f(margin,2)}° (positif = visible ; tolérance ${tol}°)`],
+   ['calque Tout voir (œil)',S.beyond?'oui':'non (les transparents sont masqués)']];
+  return `<details class="dg" style="margin-top:12px"><summary class="dbgsec" style="cursor:pointer">Diagnostic d'affichage (debug)</summary><div class="dbgline" style="line-height:1.7">${rows.map(([k,v])=>`<b>${dEsc(k)}</b> : ${dEsc(v)}`).join('<br>')}</div></details>`;
 }
 // grp : elements regroupes sous l'etiquette touchee (equipements) ; m._hidObjs : monuments regroupes derriere l'icone (+N)
 function showMonumentDetail(m,grp){
@@ -3395,6 +3447,7 @@ function showMonumentDetail(m,grp){
     head:l=>`${l.length} ${eq?'équipements regroupés':'monuments regroupés'} · ${dKm(l[0].dist)}–${dKm(l[l.length-1].dist)} km`,
     summary:x=>`${dEsc(x.name)}</b> · ${dKm(x.dist)} km<br><span style="opacity:.75">${dEsc(MON_TYPE_LBL[x.type]||'Monument')}${x.links!=null?` · ${x.links} langue(s)`:''}</span><b>`,
     block:x=>monumentBlock(x,false)});
+  fillOsmEdits();
 }
 function telecomBlock(t){
   const ops=(t.operators||[]).map(o=>{
