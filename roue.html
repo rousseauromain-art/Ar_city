@@ -1,0 +1,717 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#150836">
+<title>La roue de la fortune - Anniversaire de Romain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800&display=swap">
+<style>
+  :root {
+    --gold: #F5B700;
+    --gold-light: #FFD24A;
+    --cream: #FFF6D6;
+    --lilac: #D9CCF5;
+    --display: 'Lilita One', 'Arial Rounded MT Bold', 'Trebuchet MS', sans-serif;
+    --body: 'Nunito', 'Trebuchet MS', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { font-size: clamp(16px, 0.9vmin + 10px, 28px); }
+  body {
+    margin: 0;
+    font-family: var(--body);
+    color: var(--cream);
+    background: #150836;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .app {
+    position: relative;
+    overflow: hidden;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem 3.5rem;
+    padding: clamp(16px, 4vmin, 48px) clamp(16px, 4vw, 56px);
+    background: radial-gradient(ellipse at 70% 45%, #4A1A9B 0%, #2A0F66 45%, #150836 100%);
+  }
+  .decor { position: absolute; inset: 0; pointer-events: none; }
+  .decor i { position: absolute; display: block; }
+
+  /* ---------- Colonne texte ---------- */
+  .info {
+    position: relative;
+    z-index: 1;
+    flex: 1 1 380px;
+    max-width: 540px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.1rem;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 1.1rem;
+    border-radius: 999px;
+    border: 2px solid var(--gold);
+    background: rgba(245, 183, 0, 0.16);
+    color: var(--gold-light);
+    font-weight: 800;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 0;
+    font-family: var(--display);
+    font-weight: 400;
+    font-size: clamp(2rem, 4.2vw + 1vmin, 4.4rem);
+    line-height: 1.03;
+    color: var(--gold-light);
+    text-shadow: 0 4px 0 #8A4B00, 0 10px 24px rgba(0, 0, 0, 0.45);
+  }
+  .lead { margin: 0; font-size: 1.3rem; line-height: 1.35; font-weight: 600; }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-top: 0.3rem; }
+  .btn {
+    min-height: 3.6rem;
+    border: 0;
+    border-radius: 999px;
+    font-family: var(--display);
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+  }
+  .btn:focus-visible { outline: 4px solid #fff; outline-offset: 3px; }
+  .btn-spin {
+    padding: 0 2.2rem;
+    font-size: 1.6rem;
+    color: #3A1F00;
+    background: linear-gradient(180deg, #FFE27A 0%, #F5B700 100%);
+    box-shadow: 0 6px 0 #A86B00, 0 14px 28px rgba(0, 0, 0, 0.4);
+  }
+  .btn-stop {
+    padding: 0 1.8rem;
+    font-size: 1.5rem;
+    color: var(--cream);
+    background: rgba(179, 23, 47, 0.95);
+    border: 3px solid #FF8A98;
+    box-shadow: 0 6px 0 #6E0E1D;
+  }
+  .btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.06); }
+  .btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .hint { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--lilac); }
+  .result {
+    width: 100%;
+    margin-top: 0.4rem;
+    padding: 1.1rem 1.4rem;
+    border-radius: 20px;
+    border: 2px dashed var(--gold-light);
+    background: rgba(255, 246, 214, 0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .result .label {
+    font-weight: 800;
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold-light);
+  }
+  .result .prize { font-family: var(--display); font-size: 2rem; line-height: 1.1; color: #fff; }
+  .result .sub { font-size: 0.95rem; font-weight: 600; color: var(--lilac); }
+
+  /* ---------- Roue ---------- */
+  .wheel-wrap { position: relative; z-index: 1; flex: 1 1 480px; max-width: min(640px, 92vh); }
+  .wheel {
+    display: block;
+    width: 100%;
+    height: auto;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    filter: drop-shadow(0 24px 36px rgba(0, 0, 0, 0.5));
+  }
+  .wheel:active { cursor: grabbing; }
+  .bulb.a { fill: #FFF6D6; }
+  .bulb.b { fill: #FF6B35; }
+  .wheel.spinning .bulb.a { animation: blink 0.5s steps(1) infinite; }
+  .wheel.spinning .bulb.b { animation: blink 0.5s steps(1) infinite 0.25s; }
+  @keyframes blink { 50% { opacity: 0.3; } }
+
+  /* ---------- Boutons coin ---------- */
+  .corner { position: fixed; top: 12px; right: 12px; z-index: 5; display: flex; gap: 8px; }
+  .icon-btn {
+    width: 48px; height: 48px;
+    display: grid; place-items: center;
+    border-radius: 14px;
+    border: 2px solid rgba(255, 246, 214, 0.35);
+    background: rgba(21, 8, 54, 0.55);
+    color: var(--cream);
+    cursor: pointer;
+  }
+  .icon-btn:hover { background: rgba(21, 8, 54, 0.85); }
+  .icon-btn:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  .icon-btn[hidden] { display: none; }
+
+  /* ---------- Resultat plein ecran ---------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 50;
+    display: grid; place-items: center;
+    padding: 20px;
+    background: rgba(10, 4, 30, 0.78);
+    animation: fade 0.3s ease;
+  }
+  .overlay[hidden] { display: none; }
+  .card {
+    max-width: 640px; width: 100%;
+    padding: clamp(1.4rem, 4vmin, 2.6rem);
+    text-align: center;
+    border-radius: 28px;
+    border: 4px solid var(--gold);
+    background: radial-gradient(ellipse at 50% 0%, #5A24B8 0%, #2A0F66 70%);
+    box-shadow: 0 0 0 8px rgba(245, 183, 0, 0.25), 0 30px 80px rgba(0, 0, 0, 0.6);
+    animation: pop 0.45s cubic-bezier(.2, 1.4, .4, 1);
+  }
+  .card .kicker { font-family: var(--display); font-size: clamp(2.2rem, 7vmin, 4rem); color: var(--gold-light); text-shadow: 0 4px 0 #8A4B00; }
+  .card .name { margin: 0.3rem 0; font-family: var(--display); font-size: clamp(1.8rem, 6vmin, 3.2rem); line-height: 1.1; color: #fff; }
+  .card .sub { margin: 0 0 1.2rem; font-size: 1.15rem; font-weight: 600; color: var(--lilac); }
+  @keyframes fade { from { opacity: 0; } }
+  @keyframes pop { from { transform: scale(0.6); opacity: 0; } }
+
+  #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 60; }
+
+  /* ---------- Orientation ---------- */
+  @media (orientation: portrait) {
+    .info { align-items: center; text-align: center; }
+    .actions { justify-content: center; }
+    .wheel-wrap { flex: 0 0 auto; width: min(94vw, 58vh); }
+  }
+  @media (orientation: landscape) {
+    .app { flex-wrap: nowrap; gap: clamp(16px, 4vw, 64px); }
+    .wheel-wrap { flex: 0 0 auto; width: min(54vw, 92vh); }
+    .info { flex: 1 1 0; min-width: 0; max-width: 560px; }
+  }
+  @media (orientation: landscape) and (max-height: 560px) {
+    .hint, .badge { display: none; }
+    .lead { font-size: 1.05rem; }
+    .info { gap: 0.7rem; }
+    .result { padding: 0.6rem 1rem; }
+    .result .prize { font-size: 1.5rem; }
+    .btn { min-height: 3rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wheel.spinning .bulb { animation: none !important; }
+    .overlay, .card { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app" id="app">
+  <div class="decor" id="decor" aria-hidden="true"></div>
+
+  <div class="corner">
+    <button class="icon-btn" id="muteBtn" type="button" aria-label="Couper le son" title="Son (M)">
+      <svg id="soundOn" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"></path><path d="M16.5 8.5a5 5 0 0 1 0 7"></path><path d="M19 6a8.5 8.5 0 0 1 0 12"></path></svg>
+      <svg id="soundOff" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M4 9v6h4l5 4V5L8 9H4z"></path><path d="M17 9l5 6"></path><path d="M22 9l-5 6"></path></svg>
+    </button>
+    <button class="icon-btn" id="fsBtn" type="button" aria-label="Plein écran" title="Plein écran (F)">
+      <svg id="fsEnter" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5"></path><path d="M20 9V4h-5"></path><path d="M4 15v5h5"></path><path d="M20 15v5h-5"></path></svg>
+      <svg id="fsExit" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M9 4v5H4"></path><path d="M15 4v5h5"></path><path d="M9 20v-5H4"></path><path d="M15 20v-5h5"></path></svg>
+    </button>
+  </div>
+
+  <section class="info">
+    <div class="badge">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="#FFD24A" aria-hidden="true"><polygon points="12,2 14.9,8.6 22,9.3 16.6,14 18.2,21 12,17.3 5.8,21 7.4,14 2,9.3 9.1,8.6"></polygon></svg>
+      <span>Quiz d'anniversaire de Romain</span>
+    </div>
+    <h1>Bravo, tu as gagné le jeu !</h1>
+    <p class="lead">Tu connais le mieux Romain. Tourne la roue pour découvrir ce que tu gagnes !</p>
+    <div class="actions">
+      <button class="btn btn-spin" id="spinBtn" type="button">Tourner la roue</button>
+      <button class="btn btn-stop" id="stopBtn" type="button" disabled>Stop</button>
+    </div>
+    <p class="hint">Tu peux aussi attraper la roue à la souris et la lancer d'un geste.</p>
+    <div class="result" aria-live="polite">
+      <span class="label">Ton cadeau</span>
+      <span class="prize" id="prizeText">À toi de jouer !</span>
+      <span class="sub" id="prizeSub">Lance la roue pour le découvrir.</span>
+    </div>
+  </section>
+
+  <section class="wheel-wrap">
+    <svg class="wheel" id="wheel" viewBox="0 0 640 640" role="img" aria-label="Roue de la fortune avec les cadeaux à gagner"></svg>
+  </section>
+</div>
+
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="ovName" hidden>
+  <div class="card">
+    <div class="kicker">Bravo !</div>
+    <p class="name" id="ovName"></p>
+    <p class="sub" id="ovSub"></p>
+    <button class="btn btn-spin" id="closeBtn" type="button">Fermer</button>
+  </div>
+</div>
+
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<script>
+(() => {
+  'use strict';
+
+  /* =====================================================================
+   *  CONFIGURATION : modifie ici les cadeaux de la roue.
+   *   - label : texte sur la roue ("\n" = retour à la ligne)
+   *   - name / sub : texte du résultat
+   *   - color : couleur de la part (text : couleur du texte, optionnel)
+   *   - final : true = le cadeau sur lequel la roue s'arrête TOUJOURS
+   *             (si aucun n'est marqué, le résultat est aléatoire)
+   *  Le sens de rotation est horaire : les cadeaux défilent devant la
+   *  flèche dans l'ordre inverse de la liste.
+   * ===================================================================== */
+  const PRIZES = [
+    { label: 'Une glace\ngéante',        name: 'Une glace géante',          sub: 'Au parfum de ton choix !',                         color: '#6B35B8' },
+    { label: 'Soirée\ncinéma',           name: 'Une soirée cinéma',         sub: 'Pop-corn inclus.',                                 color: '#C2410C' },
+    { label: 'Ton gâteau\npréféré',      name: 'Ton gâteau préféré',        sub: 'À toi de choisir lequel !',                        color: '#1E7B45' },
+    { label: 'Tu lui offres\nun cadeau', name: 'Tu lui offres un cadeau !', sub: "Eh oui, c'est toi qui offres. Bien joué quand même.", color: '#F5B700', text: '#3A1F00', final: true },
+    { label: 'Badge collector\nParis 2024', name: 'Un badge collector Paris 2024', sub: 'Une pièce de collection rare !',               color: '#0E7C86' },
+    { label: 'Un restaurant\noffert',    name: 'Un restaurant offert',      sub: "À toi de choisir l'adresse.",                      color: '#B3172F' },
+    { label: 'Ton poids\nen vin',        name: 'Ton poids en vin',          sub: 'À partager avec tes parents, bien sûr.',           color: '#1F5FBF' },
+    { label: 'Un jeu de\nsociété',       name: 'Un jeu de société',         sub: 'Soirée jeux assurée.',                             color: '#C2185B' },
+    { label: 'Un grand\ncâlin',          name: 'Un grand câlin',            sub: 'Taille ours polaire.',                             color: '#2A4FA8' },
+    { label: 'Une sortie\nsurprise',     name: 'Une sortie surprise',       sub: "Chut, c'est un secret !",                          color: '#0B6E4F' },
+  ];
+
+  /* ---------- Utilitaires ---------- */
+  const N = PRIZES.length;
+  const STEP = 360 / N;
+  const HALF = STEP / 2;
+  const NS = 'http://www.w3.org/2000/svg';
+  const C = 320;          // centre du viewBox
+  const R = 270;          // rayon des parts
+  const $ = (id) => document.getElementById(id);
+  const mod = (a, n) => ((a % n) + n) % n;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+  const rad = (d) => (d * Math.PI) / 180;
+
+  function el(name, attrs, parent) {
+    const e = document.createElementNS(NS, name);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+
+  /* ---------- Construction de la roue ---------- */
+  const svg = $('wheel');
+  const defs = el('defs', {}, svg);
+  const g1 = el('linearGradient', { id: 'goldRing', x1: 0, y1: 0, x2: 1, y2: 1 }, defs);
+  el('stop', { offset: 0, 'stop-color': '#FFE27A' }, g1);
+  el('stop', { offset: 0.5, 'stop-color': '#E8A100' }, g1);
+  el('stop', { offset: 1, 'stop-color': '#FFD24A' }, g1);
+  const g2 = el('radialGradient', { id: 'hubGrad', cx: 0.4, cy: 0.35, r: 0.8 }, defs);
+  el('stop', { offset: 0, 'stop-color': '#FFF1B0' }, g2);
+  el('stop', { offset: 1, 'stop-color': '#D98E00' }, g2);
+
+  const rot = el('g', {}, svg);            // parts qui tournent
+  const texts = [];
+  const sx = R * Math.sin(rad(HALF));
+  const sy = R * Math.cos(rad(HALF));
+  PRIZES.forEach((p, i) => {
+    const g = el('g', { transform: `rotate(${i * STEP} ${C} ${C})` }, rot);
+    el('path', {
+      d: `M${C} ${C} L${C - sx} ${C - sy} A${R} ${R} 0 0 1 ${C + sx} ${C - sy} Z`,
+      fill: p.color, stroke: '#FFF6D6', 'stroke-opacity': 0.6, 'stroke-width': 3,
+    }, g);
+    const lines = p.label.split('\n');
+    lines.forEach((line, k) => {
+      const x = 313 + ((lines.length - 1) / 2 - k) * 22;
+      const t = el('text', {
+        transform: `translate(${x} 76) rotate(90)`,
+        fill: p.text || '#FFFFFF',
+        'font-family': "'Nunito', 'Trebuchet MS', sans-serif",
+        'font-weight': 800,
+        'font-size': 20,
+      }, g);
+      t.textContent = line;
+      texts.push(t);
+    });
+  });
+
+  el('circle', { cx: C, cy: C, r: 288, fill: 'none', stroke: 'url(#goldRing)', 'stroke-width': 38 }, svg);
+  el('circle', { cx: C, cy: C, r: 306, fill: 'none', stroke: '#8A4B00', 'stroke-width': 3 }, svg);
+  el('circle', { cx: C, cy: C, r: 270, fill: 'none', stroke: '#8A4B00', 'stroke-width': 3 }, svg);
+
+  for (let k = 0; k < 20; k++) {
+    el('circle', {
+      class: 'bulb ' + (k % 2 ? 'b' : 'a'),
+      cx: C, cy: 32, r: 7, transform: `rotate(${k * 18} ${C} ${C})`,
+    }, svg);
+  }
+
+  const pegsG = el('g', {}, svg);          // ergots qui tournent avec la roue
+  for (let k = 0; k < N; k++) {
+    el('circle', {
+      cx: C, cy: 46, r: 5, fill: '#FFF6D6', stroke: '#8A4B00', 'stroke-width': 2,
+      transform: `rotate(${HALF + k * STEP} ${C} ${C})`,
+    }, pegsG);
+  }
+
+  el('circle', { cx: C, cy: C, r: 52, fill: '#8A4B00' }, svg);
+  el('circle', { cx: C, cy: C, r: 46, fill: 'url(#hubGrad)', stroke: '#FFF6D6', 'stroke-width': 3 }, svg);
+  const star = [];
+  for (let k = 0; k < 10; k++) {
+    const r = k % 2 ? 9 : 22;
+    const a = rad(-90 + k * 36);
+    star.push((C + r * Math.cos(a)).toFixed(2) + ',' + (C + r * Math.sin(a)).toFixed(2));
+  }
+  el('polygon', { points: star.join(' '), fill: '#B3172F' }, svg);
+
+  const pointer = el('g', {}, svg);
+  el('polygon', { points: '292,2 348,2 320,66', fill: '#E4142F', stroke: '#FFF6D6', 'stroke-width': 4, 'stroke-linejoin': 'round' }, pointer);
+  el('circle', { cx: C, cy: 20, r: 6, fill: '#FFF6D6' }, pointer);
+
+  // Réduit la taille du texte s'il dépasse de la part (une fois la police chargée)
+  function fitTexts() {
+    texts.forEach((t) => {
+      const w = t.getComputedTextLength();
+      if (w > 172) t.setAttribute('font-size', (20 * 172 / w).toFixed(1));
+    });
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitTexts);
+  fitTexts();
+
+  /* ---------- Décor : confettis fixes ---------- */
+  (function decor() {
+    const box = $('decor');
+    const cols = ['#F5B700', '#E8478B', '#2FC4D1'];
+    for (let i = 0; i < 22; i++) {
+      const d = document.createElement('i');
+      const dot = Math.random() < 0.25;
+      const w = dot ? 10 : 12 + Math.random() * 4;
+      d.style.cssText =
+        `left:${(Math.random() * 100).toFixed(1)}%;top:${(Math.random() * 100).toFixed(1)}%;` +
+        `width:${w}px;height:${dot ? 10 : w * 1.9}px;background:${cols[i % 3]};` +
+        `border-radius:${dot ? '50%' : '2px'};opacity:.85;` +
+        `transform:rotate(${Math.floor(Math.random() * 180 - 90)}deg)`;
+      box.appendChild(d);
+    }
+  })();
+
+  /* ---------- Son (Web Audio, aucun fichier) ---------- */
+  let actx = null;
+  let muted = false;
+  let lastTickT = 0;
+  function ensureAudio() {
+    if (!actx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) actx = new AC();
+    }
+    if (actx && actx.state === 'suspended') actx.resume();
+  }
+  function beep(freq, t0, dur, type, vol) {
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g);
+    g.connect(actx.destination);
+    o.start(t0);
+    o.stop(t0 + dur + 0.02);
+  }
+  function tick(speed) {
+    if (muted || !actx) return;
+    const t = actx.currentTime;
+    if (t - lastTickT < 0.03) return;
+    lastTickT = t;
+    beep(650 + Math.min(speed, 1200) * 0.3, t, 0.05, 'triangle', 0.06);
+  }
+  function fanfare() {
+    if (muted || !actx) return;
+    const t = actx.currentTime;
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => beep(f, t + i * 0.14, 0.45, 'triangle', 0.12));
+    beep(1046.5, t + 0.6, 0.9, 'sine', 0.1);
+  }
+
+  /* ---------- Etat et physique ---------- */
+  const spinBtn = $('spinBtn');
+  const stopBtn = $('stopBtn');
+  let theta = 0;           // rotation de la roue (degrés, sens horaire)
+  let v = 0;               // vitesse (degrés / seconde)
+  let mode = 'idle';       // idle | spinning | braking | done
+  let dragging = false;
+  let lastT = 0;
+  let raf = 0;
+  let spinT = 0;
+  let autoStopAt = 0;
+  let vTarget = 0;
+  let brake = null;
+  let lastPeg = 0;
+  let pointerDef = 0;
+
+  function render() {
+    const tr = `rotate(${theta.toFixed(3)} ${C} ${C})`;
+    rot.setAttribute('transform', tr);
+    pegsG.setAttribute('transform', tr);
+    pointer.setAttribute('transform', `rotate(${pointerDef.toFixed(2)} ${C} 14)`);
+  }
+
+  function updatePointer(dt) {
+    const peg = Math.floor((theta + HALF) / STEP);
+    if (peg !== lastPeg) { tick(Math.abs(v)); lastPeg = peg; }
+    const s = mod(theta + HALF, STEP) / STEP;
+    const push = clamp((s - 0.6) / 0.4, 0, 1);
+    const av = Math.abs(v);
+    const scale = clamp(av / 40, 0, 1) * clamp(1 - av / 1400, 0.35, 1);
+    const target = -26 * push * scale;
+    pointerDef += (target - pointerDef) * Math.min(1, dt * 30);
+  }
+
+  function frame(now) {
+    const dt = Math.min(0.05, (now - lastT) / 1000 || 0.016);
+    lastT = now;
+    if (!dragging) {
+      if (mode === 'spinning') {
+        v += (vTarget - v) * Math.min(1, dt * 2.5);
+        theta += v * dt;
+        spinT += dt;
+        if (spinT >= autoStopAt) startBrake();
+      } else if (mode === 'braking') {
+        brake.t += dt;
+        const u = Math.min(1, brake.t / brake.T);
+        theta = brake.th0 + brake.D * (1 - Math.pow(1 - u, 4));
+        v = (4 * brake.D / brake.T) * Math.pow(1 - u, 3);
+        if (u >= 1) finish();
+      }
+    }
+    updatePointer(dt);
+    render();
+    if (dragging || mode === 'spinning' || mode === 'braking' || Math.abs(pointerDef) > 0.05) {
+      raf = requestAnimationFrame(frame);
+    } else {
+      raf = 0;
+    }
+  }
+  function kick() {
+    if (!raf) { lastT = performance.now(); raf = requestAnimationFrame(frame); }
+  }
+
+  function startSpin(v0) {
+    if (mode === 'spinning' || mode === 'braking') return;
+    ensureAudio();
+    hideOverlay();
+    theta = mod(theta, 360);
+    lastPeg = Math.floor((theta + HALF) / STEP);
+    mode = 'spinning';
+    spinT = 0;
+    autoStopAt = rand(3.5, 5.5);
+    vTarget = v0 ? clamp(v0, 600, 1500) : rand(780, 1050);
+    v = v0 || 0;
+    spinBtn.disabled = true;
+    stopBtn.disabled = false;
+    svg.classList.add('spinning');
+    $('prizeText').textContent = '…';
+    $('prizeSub').textContent = 'La roue tourne !';
+    kick();
+  }
+
+  // Freinage : décélération en (1-u)^4, calculée pour finir exactement
+  // sur la part "final", après avoir longuement ralenti devant les précédentes.
+  function startBrake() {
+    if (mode !== 'spinning') return;
+    const v0 = Math.max(v, 450);
+    let D = (v0 * rand(6.5, 8.5)) / 4;
+    const fi = PRIZES.findIndex((p) => p.final);
+    const gi = fi >= 0 ? fi : Math.floor(Math.random() * N);
+    const off = rand(-0.55, 0.55) * HALF;
+    const thTarget = -(gi * STEP + off);
+    D += mod(thTarget - (theta + D), 360);
+    brake = { th0: theta, D, T: (4 * D) / v0, t: 0 };
+    mode = 'braking';
+    stopBtn.disabled = true;
+  }
+
+  function finish() {
+    theta = brake.th0 + brake.D;
+    v = 0;
+    mode = 'done';
+    svg.classList.remove('spinning');
+    spinBtn.disabled = false;
+    spinBtn.textContent = 'Rejouer';
+    stopBtn.disabled = true;
+    const idx = mod(Math.round(mod(-theta, 360) / STEP), N);
+    const p = PRIZES[idx];
+    $('prizeText').textContent = p.name;
+    $('prizeSub').textContent = p.sub;
+    setTimeout(() => showOverlay(p), 700);
+  }
+
+  /* ---------- Resultat ---------- */
+  const overlay = $('overlay');
+  function showOverlay(p) {
+    $('ovName').textContent = p.name;
+    $('ovSub').textContent = p.sub;
+    overlay.hidden = false;
+    $('closeBtn').focus();
+    fanfare();
+    burst();
+  }
+  function hideOverlay() { overlay.hidden = true; }
+  $('closeBtn').addEventListener('click', hideOverlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) hideOverlay(); });
+
+  /* ---------- Confettis ---------- */
+  const cv = $('confetti');
+  const cx = cv.getContext('2d');
+  let parts = [];
+  let cRaf = 0;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function burst() {
+    const dpr = window.devicePixelRatio || 1;
+    const W = window.innerWidth, H = window.innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const cols = ['#F5B700', '#FFD24A', '#E8478B', '#2FC4D1', '#FFFFFF', '#FF6B35', '#7C5CFF'];
+    const count = reduced ? 50 : 200;
+    for (let i = 0; i < count; i++) {
+      parts.push({
+        x: rand(0, W), y: rand(-H * 0.4, -10),
+        vx: rand(-60, 60), vy: rand(120, 380),
+        w: rand(8, 16), h: rand(5, 10),
+        a: rand(0, 6.28), va: rand(-8, 8),
+        c: cols[i % cols.length], round: Math.random() < 0.2,
+      });
+    }
+    if (!cRaf) { let last = performance.now(); cRaf = requestAnimationFrame(function loop(now) {
+      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      cx.clearRect(0, 0, W, H);
+      parts = parts.filter((p) => p.y < H + 30);
+      for (const p of parts) {
+        p.vy += 160 * dt;
+        p.x += (p.vx + Math.sin(p.y / 40) * 30) * dt;
+        p.y += p.vy * dt;
+        p.a += p.va * dt;
+        cx.save();
+        cx.translate(p.x, p.y);
+        cx.rotate(p.a);
+        cx.fillStyle = p.c;
+        if (p.round) { cx.beginPath(); cx.arc(0, 0, p.w / 2, 0, 6.28); cx.fill(); }
+        else cx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        cx.restore();
+      }
+      if (parts.length) cRaf = requestAnimationFrame(loop);
+      else { cRaf = 0; cx.clearRect(0, 0, W, H); }
+    }); }
+  }
+
+  /* ---------- Boutons et clavier ---------- */
+  spinBtn.addEventListener('click', () => startSpin());
+  stopBtn.addEventListener('click', () => startBrake());
+
+  const muteBtn = $('muteBtn');
+  function toggleMute() {
+    muted = !muted;
+    $('soundOn').hidden = muted;
+    $('soundOff').hidden = !muted;
+    muteBtn.setAttribute('aria-label', muted ? 'Remettre le son' : 'Couper le son');
+  }
+  muteBtn.addEventListener('click', toggleMute);
+
+  /* ---------- Plein écran + paysage ---------- */
+  const root = document.documentElement;
+  const fsBtn = $('fsBtn');
+  const reqFs = root.requestFullscreen || root.webkitRequestFullscreen;
+  const exitFs = document.exitFullscreen || document.webkitExitFullscreen;
+  const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  async function toggleFs() {
+    try {
+      if (!isFs()) {
+        await reqFs.call(root);
+        // Sur mobile (Android), on verrouille le paysage une fois en plein écran
+        try { await screen.orientation.lock('landscape'); } catch (_) { /* non supporté */ }
+      } else {
+        try { screen.orientation.unlock(); } catch (_) { /* ignoré */ }
+        await exitFs.call(document);
+      }
+    } catch (_) { /* refusé par le navigateur */ }
+  }
+  if (!reqFs) fsBtn.hidden = true;
+  fsBtn.addEventListener('click', toggleFs);
+  function syncFs() {
+    const on = isFs();
+    $('fsEnter').hidden = on;
+    $('fsExit').hidden = !on;
+    fsBtn.setAttribute('aria-label', on ? 'Quitter le plein écran' : 'Plein écran');
+  }
+  document.addEventListener('fullscreenchange', syncFs);
+  document.addEventListener('webkitfullscreenchange', syncFs);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === 'f') { toggleFs(); return; }
+    if (k === 'm') { toggleMute(); return; }
+    if (k === 'escape') { hideOverlay(); return; }
+    if ((e.key === ' ' || e.key === 'Enter') && !(e.target instanceof HTMLButtonElement)) {
+      e.preventDefault();
+      if (mode === 'spinning') startBrake(); else startSpin();
+    }
+  });
+
+  /* ---------- Lancer la roue à la souris / au doigt ---------- */
+  let drag = null;
+  function pointerAngle(e, c) {
+    return (Math.atan2(e.clientY - c.y, e.clientX - c.x) * 180) / Math.PI;
+  }
+  svg.addEventListener('pointerdown', (e) => {
+    if (mode === 'spinning' || mode === 'braking') return;
+    ensureAudio();
+    const r = svg.getBoundingClientRect();
+    const c = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    drag = { c, a: pointerAngle(e, c), samples: [{ t: performance.now(), th: theta }] };
+    dragging = true;
+    svg.setPointerCapture(e.pointerId);
+    kick();
+  });
+  svg.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const a = pointerAngle(e, drag.c);
+    let d = a - drag.a;
+    if (d > 180) d -= 360;
+    if (d < -180) d += 360;
+    drag.a = a;
+    theta += d;
+    const now = performance.now();
+    drag.samples.push({ t: now, th: theta });
+    while (drag.samples.length > 1 && now - drag.samples[0].t > 120) drag.samples.shift();
+    const s0 = drag.samples[0];
+    v = now > s0.t ? ((theta - s0.th) / (now - s0.t)) * 1000 : 0;
+  });
+  function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    const speed = Math.abs(v);
+    if (speed > 350) startSpin(speed);
+    else { v = 0; kick(); }
+  }
+  svg.addEventListener('pointerup', endDrag);
+  svg.addEventListener('pointercancel', endDrag);
+
+  render();
+})();
+</script>
+</body>
+</html>
