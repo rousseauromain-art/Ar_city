@@ -369,7 +369,7 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const APP_VERSION='2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
@@ -1992,13 +1992,29 @@ async function fillOsmEdits(){
 let monBase=[], towerRaw=[], towerAt=null, towerBusy=false, towerErrAt=null, towerErrDelay=30000, towerMsg='', towerMons=[], towerMonsKey=null;
 const TW_TTL=30*86400000, TW_CELL=0.1, TW_TAGS=['name','name:fr','official_name','alt_name','operator','owner','brand','height','wikidata','wikipedia','website','contact:website','ref','tower:type','man_made','description'];
 const isTdf=t=>/(^|[^a-z])TDF([^a-z]|$)|t[ée]l[ée]diffusion/i.test([t.operator,t.owner,t.brand,t.name].filter(Boolean).join(' '));
+// 12/10/2026 (tour TDF d'Atalante, Cesson-Sevigne : visible dans les reperes hauts violets mais absente des monuments) : la requete des monuments
+// etait plus etroite que celle des reperes hauts (mat sans tag de hauteur, mat/tour sans operator=TDF, tags communication:* seuls...). Maintenant
+// on lit TOUS les man_made=tower|mast|communications_tower du rayon (comme les reperes hauts) et on ne garde, en local, que ce qui releve du telecom
+// (towerRel). Les ecartes sont conserves avec leur motif (rel=false) pour le diagnostic : on voit pourquoi un objet n'est pas retenu.
+function towerRel(t){
+  const mm=t.man_made, ty=t['tower:type'], h=parseFloat(t.height), hasH=isFinite(h);
+  if(mm==='communications_tower') return 'communications_tower';
+  if(ty==='communication') return 'tower:type=communication';
+  if(isTdf(t)) return 'exploitant TDF';
+  if(Object.keys(t).some(k=>k.startsWith('communication:'))) return 'tag communication:*';
+  if(mm==='mast'&&!ty&&(!hasH||h>=20)) return 'mât'+(hasH?'':' (hauteur inconnue)');
+  if(mm==='tower'&&!ty&&hasH&&h>=40) return 'tour haute ('+Math.round(h)+' m)';
+  return '';
+}
 function parseTowers(j){
   const seen=new Set(), got=[];
   for(const n of (j.elements||[])){
     const lat=n.lat??(n.center&&n.center.lat), lon=n.lon??(n.center&&n.center.lon); if(lat==null||lon==null||!n.tags) continue;
     const id=n.type+'/'+n.id; if(seen.has(id)) continue; seen.add(id);
     const tags={}; for(const k of TW_TAGS) if(n.tags[k]!=null) tags[k]=n.tags[k];
-    got.push({id,lat,lon,tags});
+    for(const k in n.tags) if(k.startsWith('communication:')&&Object.keys(tags).length<30) tags[k]=n.tags[k];
+    const why=towerRel(tags);
+    got.push({id,lat,lon,tags,rel:!!why,why:why||`écarté : ${tags.man_made||'?'}${tags['tower:type']?' / '+tags['tower:type']:''}${tags.height?' / '+tags.height+' m':' / sans hauteur'}`});
   }
   return got;
 }
@@ -2008,7 +2024,7 @@ function nearestLocality(p){ let best=null, bd=8;
 function towerMonuments(){
   if(towerMonsKey&&towerMonsKey.raw===towerRaw&&towerMonsKey.cities===cities) return towerMons;
   const R=monRadius();
-  towerMons=!pos?[]:towerRaw.filter(t=>distBrg(pos,t).dist<=R).map(t=>{
+  towerMons=!pos?[]:towerRaw.filter(t=>t.rel!==false&&distBrg(pos,t).dist<=R).map(t=>{
     const tg=t.tags, tdf=isTdf(tg), h=parseFloat(tg.height), hOk=isFinite(h)&&h>0;
     const real=(tg['name:fr']||tg.name||tg.official_name||tg.alt_name||'').trim(), named=real&&!/^(tdf|tour|m[âa]t|pyl[ôo]ne|antenne)$/i.test(real);
     const loc=nearestLocality(t), base=tg.man_made==='mast'?'Mât':'Tour', hint=!real?osmHints[t.id]:'', place=hint||loc;
@@ -2033,16 +2049,13 @@ async function loadTowers(force){
   try{
     const pc={lat:Math.round(pos.lat/TW_CELL)*TW_CELL,lon:Math.round(pos.lon/TW_CELL)*TW_CELL}, rq=Math.ceil(R+TW_CELL*111*0.75), r=rq*1000, C=`${pc.lat.toFixed(4)},${pc.lon.toFixed(4)}`;
     const q=`[out:json][timeout:25];(`
-      +`nwr["man_made"="communications_tower"](around:${r},${C});`
-      +`nwr["man_made"="tower"]["tower:type"="communication"](around:${r},${C});`
-      +`nwr["man_made"="mast"]["tower:type"="communication"]["height"](if:t["height"]>=50)(around:${r},${C});`
-      +`nwr["man_made"~"^(tower|mast)$"]["operator"~"TDF|Télédiffusion"](around:${r},${C});`
+      +`nwr["man_made"~"^(communications_tower|mast|tower)$"](around:${r},${C});` // meme base que les reperes hauts ; le tri telecom se fait dans towerRel
       +`);out center qt;`;
-    const res=await dcFetch('tw',`tw/${pc.lat.toFixed(1)},${pc.lon.toFixed(1)}/${rq}`,{ttl:TW_TTL,prune:['tw/',30],load:()=>overpassQuery(q,20000,parseTowers)});
+    const res=await dcFetch('tw',`tw2/${pc.lat.toFixed(1)},${pc.lon.toFixed(1)}/${rq}`,{ttl:TW_TTL,prune:['tw2/',30],load:()=>overpassQuery(q,20000,parseTowers)});
     towerRaw=res.data; towerMonsKey=null; towerAt=res.from==='stale'?null:{...pos};
     monumentSites=monCombine(); citiesVer++; recompute(); markBuildingDupes();
-    const n=towerMonuments().length; towerMsg=`${n} tour(s)`+dcFromTxt(res);
-    logNet('Tours',res.from!=='stale',`${n} tour(s) telecom/TDF dans ${R} km`+dcFromTxt(res)+(res.from==='stale'?` — réseau : ${friendlyErr(res.err)}`:''));
+    const n=towerMonuments().length, rd=towerRaw.length, skip=towerRaw.filter(t=>t.rel===false).length; towerMsg=`${n} tour(s)`+dcFromTxt(res);
+    logNet('Tours',res.from!=='stale',`${n} tour(s) retenue(s) dans ${R} km sur ${rd} objets OSM (tower/mast/communications_tower), ${skip} écartés (pas de lien télécom)`+dcFromTxt(res)+(res.from==='stale'?` — réseau : ${friendlyErr(res.err)}`:''));
     if(res.from==='stale'){ towerErrAt=Date.now(); towerErrDelay=Math.min(Math.round(towerErrDelay*1.5),300000); } else{ towerErrAt=null; towerErrDelay=30000; }
   }catch(e){
     towerMsg='indispo'; towerErrAt=Date.now(); towerErrDelay=Math.min(Math.round(towerErrDelay*1.5),300000); logNet('Tours',false,friendlyErr(e));
