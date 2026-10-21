@@ -370,7 +370,7 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-21 · zoom au pincement, 5 miroirs Overpass, structure BD TOPO · 2026-10-21 · repères/tours OSM en tuiles + tours ANFR, crêtes intérieures du relief · 2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const APP_VERSION='2026-10-21 · relief : secours AWS par tuile (Italie / hors Mapterhorn) · 2026-10-21 · zoom au pincement, 5 miroirs Overpass, structure BD TOPO · 2026-10-21 · repères/tours OSM en tuiles + tours ANFR, crêtes intérieures du relief · 2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,ridges:true,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
@@ -1252,29 +1252,61 @@ let reliefStats={checked:0,hidden:0,unknown:0};
 // expliquer, dans le panneau de diagnostic, TOUTES les raisons de non-affichage — pas seulement le
 // relief (seul cas deja visible avant ce correctif, cf. retour terrain du 28/09/2026)
 let placeStats={eligible:0,shown:0,ghost:0,noRoom:0,capped:0};
-async function loadTileData(z,x,y,urlFn,ts,guaranteed){
-  const url=urlFn(z,x,y);
-  let resp=null, fromCache=false, cache=null;
-  try{ if(window.caches){ cache=await caches.open(TCACHE); resp=await cache.match(url); if(resp) fromCache=true; } }catch(e){}
+// 21/10/2026 (pas de relief en Italie) : une tuile Mapterhorn absente (404/403) ou en echec n'est plus remplacee par "niveau de la mer" ni
+// abandonnee : on la reconstitue a partir des tuiles Terrarium AWS (SRTM/Copernicus ~30 m, couverture mondiale dont toute l'Europe) du
+// zoom z+1 — 4 tuiles de 256 px = exactement l'emprise d'une tuile Mapterhorn de 512 px. Le "niveau de la mer" n'est retenu que si AWS
+// n'a rien non plus. Les tuiles de secours sont comptees (alt) et affichees dans le journal Terrain.
+async function fetchTileBitmap(url,cacheName){
+  let resp=null, cache=null;
+  try{ if(window.caches){ cache=await caches.open(cacheName); resp=await cache.match(url); } }catch(e){}
+  let fromCache=!!resp;
   if(!resp){
     resp=await fetchT(url,{mode:'cors'},15000);
-    if(resp.status===403||resp.status===404){
-      // bande garantie (couverture mondiale) : un 404 signifie la mer -> tuile "niveau de la mer".
-      // bande d'affinage regionale (non garantie) : un 404 signifie juste "pas de donnee ici" ->
-      // aucune tuile (data:null), pour qu'elevAt retombe sur la bande suivante, plus grossiere.
-      return guaranteed?{data:seaTile(ts),fromCache:false,missing:true,sea:true}:{data:null,fromCache:false,missing:true,sea:false};
-    }
+    if(resp.status===403||resp.status===404) return {missing:true};
     if(!resp.ok) throw new Error('tuile '+resp.status);
     if(cache) try{ await cache.put(url,resp.clone()); }catch(e){}
   }
-  const blob=await resp.blob();
-  let bmp;
+  const blob=await resp.blob(); let bmp;
   try{ bmp=await createImageBitmap(blob,{colorSpaceConversion:'none',premultiplyAlpha:'none'}); } // valeurs brutes, sans gestion de couleur
   catch(e){ bmp=await createImageBitmap(blob); }
-  const cv=document.createElement('canvas'); cv.width=ts; cv.height=ts;
-  const cx=cv.getContext('2d',{willReadFrequently:true}); cx.drawImage(bmp,0,0,ts,ts);
-  if(bmp.close) bmp.close();
-  return {data:cx.getImageData(0,0,ts,ts).data,fromCache};
+  return {bmp,fromCache};
+}
+async function loadTerrariumMosaic(z,x,y){ // tuile 512 px (z,x,y) reconstituee depuis 4 tuiles Terrarium 256 px (z+1)
+  const parts=[]; let got=0, cached=0;
+  for(let dy=0;dy<2;dy++) for(let dx=0;dx<2;dx++){
+    const r=await fetchTileBitmap(TILE_URL_LEGACY(z+1,2*x+dx,2*y+dy),TCACHE); parts.push({r,dx,dy});
+    if(!r.missing){ got++; if(r.fromCache) cached++; }
+  }
+  if(!got) return null; // AWS n'a rien non plus : l'appelant conclut "mer" / "pas de donnee"
+  const cv=document.createElement('canvas'); cv.width=512; cv.height=512;
+  const cx=cv.getContext('2d',{willReadFrequently:true});
+  for(const {r,dx,dy} of parts){
+    if(r.missing){ const s=cx.createImageData(256,256); for(let i=0;i<s.data.length;i+=4){ s.data[i]=128; s.data[i+3]=255; } cx.putImageData(s,dx*256,dy*256); continue; } // quart manquant : niveau de la mer
+    cx.drawImage(r.bmp,dx*256,dy*256,256,256); if(r.bmp.close) r.bmp.close();
+  }
+  return {data:cx.getImageData(0,0,512,512).data,fromCache:cached===4};
+}
+let hrErrRun=0;
+async function loadTileData(z,x,y,urlFn,ts,guaranteed){
+  const url=urlFn(z,x,y);
+  let r=null, err=null;
+  if(urlFn===TILE_URL_HR&&hrErrRun>=4) err=new Error('Mapterhorn injoignable'); // 4 echecs reseau de suite : on ne perd plus 15 s par tuile, repli de session (hrDown) immediat
+  else{ try{ r=await fetchTileBitmap(url,TCACHE); if(r.bmp) hrErrRun=0; }catch(e){ err=e; if(urlFn===TILE_URL_HR) hrErrRun++; } }
+  if(r&&r.bmp){
+    const cv=document.createElement('canvas'); cv.width=ts; cv.height=ts;
+    const cx=cv.getContext('2d',{willReadFrequently:true}); cx.drawImage(r.bmp,0,0,ts,ts);
+    if(r.bmp.close) r.bmp.close();
+    return {data:cx.getImageData(0,0,ts,ts).data,fromCache:r.fromCache};
+  }
+  // Mapterhorn : tuile ABSENTE (404/403, hors couverture) -> reconstituee depuis AWS (meme emprise), avant de conclure "mer" / "pas de donnee".
+  // Panne reseau (err) : on remonte l'erreur, et c'est le repli de session (hrDown -> bandes AWS, bien moins de tuiles) qui prend le relais.
+  if(!err&&urlFn===TILE_URL_HR&&ts===512){
+    try{ const m=await loadTerrariumMosaic(z,x,y); if(m) return {...m,alt:true}; }catch(e){ err=e; }
+  }
+  if(err) throw err;
+  // 403/404 sans secours possible. Bande garantie (couverture mondiale) : mer -> tuile "niveau de la mer".
+  // Bande d'affinage regionale (non garantie) : juste "pas de donnee ici" -> aucune tuile, elevAt retombe sur la bande suivante.
+  return guaranteed?{data:seaTile(ts),fromCache:false,missing:true,sea:true}:{data:null,fromCache:false,missing:true,sea:false};
 }
 async function computeTerrain(force){
   if(!pos||terrainBusy) return;
@@ -1290,13 +1322,13 @@ async function computeTerrain(force){
     // raffinement fin (2e passe, le relief proche) qui prend le plus de temps a charger.
     const farJobs=allJobs.filter(j=>j.b.guaranteed), nearJobs=allJobs.filter(j=>!j.b.guaranteed);
     const nGuaranteed=farJobs.length;
-    let done=0, cached=0, failed=0, failedGuaranteed=0, missingSea=0, missingHR=0;
+    let done=0, cached=0, failed=0, failedGuaranteed=0, missingSea=0, missingHR=0, altAws=0;
     const runJobs=async(jobs)=>{
       let next=0;
       const worker=async()=>{ while(next<jobs.length){ const j=jobs[next++];
         try{
           const r=await loadTileData(j.b.z,j.x,j.y,urlFn,j.b.ts,j.b.guaranteed);
-          j.b.tiles[j.idx]=r.data; if(r.fromCache) cached++;
+          j.b.tiles[j.idx]=r.data; if(r.fromCache) cached++; if(r.alt) altAws++;
           if(r.missing){ if(r.sea) missingSea++; else missingHR++; }
         }catch(e){ failed++; if(j.b.guaranteed) failedGuaranteed++; }
         done++; reliefState=skylineState=`tuiles ${done}/${allJobs.length}`; } };
@@ -1307,7 +1339,7 @@ async function computeTerrain(force){
       return pm; };
     const finalLog=()=>{
       const srcTxt=S.reliefV1?'AWS/SRTM ~30 m (moteur v1, comparaison)':(hrDown?'AWS/SRTM ~30 m (repli)':'Mapterhorn (IGN ~1 m proche, Copernicus 30 m au-dela)');
-      const gapsTxt=[missingSea?`${missingSea} en mer`:'',missingHR?`${missingHR} hors couverture regionale (repli local)`:''].filter(Boolean).join(', ');
+      const gapsTxt=[altAws?`${altAws} reconstituée(s) depuis AWS/Terrarium (absentes de Mapterhorn)`:'',missingSea?`${missingSea} en mer`:'',missingHR?`${missingHR} hors couverture regionale (repli local)`:''].filter(Boolean).join(', ');
       logNet('Terrain',!failed,`${allJobs.length} tuiles ${srcTxt} (${cached} en cache${gapsTxt?`, ${gapsTxt}`:''}${failed?`, ${failed} en echec — nouvel essai dans 30 s`:''}), ${Math.round(performance.now()-t0)} ms, observateur a ${Math.round(obsElev)} m`);
     };
 
