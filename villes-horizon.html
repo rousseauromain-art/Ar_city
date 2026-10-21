@@ -256,6 +256,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   </div>
   <div class="row">
     <label for="sky">Ligne d'horizon (aide au calage)</label><input type="checkbox" id="sky">
+    <label for="rdg">Crêtes intérieures (relief en plusieurs plans, avec leur distance)</label><input type="checkbox" id="rdg">
     <span class="hint" id="skyInfo">Dessine la silhouette théorique du relief : comparez-la à l'horizon réel pour caler, utile face à une île ou une côte sans repère net.</span>
   </div>
   <div class="row zbtns">
@@ -369,8 +370,8 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
-const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
+const APP_VERSION='2026-10-21 · repères/tours OSM en tuiles + tours ANFR, crêtes intérieures du relief · 2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,ridges:true,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
@@ -431,7 +432,7 @@ function loadSettings(){
   try{
     const raw=localStorage.getItem(PKEY); if(!raw) return;
     const saved=JSON.parse(raw);
-    for(const k of ['radius','camFov','hamlets','relief','reliefV1','obsHeight','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','beyond','telecom','telecomMax','buildings','buildingsMax','chipsFold'])
+    for(const k of ['radius','camFov','hamlets','relief','reliefV1','obsHeight','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','ridges','beyond','telecom','telecomMax','buildings','buildingsMax','chipsFold'])
       if(saved[k]!==undefined) S[k]=saved[k];
     if(saved.poi) Object.assign(S.poi,saved.poi);
     if(saved.layers) Object.assign(S.layers,saved.layers);
@@ -442,8 +443,8 @@ function saveSettings(){
   clearTimeout(saveSettingsT);
   saveSettingsT=setTimeout(()=>{
     try{
-      const {radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}=S;
-      localStorage.setItem(PKEY,JSON.stringify({radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}));
+      const {radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,ridges,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}=S;
+      localStorage.setItem(PKEY,JSON.stringify({radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,ridges,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}));
     }catch(e){}
   },300);
 }
@@ -1386,6 +1387,48 @@ function skylineDistAt(brg){
   return _skyDist[Math.round((((brg%360)+360)%360)/BSTEP)%NB];
 }
 
+
+// ---------- cretes interieures (relief multi-plans, facon PeakFinder) ----------
+// Le masque cumule terrain.pm[i][k] (angle max rencontre jusqu'a TDIST[k], par relevement) contient deja
+// toutes les cretes : le terrain n'est vu que la ou le masque MONTE. Une montee, puis un palier (terrain
+// cache derriere), puis une nouvelle montee nettement plus loin = une crete qui se detache d'un plan plus
+// lointain. Aucune donnee ni requete en plus : calcule une fois par relief, puis chaine de relevement en
+// relevement en lignes (meme distance a ±18 %, meme angle a ±0,8°).
+const RIDGE_EPS=1e-4, RIDGE_MIN_KM=0.35, RIDGE_GAP=1.25;
+let _ridges=null, _ridgesAt=0;
+function ridgePoints(row){ // fins de montee suivies d'un plan plus lointain ; la derniere (silhouette finale) est exclue
+  const K=row.length, out=[], up=k=>row[k]>row[k-1]+RIDGE_EPS; let k=1;
+  while(k<K){
+    while(k<K&&!up(k)) k++; if(k>=K) break;
+    while(k<K&&up(k)) k++;
+    const ke=k-1; let kn=k; while(kn<K&&!up(kn)) kn++;
+    if(kn>=K) break;
+    const d=TDIST[ke], dn=TDIST[kn];
+    if(d>=RIDGE_MIN_KM&&dn>=d*RIDGE_GAP) out.push({a:row[ke],d,g:dn/d});
+    k=kn;
+  }
+  return out;
+}
+const fkmR=d=>d<10?d.toFixed(1):String(Math.round(d));
+function ridgeLines(){
+  if(!terrain||!terrain.pm) return [];
+  if(_ridgesAt===terrain.at&&_ridges) return _ridges;
+  const P=new Array(NB); for(let i=0;i<NB;i++) P[i]=ridgePoints(terrain.pm[i]);
+  const lines=[];
+  for(let i=0;i<NB;i++){
+    const prev=i?P[i-1]:[];
+    for(const p of P[i]){
+      let best=null, bs=1e9;
+      for(const q of prev){ if(q.taken) continue; const dl=Math.abs(Math.log(p.d/q.d)), da=Math.abs(p.a-q.a); if(dl<0.18&&da<0.8){ const s=dl*4+da; if(s<bs){ bs=s; best=q; } } }
+      if(best){ best.taken=true; p.line=best.line; } else { p.line={pts:[]}; lines.push(p.line); }
+      p.line.pts.push({i,a:p.a,d:p.d,g:p.g});
+    }
+  }
+  const med=v=>{ const s=v.slice().sort((x,y)=>x-y); return s[s.length>>1]; };
+  for(const L of lines){ L.d=med(L.pts.map(p=>p.d)); L.g=med(L.pts.map(p=>p.g)); L.len=L.pts.length*BSTEP; }
+  _ridges=lines.filter(L=>L.pts.length>=3).sort((x,y)=>y.d-x.d); _ridgesAt=terrain.at; return _ridges;
+}
+
 // ---------- trafic en direct : avions (OpenSky) et bateaux (AISStream) ----------
 let planes=[], ships=new Map(), obsElev=0, obsGround=null, tMsg={air:'',sea:''};
 function fmtObsH(v){ return (v>0?'+':v<0?'−':'')+Math.abs(v)+' m'; }
@@ -1456,27 +1499,31 @@ async function pollSea(){
   }catch(e){ tMsg.sea='indispo'; logNet('AISStream',false,'relais : '+friendlyErr(e)); }
 }
 // ---------- pylones et points hauts telecom (France uniquement, source ANFR via le relais) ----------
-const TEL_DC_TTL=7*86400000, TEL_DC_CELL=0.05; let telBypass=false;
+const TEL_DC_TTL=7*86400000, TEL_DC_CELL=0.05, TEL_MON_KM=12; let telBypass=false;
+// 21/10/2026 : les supports ANFR (hauteur, nature, proprietaire) alimentent aussi les tours-monuments, calque Pylones decoche ou non (source
+// officielle, independante d'Overpass). Rayon demande : celui du calque s'il est actif, au moins TEL_MON_KM si les monuments sont actifs.
+const telR=()=>Math.max(S.telecom?S.telecomMax:0,S.layers.monuments?TEL_MON_KM:0)||S.telecomMax;
+const telWanted=()=>S.telecom||!!S.layers.monuments;
 // derniere reponse ANFR proche de la position (cases de 0,05° ~ 5 km, on regarde les 9 voisines) : valable 7 jours
 async function telDcFind(ttl=TEL_DC_TTL){
-  const ci=Math.round(pos.lat/TEL_DC_CELL), cj=Math.round(pos.lon/TEL_DC_CELL), tol=Math.max(1,S.telecomMax*0.3); let best=null;
+  const ci=Math.round(pos.lat/TEL_DC_CELL), cj=Math.round(pos.lon/TEL_DC_CELL), tol=Math.max(1,telR()*0.3); let best=null;
   for(let a=-1;a<=1;a++) for(let b=-1;b<=1;b++){
     const z=await dcGet(`tel/${ci+a},${cj+b}`,ttl); if(!z) continue;
     let e; try{ e=await z.r.json(); }catch(x){ continue; }
-    if(!e||!e.pos||!e.j||!(e.rad>=S.telecomMax)) continue;
+    if(!e||!e.pos||!e.j||!(e.rad>=telR())) continue;
     const d=distBrg(pos,e.pos).dist; if(d<tol&&(!best||d<best.d)) best={d,t:z.t,j:e.j};
   }
   return best;
 }
 function telDcSave(j){
   const k=`tel/${Math.round(pos.lat/TEL_DC_CELL)},${Math.round(pos.lon/TEL_DC_CELL)}`;
-  dcPut(k,JSON.stringify({pos:{lat:pos.lat,lon:pos.lon},rad:S.telecomMax,j}),'application/json').then(()=>dcPrune('tel/',30));
+  dcPut(k,JSON.stringify({pos:{lat:pos.lat,lon:pos.lon},rad:telR(),j}),'application/json').then(()=>dcPrune('tel/',30));
 }
 let telecomIndoor=0, telecomSites=[], telecomAt=null, telecomBusy=false, telecomErrAt=null, telecomErrDelay=30000, tMsg2={telecom:''}, telecomHits=[];
 async function pollTelecom(){
-  if(!S.telecom||!pos||document.hidden||telecomBusy) return; // re-entrance : un appel en cours suffit
+  if(!telWanted()||!pos||document.hidden||telecomBusy) return; // re-entrance : un appel en cours suffit
   if(!relayBase()){ tMsg2.telecom='relais requis'; return; }
-  if(telecomAt&&distBrg(pos,telecomAt).dist<Math.max(1,S.telecomMax*0.3)) return; // deja couvert par une reponse recente : deplacement insuffisant
+  if(telecomAt&&distBrg(pos,telecomAt).dist<Math.max(1,telR()*0.3)) return; // deja couvert par une reponse recente : deplacement insuffisant
   if(telecomErrAt&&Date.now()-telecomErrAt<telecomErrDelay) return; // echec recent (ex. ANFR en panne) : on patiente avant de reessayer, meme immobile
   // ce 2e garde-fou manquait auparavant : tant qu'ANFR echouait, telecomAt n'etait jamais mis a jour
   // (il ne l'est qu'en cas de succes, juste en dessous) et rien ne limitait plus les tentatives, d'ou
@@ -1488,7 +1535,7 @@ async function pollTelecom(){
     if(dc) j=dc.j;
     else{
       try{
-        const r=await fetchT(`${relayBase()}/telecom?lat=${pos.lat.toFixed(5)}&lon=${pos.lon.toFixed(5)}&radius_km=${S.telecomMax}`,{},20000);
+        const r=await fetchT(`${relayBase()}/telecom?lat=${pos.lat.toFixed(5)}&lon=${pos.lon.toFixed(5)}&radius_km=${telR()}`,{},20000);
         try{ j=await r.json(); }catch(e){}
         if(!r.ok||j.anfrOk===false) throw new Error(j.error||('HTTP '+r.status));
         dcStat('tel','net'); telDcSave(j);
@@ -1512,8 +1559,8 @@ async function pollTelecom(){
           ops:opsOf(s.operators), g5:has5G(s.operators) };
       }).filter(Boolean);
       telecomIndoor=indoor;
-      recompute(); telecomAt={...pos}; tMsg2.telecom=telecomSites.length+' site(s)'+(indoor?` (+${indoor} en intérieur/tunnel ignorés)`:'')+(j.radius_eff?` dans ${String(j.radius_eff).replace('.',',')} km (zone dense)`:'')+dcTxt;
-      logNet('ANFR',true,`${telecomSites.length} site(s) telecom, ${(j.communes||[]).length} commune(s), rayon ${S.telecomMax} km`+(j.radius_eff?` · zone dense : rayon ramene a ${j.radius_eff} km pour tout recevoir`:'')+(j.route?` · route ANFR : ${j.route}`:'')+(j.truncated?' · liste tronquee':'')+(j.cache?' (cache relais)':'')+dcTxt);
+      telecomAt={...pos}; towerMonsKey=null; monumentSites=monCombine(); recompute(); tMsg2.telecom=telecomSites.length+' site(s)'+(indoor?` (+${indoor} en intérieur/tunnel ignorés)`:'')+(j.radius_eff?` dans ${String(j.radius_eff).replace('.',',')} km (zone dense)`:'')+dcTxt;
+      logNet('ANFR',true,`${telecomSites.length} site(s) telecom, ${(j.communes||[]).length} commune(s), rayon ${telR()} km`+(j.radius_eff?` · zone dense : rayon ramene a ${j.radius_eff} km pour tout recevoir`:'')+(j.route?` · route ANFR : ${j.route}`:'')+(j.truncated?' · liste tronquee':'')+(j.cache?' (cache relais)':'')+dcTxt);
     }
     if(telStale){ telecomAt=null; telecomErrAt=Date.now(); telecomErrDelay=Math.min(Math.round(telecomErrDelay*1.5),300000); } // secours : on retentera le reseau
     else{ telecomErrAt=null; telecomErrDelay=30000; } // succes : le recul est remis a zero
@@ -1887,7 +1934,7 @@ function monMerged(R){ // union dedoublonnee des tuiles chargees (les tuiles Wik
   return out;
 }
 async function loadMonuments(force){
-  if(S.layers.monuments&&pos&&!document.hidden) loadTowers(!!force); // les tours TDF / telecom sont des monuments (bloc plus bas)
+  if(S.layers.monuments&&pos&&!document.hidden){ loadTowers(!!force); pollTelecom(); } // les tours TDF / telecom sont des monuments (bloc plus bas)
   if(!S.layers.monuments||!pos||monBusy||document.hidden) return;
   const R=monRadius();
   if(!force&&monAt&&distBrg(pos,monAt).dist<R*0.25) return;
@@ -2018,11 +2065,67 @@ function parseTowers(j){
   }
   return got;
 }
+
+// ---------- OSM repères hauts / tours : UNE source commune, en tuiles fixes (21/10/2026) ----------
+// Avant : 2 grosses requêtes (tours sur 39 km autour de la position exacte, repères sur 12 km) qui expiraient sur les 3 serveurs et
+// bloquaient la file Overpass. Maintenant : le monde est découpé en tuiles fixes ; chaque tuile est une petite requête (quelques
+// centaines d'objets), gardée 14 jours, partagée par les tours ET les repères. Se déplacer ne charge que les tuiles nouvelles, une tuile
+// en échec n'empêche pas les autres, les plus proches d'abord.
+//  - proche (<= F km) : tuiles de 0,1° x 0,14° (~11 km), tous les tours/mâts/châteaux d'eau/cheminées ;
+//  - lointain (F..R km) : tuiles de 0,3° x 0,42° (~33 km), seulement les vraies tours télécom (ce qu'on voit à cette distance).
+const OT_TTL=14*86400000, OT_KEEP=[...TW_TAGS,'building:levels'], OT_NEAR=[0.1,0.14], OT_FAR=[0.3,0.42];
+const OT_ALL='^(tower|communications_tower|water_tower|chimney|mast)$';
+function otParse(j){
+  const out=[], seen=new Set();
+  for(const n of (j.elements||[])){
+    const lat=n.lat??(n.center&&n.center.lat), lon=n.lon??(n.center&&n.center.lon); if(lat==null||lon==null||!n.tags) continue;
+    const id=n.type+'/'+n.id; if(seen.has(id)) continue; seen.add(id);
+    const tags={}; for(const k of OT_KEEP) if(n.tags[k]!=null) tags[k]=n.tags[k];
+    for(const k in n.tags) if(k.startsWith('communication:')&&Object.keys(tags).length<30) tags[k]=n.tags[k];
+    out.push({type:n.type,id:n.id,lat,lon,tags});
+  }
+  return out;
+}
+function otTiles(g,fromKm,toKm){ // tuiles de la grille g dont la distance a la position est dans [fromKm,toKm], les plus proches d'abord
+  const out=[], dLat=toKm/111.32, dLon=toKm/(111.32*Math.max(0.2,Math.cos(pos.lat*D)));
+  for(let i=Math.floor((pos.lat-dLat)/g[0]);i<=Math.floor((pos.lat+dLat)/g[0]);i++) for(let j=Math.floor((pos.lon-dLon)/g[1]);j<=Math.floor((pos.lon+dLon)/g[1]);j++){
+    const s=i*g[0], w=j*g[1], n=s+g[0], e=w+g[1];
+    const cl={lat:Math.min(n,Math.max(s,pos.lat)),lon:Math.min(e,Math.max(w,pos.lon))}, d=distBrg(pos,cl).dist;
+    const far={lat:pos.lat<(s+n)/2?n:s,lon:pos.lon<(w+e)/2?e:w}, dmax=distBrg(pos,far).dist;
+    if(d<=toKm&&dmax>fromKm) out.push({i,j,s,w,n,e,d});
+  }
+  return out.sort((a,b)=>a.d-b.d);
+}
+const otInflight=new Map();
+function otTile(t,full){
+  const key=`ot1/${full?'n':'f'}/${t.i},${t.j}`;
+  if(otInflight.has(key)) return otInflight.get(key);
+  const bb=`(${t.s.toFixed(4)},${t.w.toFixed(4)},${t.n.toFixed(4)},${t.e.toFixed(4)})`;
+  const q=full
+    ?`[out:json][timeout:20];nwr["man_made"~"${OT_ALL}"]${bb};out center qt;`
+    :`[out:json][timeout:25];(nwr["man_made"="communications_tower"]${bb};nwr["tower:type"="communication"]${bb};nwr["man_made"="mast"]["height"~"^([3-9][0-9]|[0-9]{3,})"]${bb};nwr["man_made"="tower"]["height"~"^([4-9][0-9]|[0-9]{3,})"]${bb};nwr["man_made"~"^(mast|tower)$"]["operator"~"TDF"]${bb};);out center qt;`;
+  const p=dcFetch('ot',key,{ttl:OT_TTL,prune:['ot1/',160],load:()=>overpassQuery(q,full?15000:20000,otParse)}).finally(()=>otInflight.delete(key));
+  otInflight.set(key,p); return p;
+}
+// objets OSM autour de la position : tuiles proches complètes jusqu'à F km, tuiles lointaines télécom jusqu'à R km.
+// Renvoie {els, n, ko, stale, err} ; onStep(els) est appelée après chaque tuile pour afficher au fur et à mesure.
+async function otFetch(F,R,onStep){
+  const near=otTiles(OT_NEAR,0,F), far=R>F?otTiles(OT_FAR,F,R):[], els=new Map(); let ko=0, stale=0, err=null, hit=0, net=0;
+  const jobs=near.map(t=>[t,true]).concat(far.map(t=>[t,false]));
+  for(const [t,full] of jobs){
+    try{ const r=await otTile(t,full); (r.data||[]).forEach(e=>els.set(e.type+'/'+e.id,e)); if(r.from==='stale') stale++; else if(r.from==='cache') hit++; else net++; if(r.err) err=r.err; }
+    catch(e){ ko++; err=e; }
+    if(onStep&&els.size) onStep([...els.values()]);
+    if(ko>=3&&!els.size) break; // serveurs injoignables : inutile d'insister
+  }
+  return {els:[...els.values()],n:jobs.length,ko,stale,hit,net,err};
+}
+const otTxt=r=>`${r.n} tuile(s) : ${r.hit} en mémoire, ${r.net} chargée(s)${r.stale?`, ${r.stale} en secours`:''}${r.ko?`, ${r.ko} en échec`:''}`;
 function nearestLocality(p){ let best=null, bd=8;
   for(const c of cities){ if(c.kind!=='city'&&c.kind!=='town'&&c.kind!=='village') continue; if(Math.abs(c.lat-p.lat)>0.1||Math.abs(c.lon-p.lon)>0.15) continue; const d=distBrg(p,c).dist; if(d<bd){ bd=d; best=c; } }
   return best?best.name:''; }
 function towerMonuments(){
-  if(towerMonsKey&&towerMonsKey.raw===towerRaw&&towerMonsKey.cities===cities) return towerMons;
+  if(towerMonsKey&&towerMonsKey.raw===towerRaw&&towerMonsKey.cities===cities&&towerMonsKey.tel===telecomSites) return towerMons;
   const R=monRadius();
   towerMons=!pos?[]:towerRaw.filter(t=>t.rel!==false&&distBrg(pos,t).dist<=R).map(t=>{
     const tg=t.tags, tdf=isTdf(tg), h=parseFloat(tg.height), hOk=isFinite(h)&&h>0;
@@ -2033,7 +2136,22 @@ function towerMonuments(){
       links:MON_LOW_LINKS,prot:false,htWd:null,htOsm:hOk?h:null,ht:hOk?h:(MON_DEF_H.tour||40),
       types:'tour de télécommunications (OpenStreetMap)'+(tdf?' · exploitant TDF':''),why:'tour TDF / télécom (OpenStreetMap)'};
   });
-  towerMonsKey={raw:towerRaw,cities}; return towerMons;
+  // supports ANFR (pylones, mats hauts) non deja presents dans OSM a moins de 120 m
+  if(pos&&S.layers.monuments){
+    const osmT=towerMons.slice();
+    for(const s of telecomSites){
+      if(s.icon!=='pylone'&&s.icon!=='mat') continue;
+      const h=+s.height_m, hOk=isFinite(h)&&h>0;
+      if(s.icon==='pylone'?(hOk&&h<20):!(hOk&&h>=30)) continue;
+      if(s.dist>R||osmT.some(t=>Math.abs(t.lat-s.lat)<0.002&&Math.abs(t.lon-s.lon)<0.003&&distBrg(t,s).dist<0.12)) continue;
+      const tdf=isTdf({operator:s.owner}), loc=nearestLocality(s), place=loc, base=s.icon==='mat'?'Mât':'Tour';
+      towerMons.push({name:`${base}${tdf?' TDF':''}${place?' · '+place:''}${hOk?` (${Math.round(h)} m)`:''}`,lat:s.lat,lon:s.lon,kind:'monument',cat:'monument',qid:null,src:'osm',anfr:true,osm:null,
+        tdf,loc,tags:{operator:s.owner||'',height:hOk?String(h):'',man_made:s.icon==='mat'?'mast':'tower'},type:'tour',unnamed:false,hint:'',
+        links:MON_LOW_LINKS,prot:false,htWd:null,htOsm:hOk?h:null,ht:hOk?h:(MON_DEF_H.tour||40),
+        types:'support télécom (ANFR)'+(s.owner?' · '+s.owner:''),why:'support télécom référencé par l\'ANFR'});
+    }
+  }
+  towerMonsKey={raw:towerRaw,cities,tel:telecomSites}; return towerMons;
 }
 // monuments Wikidata + tours OSM ; une tour deja connue de Wikidata (monument a moins de 150 m) n'est pas doublee
 function monCombine(){
@@ -2043,20 +2161,16 @@ function monCombine(){
 async function loadTowers(force){
   if(!S.layers.monuments||!pos||towerBusy||document.hidden) return;
   const R=monRadius();
-  if(!force&&towerAt&&distBrg(pos,towerAt).dist<R*0.25) return;
+  if(!force&&towerAt&&distBrg(pos,towerAt).dist<R*0.2) return;
   if(!force&&towerErrAt&&Date.now()-towerErrAt<towerErrDelay) return;
-  towerBusy=true; towerMsg='recherche…';
+  towerBusy=true; towerMsg='recherche…'; const here={...pos};
   try{
-    const pc={lat:Math.round(pos.lat/TW_CELL)*TW_CELL,lon:Math.round(pos.lon/TW_CELL)*TW_CELL}, rq=Math.ceil(R+TW_CELL*111*0.75), r=rq*1000, C=`${pc.lat.toFixed(4)},${pc.lon.toFixed(4)}`;
-    const q=`[out:json][timeout:25];(`
-      +`nwr["man_made"~"^(communications_tower|mast|tower)$"](around:${r},${C});` // meme base que les reperes hauts ; le tri telecom se fait dans towerRel
-      +`);out center qt;`;
-    const res=await dcFetch('tw',`tw2/${pc.lat.toFixed(1)},${pc.lon.toFixed(1)}/${rq}`,{ttl:TW_TTL,prune:['tw2/',30],load:()=>overpassQuery(q,20000,parseTowers)});
-    towerRaw=res.data; towerMonsKey=null; towerAt=res.from==='stale'?null:{...pos};
-    monumentSites=monCombine(); citiesVer++; recompute(); markBuildingDupes();
-    const n=towerMonuments().length, rd=towerRaw.length, skip=towerRaw.filter(t=>t.rel===false).length; towerMsg=`${n} tour(s)`+dcFromTxt(res);
-    logNet('Tours',res.from!=='stale',`${n} tour(s) retenue(s) dans ${R} km sur ${rd} objets OSM (tower/mast/communications_tower), ${skip} écartés (pas de lien télécom)`+dcFromTxt(res)+(res.from==='stale'?` — réseau : ${friendlyErr(res.err)}`:''));
-    if(res.from==='stale'){ towerErrAt=Date.now(); towerErrDelay=Math.min(Math.round(towerErrDelay*1.5),300000); } else{ towerErrAt=null; towerErrDelay=30000; }
+    const F=Math.min(12,R), show=els=>{ towerRaw=parseTowers({elements:els.map(e=>({type:e.type,id:e.id,lat:e.lat,lon:e.lon,tags:e.tags}))}); towerMonsKey=null; monumentSites=monCombine(); citiesVer++; recompute(); markBuildingDupes(); };
+    const r=await otFetch(F,R,show); show(r.els);
+    const n=towerMonuments().length, rd=towerRaw.length, skip=towerRaw.filter(t=>t.rel===false).length; towerMsg=`${n} tour(s)`+(r.ko?` · ${r.ko} tuile(s) manquante(s)`:'');
+    const bad=r.ko>0&&!r.els.length;
+    logNet('Tours',!bad&&r.ko===0,`${n} tour(s) retenue(s) dans ${R} km sur ${rd} objets OSM (${skip} écartés : pas de lien télécom) · ${otTxt(r)}`+(r.err&&(r.ko||r.stale)?` — réseau : ${friendlyErr(r.err)}`:''));
+    if(r.ko||r.stale){ towerErrAt=Date.now(); towerErrDelay=Math.min(Math.round(towerErrDelay*1.5),300000); if(r.ko&&!r.els.length) towerAt=null; else towerAt=here; } else{ towerErrAt=null; towerErrDelay=30000; towerAt=here; }
   }catch(e){
     towerMsg='indispo'; towerErrAt=Date.now(); towerErrDelay=Math.min(Math.round(towerErrDelay*1.5),300000); logNet('Tours',false,friendlyErr(e));
   }
@@ -2268,33 +2382,35 @@ function parseBuildings(j){
 //  3. immeubles hauts en requete SEPAREE, au mieux : son echec ne fait plus perdre les tours ;
 //  4. echec total : on reutilise la derniere memoire connue (meme ancienne) plutot que "indispo".
 const BLD_TTL=3*864e5, BLD_TTL_PARTIAL=6*36e5;
-const bldKey=r=>`bld/${pos.lat.toFixed(2)},${pos.lon.toFixed(2)},${r}`;
 function bldMerge(a,b){ const seen=new Set(), out=[]; for(const x of a.concat(b)){ const k=x.name+'@'+x.lat.toFixed(4)+','+x.lon.toFixed(4); if(!seen.has(k)){ seen.add(k); out.push(x); } } return out; }
+const BLD_HEAVY_KM=5; // immeubles hauts : requete lourde (scan des "building"), limitee aux 5 km les plus proches
 async function pollBuildings(){
   if(!S.buildings||!pos||buildingsBusy||document.hidden) return;
   if(buildingsAt&&distBrg(pos,buildingsAt).dist<Math.max(1,S.buildingsMax*0.3)) return; // deja couvert
   if(buildingsErrAt&&Date.now()-buildingsErrAt<buildingsErrDelay) return; // echec recent : on patiente avant de reessayer
   buildingsBusy=true; bMsg.buildings='recherche…';
-  const r=Math.round(S.buildingsMax*1000), C=`${pos.lat},${pos.lon}`, here={...pos};
+  const km=S.buildingsMax, here={...pos};
   const apply=(list,note)=>{ buildingSites=list; recompute(); markBuildingDupes(); buildingsAt=here; bMsg.buildings=list.length+' repere(s)'+(note||''); };
+  const lightOf=els=>parseBuildings({elements:els.filter(e=>distBrg(here,e).dist<=km)});
   try{
-    const res=await dcFetch('bld',bldKey(r),{ttl:BLD_TTL,ttlOf:d=>d.partial?BLD_TTL_PARTIAL:BLD_TTL,prune:['bld/',40],load:async()=>{
-      const qLight=`[out:json][timeout:25];(`
-        +`nwr["man_made"~"^(tower|communications_tower|water_tower|chimney|mast)$"](around:${r},${C});`
-        +`);out center qt;`;
-      const qHeavy=`[out:json][timeout:25];(`
-        +`nwr["building"]["height"](if:t["height"]>30)(around:${r},${C});`
-        +`nwr["building"]["building:levels"](if:t["building:levels"]>9)(around:${r},${C});`
-        +`);out center qt;`;
-      const light=await overpassQuery(qLight,15000,parseBuildings);
-      let heavy=[], partial=false;
-      try{ heavy=await overpassQuery(qHeavy,15000,parseBuildings); }catch(e){ partial=true; logNet('OSM (reperes)',false,'immeubles hauts indisponibles (tours et mâts conservés) : '+friendlyErr(e)); }
-      return {list:bldMerge(light,heavy),partial};
-    }});
-    const d=res.data, note=(d.partial?' · sans immeubles':'')+(res.from==='net'?'':res.from==='cache'?' · mémoire':` · mémoire d'il y a ${dcAgo(res.t)}`);
-    apply(d.list,note);
-    logNet('OSM (reperes)',res.from!=='stale',`${d.list.length} repere(s) haut(s), rayon ${S.buildingsMax} km${d.partial?' (immeubles hauts non chargés)':''}`+dcFromTxt(res)+(res.from==='stale'?` — réseau : ${friendlyErr(res.err)}`:''));
-    if(res.from==='stale'){ buildingsAt=null; buildingsErrAt=Date.now(); buildingsErrDelay=Math.min(Math.round(buildingsErrDelay*1.5),300000); } // on retentera (attente progressive)
+    // 1. tours, mats, chateaux d'eau, cheminees : tuiles OSM communes avec les monuments (memoire 14 j)
+    const r=await otFetch(km,km,els=>{ if(!buildingSites.length) apply(lightOf(els),' · chargement…'); });
+    const light=lightOf(r.els);
+    if(r.ko&&!r.els.length) throw (r.err||new Error('aucune tuile'));
+    // 2. immeubles hauts : requete separee, au mieux ; son echec ne fait pas perdre les tours
+    let heavy=[], partial=r.ko>0;
+    const hr=Math.round(Math.min(km,BLD_HEAVY_KM)*1000), C=`${here.lat.toFixed(2)},${here.lon.toFixed(2)}`;
+    try{
+      const hres=await dcFetch('bld',`bldh/${C}/${hr}`,{ttl:BLD_TTL,prune:['bldh/',40],load:()=>overpassQuery(`[out:json][timeout:20];(`
+        +`nwr["building"]["height"](if:t["height"]>30)(around:${hr},${here.lat.toFixed(4)},${here.lon.toFixed(4)});`
+        +`nwr["building"]["building:levels"](if:t["building:levels"]>9)(around:${hr},${here.lat.toFixed(4)},${here.lon.toFixed(4)});`
+        +`);out center qt;`,15000,parseBuildings)});
+      heavy=hres.data;
+    }catch(e){ partial=true; logNet('OSM (reperes)',false,'immeubles hauts indisponibles (tours et mâts conservés) : '+friendlyErr(e)); }
+    const list=bldMerge(light,heavy);
+    apply(list,(partial?' · sans immeubles':'')+(r.stale?' · mémoire de secours':''));
+    logNet('OSM (reperes)',!partial&&!r.stale,`${list.length} repere(s) haut(s), rayon ${km} km · ${otTxt(r)}`+(partial?' (immeubles hauts non chargés)':'')+(r.err&&(r.ko||r.stale)?` — réseau : ${friendlyErr(r.err)}`:''));
+    if(r.ko||r.stale){ buildingsErrAt=Date.now(); buildingsErrDelay=Math.min(Math.round(buildingsErrDelay*1.5),300000); if(r.ko) buildingsAt=null; }
     else{ buildingsErrAt=null; buildingsErrDelay=30000; }
   }catch(e){
     bMsg.buildings='indispo'; logNet('OSM (reperes)',false,friendlyErr(e));
@@ -2307,13 +2423,13 @@ function startTraffic(){
   clearInterval(airTimer); clearInterval(seaTimer); airTimer=seaTimer=null;
   if(S.air){ pollAir(); airTimer=setInterval(pollAir,relayBase()?20000:60000); }
   if(S.sea){ pollSea(); seaTimer=setInterval(pollSea,30000); }
-  if(S.telecom) pollTelecom();
+  if(telWanted()) pollTelecom();
   if(S.buildings) pollBuildings();
 }
 function syncTraffic(){
   if(!S.air){ planes=[]; tMsg.air=''; }
   if(!S.sea){ ships.clear(); tMsg.sea=''; }
-  if(!S.telecom){ telecomSites=[]; telecomAt=null; tMsg2.telecom=''; }
+  if(!telWanted()){ telecomSites=[]; telecomAt=null; tMsg2.telecom=''; }
   if(!S.buildings){ buildingSites=[]; buildingsAt=null; bMsg.buildings=''; }
   startTraffic();
 }
@@ -2618,6 +2734,49 @@ function draw(ts){
       }
     }
     ctx.lineCap='butt';
+  }
+
+
+  // cretes interieures (relief multi-plans) : lignes plus fines que la silhouette finale, teinte et opacite
+  // selon la distance (proche = creme, nette ; lointaine = bleutee, discrete : perspective atmospherique).
+  // Densite reglee par l'oeil : Essentiel = cretes principales (vrai decrochement de plan, >= 4°) ;
+  // Tout voir = toutes les cretes.
+  if(S.skyline&&terrain&&S.ridges!==false){
+    const L0=ridgeLines(), minG=S.beyond?1.25:1.6, minLen=S.beyond?1.5:4, minD=S.beyond?RIDGE_MIN_KM:1, hf=Math.atan((W/2)/fh)/D+4;
+    const col=d=>{ const t=Math.min(1,Math.max(0,Math.log(d/1.5)/Math.log(30/1.5))); const m=(a,b)=>Math.round(a+(b-a)*t); return [m(243,190),m(233,214),m(210,240)]; };
+    const tags=[];
+    ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round';
+    for(const L of L0){
+      if(L.g<minG||L.len<minLen||L.d<minD) continue;
+      const runs=[]; let cur=[];
+      for(const p of L.pts){
+        const dB=((p.i*BSTEP-heading+540)%360)-180;
+        if(Math.abs(dB)>hf){ if(cur.length) runs.push(cur); cur=[]; continue; }
+        cur.push({x:W/2+fh*Math.tan(dB*D),y:H/2+fh*Math.tan((pitch-p.a)*D)});
+      }
+      if(cur.length) runs.push(cur);
+      const [r,g,b]=col(L.d), lw=L.d<3?1.4:L.d<12?1.2:1.0, al=L.d<3?.9:L.d<12?.8:.7;
+      for(const run of runs){ if(run.length<2) continue;
+        const tr=()=>{ ctx.beginPath(); ctx.moveTo(run[0].x,run[0].y); for(let i=1;i<run.length-1;i++){ ctx.quadraticCurveTo(run[i].x,run[i].y,(run[i].x+run[i+1].x)/2,(run[i].y+run[i+1].y)/2); } ctx.lineTo(run[run.length-1].x,run[run.length-1].y); };
+        tr(); ctx.strokeStyle='rgba(14,26,43,.35)'; ctx.lineWidth=lw+1.8; ctx.stroke();
+        tr(); ctx.strokeStyle=`rgba(${r},${g},${b},${al})`; ctx.lineWidth=lw; ctx.stroke();
+        if(run.length>=6){ let top=run[0]; for(const q of run) if(q.y<top.y) top=q; tags.push({x:top.x,y:top.y,d:L.d,n:run.length,c:[r,g,b]}); }
+      }
+    }
+    // distance de chaque plan (si "distances" active) : UNE pastille par plan (cretes regroupees par distance, a ±25 %),
+    // posee sous le point le plus haut de la plus longue crete du plan ; 4 plans au plus, du plus proche au plus lointain
+    if(S.showDist&&tags.length){
+      ctx.font='600 10px "IBM Plex Mono",monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      const plans=new Map(); for(const t of tags){ const k=Math.round(Math.log(t.d)/Math.log(1.6)); const o=plans.get(k); if(!o||t.n>o.n) plans.set(k,t); }
+      const used=[];
+      for(const t of [...plans.values()].sort((a,b)=>b.n-a.n).slice(0,4)){
+        const s=fkmR(t.d)+' km', w=ctx.measureText(s).width+10, x=Math.max(w/2+6,Math.min(W-w/2-6,t.x)), y=t.y+11;
+        if(used.some(u=>Math.abs(u.x-x)<(w+u.w)/2+4&&Math.abs(u.y-y)<16)) continue; used.push({x,y,w});
+        ctx.fillStyle='rgba(14,26,43,.62)'; ctx.beginPath(); ctx.roundRect(x-w/2,y-7,w,14,7); ctx.fill();
+        ctx.fillStyle=`rgba(${t.c[0]},${t.c[1]},${t.c[2]},.95)`; ctx.fillText(s,x,y+0.5);
+      }
+    }
+    ctx.restore();
   }
 
   // --- lieux : ancres sur le relief (sol du lieu, ou crete qui le laisse entrevoir) ---
@@ -3426,8 +3585,8 @@ function monumentBlock(m,withName){
   return `${withName?`<div class="dbgline" style="font-size:18px;color:#F2C14E;font-weight:700">${dEsc(m.name)}</div>`:''}
     <div class="dbgline">${MON_TYPE_LBL[m.type]||'Monument'} · à ${dKm(m.dist)} km · ${vis}</div>
     <div class="dbgsec">${m.src==='osm'?'Source':'Notoriété'}</div>
-    <div class="dbgline">${m.src==='osm'?`tour référencée dans OpenStreetMap${m.tags&&(m.tags.operator||m.tags.owner)?' · exploitant <b>'+dEsc(m.tags.operator||m.tags.owner)+'</b>':''}${m.loc?' · près de '+dEsc(m.loc):''}`:m.links!=null?`article Wikipédia dans <b>${m.links}</b> langue(s)`:'inconnue (Wikidata injoignable)'}${m.prot?' · <b>monument historique</b> (protégé)':''}</div>
-    ${m.src==='osm'&&m.unnamed?`<div class="dbgsec">Dernière modification OpenStreetMap</div><div class="dbgline osmcs" data-osm="${dEsc(m.osm)}">chargement…</div>`:''}
+    <div class="dbgline">${m.src==='osm'?`${m.anfr?'support télécom référencé par l\'ANFR':'tour référencée dans OpenStreetMap'}${m.tags&&(m.tags.operator||m.tags.owner)?' · exploitant <b>'+dEsc(m.tags.operator||m.tags.owner)+'</b>':''}${m.loc?' · près de '+dEsc(m.loc):''}`:m.links!=null?`article Wikipédia dans <b>${m.links}</b> langue(s)`:'inconnue (Wikidata injoignable)'}${m.prot?' · <b>monument historique</b> (protégé)':''}</div>
+    ${m.src==='osm'&&m.unnamed&&m.osm?`<div class="dbgsec">Dernière modification OpenStreetMap</div><div class="dbgline osmcs" data-osm="${dEsc(m.osm)}">chargement…</div>`:''}
     <div class="dbgsec">Hauteur</div>
     <div class="dbgline">${m.htWd?Math.round(m.htWd)+' m (Wikidata)':m.htOsm?Math.round(m.htOsm)+' m (OpenStreetMap)':eq?'sans importance (icône posée au sol)':`inconnue — ${MON_DEF_H[m.type]||20} m supposés pour le relief`}</div>
     <div class="dbgsec">Classement</div>
@@ -3624,6 +3783,7 @@ $('relv1').onchange=e=>{S.reliefV1=e.target.checked;saveSettings();computeTerrai
 $('obsH').oninput=e=>{S.obsHeight=+e.target.value;$('obsHV').textContent=fmtObsH(S.obsHeight);updateObsInfo();saveSettings();};
 $('obsH').onchange=()=>{ if(terrainBusy) terrainRedo=true; else computeTerrain(true); };
 $('sky').onchange=e=>{S.skyline=e.target.checked;saveSettings();if(S.skyline)computeTerrain(false);};
+$('rdg').onchange=e=>{S.ridges=e.target.checked;saveSettings();};
 $('btnSky').onclick=async()=>{
   const b=$('btnSky'); const orig=b.textContent; b.disabled=true; b.textContent='Calcul…';
   hrDown=false; // redonne sa chance a Mapterhorn (l'echec precedent etait peut-etre transitoire)
@@ -3864,13 +4024,13 @@ $('lyUrbFill').onchange=e=>{ S.layers.urbFill=e.target.checked; saveSettings(); 
 $('lyTel').onchange=e=>{ $('tel').checked=e.target.checked; $('tel').onchange({target:$('tel')}); if(S.telecom) pollTelecom(); syncLayersPanel(); };
 $('lyBld').onchange=e=>{ $('bld').checked=e.target.checked; $('bld').onchange({target:$('bld')}); if(S.buildings) pollBuildings(); syncLayersPanel(); };
 syncLayersPanel();
-$('btnReload').onclick=()=>{dcForceT=Date.now()+90000; if(S.buildings){ buildingsAt=null; buildingsErrAt=null; pollBuildings(); } if(typeof loadTowers==='function') loadTowers(true); loadCities(true);computeTerrain(true);if(S.layers.monuments) loadMonuments(true); if(S.telecom){ telBypass=true; telecomAt=null; telecomErrAt=null; pollTelecom(); } if(S.layers.urban){ urbTiles.clear(); loadUrban(true); }};
+$('btnReload').onclick=()=>{dcForceT=Date.now()+90000; if(S.buildings){ buildingsAt=null; buildingsErrAt=null; pollBuildings(); } if(typeof loadTowers==='function') loadTowers(true); loadCities(true);computeTerrain(true);if(S.layers.monuments) loadMonuments(true); if(telWanted()){ telBypass=true; telecomAt=null; telecomErrAt=null; pollTelecom(); } if(S.layers.urban){ urbTiles.clear(); loadUrban(true); }};
 
 // reflete les reglages charges (localStorage) sur les controles au demarrage
 (function syncControlsFromS(){
   $('rad').value=S.radius; $('radV').textContent=S.radius+' km';
   $('fov').value=S.camFov; showFov();
-  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('relv1').checked=S.reliefV1; $('dst').checked=S.showDist; $('sky').checked=S.skyline;
+  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('relv1').checked=S.reliefV1; $('dst').checked=S.showDist; $('sky').checked=S.skyline; $('rdg').checked=S.ridges!==false;
   $('obsH').value=S.obsHeight; $('obsHV').textContent=fmtObsH(S.obsHeight); updateObsInfo();
   $('air').checked=S.air; $('sea').checked=S.sea; $('tel').checked=S.telecom; $('bld').checked=S.buildings;
   document.querySelector('.chips').classList.toggle('folded',S.chipsFold);
@@ -3946,7 +4106,7 @@ $('go').onclick=async()=>{
   appStarted=true;
   await startCamera();
   if(navigator.geolocation){
-    navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); computeTerrain(false); if(S.telecom) pollTelecom(); if(S.buildings) pollBuildings(); if(S.layers.monuments) loadMonuments(false); if(S.layers.urban) loadUrban(false); },
+    navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); computeTerrain(false); if(telWanted()) pollTelecom(); if(S.buildings) pollBuildings(); if(S.layers.monuments) loadMonuments(false); if(S.layers.urban) loadUrban(false); },
       err=>{ setStatus('GPS refusé : '+err.message); }, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
   } else setStatus('GPS indisponible');
   startTraffic();
