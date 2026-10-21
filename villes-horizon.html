@@ -230,7 +230,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   </div>
   <div class="row">
     <label for="fov">Champ de la caméra</label><span class="val" id="fovV">67°</span>
-    <input type="range" id="fov" min="45" max="100" step="0.5" value="67">
+    <input type="range" id="fov" min="20" max="110" step="0.5" value="67">
     <span class="hint">Angle du côté large du capteur (~67° pour un objectif principal standard). L'app en déduit le champ réellement affiché selon l'orientation et le recadrage. Le calage auto l'ajuste ; sinon, si deux lieux connus paraissent trop écartés ou trop serrés, corrigez ici.</span>
   </div>
   <div class="row">
@@ -363,14 +363,14 @@ const CARD=['N','NE','E','SE','S','SO','O','NO'];
 // miroirs Overpass publics mondiaux (wiki OSM, 09/2026) : overpass.kumi.systems est devenu
 // overpass.private.coffee (doublon retire) ; VK Maps ajoute (sans limite annoncee) ; le serveur
 // principal, signale "surcharge", passe en dernier recours
-const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter','https://overpass-api.de/api/interpreter'];
+const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps.mail.ru/osm/tools/overpass/api/interpreter','https://overpass-api.de/api/interpreter','https://overpass.openstreetmap.fr/api/interpreter','https://overpass.kumi.systems/api/interpreter']; // 5 miroirs independants (21/10/2026 : les 3 premiers ont expire ensemble)
 
 /* Cles d'API : voir config.js (fichier separe, non ecrase par les mises a jour).
    Si config.js est absent, les avions restent disponibles en acces anonyme
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-21 · repères/tours OSM en tuiles + tours ANFR, crêtes intérieures du relief · 2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const APP_VERSION='2026-10-21 · zoom au pincement, 5 miroirs Overpass, structure BD TOPO · 2026-10-21 · repères/tours OSM en tuiles + tours ANFR, crêtes intérieures du relief · 2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
 const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,ridges:true,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
@@ -2073,7 +2073,7 @@ function parseTowers(j){
 // en échec n'empêche pas les autres, les plus proches d'abord.
 //  - proche (<= F km) : tuiles de 0,1° x 0,14° (~11 km), tous les tours/mâts/châteaux d'eau/cheminées ;
 //  - lointain (F..R km) : tuiles de 0,3° x 0,42° (~33 km), seulement les vraies tours télécom (ce qu'on voit à cette distance).
-const OT_TTL=14*86400000, OT_KEEP=[...TW_TAGS,'building:levels'], OT_NEAR=[0.1,0.14], OT_FAR=[0.3,0.42];
+const OT_FAST_MS=9000, OT_TTL=14*86400000, OT_KEEP=[...TW_TAGS,'building:levels'], OT_NEAR=[0.1,0.14], OT_FAR=[0.3,0.42];
 const OT_ALL='^(tower|communications_tower|water_tower|chimney|mast)$';
 function otParse(j){
   const out=[], seen=new Set();
@@ -2104,7 +2104,7 @@ function otTile(t,full){
   const q=full
     ?`[out:json][timeout:20];nwr["man_made"~"${OT_ALL}"]${bb};out center qt;`
     :`[out:json][timeout:25];(nwr["man_made"="communications_tower"]${bb};nwr["tower:type"="communication"]${bb};nwr["man_made"="mast"]["height"~"^([3-9][0-9]|[0-9]{3,})"]${bb};nwr["man_made"="tower"]["height"~"^([4-9][0-9]|[0-9]{3,})"]${bb};nwr["man_made"~"^(mast|tower)$"]["operator"~"TDF"]${bb};);out center qt;`;
-  const p=dcFetch('ot',key,{ttl:OT_TTL,prune:['ot1/',160],load:()=>overpassQuery(q,full?15000:20000,otParse)}).finally(()=>otInflight.delete(key));
+  const p=dcFetch('ot',key,{ttl:OT_TTL,prune:['ot1/',160],load:()=>overpassQuery(q,full?OT_FAST_MS:12000,otParse)}).finally(()=>otInflight.delete(key));
   otInflight.set(key,p); return p;
 }
 // objets OSM autour de la position : tuiles proches complètes jusqu'à F km, tuiles lointaines télécom jusqu'à R km.
@@ -2116,7 +2116,7 @@ async function otFetch(F,R,onStep){
     try{ const r=await otTile(t,full); (r.data||[]).forEach(e=>els.set(e.type+'/'+e.id,e)); if(r.from==='stale') stale++; else if(r.from==='cache') hit++; else net++; if(r.err) err=r.err; }
     catch(e){ ko++; err=e; }
     if(onStep&&els.size) onStep([...els.values()]);
-    if(ko>=3&&!els.size) break; // serveurs injoignables : inutile d'insister
+    if(ko>=1&&!els.size) break; // tous les miroirs ont echoue sur la 1re tuile : Overpass est injoignable, inutile d'insister (le recul prend le relais)
   }
   return {els:[...els.values()],n:jobs.length,ko,stale,hit,net,err};
 }
@@ -2189,7 +2189,7 @@ function markBuildingDupes(){
 // terrain etant suppose plat entre soi et le batiment (limite de cette premiere version : pas de relief).
 // Les polygones ne sont gardes que sous forme de tableaux compacts (Float64Array) : ~20 Mo pour 40 tuiles.
 const URB_Z=15, URB_R_KM=2.5, URB_NB=720, URB_TPL='https://data.geopf.fr/tms/1.0.0/BDTOPO/{z}/{x}/{y}.pbf';
-let urbTiles=new Map(), urbBusy=false, urbAt=null, urbErrAt=null, urbErrDelay=30000, urbMsg='', urbAng=null, urbDist=null, urbVer=0, urbRelay=false, urbStats={}, urbLayersSeen='';
+let urbStruct='', urbTiles=new Map(), urbBusy=false, urbAt=null, urbErrAt=null, urbErrDelay=30000, urbMsg='', urbAng=null, urbDist=null, urbVer=0, urbRelay=false, urbStats={}, urbLayersSeen='';
 function featureMVTRings(f){ // anneaux d'un POLYGONE (type 3) ; les trous (enroulement oppose au 1er anneau) sont ecartes
   if(f.type!==3) return [];
   const cmds=f.geometry, rings=[]; let x=0,y=0,i=0,cur=null;
@@ -2319,7 +2319,9 @@ async function loadUrban(force){
     if(todo.length){ urbMsg=`tuiles ${ok}/${tiles.length}…`;
       const worker=async()=>{ while(todo.length){ const t=todo.shift();
         try{ const buf=await urbFetchTile(t); bytes+=buf.length;
-          if(buf.length&&!urbLayersSeen) urbLayersSeen=mvtLayerNames(buf).join(', ')||'(aucune)';
+          if(buf.length&&!urbLayersSeen){ urbLayersSeen=mvtLayerNames(buf).join(', ')||'(aucune)';
+            try{ const all=decodeMVTTile(buf); urbStruct=Object.entries(all).map(([n,L])=>{ const ks=L.keys||[], nat=ks.indexOf('nature'); let vals=''; if(nat>=0){ const s=new Set(); for(const f of L.features){ for(let i=0;i<f.tags.length;i+=2) if(f.tags[i]===nat) s.add(L.values[f.tags[i+1]]); if(s.size>=8) break; } vals=' · nature : '+[...s].join(' / '); }
+              return `${n} (${L.features.length} objet(s), champs : ${ks.join(', ')||'aucun'}${vals})`; }).join('<br>'); }catch(e){ urbStruct='lecture impossible : '+e.message; } }
           urbTiles.set(t.key,urbDecodeTile(buf,t)); ok++; }
         catch(e){ ko++; errs.push(`${t.key} : ${friendlyErr(e)}`); if(!ok&&ko>=3){ todo.length=0; } }
         urbMsg=`tuiles ${ok}/${tiles.length}${ko?` (${ko} en echec)`:''}…`;
@@ -3473,11 +3475,25 @@ function showUserSheet(t,grp){
 
 // ---------- calage au doigt ----------
 let drag=null;
-ov.addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,t:Date.now(),h:S.headOff,p:S.pitchOff,moved:false}; ov.setPointerCapture(e.pointerId); });
-ov.addEventListener('pointermove',e=>{ if(!drag) return; const fh=(W/2)/Math.tan(vFov()/2*D);
+// ZOOM AU PINCEMENT (21/10/2026, comme PeakFinder) : deux doigts agrandissent/reduisent le trace par rapport a l'image de la camera,
+// ce qui revient a regler le champ de vision (camFov) a la volee — un ultra grand-angle, un zoom x2 ou un autre telephone n'ont pas le meme.
+// Ecarter = trace plus grand (champ plus etroit). Reglage retenu, visible dans Reglages (curseur « Champ de vision »).
+const ptrs=new Map(); let pinch=null;
+const FOV_MIN=20, FOV_MAX=110;
+ov.addEventListener('pointerdown',e=>{ ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY}); ov.setPointerCapture(e.pointerId);
+  if(ptrs.size===2){ const [a,b]=[...ptrs.values()]; pinch={d0:Math.hypot(a.x-b.x,a.y-b.y)||1,t0:Math.tan(S.camFov/2*D)}; drag=null; return; }
+  if(ptrs.size>2) return;
+  drag={x:e.clientX,y:e.clientY,t:Date.now(),h:S.headOff,p:S.pitchOff,moved:false}; });
+ov.addEventListener('pointermove',e=>{
+  if(ptrs.has(e.pointerId)) ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch&&ptrs.size>=2){ const [a,b]=[...ptrs.values()]; const r=(Math.hypot(a.x-b.x,a.y-b.y)||1)/pinch.d0;
+    S.camFov=Math.round(Math.max(FOV_MIN,Math.min(FOV_MAX,2*Math.atan(pinch.t0/r)/D))*2)/2; $('fov').value=S.camFov; showFov(); note(`Champ de vision ${S.camFov}° (affiché ${Math.round(vFov())}°)`,1200); return; }
+  if(!drag) return; const fh=(W/2)/Math.tan(vFov()/2*D);
   if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>8) drag.moved=true;
   S.headOff=drag.h-Math.atan((e.clientX-drag.x)/fh)/D; S.pitchOff=drag.p+Math.atan((e.clientY-drag.y)/fh)/D; });
 ov.addEventListener('pointerup',e=>{
+  const wasPinch=!!pinch; ptrs.delete(e.pointerId);
+  if(wasPinch){ if(ptrs.size<2){ pinch=null; saveSettings(); } drag=null; return; } // fin de pincement : ni tap, ni glisser
   if(drag&&!drag.moved&&Date.now()-drag.t<450){
     S.headOff=drag.h; S.pitchOff=drag.p;
     if(pointMode){ setPointMode(false); pointCalibrate(e.clientX,e.clientY); }
@@ -3486,7 +3502,7 @@ ov.addEventListener('pointerup',e=>{
   else saveSettings();
   drag=null;
 });
-ov.addEventListener('pointercancel',()=>drag=null);
+ov.addEventListener('pointercancel',e=>{ ptrs.delete(e.pointerId); if(ptrs.size<2) pinch=null; drag=null; });
 
 // ---------- calage par pointage (Lot 3) ----------
 // active un mode "un seul appui" : le prochain appui simple sur l'image (pas un glisser) est
@@ -3747,6 +3763,7 @@ function renderDebug(){
     ${S.layers.monuments&&monStats.nMon!=null?`<div class="dbgline">tri Wikidata : ${monStats.nMon} monument(s), ${monStats.nEq} équipement(s), ${monStats.nExcl} écarté(s)${wdStats.tiles?` · tuiles ${wdStats.ok}/${wdStats.tiles}${wdStats.truncated?`, ${wdStats.truncated} très dense(s)`:''}${wdStats.legacy?' · ANCIEN MODE (relais à mettre à jour)':''}`:''}</div>
     ${monExcl.length?`<div class="dbgline">plus connus écartés : ${monExcl.slice(0,8).map(x=>`${x.name.replace(/[<&]/g,'')} (${x.links} l., ${(x.types||'sans classe').replace(/[<&]/g,'').slice(0,30)})`).join(' ; ')}</div>`:''}`:''}
     <div class="dbgline">silhouette batiments : ${S.layers.urban?(urbMsg||'en attente')+retryHint(urbErrAt,urbErrDelay)+(urbLayersSeen?` · couches : ${urbLayersSeen}`:''):'calque desactive (bouton Calques)'}</div>
+    ${urbStruct?`<div class="dbgline" style="opacity:.8">structure des tuiles BD TOPO (couches et champs, sans valeurs) :<br>${urbStruct}</div>`:''}
     <div class="dbgline">equipements : etiquettes ${infraStats.deck==='bas'?'sous':'au-dessus de'} l'horizon · ${infraStats.labeled} nommes, ${infraStats.iconOnly} en icone seule</div>
     <div class="dbgline">pylônes telecom : ${S.telecom?(tMsg2.telecom||'en attente')+retryHint(telecomErrAt,telecomErrDelay)+` (${telecomSites.length} en memoire)`:'desactive (Reglages → Pylônes)'}</div>
     <div class="dbgline">reperes hauts (OSM) : ${S.buildings?(bMsg.buildings||'en attente')+retryHint(buildingsErrAt,buildingsErrDelay)+` (${buildingSites.length} en memoire)`:'desactive (Reglages → Tours, clochers…)'}</div>
