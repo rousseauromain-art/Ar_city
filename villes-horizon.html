@@ -263,6 +263,8 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   <div class="row">
     <label for="sky">Ligne d'horizon (aide au calage)</label><input type="checkbox" id="sky">
     <label for="phv">Visibilité d'après la photo (on ne nomme que ce que la caméra voit)</label><input type="checkbox" id="phv">
+    <label for="acal">Calage automatique sur les repères vus (tours, clochers, crêtes)</label><input type="checkbox" id="acal">
+    <label for="gyr">Cap stabilisé au gyroscope (ne se décale plus en tournant)</label><input type="checkbox" id="gyr">
     <label for="rdg">Crêtes intérieures (relief en plusieurs plans, avec leur distance)</label><input type="checkbox" id="rdg">
     <span class="hint" id="skyInfo">Dessine la silhouette théorique du relief : comparez-la à l'horizon réel pour caler, utile face à une île ou une côte sans repère net.</span>
   </div>
@@ -377,8 +379,8 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-22 (c) · visibilité d\'après la photo : on ne nomme que ce que la caméra voit (silhouette réelle), nom calé sur la pointe visible · 2026-10-22 (b) · un monument caché derrière un plus proche (même direction) passe en Tout voir · 2026-10-22 · Turin : monuments posés sur le relief devant eux, crêtes filtrées, sonde dans l\'axe, priorité à ce qu\'on voit (bâtiments hauts OSM), relief 200 km et sommets lointains, calage du zoom, sol/étage, position simulée · 2026-10-21 · relief : secours AWS par tuile (Italie / hors Mapterhorn) · 2026-10-21 · zoom au pincement, 5 miroirs Overpass, structure BD TOPO · 2026-10-21 · repères/tours OSM en tuiles + tours ANFR, crêtes intérieures du relief · 2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
-const S={photoVis:true,simOn:false,simPos:'',radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,ridges:true,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
+const APP_VERSION='2026-10-22 (d) · cap stabilisé au gyroscope, calage automatique continu sur les repères vus (cap + zoom), règle de la photo étendue aux lieux · 2026-10-22 (c) · visibilité d\'après la photo : on ne nomme que ce que la caméra voit (silhouette réelle), nom calé sur la pointe visible · 2026-10-22 (b) · un monument caché derrière un plus proche (même direction) passe en Tout voir · 2026-10-22 · Turin : monuments posés sur le relief devant eux, crêtes filtrées, sonde dans l\'axe, priorité à ce qu\'on voit (bâtiments hauts OSM), relief 200 km et sommets lointains, calage du zoom, sol/étage, position simulée · 2026-10-21 · relief : secours AWS par tuile (Italie / hors Mapterhorn) · 2026-10-21 · zoom au pincement, 5 miroirs Overpass, structure BD TOPO · 2026-10-21 · repères/tours OSM en tuiles + tours ANFR, crêtes intérieures du relief · 2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const S={gyro:true,autoCal:true,photoVis:true,simOn:false,simPos:'',radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,ridges:true,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
@@ -439,7 +441,7 @@ function loadSettings(){
   try{
     const raw=localStorage.getItem(PKEY); if(!raw) return;
     const saved=JSON.parse(raw);
-    for(const k of ['photoVis','simOn','simPos','radius','camFov','hamlets','relief','reliefV1','obsHeight','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','ridges','beyond','telecom','telecomMax','buildings','buildingsMax','chipsFold'])
+    for(const k of ['gyro','autoCal','photoVis','simOn','simPos','radius','camFov','hamlets','relief','reliefV1','obsHeight','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','ridges','beyond','telecom','telecomMax','buildings','buildingsMax','chipsFold'])
       if(saved[k]!==undefined) S[k]=saved[k];
     if(saved.poi) Object.assign(S.poi,saved.poi);
     if(saved.layers) Object.assign(S.layers,saved.layers);
@@ -450,8 +452,8 @@ function saveSettings(){
   clearTimeout(saveSettingsT);
   saveSettingsT=setTimeout(()=>{
     try{
-      const {photoVis,simOn,simPos,radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,ridges,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}=S;
-      localStorage.setItem(PKEY,JSON.stringify({photoVis,simOn,simPos,radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,ridges,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}));
+      const {gyro,autoCal,photoVis,simOn,simPos,radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,ridges,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}=S;
+      localStorage.setItem(PKEY,JSON.stringify({gyro,autoCal,photoVis,simOn,simPos,radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,ridges,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}));
     }catch(e){}
   },300);
 }
@@ -539,12 +541,15 @@ function recompute(){ if(!pos) return; for(const c of cities){ const r=distBrg(p
 
 // ---------- capteurs d'orientation ----------
 let gotAbs=false;
-function onOrient(e,abs){
-  if(e.alpha==null||e.beta==null||e.gamma==null) return;
-  let alpha=e.alpha;
-  if(typeof e.webkitCompassHeading==='number'&&!isNaN(e.webkitCompassHeading)){ alpha=360-e.webkitCompassHeading; abs=true; }
-  if(abs) gotAbs=true; else if(gotAbs) return;
-  const a=alpha*D,b=e.beta*D,g=e.gamma*D;
+// CAP GYROSCOPIQUE (G, 22/10/2026 : "quand je change d'orientation, ca se decale") : la boussole (magnetometre) se trompe differemment selon
+// la direction visee (pierre, metal, voitures autour). On suit donc les rotations au GYROSCOPE (orientation relative : insensible au
+// magnetisme, derive lente) et le magnetometre ne sert plus qu'a fixer le nord : ecart boussole - gyroscope moyenne PAR DIRECTION
+// (12 secteurs de 30°), puis entre directions -> l'erreur qui depend de la direction s'annule. Apres un calage (a la main ou automatique),
+// la boussole est mise en pause : le calage reste vrai quand on tourne.
+let svAbs=null, srAbs=null, svRel=null, srRel=null, relT=0, gyroK=null, gyroKT=0, magPauseUntil=0;
+const magBins=new Array(12).fill(null);
+function camAxes(alpha,beta,gamma){
+  const a=alpha*D,b=beta*D,g=gamma*D;
   const cA=Math.cos(a),sA=Math.sin(a),cB=Math.cos(b),sB=Math.sin(b),cG=Math.cos(g),sG=Math.sin(g);
   // colonnes = axes de l'appareil exprimés dans le repère Est/Nord/Haut
   const x=[cA*cG-sA*sB*sG, cG*sA+cA*sB*sG, -cB*sG];
@@ -553,20 +558,46 @@ function onOrient(e,abs){
   const v=[-z[0],-z[1],-z[2]]; // axe de la caméra arrière
   const ang=(screen.orientation&&screen.orientation.angle)??window.orientation??0;
   const r= ang===90?y : (ang===270||ang===-90)?y.map(k=>-k) : ang===180?x.map(k=>-k) : x; // axe "droite de l'écran"
-  const k=0.18;
-  sv=sv?sv.map((p,i)=>p+(v[i]-p)*k):v; sr=sr?sr.map((p,i)=>p+(r[i]-p)*k):r;
-  sensor=true;
+  return {v,r};
 }
+const yawOf=v=>(Math.atan2(v[0],v[1])/D+360)%360;
+function onOrient(e,abs){
+  if(e.alpha==null||e.beta==null||e.gamma==null) return;
+  const k=0.18, sm=(p,n)=>p?p.map((q,i)=>q+(n[i]-q)*k):n;
+  const ios=typeof e.webkitCompassHeading==='number'&&!isNaN(e.webkitCompassHeading);
+  if(ios||abs){ const A=camAxes(ios?360-e.webkitCompassHeading:e.alpha,e.beta,e.gamma); svAbs=sm(svAbs,A.v); srAbs=sm(srAbs,A.r); gotAbs=true; }
+  if(ios||!abs){ const R=camAxes(e.alpha,e.beta,e.gamma); svRel=sm(svRel,R.v); srRel=sm(srRel,R.r); relT=Date.now(); } // iOS : alpha brut = gyroscope
+  sv=svAbs||svRel; sr=svAbs?srAbs:srRel; sensor=true;
+  gyroLearn();
+}
+const gyroOn=()=>S.gyro!==false&&svRel&&svAbs&&gyroK!=null&&Date.now()-relT<1500;
+function gyroLearn(){ // ecart boussole - gyroscope, par secteur de direction ; gyroK = cap du repere gyroscopique
+  if(!svAbs||!svRel||Date.now()-relT>1500) return;
+  const ya=yawOf(svAbs), yr=yawOf(svRel), diff=wrap(ya-yr), now=Date.now(), bi=Math.floor(ya/30)%12, b=magBins[bi];
+  magBins[bi]=b?{v:b.v+wrap(diff-b.v)*0.05,t:now,n:b.n+1}:{v:diff,t:now,n:1};
+  let sx=0, sy=0; for(const q of magBins) if(q){ const w=Math.exp(-(now-q.t)/600000); sx+=w*Math.cos(q.v*D); sy+=w*Math.sin(q.v*D); }
+  const target=Math.atan2(sy,sx)/D;
+  if(gyroK==null){ gyroK=target; gyroKT=now; return; }
+  const dt=Math.min(1,(now-gyroKT)/1000); gyroKT=now;
+  if(now<magPauseUntil) return; // calage recent : la boussole ne le defait pas
+  const d=wrap(target-gyroK), step=0.5*dt; gyroK+=Math.max(-step,Math.min(step,d)); // au plus 0,5°/s
+}
+function noteCalib(ms){ magPauseUntil=Math.max(magPauseUntil,Date.now()+(ms||600000)); }
+function gyroStatus(){ const nb=magBins.filter(Boolean); if(!svRel) return 'boussole seule (gyroscope non fourni par le navigateur)';
+  if(!svAbs) return 'gyroscope seul (pas de nord magnétique)';
+  const vals=nb.map(q=>q.v), spread=vals.length>1?Math.max(...vals.map(a=>Math.max(...vals.map(b=>Math.abs(wrap(a-b)))))):0;
+  return `${S.gyro===false?'boussole seule (gyroscope désactivé)':'gyroscope + boussole'} · ${nb.length}/12 direction(s) apprise(s) · écart de la boussole selon la direction : ${spread.toFixed(1)}°${Date.now()<magPauseUntil?` · boussole en pause (calage il y a moins de ${Math.ceil((magPauseUntil-Date.now())/60000)} min)`:''}`; }
 window.addEventListener('deviceorientationabsolute',e=>onOrient(e,true));
 window.addEventListener('deviceorientation',e=>onOrient(e,e.absolute===true));
 
 function pose(){
   if(!sensor) return {heading:(S.headOff+360)%360,pitch:S.pitchOff,roll:0};
-  const n=Math.hypot(...sv)||1, v=sv.map(k=>k/n);
-  const heading=(Math.atan2(v[0],v[1])/D+S.headOff+360)%360;
+  const g=gyroOn(), vv=g?svRel:sv, rr=g?srRel:sr;
+  const n=Math.hypot(...vv)||1, v=vv.map(k=>k/n);
+  const heading=(Math.atan2(v[0],v[1])/D+(g?gyroK:0)+S.headOff+720)%360;
   const pitch=Math.asin(Math.max(-1,Math.min(1,v[2])))/D+S.pitchOff;
-  const nr=Math.hypot(...sr)||1;
-  const roll=Math.asin(Math.max(-1,Math.min(1,sr[2]/nr)))/D;
+  const nr=Math.hypot(...rr)||1;
+  const roll=Math.asin(Math.max(-1,Math.min(1,rr[2]/nr)))/D;
   return {heading,pitch,roll};
 }
 
@@ -2698,14 +2729,15 @@ function visibleCities(){
         if(o){ c.far=true; c.near=false; c.occBy=o.name; tooFarForKind++; farList.push(c); continue; } }
       if(c.far||(S.relief&&terrain&&c.hidden)) continue;
       occ.push({name:c.name,dist:c.dist,brg:c.brg,top:top(c),bot:base(c),hw:Math.atan2((MON_W[c.type]||20)/2,Math.max(30,c.dist*1000))/D}); } }
+  // 22/10/2026 : la regle de la photo s'applique aussi aux LIEUX (quartiers, villes, sommets lointains caches derriere les facades)
   { const fresh=photoFresh(), eye=1.6+(S.obsHeight||0);
-    for(const c of _visCache){ if(c.kind!=='monument'||c.cat==='equip') continue; c.photoHid=false;
+    for(const c of _visCache){ if(c.cat==='equip') continue; const mon=c.kind==='monument'; c.photoHid=false;
       if(!fresh){ c.photo=null; c._snapDB=0; continue; }
-      const aTop=c.aP!=null&&S.relief&&terrain?c.aP:Math.atan2((c.ht||20)-eye,Math.max(30,c.dist*1000))/D;
-      const r=photoCheck(c,aTop); c.photo=r?r.vis:null; if(!r) continue;
-      if(r.vis){ c._snapDB=r.snap!=null?(c._snapDB||0)*0.6+r.snap*0.4:(c._snapDB||0)*0.6;
-        if(c.far&&(c.roof||c.occBy)&&!c.cap){ c.far=false; c.roof=false; c.occBy=null; } } // vu sur la photo : affiche, quoi qu'en disent les regles
-      else if(!c.far&&!(S.relief&&terrain&&c.hidden)){ c.far=true; c.near=false; c.photoHid=true; c._snapDB=0; tooFarForKind++; farList.push(c); } } }
+      const aTop=c.aP!=null&&S.relief&&terrain?c.aP:Math.atan2((mon?(c.ht||20):(c.ht??HT[c.kind]??12))-eye,Math.max(30,c.dist*1000))/D;
+      const r=photoCheck(c,aTop); c.photo=r?(r.state==='vis'?true:r.state==='hid'?false:null):null; if(!r) continue;
+      if(r.state==='vis'){ if(mon){ c._snapDB=r.snap!=null?(c._snapDB||0)*0.6+r.snap*0.4:(c._snapDB||0)*0.6;
+        if(c.far&&(c.roof||c.occBy)&&!c.cap){ c.far=false; c.roof=false; c.occBy=null; } } } // vu sur la photo : affiche, quoi qu'en disent les regles
+      else if(r.state==='hid'&&!c.far&&!(S.relief&&terrain&&c.hidden)){ c.far=true; c.near=false; c.photoHid=true; c._snapDB=0; tooFarForKind++; farList.push(c); } } }
   const beforeDup=_visCache.length;
   // OSM decrit parfois un meme lieu par plusieurs objets (ile + sommet, commune + centre...) :
   // on garde le plus significatif (deja trie en tete) et on ecarte les homonymes a moins de 2 km
@@ -3695,7 +3727,7 @@ ov.addEventListener('pointerup',e=>{
     if(pointMode){ setPointMode(false); pointCalibrate(e.clientX,e.clientY); }
     else showTelecomDetail(e.clientX,e.clientY);
   }
-  else saveSettings();
+  else { saveSettings(); if(drag&&drag.moved) noteCalib(); }
   drag=null;
 });
 ov.addEventListener('pointercancel',e=>{ ptrs.delete(e.pointerId); if(ptrs.size<2) pinch=null; drag=null; });
@@ -3724,7 +3756,7 @@ function pointCalibrate(px,py){
   }
   if(!best||bestDiff>12){ note('aucun lieu connu proche de cet endroit : visez un repère plus net, ou vérifiez son nom dans Réglages'); return null; }
   const corr=wrap(best.brg-brgTap);
-  S.headOff+=corr; saveSettings();
+  S.headOff+=corr; saveSettings(); noteCalib();
   note(`calé sur « ${best.name} » (${best.dist.toFixed(1)} km) · cap corrigé de ${corr>=0?'+':''}${corr.toFixed(1)}°`);
   return best;
 }
@@ -3968,6 +4000,9 @@ function renderDebug(){
     <div class="dbgline">${lastShown} lieux affiches (source : ${source}) · GPS ${pos?'±'+Math.round(acc||0)+' m':'en attente'}</div>
     <div class="dbgsec">Visibilité d'après la photo</div>
     <div class="dbgline">${S.photoVis===false?'désactivée (Réglages)':!camOK?'caméra indisponible : règles estimées seulement':!photoSky?'en attente de la première image':photoSky.ok?`silhouette lue il y a ${Math.round((Date.now()-photoSky.t)/1000)} s sur ${photoSky.cols.length} colonnes (ciel ${Math.round(photoSky.skyFrac*100)} % du haut de l'image) · ${monumentSites.filter(m=>m.photo===true).length} monument(s) vus, ${monumentSites.filter(m=>m.photoHid).length} cachés`:`ciel illisible (${Math.round((photoSky.skyFrac||0)*100)} % du haut de l'image) : règles estimées seulement`}</div>
+    <div class="dbgsec">Cap et calage automatique</div>
+    <div class="dbgline">cap : ${gyroStatus()}</div>
+    <div class="dbgline">calage auto : ${S.autoCal===false?'désactivé (Réglages)':autoCal.msg}${autoCal.nOk?` · ${autoCal.nOk} calage(s) réussi(s)`:''}</div>
     <div class="dbgsec">Dans l'axe (centre de l'écran)</div>
     ${axisProbeHtml()}
     <div class="dbgsec">Pourquoi certains lieux ne s'affichent pas</div>
@@ -4031,6 +4066,8 @@ $('relv1').onchange=e=>{S.reliefV1=e.target.checked;saveSettings();computeTerrai
 $('obsH').oninput=e=>{S.obsHeight=+e.target.value;$('obsHV').textContent=fmtObsH(S.obsHeight);updateObsInfo();saveSettings();};
 $('obsH').onchange=()=>{ if(terrainBusy) terrainRedo=true; else computeTerrain(true); };
 $('sky').onchange=e=>{S.skyline=e.target.checked;saveSettings();if(S.skyline)computeTerrain(false);};
+$('acal').onchange=e=>{ S.autoCal=e.target.checked; saveSettings(); };
+$('gyr').onchange=e=>{ S.gyro=e.target.checked; saveSettings(); };
 $('phv').onchange=e=>{ S.photoVis=e.target.checked; photoSky=null; citiesVer++; saveSettings(); };
 $('rdg').onchange=e=>{S.ridges=e.target.checked;saveSettings();};
 // POSITION (GPS ou simulee) : un seul point d'entree
@@ -4158,18 +4195,85 @@ function observeSkyline(fr,P,fh){ // -> {ok, skyFrac, cols:[{brg,a,top}]} ; a = 
 }
 function photoSkylineUpdate(frOverride){
   const P=pose(), fh=(W/2)/Math.tan(vFov()/2*D), fr=frOverride||grabFrameRGB(240); if(!fr) return;
-  const r=observeSkyline(fr,P,fh); photoSky={...r,t:Date.now()}; citiesVer++; }
+  const r=observeSkyline(fr,P,fh); photoSky={...r,t:Date.now(),heading:P.heading,pitch:P.pitch,fh}; citiesVer++;
+  try{ autoCalibrate(); }catch(e){} }
+// CALAGE AUTOMATIQUE CONTINU (L, 22/10/2026) : sur la silhouette lue, on cherche les POINTES (sommets locaux nettement plus hauts que
+// leurs voisins) et on les apparie aux REPERES FIABLES connus : tours, clochers, domes, gratte-ciel de hauteur connue, etroits vus d'ici,
+// nets. Chaque appariement propose une correction de cap ; on ne corrige que si au moins 2 reperes concordent (a 0,4° pres), ou 1 seul
+// repere avec une pointe unique et tres nette. Correction douce (60 %, au plus 3° par image). Avec 2 reperes ecartes de 10° ou plus, le
+// zoom (champ de vision) est recale aussi. En montagne, la crete (relief) sert de repere si la photo la suit.
+const AC_PROM=0.8, AC_WIN=8, AC_VTOL=1.5, AC_STEP=3, AC_AGREE=0.4;
+let autoCal={t:0,msg:'en attente',lastLog:0,nOk:0};
+function photoPeaks(ps){
+  const cs=ps.cols.map(c=>({...c,dd:wrap(c.brg-ps.heading)})).sort((a,b)=>a.dd-b.dd), out=[];
+  for(let i=0;i<cs.length;i++){ const c=cs[i]; let isMax=true, mn=c.a;
+    for(const o of cs){ const g=Math.abs(o.dd-c.dd); if(g<=0.8&&o.a>c.a) { isMax=false; break; } if(g<=2&&o.a<mn) mn=o.a; }
+    if(!isMax||c.a-mn<AC_PROM) continue;
+    const top=cs.filter(o=>Math.abs(o.dd-c.dd)<=1.5&&o.a>=c.a-0.3*(c.a-mn)), ctr=top.reduce((s,o)=>s+o.dd,0)/top.length;
+    if(out.some(p=>Math.abs(p.dd-ctr)<0.5)) continue;
+    out.push({dd:ctr,brg:(ps.heading+ctr+360)%360,a:c.a,prom:c.a-mn,w:Math.max(...top.map(o=>o.dd))-Math.min(...top.map(o=>o.dd))}); }
+  return out;
+}
+function landmarksForCal(ps){
+  const eye=1.6+(S.obsHeight||0), half=Math.atan((W/2)/ps.fh)/D-1;
+  return monumentSites.filter(c=>c.cat!=='equip'&&!c.far&&!(S.relief&&terrain&&c.hidden)&&c.dist>=0.15&&c.dist<=20
+      &&(c.htWd||c.htOsm||/^(tour|clocher|dome)$/.test(c.type))&&Math.atan2((MON_W[c.type]||20)/2,c.dist*1000)/D<1.5&&Math.abs(wrap(c.brg-ps.heading))<half)
+    .map(c=>({c,aTop:c.aP!=null&&S.relief&&terrain?c.aP:Math.atan2((c.ht||20)-eye,Math.max(30,c.dist*1000))/D}));
+}
+function autoCalibrate(){
+  if(S.autoCal===false||!photoSky||!photoSky.ok) return;
+  const ps=photoSky, peaks=photoPeaks(ps), lms=landmarksForCal(ps);
+  if(!lms.length){ autoCal.msg='aucun repère fiable (tour, clocher, dôme de hauteur connue) dans le champ'; return; }
+  if(!peaks.length){ autoCal.msg='aucune pointe nette sur la photo'; return; }
+  const hyps=[];
+  for(const L of lms){ const cand=peaks.filter(p=>Math.abs(wrap(p.brg-L.c.brg))<=AC_WIN&&Math.abs(p.a-L.aTop)<=AC_VTOL+Math.abs(ps.pitch-pose().pitch));
+    for(const p of cand) hyps.push({corr:wrap(L.c.brg-p.brg),L,p,uniq:cand.length===1}); }
+  let best=null;
+  for(const h of hyps){ const sup=hyps.filter(o=>Math.abs(wrap(o.corr-h.corr))<AC_AGREE), names=new Set(sup.map(o=>o.L.c.name));
+    const score=names.size*10-sup.reduce((s,o)=>s+Math.abs(wrap(o.corr-h.corr)),0);
+    if(!best||score>best.score) best={h,sup,n:names.size,score}; }
+  let ok=best&&(best.n>=2||(best.n===1&&best.h.uniq&&best.h.p.prom>=2)), supSel=ok?best.sup:null;
+  // zoom faux : les ecarts des reperes ne concordent qu'apres correction du champ -> on teste les paires de reperes ecartes, champ compris
+  const fhOf=cam=>(W/2)/Math.tan(vFovFor(cam)/2*D), impl=(o,cam)=>wrap(o.L.c.brg-Math.atan(Math.tan(o.p.dd*D)*ps.fh/fhOf(cam))/D);
+  if(!ok&&hyps.length>=2){ let bp=null;
+    for(let i=0;i<hyps.length;i++) for(let j=i+1;j<hyps.length;j++){ const a=hyps[i], b=hyps[j]; if(a.L===b.L||Math.abs(a.p.dd-b.p.dd)<8) continue;
+      for(let cam=Math.max(20,S.camFov-12);cam<=Math.min(110,S.camFov+12);cam+=0.5){ const r=Math.abs(wrap(impl(a,cam)-impl(b,cam))); if(!bp||r<bp.r) bp={r,cam,a,b}; } }
+    if(bp&&bp.r<0.2){ const m=impl(bp.a,bp.cam); supSel=hyps.filter(o=>Math.abs(wrap(impl(o,bp.cam)-m))<AC_AGREE); ok=new Set(supSel.map(o=>o.L)).size>=2; } }
+  if(!ok){ autoCal.msg=`${lms.length} repère(s), ${peaks.length} pointe(s) : pas de concordance sûre`; return; }
+  const sup=supSel.filter((o,i,a)=>a.findIndex(q=>q.L===o.L)===i); let corr=sup.reduce((s,o)=>s+o.corr,0)/sup.length;
+  let camTxt='';
+  // zoom : >= 2 reperes ecartes d'au moins 10°
+  if(sup.length>=2){ const dds=sup.map(o=>o.p.dd), span=Math.max(...dds)-Math.min(...dds);
+    if(span>=10){ const xs=sup.map(o=>Math.tan(o.p.dd*D)*ps.fh); let bc=null;
+      const resid=cam=>{ const fh2=(W/2)/Math.tan(vFovFor(cam)/2*D), hs=sup.map((o,i)=>wrap(o.L.c.brg-Math.atan(xs[i]/fh2)/D)); const m=hs.reduce((s,v)=>s+v,0)/hs.length; return {r:Math.sqrt(hs.reduce((s,v)=>s+(v-m)*(v-m),0)/hs.length),m}; };
+      const cur=resid(S.camFov);
+      for(let cam=Math.max(20,S.camFov-10);cam<=Math.min(110,S.camFov+10);cam+=0.5){ const q=resid(cam); if(!bc||q.r<bc.r) bc={...q,cam}; }
+      if(bc&&bc.r<0.25&&bc.r<cur.r*0.7&&Math.abs(bc.cam-S.camFov)>=1){ const nc=Math.round((S.camFov+Math.max(-3,Math.min(3,(bc.cam-S.camFov)*0.5)))*2)/2;
+        camTxt=` · zoom ${S.camFov}° → ${nc}°`; S.camFov=nc; const f=$('fov'); if(f) f.value=nc; showFov(); }
+      if(bc&&bc.r<0.25) corr=wrap(bc.m-ps.heading); } }
+  const step=Math.max(-AC_STEP,Math.min(AC_STEP,corr*0.6));
+  if(Math.abs(corr)>=0.15){ S.headOff+=step; for(const c of ps.cols) c.brg=(c.brg+step+360)%360; ps.heading=(ps.heading+step+360)%360; noteCalib(120000); citiesVer++; }
+  autoCal={...autoCal,t:Date.now(),nOk:autoCal.nOk+1,msg:`calé sur ${sup.map(o=>o.L.c.name).slice(0,3).join(', ')} : écart ${corr>=0?'+':''}${corr.toFixed(1)}°${Math.abs(corr)>=0.15?` (corrigé de ${step.toFixed(1)}°)`:''}${camTxt}`};
+  if(Math.abs(corr)>=1||camTxt||Date.now()-autoCal.lastLog>60000){ autoCal.lastLog=Date.now(); logNet('Calage auto',true,autoCal.msg); }
+  if(Date.now()-(autoCal.saveT||0)>10000){ autoCal.saveT=Date.now(); saveSettings(); }
+}
 const photoFresh=()=>S.photoVis!==false&&photoSky&&photoSky.ok&&Date.now()-photoSky.t<PHOTO_FRESH;
-function photoCheck(c,aTop){ // {vis, snap} ou null si l'objet n'est pas dans l'image lue
-  let mn=Infinity, best=null, inWin=0; const win=[];
-  for(const col of photoSky.cols){ const dd=wrap(col.brg-c.brg); if(Math.abs(dd)<=PHOTO_WIN){ inWin++; if(col.a<mn) mn=col.a; } if(Math.abs(dd)<=PHOTO_SNAP) win.push({dd,a:col.a}); }
+// Etat : 'vis' (le sommet depasse la silhouette lue), 'hid' (sous une silhouette formee par un objet PROCHE : batiment, arbre, mur — elle
+// depasse le relief theorique de PHOTO_OBJ_GAP), 'unk' (sous une silhouette qui est le relief lointain : l'objet peut etre visible devant
+// les montagnes, la photo ne permet pas de trancher -> on garde les regles). null : hors de l'image lue.
+const PHOTO_OBJ_GAP=0.5;
+function photoCheck(c,aTop){
+  let mn=Infinity, best=null, inWin=0, allOcc=true; const win=[], rel=S.relief&&terrain;
+  for(const col of photoSky.cols){ const dd=wrap(col.brg-c.brg);
+    if(Math.abs(dd)<=PHOTO_WIN){ inWin++; if(col.a<mn) mn=col.a; if(rel){ const t=skylineElevAt(col.brg); if(t!=null&&col.a<=t+PHOTO_OBJ_GAP) allOcc=false; } }
+    if(Math.abs(dd)<=PHOTO_SNAP) win.push({dd,a:col.a}); }
   if(!inWin) return null;
-  const vis=aTop>=mn-PHOTO_TOL; let snap=null;
+  const vis=aTop>=mn-PHOTO_TOL, state=vis?'vis':allOcc?'hid':'unk'; let snap=null;
   if(vis&&win.length>=5){ for(const w of win) if(!best||w.a>best.a) best=w;
     // pointe = colonnes au plus pres du maximum ; on se cale sur son centre si elle est nettement plus haute que ses voisines
     const top=win.filter(w=>w.a>=best.a-0.3), low=win.filter(w=>w.a<best.a-1);
     if(top.length<=win.length*0.7&&low.length>=2&&Math.abs(best.a-aTop)<2) snap=top.reduce((s,w)=>s+w.dd,0)/top.length; }
-  return {vis,snap,sky:mn};
+  return {vis,state,snap,sky:mn};
 }
 function grabFrame(cw){
   const vw=video.videoWidth, vh=video.videoHeight; if(!vw||!vh) return null;
@@ -4209,7 +4313,7 @@ async function runAutoAlign(){
     if(pts.length<25) return `horizon peu visible (${pts.length} colonnes exploitables) : visez un horizon dégagé`;
     const R=fitHorizon(pts,P,cam0,tab);
     if(R.cost>0.6) return `correspondance incertaine (écart ${R.cost.toFixed(2)}°) : calage inchangé`;
-    S.headOff+=R.dh; S.pitchOff+=R.dp; const camCh=R.cam!==cam0; if(camCh){ S.camFov=R.cam; $('fov').value=S.camFov; showFov(); } saveSettings();
+    S.headOff+=R.dh; S.pitchOff+=R.dp; noteCalib(); const camCh=R.cam!==cam0; if(camCh){ S.camFov=R.cam; $('fov').value=S.camFov; showFov(); } saveSettings();
     const f=v=>(v>=0?'+':'')+v.toFixed(1)+'°';
     logNet('Calage',true,`${R.n} colonnes, relief ${R.relief.toFixed(1)}°, cap ${f(R.dh)}, horizon ${f(R.dp)}, champ ${S.camFov}° (${R.cam!==cam0?'ajusté':'fixe'}), ecart median ${R.cost.toFixed(2)}°`);
     if(R.flat) return `horizon calé (${f(R.dp)}) · cap inchangé : pas assez de relief visible`;
@@ -4350,7 +4454,7 @@ $('btnReload').onclick=()=>{dcForceT=Date.now()+90000; if(S.buildings){ building
 (function syncControlsFromS(){
   $('rad').value=S.radius; $('radV').textContent=S.radius+' km';
   $('fov').value=S.camFov; showFov();
-  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('relv1').checked=S.reliefV1; $('dst').checked=S.showDist; $('sky').checked=S.skyline; $('simOn').checked=!!S.simOn; $('simPos').value=S.simPos||''; $('rdg').checked=S.ridges!==false; $('phv').checked=S.photoVis!==false;
+  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('relv1').checked=S.reliefV1; $('dst').checked=S.showDist; $('sky').checked=S.skyline; $('simOn').checked=!!S.simOn; $('simPos').value=S.simPos||''; $('rdg').checked=S.ridges!==false; $('phv').checked=S.photoVis!==false; $('acal').checked=S.autoCal!==false; $('gyr').checked=S.gyro!==false;
   $('obsH').value=S.obsHeight; $('obsHV').textContent=fmtObsH(S.obsHeight); updateObsInfo();
   $('air').checked=S.air; $('sea').checked=S.sea; $('tel').checked=S.telecom; $('bld').checked=S.buildings;
   document.querySelector('.chips').classList.toggle('folded',S.chipsFold);
