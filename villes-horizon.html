@@ -246,9 +246,15 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   </div>
   <div class="row">
     <label for="obsH">Altitude de l'œil (correction)</label><span class="val" id="obsHV">0 m</span>
-    <input type="range" id="obsH" min="-30" max="30" step="1" value="0">
+    <input type="range" id="obsH" min="-30" max="250" step="1" value="0">
+    <label for="floorN">ou étage</label><input type="number" id="floorN" min="0" max="80" step="1" inputmode="numeric" placeholder="ex. 7" style="width:5em">
     <span class="hint" id="obsHInfo"></span>
-    <span class="hint">L'altitude du sol sous vos pieds est estimée d'après le relief ; elle peut se tromper de 10 m ou plus, surtout en bord de mer ou de falaise (précision GPS, données à 30 m hors de France). Positif : balcon, étage (2ᵉ étage ≈ +6 m). Négatif : l'estimation vous place trop haut (ex. estimé 14 m alors que vous êtes au ras de l'eau → −11 m). Repère : l'altitude affichée par PeakFinder ou une carte topo.</span>
+    <span class="hint">Étage : ≈ 3,2 m par niveau (7ᵉ étage ≈ +22 m). L'altitude du sol sous vos pieds est estimée d'après le relief ; elle peut se tromper de 10 m ou plus, surtout en bord de mer ou de falaise (précision GPS, données à 30 m hors de France). Positif : balcon, étage (2ᵉ étage ≈ +6 m). Négatif : l'estimation vous place trop haut (ex. estimé 14 m alors que vous êtes au ras de l'eau → −11 m). Repère : l'altitude affichée par PeakFinder ou une carte topo.</span>
+  </div>
+  <div class="row">
+    <label for="simOn">Position simulée</label><input type="checkbox" id="simOn">
+    <input type="text" id="simPos" placeholder="45.0805, 7.6705 (ou lien Google Maps)" style="width:100%">
+    <span class="hint" id="simInfo">Pour revoir un lieu sans y être : collez des coordonnées (ou un lien de carte contenant @lat,lon). Le GPS est ignoré tant que la case est cochée ; tournez en glissant le doigt, la boussole reste active.</span>
   </div>
   <div class="row">
     <label for="bey">Tout voir</label><input type="checkbox" id="bey">
@@ -256,6 +262,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   </div>
   <div class="row">
     <label for="sky">Ligne d'horizon (aide au calage)</label><input type="checkbox" id="sky">
+    <label for="phv">Visibilité d'après la photo (on ne nomme que ce que la caméra voit)</label><input type="checkbox" id="phv">
     <label for="rdg">Crêtes intérieures (relief en plusieurs plans, avec leur distance)</label><input type="checkbox" id="rdg">
     <span class="hint" id="skyInfo">Dessine la silhouette théorique du relief : comparez-la à l'horizon réel pour caler, utile face à une île ou une côte sans repère net.</span>
   </div>
@@ -370,8 +377,8 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-21 · relief : secours AWS par tuile (Italie / hors Mapterhorn) · 2026-10-21 · zoom au pincement, 5 miroirs Overpass, structure BD TOPO · 2026-10-21 · repères/tours OSM en tuiles + tours ANFR, crêtes intérieures du relief · 2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
-const S={radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,ridges:true,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
+const APP_VERSION='2026-10-22 (c) · visibilité d\'après la photo : on ne nomme que ce que la caméra voit (silhouette réelle), nom calé sur la pointe visible · 2026-10-22 (b) · un monument caché derrière un plus proche (même direction) passe en Tout voir · 2026-10-22 · Turin : monuments posés sur le relief devant eux, crêtes filtrées, sonde dans l\'axe, priorité à ce qu\'on voit (bâtiments hauts OSM), relief 200 km et sommets lointains, calage du zoom, sol/étage, position simulée · 2026-10-21 · relief : secours AWS par tuile (Italie / hors Mapterhorn) · 2026-10-21 · zoom au pincement, 5 miroirs Overpass, structure BD TOPO · 2026-10-21 · repères/tours OSM en tuiles + tours ANFR, crêtes intérieures du relief · 2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const S={photoVis:true,simOn:false,simPos:'',radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,ridges:true,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
@@ -432,7 +439,7 @@ function loadSettings(){
   try{
     const raw=localStorage.getItem(PKEY); if(!raw) return;
     const saved=JSON.parse(raw);
-    for(const k of ['radius','camFov','hamlets','relief','reliefV1','obsHeight','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','ridges','beyond','telecom','telecomMax','buildings','buildingsMax','chipsFold'])
+    for(const k of ['photoVis','simOn','simPos','radius','camFov','hamlets','relief','reliefV1','obsHeight','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','ridges','beyond','telecom','telecomMax','buildings','buildingsMax','chipsFold'])
       if(saved[k]!==undefined) S[k]=saved[k];
     if(saved.poi) Object.assign(S.poi,saved.poi);
     if(saved.layers) Object.assign(S.layers,saved.layers);
@@ -443,8 +450,8 @@ function saveSettings(){
   clearTimeout(saveSettingsT);
   saveSettingsT=setTimeout(()=>{
     try{
-      const {radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,ridges,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}=S;
-      localStorage.setItem(PKEY,JSON.stringify({radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,ridges,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}));
+      const {photoVis,simOn,simPos,radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,ridges,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}=S;
+      localStorage.setItem(PKEY,JSON.stringify({photoVis,simOn,simPos,radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,ridges,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}));
     }catch(e){}
   },300);
 }
@@ -528,7 +535,7 @@ function distBrg(a,b){
   const h=Math.sin((la2-la1)/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dl/2)**2;
   return {dist:6371*2*Math.asin(Math.sqrt(h)),brg};
 }
-function recompute(){ if(!pos) return; for(const c of cities){ const r=distBrg(pos,c); c.dist=r.dist; c.brg=r.brg; } for(const t of telecomSites){ const r=distBrg(pos,t); t.dist=r.dist; t.brg=r.brg; } for(const b of buildingSites){ const r=distBrg(pos,b); b.dist=r.dist; b.brg=r.brg; } for(const m of monumentSites){ const r=distBrg(pos,m); m.dist=r.dist; m.brg=r.brg; } userRecompute(); citiesVer++; applyOcclusion(false); }
+function recompute(){ if(!pos) return; for(const c of cities){ const r=distBrg(pos,c); c.dist=r.dist; c.brg=r.brg; } for(const c of farPeaks){ const r=distBrg(pos,c); c.dist=r.dist; c.brg=r.brg; } for(const t of telecomSites){ const r=distBrg(pos,t); t.dist=r.dist; t.brg=r.brg; } for(const b of buildingSites){ const r=distBrg(pos,b); b.dist=r.dist; b.brg=r.brg; } for(const m of monumentSites){ const r=distBrg(pos,m); m.dist=r.dist; m.brg=r.brg; } userRecompute(); citiesVer++; applyOcclusion(false); }
 
 // ---------- capteurs d'orientation ----------
 let gotAbs=false;
@@ -849,6 +856,36 @@ async function loadFromOpenFreeMap(p,rKm,hamlets){
   if(!got.length&&failed===tiles.length) throw new Error(`${tiles.length} tuile(s), toutes en echec`);
   return got;
 }
+// ---------- SOMMETS LOINTAINS (22/10/2026, facon PeakFinder) ----------
+// Grands sommets jusqu'a RELIEF_MAX_KM, tires des tuiles OpenFreeMap de zoom 7 (couche mountain_peak : seuls les principaux y figurent),
+// gardees 60 jours sur l'appareil. Hors du rayon des lieux, ils ne s'affichent QUE s'ils sont visibles (pas caches par le relief).
+const FAR_PEAK_Z=7, FAR_PEAK_MIN_KM=35, FAR_PEAK_MIN_ELE=1500;
+let farPeaks=[], farPeaksAt=null, farPeaksBusy=false, farPeaksMsg='';
+async function loadFarPeaks(force){
+  if(!pos||farPeaksBusy||!S.relief) return;
+  if(!force&&farPeaksAt&&distBrg(pos,farPeaksAt).dist<25) return;
+  farPeaksBusy=true; const here={...pos};
+  try{
+    const tpl=await ofmTileTemplate(), R=RELIEF_MAX_KM, dLat=R/111, dLon=R/(111*Math.max(0.2,Math.cos(here.lat*D)));
+    const tiles=tileRangeForBBox({la1:here.lat-dLat,la2:here.lat+dLat,lo1:here.lon-dLon,lo2:here.lon+dLon},FAR_PEAK_Z);
+    const got=new Map(); let ok=0, ko=0;
+    for(const t of tiles){
+      try{
+        const res=await dcFetch('fpk',`fpk/${t.z}/${t.x}/${t.y}`,{bin:true,ttl:60*86400000,prune:['fpk/',60],load:async()=>{
+          const r=await fetchT(tpl.replace('{z}',t.z).replace('{x}',t.x).replace('{y}',t.y),{},15000); if(!r.ok) throw new Error('HTTP '+r.status); return new Uint8Array(await r.arrayBuffer()); }});
+        const L=decodeMVTTile(res.data,['mountain_peak']).mountain_peak; ok++;
+        if(L) for(const f of L.features){ const pts=featureMVTPoints(f); if(!pts.length) continue; const tg=featureMVTTags(f,L);
+          const name=tg['name:fr']||tg.name, ele=parseFloat(tg.ele); if(!name||!(ele>=FAR_PEAK_MIN_ELE)) continue;
+          const ll=tileLocalToLonLat(t.z,t.x,t.y,pts[0][0],pts[0][1],L.extent), d=distBrg(here,ll).dist; if(d<FAR_PEAK_MIN_KM||d>R) continue;
+          const k=name+'@'+ll.lat.toFixed(3); if(!got.has(k)) got.set(k,{name,lat:ll.lat,lon:ll.lon,kind:'peak',pop:0,ele,farPeak:true}); }
+      }catch(e){ ko++; }
+    }
+    farPeaks=[...got.values()]; farPeaksAt=ok?here:null; recompute();
+    farPeaksMsg=`${farPeaks.length} grand(s) sommet(s) entre ${FAR_PEAK_MIN_KM} et ${R} km (${ok}/${tiles.length} tuile(s)${ko?`, ${ko} en échec`:''})`;
+    logNet('Sommets lointains',ko===0,farPeaksMsg);
+  }catch(e){ farPeaksMsg='indispo : '+friendlyErr(e); logNet('Sommets lointains',false,farPeaksMsg); }
+  farPeaksBusy=false;
+}
 // ---------- villes/sommets/POI supplementaires via le relais (Geoapify + GeoNames) ----------
 // Deux autres sources independantes, en parallele des precedentes : Geoapify (villes/sommets/POI) et
 // GeoNames (villes/sommets) tournent via le relais, qui detient seul leurs identifiants (GEOAPIFY_KEY,
@@ -1123,10 +1160,12 @@ const TCACHE='vh-terrain-v1';
 // la mer"). guaranteed=false : bande d'affinage regionale (ex. LiDAR/RGE ALTI France), peut ne pas
 // exister partout — un 404 signifie alors "pas d'affinage ici", et elevAt retombe sur la bande
 // suivante (plus grossiere mais garantie) au lieu de supposer la mer.
-const BANDS_HR=[{z:13,max:5,ts:512,guaranteed:false},{z:12,max:30,ts:512,guaranteed:true},{z:11,max:60,ts:512,guaranteed:true}];
-const BANDS_LEGACY=[{z:11,max:12,ts:256,guaranteed:true},{z:10,max:30,ts:256,guaranteed:true},{z:9,max:60,ts:256,guaranteed:true}];
+// 22/10/2026 (Turin : Monviso 64 km, Mont Rose 97 km, Mont Blanc 105 km absents) : bande grossiere (~200 m/pixel) de 60 a RELIEF_MAX_KM.
+const RELIEF_MAX_KM=200;
+const BANDS_HR=[{z:13,max:5,ts:512,guaranteed:false},{z:12,max:30,ts:512,guaranteed:true},{z:11,max:60,ts:512,guaranteed:true},{z:8,max:RELIEF_MAX_KM,ts:512,guaranteed:true}];
+const BANDS_LEGACY=[{z:11,max:12,ts:256,guaranteed:true},{z:10,max:30,ts:256,guaranteed:true},{z:9,max:60,ts:256,guaranteed:true},{z:8,max:RELIEF_MAX_KM,ts:256,guaranteed:true}];
 const BSTEP=0.5, NB=720, REFF=6371000*1.13;
-const TDIST=(()=>{ const a=[]; let d=0.08; while(d<=60){ a.push(d); d+=Math.max(0.05,d*0.018); } return Float32Array.from(a); })();
+const TDIST=(()=>{ const a=[]; let d=0.08; while(d<=RELIEF_MAX_KM){ a.push(d); d+=Math.max(0.05,d*0.018); } return Float32Array.from(a); })();
 // sous ce seuil (300 m), on ignore la bande fine (HR, non garantie) dans le masque de relief et on
 // retombe directement sur la bande grossiere garantie suivante : un muret, une rambarde de balcon
 // ou une ondulation locale a quelques metres ne doit pas, a lui seul, masquer un lieu a l'horizon —
@@ -1168,12 +1207,13 @@ function elevAt(bands,lat,lon,dKm,skipFine){
   }
   return NaN;
 }
-function maskRow(bands,c,h0,bi){ // masque cumule (angle max rencontre) le long d'un relevement
+function maskRow(bands,c,h0,bi,raw){ // masque cumule (angle max rencontre) le long d'un relevement ; raw (optionnel) : angle brut de chaque echantillon
   const b=bi*BSTEP*D, sb=Math.sin(b), cb=Math.cos(b), cosL=Math.cos(c.lat*D), K=TDIST.length;
   const row=new Float32Array(K); let mx=-90;
   for(let k=0;k<K;k++){
     const d=TDIST[k], e=elevAt(bands,c.lat+d*cb/111.32,c.lon+d*sb/(111.32*cosL),d,d<NEAR_KM);
-    if(e===e){ const dm=d*1000, a=Math.atan2(e-h0-dm*dm/(2*REFF),dm)/D; if(a>mx) mx=a; }
+    if(e===e){ const dm=d*1000, a=Math.atan2(e-h0-dm*dm/(2*REFF),dm)/D; if(raw) raw[k]=a; if(a>mx) mx=a; }
+    else if(raw) raw[k]=NaN;
     row[k]=mx;
   }
   return row;
@@ -1334,9 +1374,9 @@ async function computeTerrain(force){
         done++; reliefState=skylineState=`tuiles ${done}/${allJobs.length}`; } };
       await Promise.all([worker(),worker(),worker(),worker()]);
     };
-    const computeMask=async(h0)=>{ const pm=new Array(NB);
-      for(let bi=0;bi<NB;bi++){ pm[bi]=maskRow(bands,c,h0,bi); if(bi%90===89) await new Promise(r=>setTimeout(r,0)); }
-      return pm; };
+    const computeMask=async(h0)=>{ const pm=new Array(NB), raw=new Array(NB);
+      for(let bi=0;bi<NB;bi++){ raw[bi]=new Float32Array(TDIST.length); pm[bi]=maskRow(bands,c,h0,bi,raw[bi]); if(bi%90===89) await new Promise(r=>setTimeout(r,0)); }
+      pm.raw=raw; return pm; }; // pm.raw : angles bruts (denivele cache derriere chaque crete, voir ridgePoints)
     const finalLog=()=>{
       const srcTxt=S.reliefV1?'AWS/SRTM ~30 m (moteur v1, comparaison)':(hrDown?'AWS/SRTM ~30 m (repli)':'Mapterhorn (IGN ~1 m proche, Copernicus 30 m au-dela)');
       const gapsTxt=[altAws?`${altAws} reconstituée(s) depuis AWS/Terrarium (absentes de Mapterhorn)`:'',missingSea?`${missingSea} en mer`:'',missingHR?`${missingHR} hors couverture regionale (repli local)`:''].filter(Boolean).join(', ');
@@ -1354,7 +1394,14 @@ async function computeTerrain(force){
       return computeTerrain(force);
     }
     if(nGuaranteed>0&&failed===nGuaranteed) throw new Error('aucune tuile d\'altitude disponible (reseau ?)');
-    const e0=localGroundElev(bands,c);
+    let e0=localGroundElev(bands,c);
+    // 22/10/2026 : sans donnees fines sous les pieds, le modele mondial 30 m (Copernicus, modele de SURFACE) melange rues, toits et arbres :
+    // on prend alors le bas des valeurs (15e centile) dans un disque de ~150 m, plus proche du niveau de la rue.
+    obsGroundSrc='données fines (modèle de terrain)';
+    { const b0=bands[0], p=!b0.guaranteed?lonLatToPix(b0.z,c.lat,c.lon,b0.ts):null, fine=p?pixElev(b0,Math.floor(p[0]),Math.floor(p[1])):NaN;
+      if(!(fine===fine)){ const v=[], st=50/111320, sl=st/Math.max(0.2,Math.cos(c.lat*D));
+        for(let i=-3;i<=3;i++) for(let j=-3;j<=3;j++){ if(i*i+j*j>9) continue; const e=elevAt(bands,c.lat+i*st,c.lon+j*sl,0.2,true); if(e===e) v.push(e); }
+        if(v.length>=8){ v.sort((a,b)=>a-b); const lo=v[Math.floor(v.length*0.15)]; if(!(e0===e0)||lo<e0){ e0=lo; } obsGroundSrc='modèle 30 m (surface) : niveau de la rue estimé (bas des valeurs sur 150 m)'; } else obsGroundSrc='modèle 30 m'; } }
     obsGround=e0===e0?e0:0;
     // correction manuelle dans les deux sens (balcon +, sol surestime -), l'oeil jamais sous 1 m
     const h0=Math.max(1,(e0===e0?e0:0)+1.6+S.obsHeight);
@@ -1379,12 +1426,13 @@ async function computeTerrain(force){
     reliefState=skylineState='ok';
     finalLog();
     applyOcclusion(true);
+    loadFarPeaks(false);
   }catch(e){ reliefState=skylineState='indispo'; logNet('Terrain',false,friendlyErr(e)); }
   terrainBusy=false;
   if(terrainRedo){ terrainRedo=false; computeTerrain(true); }
 }
 function applyOcclusion(log){
-  const all=monumentSites.length?cities.concat(monumentSites):cities;
+  const base=farPeaks.length?cities.concat(farPeaks):cities, all=monumentSites.length?base.concat(monumentSites):base;
   if(!terrain||!pos){ for(const c of all){ c.hidden=false; c.aG=null; } return; }
   let checked=0, hidden=0, unknown=0; // statistiques : seuls les lieux dans le rayon affiche comptent
   // v1 (comparaison) : tolerances d'origine, avant l'assouplissement du passage a Mapterhorn.
@@ -1426,17 +1474,24 @@ function skylineDistAt(brg){
 // cache derriere), puis une nouvelle montee nettement plus loin = une crete qui se detache d'un plan plus
 // lointain. Aucune donnee ni requete en plus : calcule une fois par relief, puis chaine de relevement en
 // relevement en lignes (meme distance a ±18 %, meme angle a ±0,8°).
-const RIDGE_EPS=1e-4, RIDGE_MIN_KM=0.35, RIDGE_GAP=1.25;
+const RIDGE_EPS=1e-4, RIDGE_MIN_KM=0.35, RIDGE_GAP=1.25, RIDGE_SKY_GAP=0.15, RIDGE_DROP_ESS=40, RIDGE_DROP_ALL=15;
+// 22/10/2026 (Turin : traits et pastilles 1,5 a 16 km sur l'horizon en plaine, double trait colle a la silhouette) : une crete n'est
+// retenue que si elle CACHE un vrai denivele derriere elle (drop : de combien de metres le terrain cache passe sous la ligne de visee ;
+// toits et arbres du modele 30 m = 10-25 m, vraie crete = des centaines de metres) et si elle ne colle pas a la silhouette finale.
 let _ridges=null, _ridgesAt=0;
-function ridgePoints(row){ // fins de montee suivies d'un plan plus lointain ; la derniere (silhouette finale) est exclue
-  const K=row.length, out=[], up=k=>row[k]>row[k-1]+RIDGE_EPS; let k=1;
+function ridgePoints(row,raw){ // fins de montee suivies d'un plan plus lointain ; la derniere (silhouette finale) est exclue
+  const K=row.length, out=[], up=k=>row[k]>row[k-1]+RIDGE_EPS, sky=row[K-1]; let k=1;
   while(k<K){
     while(k<K&&!up(k)) k++; if(k>=K) break;
     while(k<K&&up(k)) k++;
     const ke=k-1; let kn=k; while(kn<K&&!up(kn)) kn++;
     if(kn>=K) break;
     const d=TDIST[ke], dn=TDIST[kn];
-    if(d>=RIDGE_MIN_KM&&dn>=d*RIDGE_GAP) out.push({a:row[ke],d,g:dn/d});
+    if(d>=RIDGE_MIN_KM&&dn>=d*RIDGE_GAP&&sky-row[ke]>=RIDGE_SKY_GAP){
+      let drop=raw?0:1e9; const ar=row[ke]*D;
+      if(raw) for(let j=ke+1;j<kn;j++){ const r=raw[j]; if(r===r){ const m=(ar-r*D)*TDIST[j]*1000; if(m>drop) drop=m; } }
+      out.push({a:row[ke],d,g:dn/d,drop});
+    }
     k=kn;
   }
   return out;
@@ -1445,7 +1500,7 @@ const fkmR=d=>d<10?d.toFixed(1):String(Math.round(d));
 function ridgeLines(){
   if(!terrain||!terrain.pm) return [];
   if(_ridgesAt===terrain.at&&_ridges) return _ridges;
-  const P=new Array(NB); for(let i=0;i<NB;i++) P[i]=ridgePoints(terrain.pm[i]);
+  const P=new Array(NB), RW=terrain.pm.raw; for(let i=0;i<NB;i++) P[i]=ridgePoints(terrain.pm[i],RW&&RW[i]);
   const lines=[];
   for(let i=0;i<NB;i++){
     const prev=i?P[i-1]:[];
@@ -1453,21 +1508,21 @@ function ridgeLines(){
       let best=null, bs=1e9;
       for(const q of prev){ if(q.taken) continue; const dl=Math.abs(Math.log(p.d/q.d)), da=Math.abs(p.a-q.a); if(dl<0.18&&da<0.8){ const s=dl*4+da; if(s<bs){ bs=s; best=q; } } }
       if(best){ best.taken=true; p.line=best.line; } else { p.line={pts:[]}; lines.push(p.line); }
-      p.line.pts.push({i,a:p.a,d:p.d,g:p.g});
+      p.line.pts.push({i,a:p.a,d:p.d,g:p.g,drop:p.drop});
     }
   }
   const med=v=>{ const s=v.slice().sort((x,y)=>x-y); return s[s.length>>1]; };
-  for(const L of lines){ L.d=med(L.pts.map(p=>p.d)); L.g=med(L.pts.map(p=>p.g)); L.len=L.pts.length*BSTEP; }
+  for(const L of lines){ L.d=med(L.pts.map(p=>p.d)); L.g=med(L.pts.map(p=>p.g)); L.drop=med(L.pts.map(p=>p.drop)); L.len=L.pts.length*BSTEP; }
   _ridges=lines.filter(L=>L.pts.length>=3).sort((x,y)=>y.d-x.d); _ridgesAt=terrain.at; return _ridges;
 }
 
 // ---------- trafic en direct : avions (OpenSky) et bateaux (AISStream) ----------
-let planes=[], ships=new Map(), obsElev=0, obsGround=null, tMsg={air:'',sea:''};
+let obsGroundSrc='', planes=[], ships=new Map(), obsElev=0, obsGround=null, tMsg={air:'',sea:''};
 function fmtObsH(v){ return (v>0?'+':v<0?'−':'')+Math.abs(v)+' m'; }
 function updateObsInfo(){
   const el=$('obsHInfo'); if(!el) return;
   if(obsGround==null){ el.textContent='Sol estimé : calcul du relief en attente.'; return; }
-  el.textContent=`Sol estimé ${Math.round(obsGround)} m · correction ${fmtObsH(S.obsHeight)} → œil à ${Math.round(Math.max(1,obsGround+1.6+S.obsHeight))} m`;
+  el.textContent=`Sol estimé ${Math.round(obsGround)} m${obsGroundSrc?` (${obsGroundSrc})`:''} · correction ${fmtObsH(S.obsHeight)} → œil à ${Math.round(Math.max(1,obsGround+1.6+S.obsHeight))} m`;
 }
 let airTimer=null, seaTimer=null, airPauseUntil=0;
 const relayBase=()=>{ let r=(CONFIG.relay||'').trim(); if(!r) return '';
@@ -1775,6 +1830,7 @@ const has5G=operators=>(operators||[]).some(o=>(o.systems||[]).some(s=>/5G/i.tes
 let monumentSites=[], monAt=null, monBusy=false, monErrAt=null, monErrDelay=30000, monMsg='', monStats={};
 let monTrim=0;
 const MON_CLOSE_N=15, MON_CLOSE_KM=1.5, TOWER_CLEAR=0.15; // 10/10/2026 : les N monuments les plus proches (<= 1,5 km) sont toujours nets ; une tour OSM n'est nette que si son sommet depasse la crete de 0,15 deg
+let monTrimmed=[]; const MON_NEAR_KEEP=80, MON_NEAR_KEEP_KM=2;
 const MON_MIN_LINKS=40, MON_LOW_LINKS=3, MON_KEEP=150, MON_MIN_ANG=0.12, MON_STAR_LINKS=80, MON_MAX_SHOWN=40; // MAX_SHOWN : les plus celebres seulement, le reste en transparence
 const MON_DEF_H={tour:60,dome:40,clocher:45,arc:25,colonne:25,chateau:20,musee:18,stade:25,gare:10,eau:0,parc:0,place:0,scene:18,pont:8,edifice:18,mairie:25,maison:12};
 // equipements urbains (stade, gare, canal, parc, place, theatre, pont, hopital...) : meme moteur que les monuments (cat:'equip'),
@@ -1894,7 +1950,18 @@ function applyMonuments(list,how,errs,fromCache,R,minLinks){
     (cl.cat==='equip'?eqs:mons).push({name:m.name,lat:m.lat,lon:m.lon,kind:'monument',cat:cl.cat,qid:m.qid,type,links,prot:!!m.prot,htWd:m.ht,htOsm:null,ht,types:m.types,why:cl.why});
   }
   let trim=0;
-  if(mons.length>MON_KEEP){ mons.sort((x,y)=>(y.links||0)-(x.links||0)||(x.qid<y.qid?-1:1)); mons=mons.slice(0,MON_KEEP); trim=mons[mons.length-1].links||0; } // les MON_KEEP plus connus ; trim = seuil de langues effectif
+  monTrimmed=[];
+  if(mons.length>MON_KEEP){
+    // 22/10/2026 (Turin : l'eglise au campanile de 83 m, a 300 m, ecartee car "peu connue") : les MON_NEAR_KEEP plus proches (< MON_NEAR_KEEP_KM)
+    // sont toujours gardes ; le plafond des MON_KEEP plus connus ne s'applique qu'au reste. Les ecartes restent listes (sonde "dans l'axe").
+    const dd=m=>pos?distBrg(pos,m).dist:1e9, nearL=[], rest=[];
+    for(const m of mons) (dd(m)<=MON_NEAR_KEEP_KM?nearL:rest).push(m);
+    nearL.sort((x,y)=>dd(x)-dd(y)); rest.push(...nearL.splice(MON_NEAR_KEEP));
+    rest.sort((x,y)=>(y.links||0)-(x.links||0)||(x.qid<y.qid?-1:1));
+    const keptRest=rest.slice(0,MON_KEEP); trim=keptRest.length?keptRest[keptRest.length-1].links||0:0;
+    monTrimmed=rest.slice(MON_KEEP,MON_KEEP+400).map(m=>({...m,dist:dd(m),brg:pos?distBrg(pos,m).brg:null}));
+    mons=nearL.concat(keptRest);
+  }
   if(eqs.length>EQUIP_KEEP){ eqs.sort((x,y)=>(y.links||0)-(x.links||0)); eqs=eqs.slice(0,EQUIP_KEEP); }
   const kept=mons.concat(eqs), nProt=mons.filter(m=>m.prot).length;
   monTrim=trim; monExcl=excl.sort((x,y)=>y.links-x.links);
@@ -2186,9 +2253,45 @@ function towerMonuments(){
   towerMonsKey={raw:towerRaw,cities,tel:telecomSites}; return towerMons;
 }
 // monuments Wikidata + tours OSM ; une tour deja connue de Wikidata (monument a moins de 150 m) n'est pas doublee
+// BATIMENTS HAUTS OSM -> MONUMENTS (22/10/2026, campanile de 83 m a Turin seulement en violet) : clocher, tour (non telecom) ou immeuble
+// tres haut connu d'OSM. Pres d'un monument Wikidata (< 120 m) : on lui donne la hauteur OSM (s'il n'en a pas). Sinon : nouveau monument
+// jaune, nom OSM ou nom generique + quartier ; sa notoriete est faible mais sa hauteur le fait passer devant ce qu'on ne voit pas.
+const TALL_MIN_H=40, TALL_BLD_MIN_H=60, TALL_MERGE_KM=0.12;
+let tallMons=[], tallKey=null;
+function tallCandidates(){
+  const out=[], seenPos=[];
+  const add=(id,lat,lon,name,h,kind)=>{ if(seenPos.some(p=>Math.abs(p.lat-lat)<0.0004&&Math.abs(p.lon-lon)<0.0006)) return; seenPos.push({lat,lon}); out.push({id,lat,lon,name,h,kind}); };
+  for(const t of towerRaw){ if(t.rel) continue; const tg=t.tags||{}; if(tg.man_made!=='tower') continue;
+    const ty=tg['tower:type']||'', bell=/bell_tower|church|campanile/.test(ty), h=parseFloat(tg.height);
+    if(/communication|cooling|lighting|observation|watchtower|defensive/.test(ty)&&!(isFinite(h)&&h>=TALL_MIN_H)) continue;
+    if(!(bell||isFinite(h)&&h>=TALL_MIN_H)) continue;
+    add(t.id,t.lat,t.lon,(tg['name:fr']||tg.name||'').trim(),isFinite(h)?h:null,bell?'clocher':'tour'); }
+  for(const b of buildingSites){ const h=b.height_m;
+    if(b.kind==='immeuble'?!(h>=TALL_BLD_MIN_H):!(b.kind==='clocher'||b.kind==='tour'&&h>=TALL_MIN_H)) continue;
+    add(b.id||null,b.lat,b.lon,b.named?b.name:'',h||null,b.kind==='clocher'?'clocher':b.kind==='immeuble'?'immeuble':'tour'); }
+  return out;
+}
+function tallMonuments(){
+  const key=[towerRaw,buildingSites,monBase,cities];
+  if(tallKey&&tallKey.every((v,i)=>v===key[i])) return tallMons;
+  tallKey=key; tallMons=[];
+  if(!pos||!S.layers.monuments) return tallMons;
+  for(const T of tallCandidates()){
+    const M=monBase.find(m=>m.cat!=='equip'&&Math.abs(m.lat-T.lat)<0.0015&&Math.abs(m.lon-T.lon)<0.002&&distBrg(m,T).dist<TALL_MERGE_KM);
+    if(M){ if(T.h&&!M.htWd){ M.ht=T.h; M.htOsm=T.h; } if(T.kind==='clocher'&&/^(musee|maison|edifice)$/.test(M.type)) M.type='clocher'; M.osmTall=T.id; continue; }
+    const loc=nearestLocality(T), base=T.kind==='clocher'?'Clocher':T.kind==='immeuble'?'Immeuble':'Tour';
+    const name=T.name||`${base}${T.h?` (${Math.round(T.h)} m)`:''}${loc?' · '+loc:''}`;
+    tallMons.push({name,lat:T.lat,lon:T.lon,kind:'monument',cat:'monument',qid:null,src:'osmh',osm:T.id,loc,type:T.kind==='clocher'?'clocher':'tour',unnamed:!T.name,
+      links:MON_LOW_LINKS,prot:false,htWd:null,htOsm:T.h,ht:T.h||(T.kind==='clocher'?MON_DEF_H.clocher:TALL_MIN_H),
+      types:(T.kind==='clocher'?'clocher':T.kind==='immeuble'?'immeuble de grande hauteur':'tour')+' (OpenStreetMap)',why:'bâtiment haut repéré dans OpenStreetMap'});
+  }
+  return tallMons;
+}
 function monCombine(){
-  const tw=towerMonuments(); if(!tw.length) return monBase;
-  return monBase.concat(tw.filter(t=>!monBase.some(m=>m.cat!=='equip'&&Math.abs(m.lat-t.lat)<0.002&&Math.abs(m.lon-t.lon)<0.003&&distBrg(m,t).dist<0.15)));
+  const tw=towerMonuments(), tall=tallMonuments(); if(!tw.length&&!tall.length) return monBase;
+  const near=(a,b,km)=>Math.abs(a.lat-b.lat)<0.002&&Math.abs(a.lon-b.lon)<0.003&&distBrg(a,b).dist<km;
+  const tw2=tw.filter(t=>!monBase.some(m=>m.cat!=='equip'&&near(m,t,0.15)));
+  return monBase.concat(tw2,tall.filter(t=>!tw2.some(o=>near(o,t,0.05))));
 }
 async function loadTowers(force){
   if(!S.layers.monuments||!pos||towerBusy||document.hidden) return;
@@ -2377,6 +2480,13 @@ async function loadUrban(force){
 // ci-dessus (ancrage simple sur l'horizon, sans correction de relief : on ne dispose pas non plus
 // de l'altitude du terrain a l'emplacement exact du repere).
 let buildingSites=[], buildingsAt=null, buildingsBusy=false, buildingsErrAt=null, buildingsErrDelay=30000, bMsg={buildings:''};
+const BLD_DEF_H={tour:30,clocher:40,tour_telecom:40,chateau_eau:30,cheminee:40,mat:30,immeuble:30};
+function bldTopAng(t){ // angle (deg) du sommet d'un repere vu d'ici : sol (relief) + hauteur ; null sans relief
+  if(!terrain||!S.relief||t.dist==null) return null;
+  if(t._gT!==terrain.at){ const e=elevAt(terrain.bands,t.lat,t.lon,t.dist); t._g=e===e?e:null; t._gT=terrain.at; }
+  if(t._g==null) return null;
+  const dm=Math.max(30,t.dist*1000), top=t._g+(t.height_m||BLD_DEF_H[t.kind]||30);
+  return Math.atan2(top-terrain.h0-dm*dm/(2*REFF),dm)/D; }
 const BUILD_LABEL={tour:'Tour',clocher:'Clocher',tour_telecom:'Tour',chateau_eau:'Château d\'eau',cheminee:'Cheminée',mat:'Mât',immeuble:'Immeuble'};
 function kindOfBuilding(t){
   if(t.man_made==='tower'){
@@ -2405,7 +2515,9 @@ function parseBuildings(j){
     const opr=t.operator||t.owner||'', name=t['name:fr']||t.name||(BUILD_LABEL[kind]+(opr&&opr.length<=24?' '+opr:'')+(height_m?` (${Math.round(height_m)} m)`:''));
     const key=name+'@'+lat.toFixed(4)+','+lon.toFixed(4);
     if(seen.has(key)) continue; seen.add(key);
-    got.push({name,lat,lon,kind,height_m});
+    const named=!!(t['name:fr']||t.name);
+    // Essentiel : un immeuble anonyme de moins de 40 m ne se distingue pas en ville (les "28 x Immeuble (30 m)" de Turin) -> Tout voir seulement
+    got.push({name,lat,lon,kind,height_m,named,id:n.type&&n.id!=null?n.type+'/'+n.id:null,ess:!(kind==='immeuble'&&!named&&!(height_m>=40))});
   }
   return got;
 }
@@ -2424,7 +2536,7 @@ async function pollBuildings(){
   if(buildingsErrAt&&Date.now()-buildingsErrAt<buildingsErrDelay) return; // echec recent : on patiente avant de reessayer
   buildingsBusy=true; bMsg.buildings='recherche…';
   const km=S.buildingsMax, here={...pos};
-  const apply=(list,note)=>{ buildingSites=list; recompute(); markBuildingDupes(); buildingsAt=here; bMsg.buildings=list.length+' repere(s)'+(note||''); };
+  const apply=(list,note)=>{ buildingSites=list; if(S.layers.monuments){ monumentSites=monCombine(); citiesVer++; } recompute(); markBuildingDupes(); buildingsAt=here; bMsg.buildings=list.length+' repere(s)'+(note||''); };
   const lightOf=els=>parseBuildings({elements:els.filter(e=>distBrg(here,e).dist<=km)});
   try{
     // 1. tours, mats, chateaux d'eau, cheminees : tuiles OSM communes avec les monuments (memoire 14 j)
@@ -2528,14 +2640,27 @@ let citiesVer=0, _visCache=[], _visVer=-1, _visRad=null;
 // (retour du 28/09/2026). Seul le rayon regle reste une exclusion franche ("ce qui m'interesse").
 let visStats={total:0,outRadius:0,tooFarForKind:0,farList:[],dup:0,kept:0};
 // notoriete d'un monument ; pour un equipement, ramenee a la proximite (un metro tout proche passe avant un stade lointain)
-const monScore=c=>c.cat==='equip'?(c.links||1)/(1+(c.dist||0)/2):(c.links||0);
+// 22/10/2026 : "d'abord ce qu'on voit". Score d'un monument = notoriete x hauteur APPARENTE au-dessus des toits (ville dense) :
+// une tour de 83 m a 300 m passe devant une eglise plus connue a 900 m, un musee a hauteur de rue a 1,2 km recule.
+const CANOPY_H=20, ROOF_NEAR_KM=0.4, MON_OCC_MARGIN=0.2;
+const MON_W={tour:12,clocher:10,dome:35,chateau:60,musee:40,mairie:40,maison:15,colonne:4,arc:25,edifice:40,stade:150,scene:40,gare:60,pont:0,eau:0,parc:0,place:0}; // largeur typique (m) : fenetre de masquage
+let _dense=null, _denseV=-1;
+function urbanDense(){ // ville dense autour de soi : grande ville (>= 100 000 hab.) a moins de 6 km, ou beaucoup de monuments / d'immeubles hauts proches
+  if(_denseV===citiesVer&&_dense!=null) return _dense;
+  let v=false; if(pos){
+    v=cities.some(c=>c.kind==='city'&&(c.pop||0)>=100000&&c.dist!=null&&c.dist<=6)
+      ||monumentSites.filter(m=>m.cat!=='equip'&&m.dist!=null&&m.dist<=2).length>=25
+      ||buildingSites.filter(b=>b.kind==='immeuble'&&b.dist!=null&&b.dist<=3).length>=15; }
+  _dense=v; _denseV=citiesVer; return v; }
+const monVisAng=c=>Math.atan(Math.max(2,(c.ht||20)-(urbanDense()?CANOPY_H:0))/Math.max(50,(c.dist||0)*1000))/D;
+const monScore=c=>c.cat==='equip'?(c.links||1)/(1+(c.dist||0)/2):((c.links||0)+3)*monVisAng(c);
 function visibleCities(){
   if(_visVer===citiesVer&&_visRad===S.radius) return _visCache;
   let outRadius=0, tooFarForKind=0; const farList=[];
   const eqOn=S.layers.equip!==false, msites=S.layers.monuments?monumentSites.filter(c=>c.cat!=='equip'||eqOn):[];
-  const src=msites.length?msites.concat(cities):cities;
+  const base=farPeaks.length?cities.concat(farPeaks):cities, src=msites.length?msites.concat(base):base;
   _visCache=src.filter(c=>{
-    if(c.dist==null||c.dist>S.radius){ outRadius++; return false; }
+    if(c.dist==null||c.dist>(c.farPeak?RELIEF_MAX_KM:S.radius)){ outRadius++; return false; }
     if(c.kind==='monument'&&c.cat==='equip'){ // equipement urbain : visible de pres seulement (portee selon le type), icone au sol
       c.angH=Math.atan((c.ht||0)/Math.max(50,c.dist*1000))/D;
       c.far=c.dist>(EQUIP_MAXD[c.type]||EQUIP_MAX_KM);
@@ -2543,7 +2668,10 @@ function visibleCities(){
       c.angH=Math.atan((c.ht||20)/Math.max(50,c.dist*1000))/D;
       c.far=c.angH<((c.links||0)>=MON_STAR_LINKS?0.05:MON_MIN_ANG); // tres celebre : seuil abaisse, jamais supprime
       if(!c.far&&c.type==='maison'&&!c.prot&&(c.links||0)<10) c.far=true; // maison / hotel particulier peu connu et non protege : en transparence seulement
-    } else { const m=MAXD[c.kind]; c.far=m!=null&&c.dist>m; }
+      // ville dense : plus bas que les toits et a plus de 400 m -> on ne le voit pas d'ici (sauf tres celebre) : en transparence
+      c.roof=!c.far&&urbanDense()&&c.dist>ROOF_NEAR_KM&&(c.ht||20)<CANOPY_H+5&&(c.links||0)<MON_STAR_LINKS; if(c.roof) c.far=true;
+    } else if(c.farPeak){ c.far=!(S.relief&&terrain&&c.aP!=null&&!c.hidden); } // sommet lointain : seulement s'il se voit d'ici
+    else { const m=MAXD[c.kind]; c.far=m!=null&&c.dist>m; }
     if(c.far){ tooFarForKind++; farList.push(c); }
     return true;
   }).sort((a,b)=>(RANK[a.kind]??3)-(RANK[b.kind]??3)||(a.kind==='monument'?monScore(b)-monScore(a):0)||a.dist-b.dist);
@@ -2557,6 +2685,27 @@ function visibleCities(){
       c._rk=c.far||c.near?null:(c.cat==='equip'?ne+1:n+1); // rang de notoriete (debug fiche)
       if(c.near) continue;
       if(!c.far&&(c.cat==='equip'?++ne>EQUIP_MAX_SHOWN:++n>MON_MAX_SHOWN)){ c.far=true; c.cap=true; tooFarForKind++; farList.push(c); } } }
+  // MASQUAGE ENTRE MONUMENTS (22/10/2026, Turin : "si on ne le voit pas, on ne le montre pas" — Sant'Alfonso a 0,9 km etait net alors qu'il
+  // est derriere le campanile de 83 m a 300 m, dans la meme direction) : du plus proche au plus lointain, chaque monument net occupe une
+  // fenetre (largeur selon son type, de sa base a son sommet vu d'ici) ; un monument plus lointain dont le sommet tombe dans cette fenetre
+  // est cache -> transparent (Tout voir), avec la raison. La silhouette reelle de la photo (calage) pourra remplacer cette estimation.
+  { const eye=1.6+(S.obsHeight||0), ang=(hm,d)=>Math.atan2(hm,Math.max(30,d*1000))/D;
+    const top=c=>c.aP!=null&&S.relief&&terrain?c.aP:ang((c.ht||20)-eye,c.dist), base=c=>c.aG!=null&&S.relief&&terrain?c.aG:ang(-eye,c.dist);
+    const occ=[], mons=_visCache.filter(c=>c.kind==='monument'&&c.cat!=='equip').sort((a,b)=>a.dist-b.dist);
+    for(const c of mons){ c.occBy=null;
+      if(!c.far&&!(S.relief&&terrain&&c.hidden)){
+        const t=top(c), o=occ.find(o=>o.dist<c.dist*0.85&&Math.abs(wrap(c.brg-o.brg))<o.hw+MON_OCC_MARGIN&&t<o.top-0.05);
+        if(o){ c.far=true; c.near=false; c.occBy=o.name; tooFarForKind++; farList.push(c); continue; } }
+      if(c.far||(S.relief&&terrain&&c.hidden)) continue;
+      occ.push({name:c.name,dist:c.dist,brg:c.brg,top:top(c),bot:base(c),hw:Math.atan2((MON_W[c.type]||20)/2,Math.max(30,c.dist*1000))/D}); } }
+  { const fresh=photoFresh(), eye=1.6+(S.obsHeight||0);
+    for(const c of _visCache){ if(c.kind!=='monument'||c.cat==='equip') continue; c.photoHid=false;
+      if(!fresh){ c.photo=null; c._snapDB=0; continue; }
+      const aTop=c.aP!=null&&S.relief&&terrain?c.aP:Math.atan2((c.ht||20)-eye,Math.max(30,c.dist*1000))/D;
+      const r=photoCheck(c,aTop); c.photo=r?r.vis:null; if(!r) continue;
+      if(r.vis){ c._snapDB=r.snap!=null?(c._snapDB||0)*0.6+r.snap*0.4:(c._snapDB||0)*0.6;
+        if(c.far&&(c.roof||c.occBy)&&!c.cap){ c.far=false; c.roof=false; c.occBy=null; } } // vu sur la photo : affiche, quoi qu'en disent les regles
+      else if(!c.far&&!(S.relief&&terrain&&c.hidden)){ c.far=true; c.near=false; c.photoHid=true; c._snapDB=0; tooFarForKind++; farList.push(c); } } }
   const beforeDup=_visCache.length;
   // OSM decrit parfois un meme lieu par plusieurs objets (ile + sommet, commune + centre...) :
   // on garde le plus significatif (deja trie en tete) et on ecarte les homonymes a moins de 2 km
@@ -2681,6 +2830,7 @@ const BLD_ICON={tour:'mat',tour_telecom:'pylone',clocher:'clocher',chateau_eau:'
 let lastFrameT=0;
 function draw(ts){
   if(ts!=null&&ts-lastFrameT<32){ requestAnimationFrame(draw); return; } // plafond ~30 im/s
+  if(S.photoVis!==false&&camOK&&!document.hidden&&Date.now()-photoT>PHOTO_EVERY){ photoT=Date.now(); try{ photoSkylineUpdate(); }catch(e){} }
   lastFrameT=ts||0;
   const {heading,pitch,roll}=pose();
   const FOVH=vFov(), fh=(W/2)/Math.tan(FOVH/2*D);
@@ -2781,7 +2931,7 @@ function draw(ts){
     const tags=[];
     ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round';
     for(const L of L0){
-      if(L.g<minG||L.len<minLen||L.d<minD) continue;
+      if(L.g<minG||L.len<minLen||L.d<minD||L.drop<(S.beyond?RIDGE_DROP_ALL:RIDGE_DROP_ESS)) continue;
       const runs=[]; let cur=[];
       for(const p of L.pts){
         const dB=((p.i*BSTEP-heading+540)%360)-180;
@@ -2813,6 +2963,12 @@ function draw(ts){
     ctx.restore();
   }
 
+  // silhouette REELLE lue sur la photo (Tout voir seulement) : pointilles bleu clair, pour verifier ce que l'appli a compris de l'image
+  if(S.beyond&&photoFresh()){ ctx.save(); ctx.setLineDash([2,4]); ctx.strokeStyle='rgba(140,220,255,.85)'; ctx.lineWidth=1.2; ctx.beginPath(); let on=false;
+    for(const col of photoSky.cols){ const dB=wrap(col.brg-heading); if(Math.abs(dB)>80){ on=false; continue; }
+      const x=W/2+fh*Math.tan(dB*D), y=H/2+fh*Math.tan((pitch-col.a)*D); if(on) ctx.lineTo(x,y); else { ctx.moveTo(x,y); on=true; } }
+    ctx.stroke(); ctx.restore(); }
+
   // --- lieux : ancres sur le relief (sol du lieu, ou crete qui le laisse entrevoir) ---
   // UN SEUL reglage de densite, le bouton oeil (retour du 28/09/2026 : "une seule fonction de
   // filtrage, activable avec l'oeil") :
@@ -2838,7 +2994,7 @@ function draw(ts){
   const rectHit=(x0,x1,y0,y1,m,own)=>{ let q=null;
     return placed.some(r=>{ if(own&&r[5]===own) return false; if(!(x0<r[1]+m&&x1>r[0]-m&&y0<r[3]+m&&y1>r[2]-m)) return false; if(!r[4]) return true;
       q=q||[[x0,y0],[x1,y0],[x1,y1],[x0,y1]]; return polysOverlap(q,r[4],m); }); };
-  const inView=c=>{ const dB=wrap(c.brg-heading); if(Math.abs(dB)>Math.min(80,FOVH*0.8)) return null;
+  const inView=c=>{ const dB=wrap(c.brg+(c._snapDB||0)-heading); if(Math.abs(dB)>Math.min(80,FOVH*0.8)) return null;
     const x=W/2+fh*Math.tan(dB*D); return (x<-40||x>W+40)?null:x; };
 
   // --- DEUX ETAGES (lot 1, retour du 28/09/2026 : "les elements rouges disparaissent trop vite au
@@ -2853,7 +3009,7 @@ function draw(ts){
     // bande sous l'horizon, etagee sur 2 rangees (le plus proche en premier) ; icones regroupees par type quand elles se touchent
     if(eqItems.length) infra.push({list:eqItems,max:99,color:{line:'rgba(120,205,232,.85)',text:'#78CDE8',icon:'#78CDE8'},hits:monHits,key:'eq',groupBy:'icon',rows:2,iconDy:17,sizeK:.72,beside:true}); }
   if(S.telecom&&telecomSites.length) infra.push({list:telecomSites,max:S.telecomMax,color:{line:'rgba(232,90,90,.85)',text:'#E85A5A',icon:'#E85A5A'},hits:telecomHits,key:'tel'});
-  if(S.buildings&&buildingSites.length) infra.push({list:buildingSites,max:S.buildingsMax,color:{line:'rgba(169,139,255,.85)',text:'#A98BFF',icon:'#A98BFF'},hits:null,key:'bld'});
+  if(S.buildings&&buildingSites.length) infra.push({list:S.beyond?buildingSites:buildingSites.filter(b=>b.ess!==false),anchorTop:bldTopAng,max:S.buildingsMax,color:{line:'rgba(169,139,255,.85)',text:'#A98BFF',icon:'#A98BFF'},hits:null,key:'bld'});
   for(const L of userLayers) if(L.on&&L.shown&&L.shown.length) infra.push({list:L.shown,max:L.max,color:{line:hexA(L.color,.85),text:L.color,icon:L.color},hits:telecomHits,key:'usr:'+L.id});
   telecomHits.length=0; monHits.length=0; infraStats={labeled:0,iconOnly:0,deck:lowDeck?'bas':'haut'};
 
@@ -2876,9 +3032,15 @@ function draw(ts){
   // 09/10/2026 (capture de Saint-Gregoire : la cathedrale a 0,6 km avait sa base SOUS la ligne de relief, le sol proche
   // etant sous l'angle de l'horizon) : un monument visible ne descend jamais sous la ligne de relief a son cap —
   // base, sommet et icone sont remontes du meme ecart ("poses sur la ligne"). Les fantomes (caches) ne bougent pas.
+  // 22/10/2026 (Turin : le palais de Venaria a 7 km, Sant'Alfonso... etaient poses sur la crete des ALPES, 2-3° plus haut) : la cible n'est
+  // plus la silhouette finale (souvent des montagnes DERRIERE le monument) mais le relief DEVANT lui (c.mask, jusqu'a sa distance).
+  // On ne monte jusqu'a la silhouette finale que si elle est a moins de MON_LIFT_SKY au-dessus de ce relief (plaine : comportement d'origine).
+  const MON_LIFT_SKY=0.5;
   const monLift=c=>{ if(!useRelief||c.hidden||c.aG==null||c.brg==null) return 0;
     if(c._skyT!==terrain.at){ const e=skylineElevAt(c.brg); c._sky=e!=null&&e===e?e:null; c._skyT=terrain.at; }
-    return c._sky!=null&&c._sky>c.aG?c._sky-c.aG:0; };
+    const front=c.mask!=null&&c.mask>-89?Math.max(c.mask,c.aG):c.aG; // tout proche (pas de relief devant) : le sol lui-meme
+    let tgt=front; if(c._sky!=null&&c._sky-front<=MON_LIFT_SKY) tgt=c._sky;
+    return tgt!=null&&tgt>c.aG?tgt-c.aG:0; };
   // TAILLE MAX (11/10/2026 : de pres, un monument prenait les 3/4 de l'ecran et son nom disparaissait) : sol -> sommet n'excede jamais
   // SPR_MAX_FRAC de la hauteur d'ecran (et SPR_MAX_PX) ; au-dela, le sommet est ramene vers le sol (la silhouette est reduite, base inchangee)
   const SPR_MAX_FRAC=0.3, SPR_MAX_PX=240;
@@ -2897,10 +3059,10 @@ function draw(ts){
   // monument SANS silhouette qui se chevauchent, la plus connue reste (ordre de priorite deja trie), les autres sont regroupees
   // derriere elle : pastille +N, noms listes dans sa fiche. Les silhouettes a l'echelle ne sont pas touchees.
   { const kept=[], drop=new Set();
-    for(const c of order){ if(c.kind!=='monument'||c.cat==='equip') continue; c._more=0; c._hid=null; c._hidObjs=null; if(!passFilter(c,fq)) continue; const x=inView(c); if(x==null) continue;
+    for(const c of order){ if(c.kind!=='monument'||c.cat==='equip') continue; c._more=0; c._hid=null; c._hidObjs=null; c._grpBy=null; if(!passFilter(c,fq)) continue; const x=inView(c); if(x==null) continue;
       const y=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-monAng(c).aA)*D))), g=monGH(c); if(monSpriteBox(c,x,y)) continue;
       const b=[x-g/2,x+g/2,y-g,y], k=kept.find(o=>Math.min(o.b[1],b[1])-Math.max(o.b[0],b[0])>Math.min(g,o.g)*0.45&&b[2]<o.b[3]&&b[3]>o.b[2]);
-      if(k){ drop.add(c); k.c._more++; (k.c._hid=k.c._hid||[]).push(c.name); (k.c._hidObjs=k.c._hidObjs||[]).push(c); } else kept.push({c,b,g}); }
+      if(k){ drop.add(c); c._grpBy=k.c.name; k.c._more++; (k.c._hid=k.c._hid||[]).push(c.name); (k.c._hidObjs=k.c._hidObjs||[]).push(c); } else kept.push({c,b,g}); }
     if(drop.size) order=order.filter(c=>!drop.has(c)); }
   // les icones des monuments sont reservees AVANT tout le reste : aucune etiquette (equipement ou
   // lieu) ne peut passer dessus (capture du 28/09 : "3 toits-terrasses" sous la Tour Eiffel)
@@ -3072,7 +3234,9 @@ function draw(ts){
     for(const g of groups){ const near=g.items.reduce((a,t)=>t.dist<a.dist?t:a), n=g.items.length;
       g.x=n>1?g.xs.reduce((a,b)=>a+b,0)/n:g.xs[0]; g.h=(g.hl?Math.max(24,infraIconLook(near.dist).h*1.35):infraIconLook(near.dist).h*(L.sizeK||1))+(n>1?3:0); g.row=0;
       if(dy&&L.rows){ let r=0; while(r<L.rows-1&&(rowsBusy[r]||[]).some(([a,b])=>g.x-g.h/2-2<b&&g.x+g.h/2+2>a)) r++; (rowsBusy[r]=rowsBusy[r]||[]).push([g.x-g.h/2-2,g.x+g.h/2+2]); g.row=r; }
-      g.base=hy+dy+g.row*rowStep; }
+      g.base=hy+dy+g.row*rowStep;
+      // reperes hauts : poses a leur SOMMET reel (sol + hauteur, vu d'ici), plus sur la ligne d'horizon (22/10/2026)
+      if(!dy&&L.anchorTop){ const a=L.anchorTop(near); if(a!=null&&isFinite(a)){ const y=H/2+fh*Math.tan((pitch-a)*D); if(isFinite(y)) g.base=Math.max(topLimit+g.h+16,Math.min(H-8,y)); } } }
     const lt=dy?hy+dy+groups.reduce((a,g)=>Math.max(a,g.row),0)*rowStep+12:lowTop;
     ctx.textAlign='left'; ctx.textBaseline='alphabetic';
     // 1) icones : toutes, des plus lointaines aux plus proches (les proches par-dessus), taille selon distance
@@ -3632,8 +3796,8 @@ function monumentBlock(m,withName){
   const vis=m.hidden&&S.relief&&terrain?'masqué par le relief d\'ici':m.cap?(eq?'équipement moins connu ou plus loin : affiché en transparence (bouton œil, Tout voir)':'monument moins célèbre : affiché en transparence (bouton œil, Tout voir)'):m.far?(eq?`hors de portée d'affichage (${EQUIP_MAXD[m.type]||EQUIP_MAX_KM} km pour ce type)`:`trop petit pour être vu d'ici (${(m.angH||0).toFixed(2)}° de haut à l'écran)`):(eq?'affiché (équipement proche)':`visible d'ici (${(m.angH||0).toFixed(1)}° de haut à l'écran)`);
   return `${withName?`<div class="dbgline" style="font-size:18px;color:#F2C14E;font-weight:700">${dEsc(m.name)}</div>`:''}
     <div class="dbgline">${MON_TYPE_LBL[m.type]||'Monument'} · à ${dKm(m.dist)} km · ${vis}</div>
-    <div class="dbgsec">${m.src==='osm'?'Source':'Notoriété'}</div>
-    <div class="dbgline">${m.src==='osm'?`${m.anfr?'support télécom référencé par l\'ANFR':'tour référencée dans OpenStreetMap'}${m.tags&&(m.tags.operator||m.tags.owner)?' · exploitant <b>'+dEsc(m.tags.operator||m.tags.owner)+'</b>':''}${m.loc?' · près de '+dEsc(m.loc):''}`:m.links!=null?`article Wikipédia dans <b>${m.links}</b> langue(s)`:'inconnue (Wikidata injoignable)'}${m.prot?' · <b>monument historique</b> (protégé)':''}</div>
+    <div class="dbgsec">${m.src==='osm'||m.src==='osmh'?'Source':'Notoriété'}</div>
+    <div class="dbgline">${m.src==='osm'||m.src==='osmh'?`${m.anfr?'support télécom référencé par l\'ANFR':m.src==='osmh'?'bâtiment haut repéré dans OpenStreetMap':'tour référencée dans OpenStreetMap'}${m.tags&&(m.tags.operator||m.tags.owner)?' · exploitant <b>'+dEsc(m.tags.operator||m.tags.owner)+'</b>':''}${m.loc?' · près de '+dEsc(m.loc):''}`:m.links!=null?`article Wikipédia dans <b>${m.links}</b> langue(s)`:'inconnue (Wikidata injoignable)'}${m.prot?' · <b>monument historique</b> (protégé)':''}</div>
     ${m.src==='osm'&&m.unnamed&&m.osm?`<div class="dbgsec">Dernière modification OpenStreetMap</div><div class="dbgline osmcs" data-osm="${dEsc(m.osm)}">chargement…</div>`:''}
     <div class="dbgsec">Hauteur</div>
     <div class="dbgline">${m.htWd?Math.round(m.htWd)+' m (Wikidata)':m.htOsm?Math.round(m.htOsm)+' m (OpenStreetMap)':eq?'sans importance (icône posée au sol)':`inconnue — ${MON_DEF_H[m.type]||20} m supposés pour le relief`}</div>
@@ -3733,6 +3897,37 @@ function dcStatsHtml(){
   if(!rows.length) return 'Cette session : aucune donnée encore lue.';
   return 'Cette session (mémoire / réseau / secours périmé / échec) :<br>'+rows.map(k=>{ const t=dcStats[k]; return `${N[k]} : ${t.hit} / ${t.net} / ${t.stale} / ${t.fail}`; }).join('<br>');
 }
+// SONDE "DANS L'AXE" (22/10/2026, clocher de Turin etiquete avec l'eglise situee derriere) : tout ce que l'appli connait a +-AXIS_TOL°
+// du cap vise (centre de l'ecran), du plus proche au plus lointain, avec la hauteur retenue (et sa source) et la raison de son affichage
+// ou de son absence. Repond a "pourquoi ce nom-la sur ce batiment ?" sans capture ni acces aux donnees.
+const AXIS_TOL=2;
+function axisStatus(c){
+  if(c.dist!=null&&c.dist>S.radius&&!c.farPeak) return 'hors du rayon réglé';
+  if(c.photoHid) return 'transparent : caché sur la photo (quelque chose devant)';
+  if(c.occBy) return 'transparent : caché par « '+c.occBy+' » (devant, dans la même direction)';
+  if(c._grpBy) return 'regroupé derrière « '+c._grpBy+' »';
+  if(c.roof) return 'transparent : plus bas que les toits (ville dense)';
+  if(c.cap) return 'transparent : au-delà du plafond ('+(c._rk||'?')+'e)';
+  if(c.far) return 'transparent : trop loin pour sa catégorie';
+  if(S.relief&&terrain&&c.low) return 'transparent : ne dépasse pas la crête';
+  if(S.relief&&terrain&&c.hidden) return 'transparent : caché par le relief';
+  return (c.near?'net (proche, toujours affiché)':'net')+(c.photo===true?' · vu sur la photo':'');
+}
+function axisProbeHtml(){
+  if(!pos) return '<div class="dbgline">position en attente</div>';
+  const hd=pose().heading, inAxis=t=>t&&t.brg!=null&&Math.abs(wrap(t.brg-hd))<=AXIS_TOL, f=v=>v==null?'—':(v<10?v.toFixed(2):v.toFixed(1));
+  const esc=s=>String(s||'').replace(/[<&]/g,'');
+  const rows=[];
+  const hSrc=c=>c.htWd?`${Math.round(c.htWd)} m (Wikidata)`:c.htOsm?`${Math.round(c.htOsm)} m (OSM)`:c.ht!=null?`${Math.round(c.ht)} m (par défaut)`:'';
+  for(const c of monumentSites) if(inAxis(c)) rows.push({d:c.dist,html:`<b style="color:${c.cat==='equip'?'#78CDE8':'#F2C14E'}">${esc(c.name)}</b> · ${f(c.dist)} km · ${hSrc(c)} · ${c.src==='osmh'?'bâtiment haut OSM':c.src==='osm'?(c.anfr?'support ANFR':'tour OSM'):'Wikidata'+(c.qid?' '+c.qid:'')} → ${axisStatus(c)}`});
+  for(const c of (typeof monTrimmed!=='undefined'?monTrimmed:[])) if(c.dist==null?false:inAxis(c)) rows.push({d:c.dist,html:`<span style="opacity:.7">${esc(c.name)} · ${f(c.dist)} km · Wikidata ${c.qid||''} → écarté au chargement (trop de monuments, ${c.links||0} langue(s))</span>`});
+  for(const c of cities) if(inAxis(c)&&c.dist<=Math.max(S.radius,200)) rows.push({d:c.dist,html:`${esc(c.name)} · ${f(c.dist)} km · ${c.kind}${c.ele!=null?` ${Math.round(c.ele)} m`:''} → ${S.layers.places?axisStatus(c):'calque Lieux décoché'}`});
+  for(const b of buildingSites) if(inAxis(b)) rows.push({d:b.dist,html:`<span style="color:#A98BFF">${esc(b.name)}</span> · ${f(b.dist)} km · repère OSM${b.height_m?` ${Math.round(b.height_m)} m`:''} → ${b.dupMon?'fusionné avec un monument':b.dist>S.buildingsMax?'hors rayon des repères':(b.ess===false&&!S.beyond?'Tout voir seulement (ne dépasse pas)':'affiché')}`});
+  for(const t of telecomSites) if(inAxis(t)) rows.push({d:t.dist,html:`<span style="color:#E85A5A">${esc(t.name)} ${esc(t.place||'')}</span> · ${f(t.dist)} km · ANFR${t.height_m?` ${Math.round(t.height_m)} m`:''}${S.telecom?'':' (calque Pylônes décoché)'}`});
+  rows.sort((a,b)=>a.d-b.d);
+  return `<div class="dbgline">cap visé ${Math.round(hd)}° ±${AXIS_TOL}° · ${rows.length} objet(s), du plus proche au plus lointain</div>`+
+    (rows.length?rows.slice(0,30).map(r=>`<div class="dbgline">${r.html}</div>`).join(''):'<div class="dbgline">rien de connu dans cette direction</div>');
+}
 function renderDebug(){
   const kc=kindCounts();
   const kcTxt=Object.entries(kc).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`${k} : ${n}`).join('<br>')||'—';
@@ -3771,6 +3966,10 @@ function renderDebug(){
     <div class="dbgline" style="opacity:.85">${dcStatsHtml()}</div>
     <div class="dbgsec">A l'ecran maintenant</div>
     <div class="dbgline">${lastShown} lieux affiches (source : ${source}) · GPS ${pos?'±'+Math.round(acc||0)+' m':'en attente'}</div>
+    <div class="dbgsec">Visibilité d'après la photo</div>
+    <div class="dbgline">${S.photoVis===false?'désactivée (Réglages)':!camOK?'caméra indisponible : règles estimées seulement':!photoSky?'en attente de la première image':photoSky.ok?`silhouette lue il y a ${Math.round((Date.now()-photoSky.t)/1000)} s sur ${photoSky.cols.length} colonnes (ciel ${Math.round(photoSky.skyFrac*100)} % du haut de l'image) · ${monumentSites.filter(m=>m.photo===true).length} monument(s) vus, ${monumentSites.filter(m=>m.photoHid).length} cachés`:`ciel illisible (${Math.round((photoSky.skyFrac||0)*100)} % du haut de l'image) : règles estimées seulement`}</div>
+    <div class="dbgsec">Dans l'axe (centre de l'écran)</div>
+    ${axisProbeHtml()}
     <div class="dbgsec">Pourquoi certains lieux ne s'affichent pas</div>
     ${whyLines}
     <div class="dbgsec">En memoire (${cities.length} au total)</div>
@@ -3832,7 +4031,19 @@ $('relv1').onchange=e=>{S.reliefV1=e.target.checked;saveSettings();computeTerrai
 $('obsH').oninput=e=>{S.obsHeight=+e.target.value;$('obsHV').textContent=fmtObsH(S.obsHeight);updateObsInfo();saveSettings();};
 $('obsH').onchange=()=>{ if(terrainBusy) terrainRedo=true; else computeTerrain(true); };
 $('sky').onchange=e=>{S.skyline=e.target.checked;saveSettings();if(S.skyline)computeTerrain(false);};
+$('phv').onchange=e=>{ S.photoVis=e.target.checked; photoSky=null; citiesVer++; saveSettings(); };
 $('rdg').onchange=e=>{S.ridges=e.target.checked;saveSettings();};
+// POSITION (GPS ou simulee) : un seul point d'entree
+function onNewPos(lat,lon,accuracy){ pos={lat,lon}; acc=accuracy; recompute(); loadCities(false); computeTerrain(false); if(telWanted()) pollTelecom(); if(S.buildings) pollBuildings(); if(S.layers.monuments) loadMonuments(false); if(S.layers.urban) loadUrban(false); }
+function parseLatLon(s){ s=String(s||''); const m=/@(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/.exec(s)||/(-?\d{1,2}(?:[.,]\d+)?)\s*[,; ]\s*(-?\d{1,3}(?:[.,]\d+)?)/.exec(s);
+  if(!m) return null; const lat=parseFloat(m[1].replace(',','.')), lon=parseFloat(m[2].replace(',','.'));
+  return isFinite(lat)&&isFinite(lon)&&Math.abs(lat)<=90&&Math.abs(lon)<=180?{lat,lon}:null; }
+function applySimPos(){ const p=parseLatLon(S.simPos); const el=$('simInfo');
+  if(!p){ if(el) el.textContent='Coordonnées non reconnues (format : 45.0805, 7.6705).'; return false; }
+  onNewPos(p.lat,p.lon,5); if(el) el.textContent=`Position simulée : ${p.lat.toFixed(5)}, ${p.lon.toFixed(5)} — GPS ignoré.`; logNet('Position',true,`simulée : ${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`); return true; }
+$('simOn').onchange=e=>{ S.simOn=e.target.checked; saveSettings(); if(S.simOn) applySimPos(); else { const el=$('simInfo'); if(el) el.textContent='GPS réactivé : la position revient à la prochaine mesure.'; } };
+$('simPos').onchange=e=>{ S.simPos=e.target.value.trim(); saveSettings(); if(S.simOn) applySimPos(); };
+$('floorN').onchange=e=>{ const n=parseInt(e.target.value,10); if(!(n>=0)) return; S.obsHeight=Math.round(n*3.2); $('obsH').value=S.obsHeight; $('obsHV').textContent=fmtObsH(S.obsHeight); updateObsInfo(); saveSettings(); if(terrainBusy) terrainRedo=true; else computeTerrain(true); };
 $('btnSky').onclick=async()=>{
   const b=$('btnSky'); const orig=b.textContent; b.disabled=true; b.textContent='Calcul…';
   hrDown=false; // redonne sa chance a Mapterhorn (l'echec precedent etait peut-etre transitoire)
@@ -3868,6 +4079,7 @@ function observeHorizon(fr,P,fh,eLo,eHi){ // fr = {L,cw,ch} luminance ; P = {hea
   }
   return pts;
 }
+const FIT_CAM_RELIEF=1.5;
 function fitHorizon(pts,P,cam0,tab){
   const cx=W/2, cy=H/2, r=new Float64Array(pts.length), dev=new Float64Array(pts.length);
   function cost(dh,cam){
@@ -3897,9 +4109,68 @@ function fitHorizon(pts,P,cam0,tab){
   for(let dh=-20;dh<=20;dh+=0.5){ const c=cost(dh,cam0); if(c.cost<b.cost) b={...c,dh}; }
   const c0=b.dh;
   for(let dh=c0-0.75;dh<=c0+0.75;dh+=0.05){ const c=cost(dh,cam0); if(c.cost<b.cost) b={...c,dh}; }
-  return {dh:b.dh,dp:b.dp,cam:cam0,cost:b.cost,flat:false,n:pts.length,relief,base:base.cost};
+  // 22/10/2026 : le champ (zoom) n'est cherche que si le relief est marque (>= FIT_CAM_RELIEF, montagnes) et retenu seulement s'il
+  // ameliore nettement l'ajustement (>= 15 %) : sur des collines douces, il reste fixe (cf. ci-dessus)
+  let cam=cam0;
+  if(relief>=FIT_CAM_RELIEF){ let bc={cost:b.cost};
+    for(let cm=Math.max(20,cam0-12);cm<=Math.min(110,cam0+12);cm+=1) for(let dh=b.dh-4;dh<=b.dh+4;dh+=0.25){ const c=cost(dh,cm); if(c.cost<bc.cost) bc={...c,dh,cm}; }
+    if(bc.cm!=null){ const c1=bc.cm, d1=bc.dh; for(let cm=c1-1;cm<=c1+1;cm+=0.5) for(let dh=d1-0.3;dh<=d1+0.3;dh+=0.05){ const c=cost(dh,cm); if(c.cost<bc.cost) bc={...c,dh,cm}; } }
+    if(bc.cm!=null&&bc.cost<b.cost*0.85){ b={...bc}; cam=bc.cm; } }
+  return {dh:b.dh,dp:b.dp,cam,cost:b.cost,flat:false,n:pts.length,relief,base:base.cost};
 }
 /*CALAGE-CORE-END*/
+// ---------- OPTION A : VISIBILITE D'APRES LA PHOTO (22/10/2026) ----------
+// "Si on ne le voit pas, on ne le montre pas" : toutes les PHOTO_EVERY ms, on lit sur l'image de la camera la limite ciel / bati-relief,
+// colonne par colonne (couleur du ciel apprise en haut de l'image, nuages clairs toleres). Un monument est VU si son sommet (relief compris)
+// depasse cette silhouette reelle a son cap (fenetre +-PHOTO_WIN° pour l'imprecision de la boussole) ; sinon quelque chose est devant.
+// La photo l'emporte sur les regles estimees (toits, masquage entre monuments) ; sans ciel lisible (nuit, brouillard, contre-jour, camera
+// vers le sol), on retombe sur ces regles. Bonus : le nom se cale sur la pointe reellement visible la plus proche (+-PHOTO_SNAP°).
+const PHOTO_EVERY=1500, PHOTO_FRESH=6000, PHOTO_TOL=0.5, PHOTO_WIN=0.7, PHOTO_SNAP=1.2;
+let photoSky=null, photoT=0;
+function grabFrameRGB(cw){
+  const vw=video.videoWidth, vh=video.videoHeight; if(!vw||!vh) return null;
+  const ch=Math.max(60,Math.round(cw*H/W)), oc=document.createElement('canvas'); oc.width=cw; oc.height=ch;
+  const x=oc.getContext('2d',{willReadFrequently:true}), sc=Math.max(cw/vw,ch/vh), dw=vw*sc, dh=vh*sc;
+  x.drawImage(video,(cw-dw)/2,(ch-dh)/2,dw,dh); // meme recadrage que l'ecran
+  try{ return {d:x.getImageData(0,0,cw,ch).data,cw,ch}; }catch(e){ return null; } }
+function observeSkyline(fr,P,fh){ // -> {ok, skyFrac, cols:[{brg,a,top}]} ; a = angle (°) de la limite ciel / non-ciel
+  const {d,cw,ch}=fr, k=cw/W, cx=W/2, cy=H/2, cr=Math.cos(P.roll*D), sr=Math.sin(P.roll*D);
+  const at=(xs,ys)=>{ const dx=xs-cx, dy=ys-cy, x=Math.round((cx+dx*cr-dy*sr)*k), y=Math.round((cy+dx*sr+dy*cr)*k); return (x<0||y<0||x>=cw||y>=ch)?-1:(y*cw+x)*4; };
+  const lum=i=>0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+  // couleur de reference du ciel : mediane des pixels clairs de la bande haute de l'image
+  const R=[],G=[],B=[]; let n=0, nb=0;
+  for(let xs=W*0.02;xs<=W*0.98;xs+=W/80) for(let ys=H*0.04;ys<=H*0.12;ys+=H*0.02){ const i=at(xs,ys); if(i<0) continue; n++; const L0=lum(i), s0=Math.max(d[i],d[i+1],d[i+2])-Math.min(d[i],d[i+1],d[i+2]); if((d[i+2]>=d[i]+12&&L0>80)||(L0>165&&s0<45)){ nb++; R.push(d[i]); G.push(d[i+1]); B.push(d[i+2]); } }
+  if(!n||nb<n*0.35) return {ok:false,skyFrac:n?nb/n:0,cols:[]};
+  const med=a=>{ a.sort((x,y)=>x-y); return a[a.length>>1]; }, ref0=[med(R),med(G),med(B)], refL=0.299*ref0[0]+0.587*ref0[1]+0.114*ref0[2];
+  const cols=[]; let skyCols=0;
+  for(let xs=W*0.01;xs<=W*0.99;xs+=W/160){
+    let ref=ref0.slice(), y=null, miss=0, started=false, first=true;
+    for(let ys=0;ys<H;ys+=1/k){ const i=at(xs,ys); if(i<0) continue;
+      const r=d[i],g=d[i+1],b=d[i+2], L=0.299*r+0.587*g+0.114*b, sat=Math.max(r,g,b)-Math.min(r,g,b);
+      // ciel : bleu (b nettement > r, assez clair), ou tres clair et peu sature (nuages, voile, ciel gris), ou proche du ciel de la colonne
+      const sky=(b>=r+12&&b>=g-5&&L>80)||(L>165&&sat<45)||Math.abs(r-ref[0])+Math.abs(g-ref[1])+Math.abs(b-ref[2])<60;
+      if(first){ first=false; if(!sky){ y=ys; break; } started=true; }
+      if(sky){ miss=0; ref=[ref[0]*0.92+r*0.08,ref[1]*0.92+g*0.08,ref[2]*0.92+b*0.08]; }
+      else if(++miss>=2){ y=ys-1/k; break; } }
+    if(y==null) continue; if(started) skyCols++;
+    cols.push({brg:(P.heading+Math.atan((xs-cx)/fh)/D+360)%360,a:P.pitch-Math.atan((y-cy)/fh)/D,top:!started}); }
+  return {ok:cols.length>=20&&skyCols>=cols.length*0.3,skyFrac:nb/n,cols};
+}
+function photoSkylineUpdate(frOverride){
+  const P=pose(), fh=(W/2)/Math.tan(vFov()/2*D), fr=frOverride||grabFrameRGB(240); if(!fr) return;
+  const r=observeSkyline(fr,P,fh); photoSky={...r,t:Date.now()}; citiesVer++; }
+const photoFresh=()=>S.photoVis!==false&&photoSky&&photoSky.ok&&Date.now()-photoSky.t<PHOTO_FRESH;
+function photoCheck(c,aTop){ // {vis, snap} ou null si l'objet n'est pas dans l'image lue
+  let mn=Infinity, best=null, inWin=0; const win=[];
+  for(const col of photoSky.cols){ const dd=wrap(col.brg-c.brg); if(Math.abs(dd)<=PHOTO_WIN){ inWin++; if(col.a<mn) mn=col.a; } if(Math.abs(dd)<=PHOTO_SNAP) win.push({dd,a:col.a}); }
+  if(!inWin) return null;
+  const vis=aTop>=mn-PHOTO_TOL; let snap=null;
+  if(vis&&win.length>=5){ for(const w of win) if(!best||w.a>best.a) best=w;
+    // pointe = colonnes au plus pres du maximum ; on se cale sur son centre si elle est nettement plus haute que ses voisines
+    const top=win.filter(w=>w.a>=best.a-0.3), low=win.filter(w=>w.a<best.a-1);
+    if(top.length<=win.length*0.7&&low.length>=2&&Math.abs(best.a-aTop)<2) snap=top.reduce((s,w)=>s+w.dd,0)/top.length; }
+  return {vis,snap,sky:mn};
+}
 function grabFrame(cw){
   const vw=video.videoWidth, vh=video.videoHeight; if(!vw||!vh) return null;
   const ch=Math.max(60,Math.round(cw*H/W));
@@ -3938,11 +4209,11 @@ async function runAutoAlign(){
     if(pts.length<25) return `horizon peu visible (${pts.length} colonnes exploitables) : visez un horizon dégagé`;
     const R=fitHorizon(pts,P,cam0,tab);
     if(R.cost>0.6) return `correspondance incertaine (écart ${R.cost.toFixed(2)}°) : calage inchangé`;
-    S.headOff+=R.dh; S.pitchOff+=R.dp; saveSettings();
+    S.headOff+=R.dh; S.pitchOff+=R.dp; const camCh=R.cam!==cam0; if(camCh){ S.camFov=R.cam; $('fov').value=S.camFov; showFov(); } saveSettings();
     const f=v=>(v>=0?'+':'')+v.toFixed(1)+'°';
-    logNet('Calage',true,`${R.n} colonnes, relief ${R.relief.toFixed(1)}°, cap ${f(R.dh)}, horizon ${f(R.dp)}, champ ${S.camFov}° (fixe), ecart median ${R.cost.toFixed(2)}°`);
+    logNet('Calage',true,`${R.n} colonnes, relief ${R.relief.toFixed(1)}°, cap ${f(R.dh)}, horizon ${f(R.dp)}, champ ${S.camFov}° (${R.cam!==cam0?'ajusté':'fixe'}), ecart median ${R.cost.toFixed(2)}°`);
     if(R.flat) return `horizon calé (${f(R.dp)}) · cap inchangé : pas assez de relief visible`;
-    return `calé : cap ${f(R.dh)} · horizon ${f(R.dp)} · précision ±${R.cost.toFixed(2)}°`;
+    return `calé : cap ${f(R.dh)} · horizon ${f(R.dp)}${R.cam!==cam0?` · champ ${R.cam}°`:''} · précision ±${R.cost.toFixed(2)}°`;
   }catch(e){ return 'échec du calage : '+friendlyErr(e); }
   finally{ aligning=false; }
 }
@@ -4079,7 +4350,7 @@ $('btnReload').onclick=()=>{dcForceT=Date.now()+90000; if(S.buildings){ building
 (function syncControlsFromS(){
   $('rad').value=S.radius; $('radV').textContent=S.radius+' km';
   $('fov').value=S.camFov; showFov();
-  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('relv1').checked=S.reliefV1; $('dst').checked=S.showDist; $('sky').checked=S.skyline; $('rdg').checked=S.ridges!==false;
+  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('relv1').checked=S.reliefV1; $('dst').checked=S.showDist; $('sky').checked=S.skyline; $('simOn').checked=!!S.simOn; $('simPos').value=S.simPos||''; $('rdg').checked=S.ridges!==false; $('phv').checked=S.photoVis!==false;
   $('obsH').value=S.obsHeight; $('obsHV').textContent=fmtObsH(S.obsHeight); updateObsInfo();
   $('air').checked=S.air; $('sea').checked=S.sea; $('tel').checked=S.telecom; $('bld').checked=S.buildings;
   document.querySelector('.chips').classList.toggle('folded',S.chipsFold);
@@ -4155,7 +4426,8 @@ $('go').onclick=async()=>{
   appStarted=true;
   await startCamera();
   if(navigator.geolocation){
-    navigator.geolocation.watchPosition(p=>{ pos={lat:p.coords.latitude,lon:p.coords.longitude}; acc=p.coords.accuracy; recompute(); loadCities(false); computeTerrain(false); if(telWanted()) pollTelecom(); if(S.buildings) pollBuildings(); if(S.layers.monuments) loadMonuments(false); if(S.layers.urban) loadUrban(false); },
+    if(S.simOn&&parseLatLon(S.simPos)) applySimPos();
+    navigator.geolocation.watchPosition(p=>{ if(S.simOn&&parseLatLon(S.simPos)) return; onNewPos(p.coords.latitude,p.coords.longitude,p.coords.accuracy); },
       err=>{ setStatus('GPS refusé : '+err.message); }, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
   } else setStatus('GPS indisponible');
   startTraffic();
