@@ -97,6 +97,7 @@
     </div>
     <div class="field" style="flex:0 0 auto;align-self:flex-end">
       <button class="ghost" id="btnSeaBusy">Zone témoin : Détroit du Pas-de-Calais</button>
+      <button class="ghost" id="btnSeaMalo">Saint-Malo (écoute 25 s)</button>
     </div>
   </div>
   <div class="hint">Le relais ouvre une connexion AISStream, écoute ~10&nbsp;s sur la zone, puis renvoie tout ce qui est arrivé (<code>received</code> = messages AIS bruts reçus, <code>ships</code> = navires avec position connue après filtrage). <code>received&nbsp;=&nbsp;0</code> = rien reçu du tout dans la fenêtre d'écoute (clé/zone/couverture à vérifier) ; <code>received&nbsp;&gt;&nbsp;0</code> mais <code>ships</code> vide = des messages arrivent mais aucun n'a encore de position exploitable dans cette fenêtre de 10&nbsp;s (fréquent en zone peu fréquentée : réessayez, ou zoomez sur une zone témoin).</div>
@@ -209,11 +210,11 @@ function statLine(items){
 }
 function esc(s){ return String(s).replace(/[<&]/g,c=>c==='<'?'&lt;':'&amp;'); }
 
-async function runQuery(outEl,{label,url,directFallbackUrl}){
+async function runQuery(outEl,{label,url,directFallbackUrl,timeout=20000}){
   outEl.innerHTML=`<div class="msg">Requête en cours…</div><div class="url">${esc(url)}</div>`;
   const t0=performance.now();
   try{
-    const r=await fetchT(url,20000);
+    const r=await fetchT(url,timeout);
     const ms=Math.round(performance.now()-t0);
     let j=null, rawText='';
     try{ rawText=await r.text(); j=JSON.parse(rawText); }catch(e){ j=null; }
@@ -241,16 +242,16 @@ async function queryPlanes(lat,lon,km,outEl){
     if(res.json.error) outEl.insertAdjacentHTML('afterbegin',`<div class="msg bad">${esc(res.json.error)}</div>`);
   }
 }
-async function querySea(lat,lon,km,outEl){
+async function querySea(lat,lon,km,outEl,listen){
   const relay=relayBase();
   if(!relay){ outEl.innerHTML='<div class="msg bad">Relais requis pour les bateaux (AISStream refuse les navigateurs) : renseignez son URL ci-dessus.</div>'; return; }
   const box=boxQuery(bbox(lat,lon,km)), q=qs(box);
-  const url=`${relay}/ships?${q}`;
-  const res=await runQuery(outEl,{label:'bateaux',url});
+  const url=`${relay}/ships?${q}`+(listen?`&listen=${listen}`:'');
+  const res=await runQuery(outEl,{label:'bateaux',url,timeout:40000});
   if(res && res.json){
     const n=(res.json.ships||[]).length, rec=res.json.received??'—', lms=res.json.listenMs??'—';
     outEl.insertAdjacentHTML('afterbegin',
-      `<div>${statLine([['bateaux (avec position)',n,n>0?'ok':'bad'],['messages reçus (received)',rec,(+rec>0)?'ok':'bad'],['durée écoute',lms+' ms']])}</div>`);
+      `<div>${statLine([['bateaux (avec position)',n,n>0?'ok':'bad'],['messages reçus (received)',rec,(+rec>0)?'ok':'bad'],['durée écoute',lms+' ms'],['types',res.json.types?Object.entries(res.json.types).map(([k,v])=>k.replace(/Position|Report|Standard|Extended/g,'')+' '+v).join(', ')||'—':'(relais à mettre à jour)']])}</div>`);
     if(res.json.error) outEl.insertAdjacentHTML('afterbegin',`<div class="msg bad">erreur amont : ${esc(res.json.error)}</div>`);
     if(n===0 && +rec>0) outEl.insertAdjacentHTML('afterbegin',`<div class="msg">${rec} message(s) AIS reçu(s) mais aucun avec position exploitable dans cette fenêtre de 10 s — souvent juste de la malchance sur une zone peu fréquentée : réessayez, ou testez la zone témoin.</div>`);
     if(n===0 && +rec===0) outEl.insertAdjacentHTML('afterbegin',`<div class="msg">0 message reçu du tout pendant les 10 s d'écoute : soit aucun navire ne diffusait AIS dans cette zone à cet instant, soit la clé/couverture AISStream a un problème — testez la zone témoin (Détroit du Pas-de-Calais, très fréquentée) pour trancher.</div>`);
@@ -437,7 +438,7 @@ async function monWikipedia(lat,lon,km){
 // Ordre : protege (monument historique) > ecarte (commune, evenement...) > monument typique > equipement > monument generique
 // ("batiment", des 8 langues) > inconnu tres celebre. Un lieu PROTEGE est toujours un monument (ex. Mont-Saint-Michel, aussi "commune").
 const _W=src=>new RegExp("(?:^|[^a-zà-ÿ])(?:"+src+")s?(?![a-zà-ÿ])","i");
-const WD_MONS=_W("[ée]glise|church|chapelle|chapel|cath[ée]drale|cathedral|basilique|basilica|abbaye|abbey|monast[èe]re|monastery|couvent|convent|prieur[ée]|priory|clo[îi]tre|cloister|temple|mosqu[ée]e|mosque|synagogue|pagode|sanctuaire|shrine|calvaire|croix|oratoire|baptist[èe]re|ch[âa]teau|castle|palais|palace|forteresse|fortress|citadelle|citadel|fort|manoir|manor|h[ôo]tel particulier|h[ôo]tel de ville|town hall|mairie|maison forte|maison natale|maison-musée|historic house|country house|villa|donjon|rempart|fortification|enceinte|porte de ville|city gate|tour|tower|beffroi|belfry|clocher|phare|lighthouse|moulin|windmill|watermill|mus[ée]e|museum|monument|m[ée]morial|memorial|statue|sculpture|fontaine|fountain|ob[ée]lisque|obelisk|colonne|column|arc de triomphe|triumphal arch|mausol[ée]e|mausoleum|panth[ée]on|pantheon|gratte-ciel|skyscraper|ruines?|ruins?|vestiges?|site arch[ée]ologique|archaeological site|m[ée]galithe|menhir|dolmen|tumulus|amphith[ée][âa]tre|amphitheat(?:er|re)|ar[èe]nes|th[ée][âa]tre antique|colombier|pigeonnier|lavoir|ch[âa]teau d['’]eau|water tower|place forte|hôtel-dieu|ensemble architectural|palais de justice historique");
+const WD_MONS=_W("[ée]metteur|transmitter|pyl[ôo]ne|pylon|radio mast|antenna tower|antenne|[ée]glise|church|chapelle|chapel|cath[ée]drale|cathedral|basilique|basilica|abbaye|abbey|monast[èe]re|monastery|couvent|convent|prieur[ée]|priory|clo[îi]tre|cloister|temple|mosqu[ée]e|mosque|synagogue|pagode|sanctuaire|shrine|calvaire|croix|oratoire|baptist[èe]re|ch[âa]teau|castle|palais|palace|forteresse|fortress|citadelle|citadel|fort|manoir|manor|h[ôo]tel particulier|h[ôo]tel de ville|town hall|mairie|maison forte|maison natale|maison-musée|historic house|country house|villa|donjon|rempart|fortification|enceinte|porte de ville|city gate|tour|tower|beffroi|belfry|clocher|phare|lighthouse|moulin|windmill|watermill|mus[ée]e|museum|monument|m[ée]morial|memorial|statue|sculpture|fontaine|fountain|ob[ée]lisque|obelisk|colonne|column|arc de triomphe|triumphal arch|mausol[ée]e|mausoleum|panth[ée]on|pantheon|gratte-ciel|skyscraper|ruines?|ruins?|vestiges?|site arch[ée]ologique|archaeological site|m[ée]galithe|menhir|dolmen|tumulus|amphith[ée][âa]tre|amphitheat(?:er|re)|ar[èe]nes|th[ée][âa]tre antique|colombier|pigeonnier|lavoir|ch[âa]teau d['’]eau|water tower|place forte|hôtel-dieu|ensemble architectural|palais de justice historique");
 // equipements, du plus specifique au plus general : [expression, icone, nb de langues minimum]
 const WD_EQUIP=[
   [_W("stade|stadium|arena|aréna|hippodrome|v[ée]lodrome|circuit|palais des sports|salle omnisports|patinoire|ice rink|piscine|swimming pool|complexe sportif|sports? (?:complex|cent(?:er|re)|venue|facility)|gymnase|golf|skatepark|parc des expositions|parc d['’]attractions|amusement park|theme park"),'stade',1],
@@ -460,7 +461,9 @@ function monTypeFrom(types,name){
   if(/basilique|basilica|cath[ée]drale|cathedral|d[ôo]me|\bdome\b|mosqu[ée]e|mosque|synagogue|pantheon|panthéon|mausol[ée]e/.test(t)) return 'dome';
   if(/[ée]glise|church|chapelle|chapel|clocher|abbaye|abbey|monast[èe]re|monastery|couvent|convent|prieur[ée]|priory|clo[îi]tre|cloister/.test(t)) return 'clocher';
   if(/ch[âa]teau|castle|palais|palace|forteresse|fortress|citadelle|citadel|manoir|\bfort\b/.test(t)) return 'chateau';
-  if(/\btour\b|tower|gratte-ciel|skyscraper|beffroi|belfry|phare|lighthouse|pyl[ôo]ne/.test(t)) return 'tour';
+  if(/\btour\b|tower|gratte-ciel|skyscraper|beffroi|belfry|phare|lighthouse|pyl[ôo]ne|pylon|[ée]metteur|transmitter|antenne/.test(t)) return 'tour';
+  if(/h[ôo]tel de ville|town hall|mairie/.test(t)) return 'mairie';
+  if(/maison|house|villa|h[ôo]tel particulier|logis|ferme|farm|immeuble|b[âa]timent|building/.test(t)) return 'maison';
   return 'musee';
 }
 // m = {types:"classe|classe", name, links, prot} -> {cat:'monument'|'equip'|null, type, minLinks?, why}
@@ -536,6 +539,7 @@ $('btnSea').onclick=()=>querySea(parseFloat($('lat').value),parseFloat($('lon').
 $('btnAirBusy').onclick=()=>{ $('lat').value='48.85'; $('lon').value='2.35'; $('airR').value=120; queryPlanes(48.85,2.35,120,$('airOut')); };
 // Detroit du Pas-de-Calais / Douvres : l'un des chenaux les plus frequentes au monde, sert de
 // zone temoin positive (si 0 bateau ici, le probleme est cote cle/relais, pas cote trafic reel)
+$('btnSeaMalo').onclick=()=>{ $('lat').value='48.649'; $('lon').value='-2.026'; $('seaR').value=15; querySea(48.649,-2.026,15,$('seaOut'),25000); };
 $('btnSeaBusy').onclick=()=>{ $('lat').value='50.95'; $('lon').value='1.45'; $('seaR').value=40; querySea(50.95,1.45,40,$('seaOut')); };
 // ---------- Silhouette bâtiments (tuile BD TOPO de l'IGN) ----------
 function pbfVar(b,p){ let r=0,sh=0,x; do{ x=b[p.i++]; r+=(x&0x7f)*Math.pow(2,sh); sh+=7; }while(x>=0x80); return r; }
