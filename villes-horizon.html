@@ -1613,9 +1613,9 @@ async function pollSea(){
       ships.set(String(v.mmsi),{name:v.name||('MMSI '+v.mmsi),lat:v.lat,lon:v.lon,trk:v.cog||0,vel:(v.sog||0)*0.5144,alt:0,vr:0,t:(v.t&&v.t<=now)?v.t:now});
     }
     // relais a jour : confirmed===false = AISStream n'a jamais valide l'abonnement (flux muet cote service, cf. aisstream/aisstream#15)
-    const mute=j.confirmed===false&&!(j.received>0);
+    const mute=j.confirmed===false&&!(j.received>0)&&!(j.undecoded>0);
     tMsg.sea=mute?'AISStream muet':ships.size+' bat.';
-    logNet('AISStream',!j.error&&!mute,mute?'AISStream muet : aucun accuse de reception ni message en '+Math.round((j.listenMs||0)/1000)+' s (panne cote service, pas de la requete — page de debug > Diagnostic AIS)':`${(j.ships||[]).length} navires recus (${j.received||0} messages en ${Math.round((j.listenMs||0)/1000)} s)`+(j.error?` — ${j.error}`:''));
+    logNet('AISStream',!j.error&&!mute,mute?'AISStream muet : aucun accuse de reception ni message en '+Math.round((j.listenMs||0)/1000)+' s (panne cote service, pas de la requete — page de debug > Diagnostic AIS)':(j.hub?`${(j.ships||[]).length} navires dans la zone (ecoute continue depuis ${j.hub.seconds} s, ${j.hub.tracked} suivis, ${j.received||0} messages)`:`${(j.ships||[]).length} navires recus (${j.received||0} messages en ${Math.round((j.listenMs||0)/1000)} s)`)+(j.error?` — ${j.error}`:''));
   }catch(e){ tMsg.sea='indispo'; logNet('AISStream',false,'relais : '+friendlyErr(e)); }
 }
 // ---------- pylones et points hauts telecom (France uniquement, source ANFR via le relais) ----------
