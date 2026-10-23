@@ -99,9 +99,15 @@
       <button class="ghost" id="btnSeaBusy">Zone témoin : Détroit du Pas-de-Calais</button>
       <button class="ghost" id="btnSeaMalo">Saint-Malo (écoute 25 s)</button>
       <button class="sea" id="btnAisDiag">Diagnostic AIS complet (4 essais)</button>
+      <button class="sea" id="btnAisRaw">Écoute brute cumulée (2 min)</button>
     </div>
   </div>
   <div class="hint">Le relais ouvre une connexion AISStream, écoute ~10&nbsp;s sur la zone, puis renvoie tout ce qui est arrivé (<code>received</code> = messages AIS bruts reçus, <code>ships</code> = navires avec position connue après filtrage). <code>received&nbsp;=&nbsp;0</code> = rien reçu du tout dans la fenêtre d'écoute (clé/zone/couverture à vérifier) ; <code>received&nbsp;&gt;&nbsp;0</code> mais <code>ships</code> vide = des messages arrivent mais aucun n'a encore de position exploitable dans cette fenêtre de 10&nbsp;s (fréquent en zone peu fréquentée : réessayez, ou zoomez sur une zone témoin).</div>
+  <div class="row">
+    <div class="field" style="flex:2 1 220px"><label for="seaFind">Chercher un navire (MMSI ou nom) dans l'écoute brute</label>
+      <input type="text" id="seaFind" value="228302110"></div>
+  </div>
+  <div class="hint">« Écoute brute cumulée » : 6 écoutes de 20 s à la suite sur la zone ci-dessus (position + rayon), sans filtre de types. Les navires à quai n'émettent qu'une position toutes les ~3 min, d'où la durée. Résultat : tableau des navires vus, messages complets (JSON d'AISStream tel quel), à copier ou télécharger.</div>
   <div id="seaOut" class="out"></div>
 </div>
 
@@ -267,6 +273,38 @@ async function aisDiag(outEl){
   const any=sums.some(s=>s[1]);
   outEl.insertAdjacentHTML('afterbegin',`<div class="msg ${any?'ok':'bad'}" style="font-size:14px"><b>${any?'Au moins une variante reçoit des bateaux : '+esc(sums.filter(s=>s[1]).map(s=>s[0]).join(' ; ')):'Aucune variante ne reçoit de message AIS.'}</b>${any?'':'<br>Sans accusé de réception sur aucune variante : flux AISStream muet côté service (cf. github.com/aisstream/aisstream/issues/15), notre requête n est pas en cause.'}</div>`);
 }
+
+// ecoute brute cumulee : plusieurs ecoutes de 20 s fusionnees ; navires + messages complets, recherche par MMSI/nom
+let rawAcc=null;
+function rawRender(outEl,done){
+  const a=rawAcc, q=($('seaFind').value||'').trim().toLowerCase();
+  const list=[...a.v.values()].sort((x,y)=>y.n-x.n), hit=q?list.filter(v=>v.mmsi.toLowerCase().includes(q)||(v.nom||'').toLowerCase().includes(q)):[];
+  const msgs=hit.length?a.raw.filter(m=>{ const md=m.MetaData||{}; return hit.some(v=>String(md.MMSI)===v.mmsi||String(((m.Message||{})[m.MessageType]||{}).UserID)===v.mmsi); }):[];
+  outEl.innerHTML=`<div>${statLine([['écoutes',a.runs+'/'+a.total],['messages',a.raw.length,a.raw.length?'ok':'bad'],['navires distincts',list.length,list.length?'ok':'bad'],['types',Object.entries(a.types).map(([k,v])=>k+' '+v).join(', ')||'—']])}</div>`
+   +(q?`<div class="msg ${hit.length?'ok':'bad'}">« ${esc(q)} » : ${hit.length?hit.length+' navire(s) trouvé(s), '+msgs.length+' message(s)':'pas vu pour l\'instant'+(done?' sur toute l\'écoute (rappel : un navire à quai n\'émet qu\'environ toutes les 3 min ; relancez)':'')}</div>`:'')
+   +(msgs.length?`<pre>${esc(msgs.slice(0,4).map(m=>JSON.stringify(m,null,1)).join('\n---\n'))}</pre>`:'')
+   +`<div class="row"><button class="ghost" id="rawCopy">Copier le JSON brut</button><button class="ghost" id="rawDl">Télécharger</button></div>`
+   +`<pre>${esc(list.slice(0,80).map(v=>(v.mmsi.padEnd(10)+' '+(v.nom||'?').padEnd(22)+' ×'+String(v.n).padStart(2)+'  '+Object.keys(v.types).map(t=>t.replace('PositionReport','Pos').replace('StandardClassBPos','B-Pos').replace('ExtendedClassBPos','B-PosExt').replace('ShipStaticData','Static').replace('StaticDataReport','B-Static')).join('+')+(v.lat!=null?'  '+v.lat.toFixed(4)+','+v.lon.toFixed(4)+' '+(v.sog??'?')+' nds':''))).join('\n')||'(aucun navire pour l\'instant)')}</pre>`;
+  const blob=()=>JSON.stringify({zone:a.q,navires:list,messages:a.raw},null,1);
+  $('rawCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText(blob()); $('rawCopy').textContent='Copié ✓'; }catch(e){ $('rawCopy').textContent='Copie refusée : utilisez Télécharger'; } };
+  $('rawDl').onclick=()=>{ const u=URL.createObjectURL(new Blob([blob()],{type:'application/json'})), l=document.createElement('a'); l.href=u; l.download='ais-brut.json'; l.click(); setTimeout(()=>URL.revokeObjectURL(u),2000); };
+}
+async function aisRaw(outEl){
+  const relay=relayBase(); if(!relay){ outEl.innerHTML='<div class="msg bad">Renseignez l\'URL du relais ci-dessus.</div>'; return; }
+  const lat=parseFloat($('lat').value), lon=parseFloat($('lon').value), km=parseFloat($('seaR').value)||15, q=qs(boxQuery(bbox(lat,lon,km)));
+  rawAcc={v:new Map(),raw:[],types:{},runs:0,total:6,q}; const a=rawAcc;
+  for(let i=0;i<a.total;i++){
+    rawRender(outEl,false); outEl.insertAdjacentHTML('afterbegin',`<div class="msg">Écoute ${i+1}/${a.total} (20 s)…</div>`);
+    try{
+      const r=await fetchT(`${relay}/ais-debug?${q}&variant=nofilter&raw=1&listen=20000`,40000); const j=await r.json();
+      for(const v of (j.vessels||[])){ const o=a.v.get(v.mmsi)||{mmsi:v.mmsi,nom:'',n:0,types:{},lat:null,lon:null,sog:null}; o.n+=v.n; if(v.nom) o.nom=v.nom; if(v.lat!=null){o.lat=v.lat;o.lon=v.lon;o.sog=v.sog;} for(const [t,c] of Object.entries(v.types)) o.types[t]=(o.types[t]||0)+c; a.v.set(v.mmsi,o); }
+      for(const m of (j.raw||[])) if(a.raw.length<3000) a.raw.push(m);
+      for(const [t,c] of Object.entries(j.types||{})) a.types[t]=(a.types[t]||0)+c;
+    }catch(e){ outEl.insertAdjacentHTML('afterbegin',`<div class="msg bad">écoute ${i+1} : ${esc((e&&e.message)||String(e))}</div>`); }
+    a.runs=i+1;
+  }
+  rawRender(outEl,true);
+}
 async function querySea(lat,lon,km,outEl,listen){
   const relay=relayBase();
   if(!relay){ outEl.innerHTML='<div class="msg bad">Relais requis pour les bateaux (AISStream refuse les navigateurs) : renseignez son URL ci-dessus.</div>'; return; }
@@ -276,7 +314,7 @@ async function querySea(lat,lon,km,outEl,listen){
   if(res && res.json){
     const n=(res.json.ships||[]).length, rec=res.json.received??'—', lms=res.json.listenMs??'—';
     outEl.insertAdjacentHTML('afterbegin',
-      `<div>${statLine([['bateaux (avec position)',n,n>0?'ok':'bad'],['messages reçus (received)',rec,(+rec>0)?'ok':'bad'],['durée écoute',lms+' ms'],['types',res.json.types?Object.entries(res.json.types).map(([k,v])=>k.replace(/Position|Report|Standard|Extended/g,'')+' '+v).join(', ')||'—':'(relais à mettre à jour)']])}</div>`);
+      `<div>${statLine([['bateaux (avec position)',n,n>0?'ok':'bad'],['messages reçus (received)',rec,(+rec>0)?'ok':'bad'],['durée écoute',lms+' ms'],['types',res.json.types?Object.entries(res.json.types).map(([k,v])=>k+' '+v).join(', ')||'—':'(relais à mettre à jour)']])}</div>`);
     if(res.json.sent) outEl.insertAdjacentHTML('beforeend',`<div class="hint">Abonnement envoyé à AISStream (clé masquée) · accusé de réception : <b>${res.json.confirmed?'oui':'non'}</b>${res.json.closeInfo?' · fermeture '+esc(JSON.stringify(res.json.closeInfo)):''}</div><pre>${esc(JSON.stringify(res.json.sent,null,1))}</pre>`);
     if(res.json.error) outEl.insertAdjacentHTML('afterbegin',`<div class="msg bad">erreur amont : ${esc(res.json.error)}</div>`);
     if(n===0 && +rec>0) outEl.insertAdjacentHTML('afterbegin',`<div class="msg">${rec} message(s) AIS reçu(s) mais aucun avec position exploitable dans cette fenêtre de 10 s — souvent juste de la malchance sur une zone peu fréquentée : réessayez, ou testez la zone témoin.</div>`);
@@ -565,6 +603,7 @@ $('btnSea').onclick=()=>querySea(parseFloat($('lat').value),parseFloat($('lon').
 $('btnAirBusy').onclick=()=>{ $('lat').value='48.85'; $('lon').value='2.35'; $('airR').value=120; queryPlanes(48.85,2.35,120,$('airOut')); };
 // Detroit du Pas-de-Calais / Douvres : l'un des chenaux les plus frequentes au monde, sert de
 // zone temoin positive (si 0 bateau ici, le probleme est cote cle/relais, pas cote trafic reel)
+$('btnAisRaw').onclick=()=>aisRaw($('seaOut'));
 $('btnAisDiag').onclick=()=>aisDiag($('seaOut'));
 $('btnSeaMalo').onclick=()=>{ $('lat').value='48.649'; $('lon').value='-2.026'; $('seaR').value=15; querySea(48.649,-2.026,15,$('seaOut'),25000); };
 $('btnSeaBusy').onclick=()=>{ $('lat').value='50.95'; $('lon').value='1.45'; $('seaR').value=40; querySea(50.95,1.45,40,$('seaOut')); };
