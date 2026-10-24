@@ -111,6 +111,7 @@
   <div class="row">
     <label for="rad">Repères dans un rayon de</label><input type="number" id="rad" min="500" max="8000" step="500" value="3000"><span class="hint" style="margin:0">m</span>
     <button id="btnCal" disabled>Chercher les repères et caler</button>
+    <button class="ghost" id="btnExport" disabled>Exporter le jeu de test</button>
   </div>
   <div class="hint">Repères : tours, clochers, églises, cheminées, mâts, châteaux d'eau et immeubles d'au moins 40 m ou 13 niveaux, d'après OpenStreetMap (hauteur réelle si renseignée, sinon typique). Pour chaque méthode, on cherche le cap et le champ qui alignent le plus de pointes de la silhouette sur ces repères, à hauteur cohérente. Même recherche, seule la silhouette change.</div>
   <div id="calOut"></div>
@@ -126,6 +127,21 @@ const stat=(k,v,c)=>`<span class="stat ${c||''}">${k} : ${v}</span>`, wrap=a=>((
 let est=null, estInfo=null, cur=null, last=null, exif=null, cal=null;
 
 // ================= 1. modele =================
+// MEMOIRE DU MODELE (24/10/2026 : "apres rechargement, il ne trouve pas le modele") : les fichiers restaient bien dans la memoire du
+// navigateur, mais la page attendait un nouvel appui sur "Charger" et repartait sur "auto" (fp16) alors que fp32 etait en memoire.
+// Desormais : le choix est retenu, les variantes deja telechargees sont listees, et la page recharge seule celle qui est en memoire.
+const SUFFIX={fp32:'',fp16:'_fp16',q8:'_quantized'};
+async function cachedVariants(){ try{ if(!window.caches) return []; const c=await caches.open('transformers-cache'), ks=(await c.keys()).map(r=>r.url).filter(u=>/depth-anything-v2-small/.test(u));
+  return Object.keys(SUFFIX).filter(k=>ks.some(u=>new RegExp(`/onnx/model${SUFFIX[k]}\\.onnx$`).test(u))); }catch(e){ return []; } }
+const remember=c=>{ try{ localStorage.setItem('dp-model',JSON.stringify({prec:c.prec,dev:$('dev').value})); }catch(e){} };
+async function initModel(){
+  let saved=null; try{ saved=JSON.parse(localStorage.getItem('dp-model')||'null'); }catch(e){}
+  const have=await cachedVariants();
+  if(saved){ $('prec').value=saved.prec; $('dev').value=saved.dev||'auto'; }
+  else if(have.length){ $('prec').value=have.includes('fp16')?'fp16':have[0]; }
+  const want=choice().prec;
+  $('loadOut').innerHTML=have.length?`En mémoire du téléphone : <b>${have.join(', ')}</b>${have.includes(want)?' — rechargement automatique…':` — la précision choisie (${want}) n'y est pas : touchez Charger pour la télécharger`}`:'Aucun modèle en mémoire : touchez Charger (téléchargement unique depuis huggingface.co).';
+  if(have.includes(want)) loadModel(); }
 function choice(){ const gpu=!!navigator.gpu; let dev=$('dev').value, prec=$('prec').value; if(dev==='auto') dev=gpu?'webgpu':'wasm'; if(prec==='auto') prec=dev==='webgpu'?'fp16':'q8'; return {dev,prec,gpu}; }
 async function loadModel(){
   const c=choice(); $('btnLoad').disabled=true; const files={}; const t0=performance.now(); $('loadOut').textContent=`téléchargement / ouverture (${c.prec}, ${c.dev})…`;
@@ -134,7 +150,7 @@ async function loadModel(){
   try{ est=await pipeline('depth-estimation',MODEL,{device:c.dev,dtype:c.prec,progress_callback});
     const mb=Object.values(files).reduce((s,f)=>s+f.t,0)/1048576, s=(performance.now()-t0)/1000; estInfo={...c,mb}; $('bar').style.width='100%';
     $('loadOut').innerHTML=`<span class="msg ok">Modèle prêt</span> · ${c.prec} · ${c.dev} · ${mb?mb.toFixed(1)+' Mo téléchargés':'déjà en mémoire'} · ${s.toFixed(1)} s`;
-    log(`modèle chargé : ${c.prec}/${c.dev}, ${mb.toFixed(1)} Mo, ${s.toFixed(1)} s`); $('btnSnap').disabled=!$('video').srcObject; if(cur) run();
+    log(`modèle chargé : ${c.prec}/${c.dev}, ${mb.toFixed(1)} Mo, ${s.toFixed(1)} s`); remember(c); $('btnSnap').disabled=!$('video').srcObject; if(cur) run();
   }catch(e){ $('loadOut').innerHTML=`<span class="msg bad">Échec : ${esc(e&&e.message||e)}</span>`+(c.dev==='webgpu'?' — réessayez avec Calcul = WASM.':''); }
   finally{ $('btnLoad').disabled=false; } }
 $('btnLoad').onclick=loadModel;
@@ -163,7 +179,7 @@ const hfovFromF35=(f35,w,h)=>{ const dd=2*Math.atan(43.27/2/f35); return 2*Math.
 
 // ================= image =================
 function setImage(src,w,h){ const s=Math.min(1,MAXW/w), cw=Math.round(w*s), ch=Math.round(h*s), cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
-  cv.getContext('2d').drawImage(src,0,0,cw,ch); cur={canvas:cv,w:cw,h:ch}; cal=null; $('calOut').innerHTML=''; $('btnRun').disabled=!est; $('btnCal').disabled=false;
+  cv.getContext('2d').drawImage(src,0,0,cw,ch); cur={canvas:cv,w:cw,h:ch}; cal=null; $('calOut').innerHTML=''; $('btnRun').disabled=!est; $('btnCal').disabled=false; $('btnExport').disabled=false;
   if(exif&&exif.f35){ const fv=hfovFromF35(exif.f35,cw,ch); $('fov').value=fv.toFixed(1); }
   if(est) run(); else draw(); }
 async function openFile(f,raw){
@@ -337,6 +353,19 @@ async function calibrate(){
   }catch(e){ $('calOut').innerHTML=`<div class="msg bad">${esc(e.message||e)}</div>`; }
   finally{ $('btnCal').disabled=false; } }
 $('btnCal').onclick=calibrate;
+// JEU DE TEST : tout ce qu'il faut pour rejouer l'analyse ailleurs (sans le modele) : metadonnees, reglages, image reduite, profondeur
+// brute (disparite du modele, 16 bits), silhouettes, pointes, reperes et resultats des deux methodes. Un fichier .json par photo.
+$('btnExport').onclick=()=>{ if(!cur) return; const g=geom(), st=A||analyse();
+  let disp=null; if(last){ let mn=Infinity,mx=-Infinity; for(const v of last.disp){ if(v<mn) mn=v; if(v>mx) mx=v; } const q=new Uint16Array(last.disp.length);
+    for(let i=0;i<q.length;i++) q[i]=Math.round(65535*(last.disp[i]-mn)/((mx-mn)||1)); let s=''; const u8=new Uint8Array(q.buffer); for(let i=0;i<u8.length;i+=8192) s+=String.fromCharCode.apply(null,u8.subarray(i,i+8192));
+    disp={w:last.w,h:last.h,min:mn,max:mx,uint16_le_base64:btoa(s),ms:last.ms,model:estInfo}; }
+  const strip=s=>s&&{H:s.H,fov:s.fov,pitch:s.pitch,n:s.n,rms:s.rms,matches:s.m.map(q=>({name:q.L.name,d:q.L.d,b:q.L.b,h:q.L.h,known:q.L.known,peakX:q.p.x,peakY:q.p.y,eDeg:q.eDeg})),second:s.second&&{H:s.second.H,fov:s.second.fov,n:s.second.n}};
+  const out={version:1,date:new Date().toISOString(),exif,inputs:{pos:$('pos').value,head:$('head').value,fov:g.fov,pitch:g.pitch,eye:g.eye,nearM:+$('near').value,rad:+$('rad').value},
+    image:{w:g.w,h:g.h,jpeg:cur.canvas.toDataURL('image/jpeg',0.9)},disp,metric:st.m,
+    m1:{ok:st.m1.ok,skyline:Array.from(st.m1.sk),peaks:st.m1.peaks},m2:st.m2&&{skyline:Array.from(st.m2.sk),occluded:Array.from(st.m2.occ),peaks:st.m2.peaks},
+    landmarks:cal&&cal.lms,results:cal&&{m1:strip(cal.s1),m2:strip(cal.s2)}};
+  const name=(exif&&exif.date?exif.date.replace(/[: ]/g,'-'):new Date().toISOString().slice(0,19).replace(/:/g,'-'))+'-profondeur.json';
+  const u=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:'application/json'})), a=document.createElement('a'); a.href=u; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(u),3000); log('jeu de test exporté : '+name); };
 function drawCal(x){
   const {g,lms}=cal; x.font='600 11px monospace'; x.textBaseline='bottom';
   for(const [s,col,dy] of [[cal.s1,'#fff',0],[cal.s2,'#6FCF97',14]]){ if(!s) continue; const f=(g.w/2)/Math.tan(s.fov/2*D);
@@ -344,6 +373,7 @@ function drawCal(x){
       x.strokeStyle=col; x.lineWidth=1.2; x.beginPath(); x.moveTo(px,py-4); x.lineTo(px,py-22-dy); x.stroke();
       x.lineWidth=3; x.strokeStyle='rgba(14,26,43,.9)'; const t=q.L.name.slice(0,18); x.strokeText(t,px+3,py-22-dy); x.fillStyle=col; x.fillText(t,px+3,py-22-dy); } } }
 if(!navigator.gpu) log('WebGPU absent : calcul en WASM (plus lent).');
+initModel();
 // crochets de test
 window.__dbg={readExif,hfovFromF35,metricFit,solve,toLandmarks,geom:()=>geom(),analyse:()=>analyse(),state:()=>({cur,last,cal,A})};
 </script>
