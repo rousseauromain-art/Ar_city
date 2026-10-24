@@ -29,6 +29,9 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 
 /* status + calibration chips */
 .chips{position:absolute;top:calc(var(--safe-t) + 34px);left:calc(12px + var(--safe-l));max-width:calc(100% - var(--toolsW) - var(--safe-l) - var(--safe-r) - 40px);display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none}
+.chiprow{display:flex;gap:6px;align-items:center}
+#radChip{pointer-events:auto;cursor:pointer;color:var(--ochre);border:1px solid rgba(224,165,38,.45)}
+#radPop{pointer-events:auto;padding:8px 10px;width:230px}#radPop input{width:100%;accent-color:var(--ochre)}
 .chip{padding:5px 9px;border-radius:4px;background:rgba(14,26,43,.72);font:500 12px/1 var(--mono);color:var(--cream);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;backdrop-filter:blur(6px)}
 #calib,#filt{color:var(--ochre);display:none;pointer-events:auto}
 #note{display:none;color:var(--ochre);white-space:normal;line-height:1.35}
@@ -149,6 +152,19 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .dbgrow.ko b{color:#E08787}
 .dbgrow span:last-child{color:rgba(243,233,210,.8)}
 #sheet.open{transform:none}
+#sheet details.grp{border-top:1px solid var(--line)}
+#sheet details.grp>summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:14px 0}
+#sheet details.grp>summary::-webkit-details-marker{display:none}
+#sheet details.grp>summary b{font:700 15px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--ochre)}
+#sheet details.grp>summary i{font:400 12px/1.3 var(--mono);color:rgba(243,233,210,.6);font-style:normal;grid-column:1}
+#sheet details.grp>summary:after{content:'›';grid-row:1/3;grid-column:2;align-self:center;font:400 22px/1 var(--mono);color:var(--ochre);transition:transform .2s}
+#sheet details.grp[open]>summary:after{transform:rotate(90deg)}
+#sheet details.grp .row{padding-left:10px}
+#sheet .row .hint.help{display:none}
+#sheet .row.showhelp .hint.help{display:block}
+#sheet .qbtn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1px solid rgba(243,233,210,.4);font:600 11px/1 var(--mono);color:rgba(243,233,210,.75);margin-left:6px;vertical-align:middle;background:none;padding:0;cursor:pointer}
+#sheet .row.showhelp .qbtn{background:rgba(224,165,38,.2);border-color:var(--ochre);color:var(--ochre)}
+
 #sheet h2{position:sticky;top:0;background:var(--ink);padding:16px 0 12px;font:700 22px/1 var(--display);text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center}
 #sheet h2 button{font:500 12px var(--mono);color:var(--ochre);letter-spacing:.1em}
 .row{display:grid;grid-template-columns:1fr auto;gap:8px 14px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
@@ -181,7 +197,9 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <div class="chiprow">
       <button id="btnFold" aria-label="Afficher ou masquer les informations"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
       <div id="status" class="chip">En attente…</div>
+      <button id="radChip" class="chip" aria-label="Zone de recherche">⌖ 60 km</button>
     </div>
+    <div id="radPop" class="chip" hidden><input type="range" id="radQ" min="10" max="200" step="5" value="60" aria-label="Rayon de recherche"></div>
     <div id="calib" class="chip"></div>
     <div id="filt" class="chip"></div>
     <div id="note" class="chip"></div>
@@ -218,6 +236,7 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 
 <div id="sheet">
   <h2>Réglages <button id="btnClose">FERMER</button></h2>
+  <!-- toujours visibles : ce qu'on regle le plus souvent -->
   <div class="row">
     <label for="flt">Filtrer par nom</label><span class="val" id="fltN"></span>
     <input type="search" id="flt" placeholder="ex. Crozon, Saint-" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -228,21 +247,74 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <label for="rad">Rayon de recherche</label><span class="val" id="radV">60 km</span>
     <input type="range" id="rad" min="10" max="200" step="5" value="60">
   </div>
+  <details class="grp" data-grp="aff"><summary><b>Affichage</b><i class="gsum" id="sum_aff"></i></summary>
+  <div class="row">
+    <label for="dst">Afficher les distances</label><input type="checkbox" id="dst" checked>
+  </div>
+  <div class="row">
+    <label for="vil">Hameaux et lieux-dits</label><input type="checkbox" id="vil">
+  </div>
+  <div class="row">
+    <label for="bey">Tout voir</label><input type="checkbox" id="bey">
+    <span class="hint">Par défaut (« Essentiel »), seuls les lieux visibles d'ici sont nommés. « Tout voir » ajoute en transparence, avec un trait pointillé, ceux cachés derrière le relief et ceux au-delà de la portée habituelle de leur catégorie (plage &gt; 12 km, village &gt; 30 km, île &gt; 60 km…). Raccourci : le bouton œil à droite du déclencheur ; le badge « +N » indique combien de lieux il ajouterait dans la direction visée. Les noms ne se chevauchent jamais : dans une zone très chargée, certains attendent d'avoir de la place.</span>
+  </div>
+  <div class="row">
+    <label for="rdg">Crêtes intérieures (relief en plusieurs plans, avec leur distance)</label><input type="checkbox" id="rdg">
+  </div>
+  </details>
+  <details class="grp" data-grp="cal"><summary><b>Calques en direct et équipements</b><i class="gsum" id="sum_cal"></i></summary>
+  <div class="row">
+    <label for="air">Avions<em>OpenSky &le; 120 km</em></label><input type="checkbox" id="air">
+  </div>
+  <div class="row">
+    <label for="sea">Bateaux<em>AISStream &le; 40 km</em></label><input type="checkbox" id="sea">
+    <span class="hint" id="seaHint">Passe par votre relais Cloudflare (config.js : relay), qui détient la clé AISStream. Mise à jour toutes les 30 s. La fraîcheur dépend surtout de la couverture radio AIS locale (stations terrestres) : un navire peut apparaître avec plusieurs dizaines de minutes de retard même sur MarineTraffic — ce n'est pas propre à cette app.</span>
+  </div>
+  <div class="row">
+    <label for="tel">Afficher (en rouge)<em>ANFR &le; 8 km</em></label><input type="checkbox" id="tel">
+    <span class="hint">France uniquement (source ANFR, via le relais). Propriétaire du support et opérateurs présents en appuyant sur une étiquette. Un pylône lointain peut mettre quelques secondes à apparaître.</span>
+  </div>
+  <div class="row">
+    <label for="bld">Afficher (en bleu)<em>OSM &le; 12 km</em></label><input type="checkbox" id="bld">
+    <span class="hint">Tours, clochers, cheminées, mâts, châteaux d'eau et immeubles élevés (source OpenStreetMap : tag "height" ou "building:levels"), affichés comme les pylônes télécom ci-dessus — sans correction de relief.</span>
+  </div>
+  </details>
+  <details class="grp" data-grp="cap"><summary><b>Calage et capteurs</b><i class="gsum" id="sum_cap"></i></summary>
   <div class="row">
     <label for="fov">Champ de la caméra</label><span class="val" id="fovV">67°</span>
     <input type="range" id="fov" min="20" max="110" step="0.5" value="67">
     <span class="hint">Angle du côté large du capteur (~67° pour un objectif principal standard). L'app en déduit le champ réellement affiché selon l'orientation et le recadrage. Le calage auto l'ajuste ; sinon, si deux lieux connus paraissent trop écartés ou trop serrés, corrigez ici.</span>
   </div>
   <div class="row">
-    <label for="vil">Hameaux et lieux-dits</label><input type="checkbox" id="vil">
+    <label for="gyr">Cap stabilisé au gyroscope (ne se décale plus en tournant)</label><input type="checkbox" id="gyr">
   </div>
+  <div class="row">
+    <label for="acal">Calage automatique sur les repères vus (tours, clochers, crêtes)</label><input type="checkbox" id="acal">
+  </div>
+  <div class="row">
+    <label for="phv">Visibilité d'après la photo (on ne nomme que ce que la caméra voit)</label><input type="checkbox" id="phv">
+  </div>
+  <div class="row">
+    <label for="sky">Ligne d'horizon (aide au calage)</label><input type="checkbox" id="sky">
+    <span class="hint" id="skyInfo">Dessine la silhouette théorique du relief : comparez-la à l'horizon réel pour caler, utile face à une île ou une côte sans repère net.</span>
+  </div>
+  <div class="row">
+    <label for="crs">Croix de visée (pointage d'un site lointain)</label><input type="checkbox" id="crs">
+    <span class="hint">Grande croix graduée au centre de l'écran (axe de la caméra), un trait par degré, avec l'azimut et le site lus : amenez le site visé dans la croix, comme pour pointer un faisceau hertzien.</span>
+  </div>
+  <div class="row zbtns">
+    <button id="btnAutoAlign">Caler auto</button>
+  </div>
+    <div id="poiList"></div>
+  <div class="row">
+    <span class="hint">Glissez sur l'image : horizontalement pour caler le cap, verticalement pour caler l'horizon. Ou utilisez l'icône cible (calage automatique) : activez-la puis touchez un repère reconnaissable à l'écran (rocher, île, sommet…) — le cap se corrige d'un coup en le rattachant au lieu connu le plus proche en relèvement.</span>
+    <button id="reset">Remettre le calage à zéro</button>
+  </div>
+  </details>
+  <details class="grp" data-grp="rel"><summary><b>Relief et altitude</b><i class="gsum" id="sum_rel"></i></summary>
   <div class="row">
     <label for="rel">Masquer ce qui est caché par le relief</label><input type="checkbox" id="rel" checked>
     <span class="hint">Calcule, pour chaque direction, la crête la plus haute devant chaque lieu (tuiles d'altitude Mapterhorn — IGN ~1 m à proximité en France, Copernicus ~30 m au-delà —, courbure terrestre incluse ; sous 300 m, le relief le plus fin est lissé pour qu'un obstacle proche insignifiant ne masque pas à tort un lieu lointain). Les lieux cachés derrière une colline disparaissent ; le bouton œil (en bas, « Tout voir ») les affiche en transparence.</span>
-  </div>
-  <div class="row">
-    <label for="relv1">Ancien relief (v1, comparaison)</label><input type="checkbox" id="relv1">
-    <span class="hint">Bascule sur l'ancien relief (tuiles AWS/SRTM ~30 m, tolérance de masquage d'origine) pour comparer avec le nouveau (v2, Mapterhorn, plus précis, actif par défaut). Ce réglage change quels lieux sont masqués : c'est volontairement l'objet de la comparaison, donc la liste des noms peut différer entre v1 et v2 ici.</span>
   </div>
   <div class="row">
     <label for="obsH">Altitude de l'œil (correction)</label><span class="val" id="obsHV">0 m</span>
@@ -252,30 +324,14 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
     <span class="hint">Étage : ≈ 3,2 m par niveau (7ᵉ étage ≈ +22 m). L'altitude du sol sous vos pieds est estimée d'après le relief ; elle peut se tromper de 10 m ou plus, surtout en bord de mer ou de falaise (précision GPS, données à 30 m hors de France). Positif : balcon, étage (2ᵉ étage ≈ +6 m). Négatif : l'estimation vous place trop haut (ex. estimé 14 m alors que vous êtes au ras de l'eau → −11 m). Repère : l'altitude affichée par PeakFinder ou une carte topo.</span>
   </div>
   <div class="row">
-    <label for="simOn">Position simulée</label><input type="checkbox" id="simOn">
-    <input type="text" id="simPos" placeholder="45.0805, 7.6705 (ou lien Google Maps)" style="width:100%">
-    <span class="hint" id="simInfo">Pour revoir un lieu sans y être : collez des coordonnées (ou un lien de carte contenant @lat,lon). Le GPS est ignoré tant que la case est cochée ; tournez en glissant le doigt, la boussole reste active.</span>
-  </div>
-  <div class="row">
-    <label for="bey">Tout voir</label><input type="checkbox" id="bey">
-    <span class="hint">Par défaut (« Essentiel »), seuls les lieux visibles d'ici sont nommés. « Tout voir » ajoute en transparence, avec un trait pointillé, ceux cachés derrière le relief et ceux au-delà de la portée habituelle de leur catégorie (plage &gt; 12 km, village &gt; 30 km, île &gt; 60 km…). Raccourci : le bouton œil à droite du déclencheur ; le badge « +N » indique combien de lieux il ajouterait dans la direction visée. Les noms ne se chevauchent jamais : dans une zone très chargée, certains attendent d'avoir de la place.</span>
-  </div>
-  <div class="row">
-    <label for="sky">Ligne d'horizon (aide au calage)</label><input type="checkbox" id="sky">
-    <label for="phv">Visibilité d'après la photo (on ne nomme que ce que la caméra voit)</label><input type="checkbox" id="phv">
-    <label for="acal">Calage automatique sur les repères vus (tours, clochers, crêtes)</label><input type="checkbox" id="acal">
-    <label for="gyr">Cap stabilisé au gyroscope (ne se décale plus en tournant)</label><input type="checkbox" id="gyr">
-    <label for="rdg">Crêtes intérieures (relief en plusieurs plans, avec leur distance)</label><input type="checkbox" id="rdg">
-    <span class="hint" id="skyInfo">Dessine la silhouette théorique du relief : comparez-la à l'horizon réel pour caler, utile face à une île ou une côte sans repère net.</span>
+    <label for="relv1">Ancien relief (v1, comparaison)</label><input type="checkbox" id="relv1">
+    <span class="hint">Bascule sur l'ancien relief (tuiles AWS/SRTM ~30 m, tolérance de masquage d'origine) pour comparer avec le nouveau (v2, Mapterhorn, plus précis, actif par défaut). Ce réglage change quels lieux sont masqués : c'est volontairement l'objet de la comparaison, donc la liste des noms peut différer entre v1 et v2 ici.</span>
   </div>
   <div class="row zbtns">
     <button id="btnSky">Recalculer le relief</button>
-    <button id="btnAutoAlign">Caler auto</button>
   </div>
-  <div class="row">
-    <label for="dst">Afficher les distances</label><input type="checkbox" id="dst" checked>
-  </div>
-  <div class="sec">Donnees hors-ligne</div>
+  </details>
+  <details class="grp" data-grp="off"><summary><b>Hors-ligne et diagnostic</b><i class="gsum" id="sum_off"></i></summary>
   <div class="row">
     <span class="hint" id="zoneInfo">—</span>
   </div>
@@ -289,43 +345,28 @@ video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   <div class="row">
     <span class="hint">Supprime les tuiles de relief, l'atlas hors-ligne et les données mémorisées (pylônes, bâtiments, monuments). Les réglages et le calage sont conservés.</span>
   </div>
-  <div class="sec">Diagnostic</div>
   <div class="row">
     <span class="hint">Etat du cache, source des donnees et journal des requetes — utile pour verifier ce qui a bien ete recupere avant de partir sans reseau.</span>
   </div>
   <div class="row zbtns">
     <button id="btnDbg">Ouvrir le diagnostic</button>
   </div>
-  <div class="sec">Trafic en direct</div>
+  </details>
+  <details class="grp" data-grp="sim"><summary><b>Test et simulation</b><i class="gsum" id="sum_sim"></i></summary>
   <div class="row">
-    <label for="air">Avions<em>OpenSky &le; 120 km</em></label><input type="checkbox" id="air">
+    <label for="simOn">Position simulée</label><input type="checkbox" id="simOn">
+    <input type="text" id="simPos" placeholder="45.0805, 7.6705 (ou lien Google Maps)" style="width:100%">
+    <span class="hint" id="simInfo">Pour revoir un lieu sans y être : collez des coordonnées (ou un lien de carte contenant @lat,lon). Le GPS est ignoré tant que la case est cochée ; tournez en glissant le doigt, la boussole reste active.</span>
   </div>
-  <div class="row">
-    <label for="sea">Bateaux<em>AISStream &le; 40 km</em></label><input type="checkbox" id="sea">
-    <span class="hint" id="seaHint">Passe par votre relais Cloudflare (config.js : relay), qui détient la clé AISStream. Mise à jour toutes les 30 s. La fraîcheur dépend surtout de la couverture radio AIS locale (stations terrestres) : un navire peut apparaître avec plusieurs dizaines de minutes de retard même sur MarineTraffic — ce n'est pas propre à cette app.</span>
-  </div>
-  <div class="sec" style="color:#E85A5A">Pylônes &amp; points hauts télécom</div>
-  <div class="row">
-    <label for="tel">Afficher (en rouge)<em>ANFR &le; 8 km</em></label><input type="checkbox" id="tel">
-    <span class="hint">France uniquement (source ANFR, via le relais). Propriétaire du support et opérateurs présents en appuyant sur une étiquette. Un pylône lointain peut mettre quelques secondes à apparaître.</span>
-  </div>
-  <div class="sec" style="color:#A98BFF">Tours, clochers et immeubles hauts</div>
-  <div class="row">
-    <label for="bld">Afficher (en bleu)<em>OSM &le; 12 km</em></label><input type="checkbox" id="bld">
-    <span class="hint">Tours, clochers, cheminées, mâts, châteaux d'eau et immeubles élevés (source OpenStreetMap : tag "height" ou "building:levels"), affichés comme les pylônes télécom ci-dessus — sans correction de relief.</span>
-  </div>
-  <div class="sec">Points de vue et reperes</div>
-  <div id="poiList"></div>
-  <div class="row">
-    <span class="hint">Glissez sur l'image : horizontalement pour caler le cap, verticalement pour caler l'horizon. Ou utilisez l'icône cible (calage automatique) : activez-la puis touchez un repère reconnaissable à l'écran (rocher, île, sommet…) — le cap se corrige d'un coup en le rattachant au lieu connu le plus proche en relèvement.</span>
-    <button id="reset">Remettre le calage à zéro</button>
-  </div>
+  </details>
+  <details class="grp" data-grp="apr"><summary><b>À propos</b><i class="gsum" id="sum_apr"></i></summary>
   <div class="row">
     <span class="hint">Lieux : © contributeurs OpenStreetMap (ODbL). Relief : Mapterhorn (IGN RGE ALTI, Copernicus GLO-30), repli AWS Terrain Tiles (SRTM).</span>
   </div>
   <div class="row">
     <span class="hint" id="verInfo"></span>
   </div>
+  </details>
 </div>
 
 <div id="dbg">
@@ -379,8 +420,8 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-23 · bateaux : message clair quand AISStream est muet · 2026-10-22 (d) · cap stabilisé au gyroscope, calage automatique continu sur les repères vus (cap + zoom), règle de la photo étendue aux lieux · 2026-10-22 (c) · visibilité d\'après la photo : on ne nomme que ce que la caméra voit (silhouette réelle), nom calé sur la pointe visible · 2026-10-22 (b) · un monument caché derrière un plus proche (même direction) passe en Tout voir · 2026-10-22 · Turin : monuments posés sur le relief devant eux, crêtes filtrées, sonde dans l\'axe, priorité à ce qu\'on voit (bâtiments hauts OSM), relief 200 km et sommets lointains, calage du zoom, sol/étage, position simulée · 2026-10-21 · relief : secours AWS par tuile (Italie / hors Mapterhorn) · 2026-10-21 · zoom au pincement, 5 miroirs Overpass, structure BD TOPO · 2026-10-21 · repères/tours OSM en tuiles + tours ANFR, crêtes intérieures du relief · 2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
-const S={gyro:true,autoCal:true,photoVis:true,simOn:false,simPos:'',radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,ridges:true,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
+const APP_VERSION='2026-10-23 (d) · reglages ranges en sections depliables (aides derriere "?"), pastille de reglage rapide du rayon, croix de visee en option · 2026-10-23 (c) · bateaux : couleur par type et rond a l\'arret facon MarineTraffic, fiche au toucher avec liens MarineTraffic / VesselFinder (avions : ADS-B Exchange / Flightradar24) · 2026-10-23 (b) · avions et bateaux : placement des noms generique (sans chevauchement), memoire d\'appareil ; croix de visee en mode KML · 2026-10-23 · bateaux : message clair quand AISStream est muet · 2026-10-22 (d) · cap stabilisé au gyroscope, calage automatique continu sur les repères vus (cap + zoom), règle de la photo étendue aux lieux · 2026-10-22 (c) · visibilité d\'après la photo : on ne nomme que ce que la caméra voit (silhouette réelle), nom calé sur la pointe visible · 2026-10-22 (b) · un monument caché derrière un plus proche (même direction) passe en Tout voir · 2026-10-22 · Turin : monuments posés sur le relief devant eux, crêtes filtrées, sonde dans l\'axe, priorité à ce qu\'on voit (bâtiments hauts OSM), relief 200 km et sommets lointains, calage du zoom, sol/étage, position simulée · 2026-10-21 · relief : secours AWS par tuile (Italie / hors Mapterhorn) · 2026-10-21 · zoom au pincement, 5 miroirs Overpass, structure BD TOPO · 2026-10-21 · repères/tours OSM en tuiles + tours ANFR, crêtes intérieures du relief · 2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const S={cross:false,gyro:true,autoCal:true,photoVis:true,simOn:false,simPos:'',radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,ridges:true,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
 const POI={
@@ -1577,10 +1618,21 @@ function dr(o){
            lon:o.lon+d*Math.sin(b)/(111320*Math.max(0.2,Math.cos(o.lat*D))),
            alt:(o.alt||0)+(o.vr||0)*dt };
 }
+// ---------- CALQUES EN DIRECT (avions, bateaux) : la meme memoire d'appareil que les autres calques (23/10/2026) ----------
+// La donnee change sans cesse : la memoire n'evite pas la requete, mais au demarrage (ou au retour dans l'appli) on AFFICHE
+// tout de suite la derniere situation connue, si elle est encore plausible (ttl : 2 min pour un avion, 1 h pour un bateau,
+// souvent a quai), puis la requete la remplace. Meme stockage (dcPut/dcRead) et memes compteurs Diagnostic que dcFetch.
+const LIVE_CELL=0.1, LIVE_TTL={air:2*60000,sea:60*60000};
+const liveKey=kind=>`live/${kind}/${Math.round(pos.lat/LIVE_CELL)},${Math.round(pos.lon/LIVE_CELL)}`;
+async function liveRestore(kind){ if(!pos) return null; const h=await dcRead(liveKey(kind),LIVE_TTL[kind],false); if(h) dcStat(kind,'hit'); return h; }
+function liveSave(kind,data){ if(pos){ dcStat(kind,'net'); dcPut(liveKey(kind),JSON.stringify(data),'application/json'); } }
+// navire garde a l'ecran sans nouvelle position : 15 min s'il fait route, 1 h a quai/au mouillage (une position toutes les ~3 min)
+const shipKeepMs=v=>(v.vel||0)<0.3?60*60000:15*60000;
 // avions : via le relais (jeton OpenSky gere cote serveur, 4000 credits/jour), sinon direct anonyme (400/jour)
 async function pollAir(){
   if(!S.air||!pos||document.hidden||Date.now()<airPauseUntil) return;
   const q=boxQuery(bbox(S.airMax)), viaRelay=!!relayBase();
+  if(!planes.length){ const h=await liveRestore('air'); if(h&&!planes.length){ planes=h.d; tMsg.air=planes.length+' av. (mémoire)'; } }
   try{
     const r=await fetchT(viaRelay?`${relayBase()}/planes?${q}`:`https://opensky-network.org/api/states/all?${q}`,{},15000);
     let j={}; try{ j=await r.json(); }catch(e){}
@@ -1592,9 +1644,9 @@ async function pollAir(){
     if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
     const now=Date.now();
     planes=(j.states||[]).filter(v=>v[5]!=null&&v[6]!=null&&!v[8]).map(v=>({
-      name:((v[1]||'').trim()||v[0]||'?'), lat:v[6], lon:v[5],
+      name:((v[1]||'').trim()||v[0]||'?'), id:v[0], lat:v[6], lon:v[5],
       alt:(v[13]!=null?v[13]:(v[7]||0)), trk:v[10]||0, vel:v[9]||0, vr:v[11]||0, t:now }));
-    tMsg.air=planes.length+' av.';
+    tMsg.air=planes.length+' av.'; liveSave('air',planes);
     logNet('OpenSky',!j.authError,`${planes.length} avions (${viaRelay?'relais, '+(j.auth||'?'):'direct, anonyme'}`+
       `${j.creditsRestants?`, ${j.creditsRestants} credits restants`:''}${j.cache?', cache':''})`+(j.authError?` — ${j.authError}`:''));
   }catch(e){ tMsg.air='indispo'; logNet('OpenSky',false,(viaRelay?'relais : ':'direct : ')+friendlyErr(e)); }
@@ -1602,6 +1654,9 @@ async function pollAir(){
 // bateaux : AISStream refuse les navigateurs -> le relais ecoute la zone ~10 s et renvoie un resume
 async function pollSea(){
   if(!S.sea||!pos||document.hidden) return;
+  if(!ships.size){ const h=await liveRestore('sea'), now=Date.now();
+    if(h) for(const [id,v] of h.d) if(!ships.has(id)&&now-v.t<shipKeepMs(v)) ships.set(id,v);
+    if(ships.size) tMsg.sea=ships.size+' bat. (mémoire)'; }
   if(!relayBase()){ tMsg.sea='relais requis'; logNet('AISStream',false,'relais serveur requis : AISStream refuse les navigateurs (config.js : relay)'); return; }
   try{
     const r=await fetchT(`${relayBase()}/ships?${boxQuery(bbox(S.seaMax))}`,{},30000);
@@ -1610,11 +1665,12 @@ async function pollSea(){
     const now=Date.now();
     for(const v of (j.ships||[])){
       if(v.lat==null||v.lon==null) continue;
-      ships.set(String(v.mmsi),{name:v.name||('MMSI '+v.mmsi),lat:v.lat,lon:v.lon,trk:v.cog||0,vel:(v.sog||0)*0.5144,alt:0,vr:0,t:(v.t&&v.t<=now)?v.t:now});
+      const old=ships.get(String(v.mmsi));
+      ships.set(String(v.mmsi),{name:v.name||(old&&old.name)||('MMSI '+v.mmsi),mmsi:String(v.mmsi),type:v.type!=null?v.type:(old?old.type:null),lat:v.lat,lon:v.lon,trk:v.cog||0,vel:(v.sog||0)*0.5144,alt:0,vr:0,t:(v.t&&v.t<=now)?v.t:now});
     }
     // relais a jour : confirmed===false = AISStream n'a jamais valide l'abonnement (flux muet cote service, cf. aisstream/aisstream#15)
     const mute=j.confirmed===false&&!(j.received>0)&&!(j.undecoded>0);
-    tMsg.sea=mute?'AISStream muet':ships.size+' bat.';
+    tMsg.sea=mute?'AISStream muet':ships.size+' bat.'; if(ships.size) liveSave('sea',[...ships]);
     logNet('AISStream',!j.error&&!mute,mute?'AISStream muet : aucun accuse de reception ni message en '+Math.round((j.listenMs||0)/1000)+' s (panne cote service, pas de la requete — page de debug > Diagnostic AIS)':(j.hub?`${(j.ships||[]).length} navires dans la zone (ecoute continue depuis ${j.hub.seconds} s, ${j.hub.tracked} suivis, ${j.received||0} messages)`:`${(j.ships||[]).length} navires recus (${j.received||0} messages en ${Math.round((j.listenMs||0)/1000)} s)`)+(j.error?` — ${j.error}`:''));
   }catch(e){ tMsg.sea='indispo'; logNet('AISStream',false,'relais : '+friendlyErr(e)); }
 }
@@ -2641,6 +2697,15 @@ document.addEventListener('visibilitychange',()=>{
   if(document.hidden){ clearInterval(airTimer); clearInterval(seaTimer); airTimer=seaTimer=null; }
   else if(appStarted) startTraffic();
 });
+// TYPE AIS -> couleur et libelle, a la maniere de la carte MarineTraffic (couleur = categorie du navire ; fleche = fait route,
+// rond = arrete : a quai ou au mouillage). Code "Type of ship and cargo" (ITU-R M.1371) : 30 peche, 36 voilier, 37 plaisance,
+// 40-49 grande vitesse, 50-59 navires de service (pilote, sauvetage, remorqueur...), 60-69 passagers, 70-79 cargo, 80-89 citerne.
+const SHIP_CAT=[[t=>t===36||t===37,'#D45AD6','Voilier, plaisance'],[t=>t===30,'#F4A07A','Pêche'],[t=>t>=40&&t<50,'#F2D53C','Grande vitesse'],
+  [t=>t>=60&&t<70,'#4F8DF0','Passagers'],[t=>t>=70&&t<80,'#79C76B','Cargo'],[t=>t>=80&&t<90,'#E5484D','Citerne (pétrolier, gaz, chimie)'],
+  [t=>(t>=50&&t<60)||t===31||t===32||t===33||t===34||t===35,'#38C9E3','Service (remorqueur, pilote, sauvetage, dragage…)']];
+const SHIP_SUB={30:'Pêche',31:'Remorquage',32:'Remorquage (grand)',33:'Dragage',34:'Plongée',35:'Militaire',36:'Voilier',37:'Plaisance',50:'Pilote',51:'Sauvetage (SAR)',52:'Remorqueur',53:'Navette portuaire',54:'Anti-pollution',55:'Police',58:'Transport médical'};
+function shipStyle(t){ t=+t; const c=t>0?SHIP_CAT.find(x=>x[0](t)):null; return {col:c?c[1]:'#B4BCC8',cat:c?c[2]:'Type inconnu',sub:SHIP_SUB[t]||(c?c[2]:'non transmis')}; }
+const SHIP_STOP_MS=0.26; // < 0,5 noeud : considere a l'arret
 // mobiles() re-scanne/trie planes+ships ; throttle a ~2.5 fois/s, largement assez fluide
 // pour du dead-reckoning, evite de refaire ce travail a 60 fps
 let _mobCache=[], _mobCacheAt=0;
@@ -2652,13 +2717,13 @@ function mobiles(){
   if(S.air) for(const p of planes){
     const s=dr(p), r=distBrg(pos,{lat:s.lat,lon:s.lon});
     if(r.dist>S.airMax) continue;
-    out.push({name:p.name,kind:'plane',dist:r.dist,brg:r.brg,alt:s.alt,trk:p.trk,vel:p.vel});
+    out.push({name:p.name,kind:'plane',id:p.id,lat:s.lat,lon:s.lon,t:p.t,dist:r.dist,brg:r.brg,alt:s.alt,trk:p.trk,vel:p.vel});
   }
   if(S.sea) for(const [id,v] of ships){
-    if(now-v.t>900000){ ships.delete(id); continue; }
+    if(now-v.t>shipKeepMs(v)){ ships.delete(id); continue; }
     const s=dr(v), r=distBrg(pos,{lat:s.lat,lon:s.lon});
     if(r.dist>S.seaMax) continue;
-    out.push({name:v.name,kind:'ship',dist:r.dist,brg:r.brg,alt:0,trk:v.trk,vel:v.vel});
+    out.push({name:v.name,kind:'ship',mmsi:v.mmsi||id,type:v.type,lat:s.lat,lon:s.lon,t:v.t,dist:r.dist,brg:r.brg,alt:0,trk:v.trk,vel:v.vel});
   }
   _mobCache=out.sort((a,b)=>a.dist-b.dist).slice(0,60); _mobCacheAt=now;
   return _mobCache;
@@ -2859,7 +2924,7 @@ function monName(c){
   }
   n=clip28(n); _nmMemo.set(c,{v:cities.length,s:n}); return n;
 }
-const lblMem=new Map(), laneMem=new Map(), monHits=[]; let infraStats={labeled:0,iconOnly:0,deck:'bas'};
+const lblMem=new Map(), laneMem=new Map(), monHits=[], mobHits=[]; let infraStats={labeled:0,iconOnly:0,deck:'bas'};
 const BLD_ICON={tour:'mat',tour_telecom:'pylone',clocher:'clocher',chateau_eau:'chateau_eau',cheminee:'colonne',mat:'mat',immeuble:'toit'};
 let lastFrameT=0;
 function draw(ts){
@@ -2881,6 +2946,26 @@ function draw(ts){
   // réticule
   ctx.strokeStyle='#E0A526'; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.moveTo(W/2,hy-9); ctx.lineTo(W/2,hy+9); ctx.moveTo(W/2-9,hy); ctx.lineTo(W/2+9,hy); ctx.stroke();
+  // CROIX DE VISEE (23/10/2026, "comme pour pointer un FH") : option des Reglages (Calage et capteurs), grande croix au centre de
+  // l'ecran (= axe de la camera), graduee tous les degres (traits longs tous les 5°), avec la lecture azimut / site.
+  // On amene le site vise dans la croix : l'azimut et le site lus sont ceux a donner pour le pointage.
+  if(S.cross){
+    const cx=W/2, cy=H/2, ppd=fh*Math.tan(1*D), arm=Math.min(W,H)*0.42, gap=10;
+    ctx.save(); ctx.strokeStyle='rgba(14,26,43,.75)'; ctx.lineWidth=4;
+    const cross=()=>{ ctx.beginPath(); ctx.moveTo(cx-arm,cy); ctx.lineTo(cx-gap,cy); ctx.moveTo(cx+gap,cy); ctx.lineTo(cx+arm,cy);
+      ctx.moveTo(cx,cy-arm); ctx.lineTo(cx,cy-gap); ctx.moveTo(cx,cy+gap); ctx.lineTo(cx,cy+arm);
+      for(let k=1;k*ppd<=arm;k++){ const t=k%5?4:9, o=k*ppd; if(o<gap) continue;
+        ctx.moveTo(cx-o,cy-t); ctx.lineTo(cx-o,cy+t); ctx.moveTo(cx+o,cy-t); ctx.lineTo(cx+o,cy+t);
+        ctx.moveTo(cx-t,cy-o); ctx.lineTo(cx+t,cy-o); ctx.moveTo(cx-t,cy+o); ctx.lineTo(cx+t,cy+o); }
+      ctx.stroke(); };
+    cross(); ctx.strokeStyle='#FFD23F'; ctx.lineWidth=1.3; cross();
+    ctx.beginPath(); ctx.arc(cx,cy,2,0,7); ctx.fillStyle='#FFD23F'; ctx.fill();
+    const az=((heading%360)+360)%360, txt=`az ${az.toFixed(1)}° · site ${pitch>=0?'+':''}${pitch.toFixed(1)}°`;
+    ctx.font=`600 12px ${FM}`; ctx.textAlign='left'; const tw=ctx.measureText(txt).width, tx=cx+gap+4, ty=cy+gap+16; // pastille opaque : lisible par-dessus les noms
+    ctx.fillStyle='rgba(14,26,43,.88)'; ctx.beginPath(); ctx.roundRect(tx-5,ty-13,tw+10,18,5); ctx.fill(); ctx.strokeStyle='rgba(255,210,63,.7)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.fillStyle='#FFF3C4'; ctx.fillText(txt,tx,ty);
+    ctx.restore();
+  }
 
   // silhouette des batiments (calque "Silhouette") : trois couches de distance (proche, moyen, lointain), du fond
   // vers l'avant, lissees "facon skyline", remplies jusqu'au sol de leur couche ; plus c'est loin, plus c'est clair
@@ -3062,6 +3147,56 @@ function draw(ts){
   const layerOk=c=>showPlaces||c.kind==='monument';
   let order=(S.beyond?list.filter(c=>!isGhost(c)).concat(list.filter(isGhost)):list.filter(c=>!isGhost(c))).filter(layerOk).filter(c=>c.cat!=='equip'); // les equipements ont leur bande (drawInfra)
   const ANG_LBL=45*D, cAL=Math.cos(ANG_LBL), sAL=Math.sin(ANG_LBL);
+  // PLACEMENT D'ETIQUETTE INCLINEE, GENERIQUE (23/10/2026 : lieux, monuments, avions, bateaux — un seul code) :
+  // nom incline a 45° en eventail partant d'une ancre (x, base), test de chevauchement EXACT sur la bande inclinee contre
+  // tout ce qui est deja pose (placed), memoire de la place de l'image precedente (memKey), cote prefere puis l'autre,
+  // en montant ligne par ligne. Reserve la place et renvoie {lx,ly,side}, ou null s'il n'y a de place nulle part.
+  //   o = { x, base, off (decalage horizontal du depart), lift (hauteur du depart), len (longueur du texte), padTop, padBot, side, own, memKey }
+  function placeSlanted(o){
+    const {x,base,off,lift,len,padTop,padBot,own,memKey}=o; let sgn=o.side;
+    const reach=10+len*cAL+padTop*sAL, tight=s=>(s<0&&x-reach<4)||(s>0&&x+reach>W-4);
+    if(tight(sgn)&&!tight(-sgn)) sgn=-sgn;
+    let res=null;
+    const tryAt=(side,k)=>{
+      const lsx=x+side*off, lsy=base-lift-k*LBL_STEP;
+      const poly=[[0,-padTop],[side*len,-padTop],[side*len,padBot],[0,padBot]]
+        .map(([px,py])=>[lsx+px*cAL+py*side*sAL, lsy-side*px*sAL+py*cAL]);
+      let bx0=Infinity,bx1=-Infinity,by0=Infinity,by1=-Infinity;
+      for(const [sx,sy] of poly){ if(sx<bx0)bx0=sx; if(sx>bx1)bx1=sx; if(sy<by0)by0=sy; if(sy>by1)by1=sy; }
+      if(by0<topLimit) return -1; // plus de place vers le haut
+      // test EXACT aussi contre les rectangles (icones, bandeaux) : le rectangle englobant d'un nom incline est enorme et
+      // bloquait tout voisin (place Chateaubriand masquee par des icones de bateaux qui ne la touchaient pas)
+      if(placed.some(r=>r[5]!==own&&bx0<r[1]+6&&bx1>r[0]-6&&by0<r[3]+6&&by1>r[2]-6&&polysOverlap(poly,r[4]||[[r[0],r[2]],[r[1],r[2]],[r[1],r[3]],[r[0],r[3]]],5))) return 0;
+      placed.push([bx0,bx1,by0,by1,poly]); res={lx:lsx,ly:lsy,side}; return 1;
+    };
+    const mem=memKey?lblMem.get(memKey):null;
+    if(mem&&!tight(mem.side)&&tryAt(mem.side,mem.k)===1) return res;
+    for(const side of [sgn,-sgn]){
+      if(side!==sgn&&tight(side)) break;
+      for(let k=0;k<maxLanes;k++){ const r=tryAt(side,k); if(r<0) break; if(r===1){ if(memKey) lblMem.set(memKey,{side,k}); return res; } }
+    }
+    return null;
+  }
+  // PENDANT HORIZONTAL, GENERIQUE : nom a plat a cote d'une icone, ligne par ligne vers le haut (dir -1) ou vers le bas (dir 1),
+  // du cote le plus degage d'abord. Sert quand le nom incline ne trouve pas de place (monuments) ou en premier choix
+  // sous l'horizon (bateaux : la mer est generalement libre). Reserve la place et renvoie {x,y,side}, ou null.
+  //   o = { x, y0 (ligne de base de la 1re ligne), halfW (demi-largeur de l'icone), w (largeur du texte), size, own, dir, maxK,
+  //         anchorY (option : fil VERTICAL de l'icone au nom, dont le couloir doit etre libre et est reserve — un fil ne
+  //         traverse ainsi jamais un autre nom) }
+  //         sides (option : ordre des cotes essayes ; defaut : vers le centre de l'ecran d'abord) }
+  function placeFlat(o){
+    const {x,y0,halfW,w,size,own,anchorY}=o, dir=o.dir||-1, maxK=o.maxK||12, bot=H-8;
+    for(let k=0;k<maxK;k++){
+      const fy=y0+dir*k*(size+6); if(fy-size-2<topLimit||fy+4>bot) break;
+      const cy0=anchorY==null?0:dir>0?anchorY:fy+4, cy1=anchorY==null?0:dir>0?fy-size-2:anchorY;
+      if(anchorY!=null&&cy1>cy0&&rectHit(x-2,x+2,cy0,cy1,1,own)) continue; // le fil croiserait un nom deja pose
+      for(const side of (o.sides||(x<W/2?[1,-1]:[-1,1]))){
+        const fx0=side>0?x+halfW+4:x-halfW-4-w, fx1=fx0+w; if(fx0<4||fx1>W-4) continue;
+        if(!rectHit(fx0-2,fx1+2,fy-size-2,fy+4,5,own)){ placed.push([fx0-2,fx1+2,fy-size-2,fy+4]); if(anchorY!=null&&cy1>cy0) placed.push([x-2,x+2,cy0,cy1]); return {x:fx0,y:fy,side,w}; }
+      }
+    }
+    return null;
+  }
   // angles d'un monument : sol, et sommet reel (sol + hauteur) — partage entre reservation et dessin
   // 09/10/2026 (capture de Saint-Gregoire : la cathedrale a 0,6 km avait sa base SOUS la ligne de relief, le sol proche
   // etant sous l'angle de l'horizon) : un monument visible ne descend jamais sous la ligne de relief a son cap —
@@ -3103,6 +3238,26 @@ function draw(ts){
   for(const c of order){ if(c.kind!=='monument'||!passFilter(c,fq)) continue; const x=inView(c); if(x==null) continue;
     const y=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan((pitch-monAng(c).aA)*D))), g=monGH(c), sb=monSpriteBox(c,x,y);
     placed.push(sb?[sb.x0-2,sb.x1+2,sb.yTop-2,sb.yBase+2,null,c]:[x-g/2-2,x+g/2+2,y-g-2,y+2,null,c]); }
+  // AVIONS ET BATEAUX (23/10/2026, Saint-Malo : une dizaine de navires a quai, noms empiles illisibles) : meme traitement
+  // que les autres calques. Positions a l'ecran calculees ici, icones REGROUPEES quand elles se touchent (le plus proche
+  // donne son nom, "+N" pour les autres) et RESERVEES avant toute etiquette ; leurs noms sont poses plus bas par
+  // placeSlanted(), comme les lieux, sans jamais en recouvrir un.
+  const mobGroups=[];
+  { const Reff=6371000*1.13, h0=obsElev+1.6, hzA=-Math.sqrt(2*Math.max(0.5,h0)/Reff)/D; // angle de l'horizon visible
+    for(const m of mobiles()){
+      if(!passFilter(m,fq)) continue;
+      const dB=wrap(m.brg-heading); if(Math.abs(dB)>Math.min(80,FOVH*0.8)) continue;
+      const x=W/2+fh*Math.tan(dB*D); if(x<-40||x>W+40) continue;
+      const Dm=m.dist*1000;
+      // hauteur utile : altitude barometrique pour un avion, superstructure pour un navire
+      const elev=Math.atan2((m.kind==='plane'?m.alt:12)-h0-Dm*Dm/(2*Reff),Dm)/D;
+      if(elev<hzA) continue; // masque par la rotondite de la Terre
+      const y=Math.max(-60,Math.min(H+60,H/2+fh*Math.tan((pitch-elev)*D)));
+      const g=mobGroups.find(o=>o.kind===m.kind&&Math.abs(o.x-x)<16&&Math.abs(o.y-y)<12);
+      if(g) g.items.push({m,x,y}); else mobGroups.push({kind:m.kind,x,y,items:[{m,x,y}]});
+    }
+    for(const g of mobGroups) for(const it of g.items) placed.push([it.x-9,it.x+9,it.y-9,it.y+9,null,g]);
+  }
   // horizon trop bas pour la bande du dessous : equipements au-dessus, places avant les lieux mais
   // limites aux 3 lignes les plus basses (sinon ils prenaient tout l'ecran — capture du 28/09)
   if(!lowDeck) for(const L of infra) drawInfra(L,'up');
@@ -3140,45 +3295,13 @@ function draw(ts){
     const dw=dtxt?ctx.measureText(dtxt).width:0;
     let lx=null, ly=null;
     const totalLen=nw+(dtxt?dw+7:0)+4, padTop=size+2, padBot=3;
-    const reach=10+totalLen*cAL+padTop*sAL;
     const base=mon?ay-4:ay; // monument : le nom part A COTE de son icone, pas au-dessus (plus de place pour monter)
-    if(sgn<0&&x-reach<4&&x+reach<=W-4) sgn=1; else if(sgn>0&&x+reach>W-4&&x-reach>=4) sgn=-1;
-    const tryAt=(side,k)=>{
-      const lsx=x+side*(mon?gH/2+4:10), lsy=base-(mon?gH*0.5:18)-k*LBL_STEP;
-      const poly=[[0,-padTop],[side*totalLen,-padTop],[side*totalLen,padBot],[0,padBot]]
-        .map(([px,py])=>[lsx+px*cAL+py*side*sAL, lsy-side*px*sAL+py*cAL]);
-      let bx0=Infinity,bx1=-Infinity,by0=Infinity,by1=-Infinity;
-      for(const [sx,sy] of poly){ if(sx<bx0)bx0=sx; if(sx>bx1)bx1=sx; if(sy<by0)by0=sy; if(sy>by1)by1=sy; }
-      if(by0<topLimit) return -1; // plus de place vers le haut
-      const hit=placed.some(r=>r[5]!==c&&bx0<r[1]+6&&bx1>r[0]-6&&by0<r[3]+6&&by1>r[2]-6&&(!r[4]||polysOverlap(poly,r[4],5)));
-      if(hit) return 0;
-      lx=lsx; ly=lsy; placed.push([bx0,bx1,by0,by1,poly]); return 1;
-    };
-    const memKey=c.name+'|'+c.kind, mem=lblMem.get(memKey);
-    let got=false;
-    // 1) la place de l'image precedente (si ce cote reste possible pres des bords)
-    if(mem&&!((mem.side<0&&x-reach<4)||(mem.side>0&&x+reach>W-4))&&tryAt(mem.side,mem.k)===1){ sgn=mem.side; got=true; }
-    // 2) sinon, recherche habituelle : cote prefere, puis l'autre, en montant
-    if(!got) for(const side of [sgn,-sgn]){
-      if(side!==sgn&&((side<0&&x-reach<4)||(side>0&&x+reach>W-4))) break;
-      for(let k=0;k<maxLanes;k++){ const r=tryAt(side,k); if(r<0) break; if(r===1){ sgn=side; lblMem.set(memKey,{side,k}); got=true; break; } }
-      if(got) break;
-    }
+    const ps=placeSlanted({x,base,off:mon?gH/2+4:10,lift:mon?gH*0.5:18,len:totalLen,padTop,padBot,side:sgn,own:c,memKey:c.name+'|'+c.kind});
+    let got=!!ps; if(ps){ lx=ps.lx; ly=ps.ly; sgn=ps.side; }
     // monument sans place pour un nom incline (frequent en paysage : pose a son sommet reel, il
     // part deja haut) : repli sur un nom HORIZONTAL a cote de son icone, plus compact en hauteur
     let flat=null;
-    if(!got&&mon){
-      const fw=nw+(dtxt?dw+7:0);
-      for(let k=0;k<12&&!flat;k++){
-        const fy=ay-gH-2-k*(size+6); if(fy-size-2<topLimit) break;
-        for(const side of (x<W/2?[1,-1]:[-1,1])){
-          const fx0=side>0?x+gH/2+4:x-gH/2-4-fw, fx1=fx0+fw;
-          if(fx0<4||fx1>W-4) continue;
-          if(!rectHit(fx0-2,fx1+2,fy-size-2,fy+4,5,c)){ flat={x:fx0,y:fy,side,w:fw}; placed.push([fx0-2,fx1+2,fy-size-2,fy+4]); break; }
-        }
-      }
-      if(flat) got=true;
-    }
+    if(!got&&mon){ flat=placeFlat({x,y0:ay-gH-2,halfW:gH/2,w:nw+(dtxt?dw+7:0),size,own:c,dir:-1}); if(flat) got=true; }
     // un monument garde toujours son icone, meme sans place pour son nom
     if(!got&&!mon){ dNoRoom++; continue; }
     if(mon&&!got) dNoRoom++;
@@ -3369,31 +3492,55 @@ function draw(ts){
       ctx.textAlign='left'; ctx.fillStyle='#FFF3C4'; ctx.fillText(lab,x0+7,y); k++; }
   }
 
-  // --- mobiles : avions et bateaux, places a leur hauteur angulaire reelle ---
-  const Reff=6371000*1.13, h0=obsElev+1.6;
-  const hzA=-Math.sqrt(2*Math.max(0.5,h0)/Reff)/D; // angle de l'horizon visible
-  for(const m of mobiles()){
-    if(!passFilter(m,fq)) continue;
-    const dB=wrap(m.brg-heading);
-    if(Math.abs(dB)>Math.min(80,FOVH*0.8)) continue;
-    const x=W/2+fh*Math.tan(dB*D);
-    if(x<-40||x>W+40) continue;
-    const Dm=m.dist*1000;
-    // hauteur utile : altitude barometrique pour un avion, superstructure pour un navire
-    const elev=Math.atan2((m.kind==='plane'?m.alt:12)-h0-Dm*Dm/(2*Reff),Dm)/D;
-    if(elev<hzA) continue; // masque par la rotondite de la Terre
-    const y=Math.max(-60,Math.min(H+60,H/2+fh*Math.tan((pitch-elev)*D)));
-    const air=m.kind==='plane', col=air?'#8FD3FF':'#7FE3C4';
-    ctx.save(); ctx.translate(x,y); ctx.rotate(wrap(m.trk-heading)*D);
-    ctx.fillStyle=col; ctx.strokeStyle='rgba(14,26,43,.85)'; ctx.lineWidth=2.5;
-    ctx.beginPath();
-    if(air){ ctx.moveTo(0,-8); ctx.lineTo(6,7); ctx.lineTo(0,4); ctx.lineTo(-6,7); }
-    else { ctx.moveTo(0,-7); ctx.lineTo(4.5,2); ctx.lineTo(3,6); ctx.lineTo(-3,6); ctx.lineTo(-4.5,2); }
-    ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore();
-    const lab=m.name+(air?'  '+Math.round(m.alt*3.281/100)*100+' ft':'  '+Math.round(m.vel*1.944)+' nd');
-    ctx.font=`500 11px ${FM}`; ctx.textAlign='left';
-    ctx.lineWidth=3; ctx.strokeStyle='rgba(14,26,43,.9)';
-    ctx.strokeText(lab,x+11,y+4); ctx.fillStyle=col; ctx.fillText(lab,x+11,y+4);
+  // --- mobiles : avions et bateaux (positions, regroupement et reservation des icones : voir mobGroups plus haut) ---
+  // icones d'abord ; puis les noms : avions par distance, bateaux de l'exterieur vers le centre, noms vers l'exterieur.
+  // Sous l'horizon, cet ordre fait un "escalier" : chaque nom recouvre seulement des bateaux deja nommes plus haut, donc
+  // aucun fil vertical ne traverse un nom (et placeFlat le verifie de toute facon).
+  mobHits.length=0;
+  for(const g of mobGroups){ const air=g.kind==='plane';
+    for(const {m,x,y} of g.items){
+      const col=air?'#8FD3FF':shipStyle(m.type).col;
+      if(!air&&m.vel<SHIP_STOP_MS){ ctx.beginPath(); ctx.arc(x,y,4.5,0,7); ctx.fillStyle=col; ctx.strokeStyle='rgba(14,26,43,.85)'; ctx.lineWidth=2; ctx.stroke(); ctx.fill(); continue; }
+      ctx.save(); ctx.translate(x,y); ctx.rotate(wrap(m.trk-heading)*D);
+      ctx.fillStyle=col; ctx.strokeStyle='rgba(14,26,43,.85)'; ctx.lineWidth=2.5; ctx.beginPath();
+      if(air){ ctx.moveTo(0,-8); ctx.lineTo(6,7); ctx.lineTo(0,4); ctx.lineTo(-6,7); }
+      else { ctx.moveTo(0,-7); ctx.lineTo(4.5,2); ctx.lineTo(3,6); ctx.lineTo(-3,6); ctx.lineTo(-4.5,2); }
+      ctx.closePath(); ctx.stroke(); ctx.fill(); ctx.restore();
+    } }
+  const mobOrder=mobGroups.filter(g=>g.kind==='plane').concat(mobGroups.filter(g=>g.kind!=='plane').sort((a,b)=>Math.abs(b.x-W/2)-Math.abs(a.x-W/2)));
+  for(const g of mobOrder){
+    const air=g.kind==='plane', col=air?'#8FD3FF':'#7FE3C4', near=g.items[0].m, n=g.items.length;
+    const lab=(near.name||'?')+(n>1?` +${n-1}`:'');
+    const kn=near.vel*1.944, dist=S.showDist?fkm(near.dist)+' km':'';
+    const extra=air?Math.round(near.alt*3.281/100)*100+' ft':(kn>=0.5?Math.round(kn)+' nd':''); // un bateau a quai n'affiche pas "0 nd"
+    const dtxt=[extra,dist].filter(Boolean).join(' · ');
+    const size=13; ctx.font=`700 ${size}px ${FD}`; const nw=ctx.measureText(lab).width;
+    ctx.font=`500 11px ${FM}`; const dw=dtxt?ctx.measureText(dtxt).width:0;
+    const len=nw+(dtxt?dw+7:0)+4, x=g.items[0].x, y=g.items[0].y;
+    const slant=()=>placeSlanted({x,base:y,off:8,lift:9,len,padTop:size+2,padBot:3,side:x<W/2?-1:1,own:g,memKey:'mob|'+near.name});
+    const flatP=()=>air?placeFlat({x,y0:y-12,halfW:8,w:len,size,own:g,dir:-1}):(()=>{ const out=x<W/2?-1:1, o={x,y0:y+size+12,halfW:-8,w:len,size,own:g,dir:1,maxK:24,anchorY:y+8};
+      return placeFlat({...o,sides:[out]})||placeFlat({...o,sides:[-out]}); })(); // vers l'exterieur sur toutes les lignes d'abord (escalier)
+    let ps=null, fl=null;
+    if(air){ ps=slant(); if(!ps) fl=flatP(); } else { fl=flatP(); if(!fl) ps=slant(); }
+    const xs=g.items.map(it=>it.x), ys=g.items.map(it=>it.y), icon=[Math.min(...xs)-9,Math.max(...xs)+9,Math.min(...ys)-9,Math.max(...ys)+9];
+    const hit={t:near,g:g.items.map(it=>it.m),roll,icon,poly:null}; mobHits.push(hit);
+    if(fl) hit.poly=[[fl.x-2,fl.y-size-2],[fl.x+fl.w+2,fl.y-size-2],[fl.x+fl.w+2,fl.y+4],[fl.x-2,fl.y+4]];
+    else if(ps){ const pl=placed[placed.length-1]; hit.poly=pl&&pl[4]; }
+    if(fl){ // nom a plat : fil de l'icone au bord du nom le plus proche
+      const ex=air?(fl.side>0?fl.x-2:fl.x+fl.w+2):x, ey=air?fl.y-size*0.35:fl.y-size-1; // bateau : fil vertical (couloir reserve)
+      ctx.strokeStyle=col; ctx.globalAlpha=.7; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,y+(air?-7:7)); ctx.lineTo(ex,ey); ctx.stroke(); ctx.globalAlpha=1;
+      ctx.textAlign='left'; ctx.font=`700 ${size}px ${FD}`; ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.lineWidth=3.5;
+      ctx.strokeText(lab,fl.x,fl.y); ctx.fillStyle=col; ctx.fillText(lab,fl.x,fl.y);
+      if(dtxt){ ctx.font=`500 11px ${FM}`; ctx.lineWidth=3; ctx.strokeText(dtxt,fl.x+nw+7,fl.y); ctx.fillStyle='rgba(224,165,38,1)'; ctx.fillText(dtxt,fl.x+nw+7,fl.y); }
+      continue; }
+    if(!ps) continue; // pas de place : l'icone seule reste (comme un monument)
+    const sgn=ps.side;
+    ctx.strokeStyle=col; ctx.globalAlpha=.8; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,y-7); ctx.lineTo(ps.lx,ps.ly); ctx.stroke(); ctx.globalAlpha=1;
+    ctx.save(); ctx.translate(ps.lx,ps.ly); ctx.rotate(-sgn*ANG_LBL); ctx.textAlign=sgn>0?'left':'right';
+    ctx.font=`700 ${size}px ${FD}`; ctx.strokeStyle='rgba(14,26,43,.9)'; ctx.lineWidth=3.5;
+    ctx.strokeText(lab,0,0); ctx.fillStyle=col; ctx.fillText(lab,0,0);
+    if(dtxt){ ctx.font=`500 11px ${FM}`; ctx.lineWidth=3; const dx=sgn*(nw+7); ctx.strokeText(dtxt,dx,0); ctx.fillStyle='rgba(224,165,38,1)'; ctx.fillText(dtxt,dx,0); }
+    ctx.restore(); ctx.textAlign='left';
   }
   ctx.restore();
 
@@ -3893,10 +4040,36 @@ function telecomBlock(t){
     ${ops||'<div class="dbgline">aucun</div>'}`;
 }
 // detail d'un element touche : une seule entree, aiguillee selon sa nature (monument/equipement, pylone ANFR, point perso...)
-const TAP_DETAIL={ monument:(t,g)=>showMonumentDetail(t,g), telecom:(t,g)=>showTelecomSheet(t,g), user:(t,g)=>showUserSheet(t,g) };
+const TAP_DETAIL={ monument:(t,g)=>showMonumentDetail(t,g), telecom:(t,g)=>showTelecomSheet(t,g), user:(t,g)=>showUserSheet(t,g),
+  ship:(t,g)=>showMobileSheet(t,g), plane:(t,g)=>showMobileSheet(t,g) };
 function showTelecomDetail(px,py){
-  const h=hitBest(px,py,[telecomHits,monHits]); if(!h) return;
+  const h=hitBest(px,py,[telecomHits,monHits,mobHits]); if(!h) return;
   (TAP_DETAIL[h.t.kind]||TAP_DETAIL.telecom)(h.t,lastHitGrp);
+}
+// fiche d'un navire ou d'un avion (ou d'un groupe d'icones) : ce que dit l'AIS / ADS-B, et les liens vers les sites de suivi
+// (MarineTraffic et VesselFinder par MMSI ; ADS-B Exchange par code OACI, Flightradar24 par indicatif) pour photo, type exact, route.
+function mobileBlock(x){
+  const A=(u,t)=>`<a style="color:#F2C14E" target="_blank" rel="noopener" href="${dEsc(u)}">${dEsc(t)}</a>`, ago=x.t?dcAgo(x.t):'?';
+  const map=x.lat!=null?A(`https://www.openstreetmap.org/?mlat=${x.lat}&mlon=${x.lon}#map=15/${x.lat}/${x.lon}`,'voir sur la carte'):'';
+  if(x.kind==='plane'){ const cs=String(x.name||'').trim();
+    return `<div class="dbgline">${Math.round(x.alt*3.281/100)*100} ft (${Math.round(x.alt)} m) · ${Math.round(x.vel*3.6)} km/h · cap ${Math.round(x.trk)}° · à ${dKm(x.dist)} km</div>
+      <div class="dbgline">Code OACI ${dEsc(x.id||'—')} · position d'il y a ${ago}</div>
+      <div class="dbgsec">En savoir plus</div><div class="dbgline">${[x.id?A(`https://globe.adsbexchange.com/?icao=${encodeURIComponent(x.id)}`,'ADS-B Exchange'):'',cs&&cs!=='?'?A(`https://www.flightradar24.com/${encodeURIComponent(cs)}`,'Flightradar24'):'',map].filter(Boolean).join(' · ')}</div>`; }
+  const st=shipStyle(x.type), kn=x.vel*1.944, mm=String(x.mmsi||'').replace(/\D/g,'');
+  return `<div class="dbgline"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${st.col};margin-right:6px"></span>${dEsc(st.sub)}${x.type?` (code AIS ${x.type})`:''}</div>
+    <div class="dbgline">${kn<0.5?'à l\'arrêt (à quai ou au mouillage)':`${kn.toFixed(1)} nœuds · cap ${Math.round(x.trk)}°`} · à ${dKm(x.dist)} km · position d'il y a ${ago}</div>
+    <div class="dbgline">MMSI ${dEsc(mm||'—')}</div>
+    <div class="dbgsec">En savoir plus (photo, dimensions, escales)</div>
+    <div class="dbgline">${[mm?A(`https://www.marinetraffic.com/en/ais/details/ships/mmsi:${mm}`,'MarineTraffic'):'',mm?A(`https://www.vesselfinder.com/vessels/details/${mm}`,'VesselFinder'):'',map].filter(Boolean).join(' · ')}</div>`;
+}
+function showMobileSheet(t,grp){
+  const air=t.kind==='plane';
+  showGroupSheet({items:grp&&grp.length>1?grp:[t],color:air?'#8FD3FF':'#7FE3C4',
+    title1:air?'Avion':'Navire', titleN:n=>`${n} ${air?'avions':'navires'}`,
+    single:x=>`<div class="dbgline" style="font-size:18px;font-weight:700;color:${air?'#8FD3FF':shipStyle(x.type).col}">${dEsc(x.name)}</div>`+mobileBlock(x),
+    head:l=>`${l.length} ${air?'avions':'navires'} regroupés sous la même icône · ${dKm(l[0].dist)}–${dKm(l[l.length-1].dist)} km`,
+    summary:x=>`${dEsc(x.name)}</b> · ${dKm(x.dist)} km · <span style="color:${air?'#8FD3FF':shipStyle(x.type).col}">${air?'':dEsc(shipStyle(x.type).sub)}</span><b>`,
+    block:mobileBlock});
 }
 function showTelecomSheet(t,grp){
   const opsTxt=x=>(x.operators||[]).map(o=>o.name).join(', ');
@@ -3911,7 +4084,33 @@ $('calib').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;saveSettings()
 $('reset').addEventListener('click',()=>{S.headOff=0;S.pitchOff=0;saveSettings();});
 
 // ---------- réglages ----------
-$('btnSet').onclick=()=>{ $('sheet').classList.add('open'); updateZoneInfo(); };
+// REGLAGES RANGES (23/10/2026) : sections depliables, resume d'une ligne sous chaque titre, aides derriere une pastille "?".
+// Generique : toute aide statique (.hint sans id) d'une ligne est repliee et recoit son "?" ; les aides a id (etats calcules :
+// zone hors-ligne, altitude estimee, version...) restent visibles.
+const HELP_IDS=new Set(['seaHint','skyInfo','simInfo']);
+for(const r of document.querySelectorAll('#sheet .row')){
+  const hs=[...r.querySelectorAll(':scope>.hint')].filter(x=>!x.id||HELP_IDS.has(x.id)); if(!hs.length) continue;
+  hs.forEach(x=>x.classList.add('help'));
+  const q=document.createElement('button'); q.type='button'; q.className='qbtn'; q.textContent='?'; q.setAttribute('aria-label','Aide');
+  q.onclick=e=>{ e.preventDefault(); e.stopPropagation(); r.classList.toggle('showhelp'); };
+  const lab=r.querySelector(':scope>label'); if(lab) lab.append(q); else r.prepend(q); // DANS le libelle : la grille a 2 colonnes reste intacte (le clic sur "?" n'actionne pas la case : preventDefault)
+}
+const onOff=(v,t)=>v?t:null;
+function sheetSummaries(){
+  const set=(k,a)=>{ const el=$('sum_'+k); if(el) el.textContent=a.filter(Boolean).join(' · ')||'—'; };
+  set('aff',[S.showDist?'distances':'sans distances',S.beyond?'Tout voir':'Essentiel',onOff(S.hamlets,'hameaux'),onOff(S.ridges!==false,'crêtes')]);
+  set('cal',[onOff(S.air,'avions'),onOff(S.sea,'bateaux'),onOff(S.telecom,'pylônes'),onOff(S.buildings,'tours')].filter(Boolean).length?[onOff(S.air,'avions'),onOff(S.sea,'bateaux'),onOff(S.telecom,'pylônes'),onOff(S.buildings,'tours et immeubles')]:['aucun']);
+  set('cap',[`champ ${S.camFov}°`,onOff(S.gyro!==false,'gyroscope'),onOff(S.autoCal!==false,'calage auto'),onOff(S.photoVis!==false,'photo'),onOff(S.cross,'croix de visée')]);
+  set('rel',[S.relief?(S.reliefV1?'relief v1':'relief actif'):'relief désactivé',`œil ${S.obsHeight>0?'+':''}${S.obsHeight||0} m`]);
+  set('off',[($('zoneInfo').textContent||'').split(/[.·(]/)[0].trim().slice(0,48)]);
+  set('sim',[S.simOn?'position simulée active':'position simulée : non']);
+  set('apr',[(typeof APP_VERSION==='string'?'version '+APP_VERSION.slice(0,14):''),'sources et licences']);
+}
+let openGrps=[]; try{ openGrps=JSON.parse(localStorage.getItem('vh-grp')||'[]'); }catch(e){}
+for(const d of document.querySelectorAll('#sheet details.grp')){ if(openGrps.includes(d.dataset.grp)) d.open=true;
+  d.addEventListener('toggle',()=>{ try{ localStorage.setItem('vh-grp',JSON.stringify([...document.querySelectorAll('#sheet details.grp[open]')].map(x=>x.dataset.grp))); }catch(e){} }); }
+$('sheet').addEventListener('change',()=>setTimeout(sheetSummaries,0)); $('sheet').addEventListener('input',()=>setTimeout(sheetSummaries,0));
+$('btnSet').onclick=()=>{ $('sheet').classList.add('open'); updateZoneInfo(); sheetSummaries(); setTimeout(sheetSummaries,600); };
 
 // ---------- panneau de diagnostic ----------
 let dbgOpen=false, dbgTimer=null, storeEst='—';
@@ -4058,7 +4257,13 @@ $('btnZoneDel').onclick=()=>{ clearAtlas(); updateZoneInfo();
   if(source.startsWith('atlas local')){ cities=FALLBACK.slice(); source='liste intégrée'; recompute(); } };
 $('btnClose').onclick=()=>$('sheet').classList.remove('open');
 let radT;
-$('rad').oninput=e=>{S.radius=+e.target.value;$('radV').textContent=S.radius+' km';clearTimeout(radT);radT=setTimeout(()=>loadCities(false),900);saveSettings();};
+// REGLAGE RAPIDE DE LA ZONE DE RECHERCHE (23/10/2026) : pastille toujours visible a cote de l'etat ; un toucher ouvre une
+// reglette, qui pilote le MEME reglage que celle des Reglages (un seul code : on rejoue son evenement).
+function radSync(){ $('radChip').textContent='⌖ '+S.radius+' km'; $('radQ').value=S.radius; }
+$('radChip').onclick=()=>{ const p=$('radPop'); p.hidden=!p.hidden; radSync(); if(!p.hidden) radPopHide(); };
+let radPopT=0; const radPopHide=()=>{ clearTimeout(radPopT); radPopT=setTimeout(()=>{ $('radPop').hidden=true; },4000); }; // se replie 4 s apres le dernier reglage
+$('radQ').oninput=e=>{ $('rad').value=e.target.value; $('rad').dispatchEvent(new Event('input')); radPopHide(); };
+$('rad').oninput=e=>{S.radius=+e.target.value;$('radV').textContent=S.radius+' km';radSync();clearTimeout(radT);radT=setTimeout(()=>loadCities(false),900);saveSettings();};
 $('fov').oninput=e=>{S.camFov=+e.target.value;showFov();saveSettings();};
 $('vil').onchange=e=>{S.hamlets=e.target.checked;loadCities(true);saveSettings();};
 $('rel').onchange=e=>{S.relief=e.target.checked;if(S.relief)computeTerrain(false);saveSettings();};
@@ -4070,6 +4275,7 @@ $('obsH').onchange=()=>{ if(terrainBusy) terrainRedo=true; else computeTerrain(t
 $('sky').onchange=e=>{S.skyline=e.target.checked;saveSettings();if(S.skyline)computeTerrain(false);};
 $('acal').onchange=e=>{ S.autoCal=e.target.checked; saveSettings(); };
 $('gyr').onchange=e=>{ S.gyro=e.target.checked; saveSettings(); };
+$('crs').onchange=e=>{ S.cross=e.target.checked; saveSettings(); };
 $('phv').onchange=e=>{ S.photoVis=e.target.checked; photoSky=null; citiesVer++; saveSettings(); };
 $('rdg').onchange=e=>{S.ridges=e.target.checked;saveSettings();};
 // POSITION (GPS ou simulee) : un seul point d'entree
@@ -4454,9 +4660,9 @@ $('btnReload').onclick=()=>{dcForceT=Date.now()+90000; if(S.buildings){ building
 
 // reflete les reglages charges (localStorage) sur les controles au demarrage
 (function syncControlsFromS(){
-  $('rad').value=S.radius; $('radV').textContent=S.radius+' km';
+  $('rad').value=S.radius; $('radV').textContent=S.radius+' km'; radSync();
   $('fov').value=S.camFov; showFov();
-  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('relv1').checked=S.reliefV1; $('dst').checked=S.showDist; $('sky').checked=S.skyline; $('simOn').checked=!!S.simOn; $('simPos').value=S.simPos||''; $('rdg').checked=S.ridges!==false; $('phv').checked=S.photoVis!==false; $('acal').checked=S.autoCal!==false; $('gyr').checked=S.gyro!==false;
+  $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('relv1').checked=S.reliefV1; $('dst').checked=S.showDist; $('sky').checked=S.skyline; $('simOn').checked=!!S.simOn; $('simPos').value=S.simPos||''; $('rdg').checked=S.ridges!==false; $('phv').checked=S.photoVis!==false; $('acal').checked=S.autoCal!==false; $('gyr').checked=S.gyro!==false; $('crs').checked=!!S.cross;
   $('obsH').value=S.obsHeight; $('obsHV').textContent=fmtObsH(S.obsHeight); updateObsInfo();
   $('air').checked=S.air; $('sea').checked=S.sea; $('tel').checked=S.telecom; $('bld').checked=S.buildings;
   document.querySelector('.chips').classList.toggle('folded',S.chipsFold);
