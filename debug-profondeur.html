@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Débug profondeur — Depth Anything</title>
 <style>
-  :root{ --ink:#0E1A2B; --ink2:#182A42; --cream:#F3E9D2; --ochre:#E0A526; --line:rgba(243,233,210,.22); --ok:#6FCF97; --bad:#E85A5A; --sky:#7AA7E0; --far:#6FCF97; --near:#E85A5A; }
+  :root{ --ink:#0E1A2B; --ink2:#182A42; --cream:#F3E9D2; --ochre:#E0A526; --line:rgba(243,233,210,.22); --ok:#6FCF97; --bad:#E85A5A; --m1:#FFFFFF; --m2:#6FCF97; }
   *{box-sizing:border-box}
   body{margin:0 auto;background:var(--ink);color:var(--cream);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:16px;max-width:960px}
   h1{font-size:20px;margin:8px 0 2px}
@@ -14,8 +14,12 @@
   .card h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 10px;color:var(--ochre)}
   .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
   label{font-size:12.5px;color:rgba(243,233,210,.8)}
-  select,input[type=file]{background:var(--ink);border:1px solid var(--line);color:var(--cream);border-radius:4px;padding:6px 8px;font:13px monospace;max-width:100%}
-  input[type=range]{accent-color:var(--ochre);width:180px}
+  select,input[type=text],input[type=number]{background:var(--ink);border:1px solid var(--line);color:var(--cream);border-radius:4px;padding:6px 8px;font:13px monospace;max-width:100%}
+  input[type=number]{width:6.5em}
+  input[type=range]{accent-color:var(--ochre);width:150px}
+  .filebtn{display:inline-flex;align-items:center;gap:6px;background:rgba(224,165,38,.16);border:1px solid rgba(224,165,38,.5);color:var(--ochre);border-radius:4px;padding:8px 12px;font:700 12.5px/1 monospace;text-transform:uppercase;cursor:pointer}
+  .filebtn.ghost{background:none;border-color:var(--line);color:var(--cream);text-transform:none;font-weight:500}
+  .filebtn input{display:none}
   button{background:rgba(224,165,38,.16);border:1px solid rgba(224,165,38,.5);color:var(--ochre);border-radius:4px;padding:8px 12px;font:700 12.5px/1 monospace;text-transform:uppercase;letter-spacing:.04em;cursor:pointer}
   button:disabled{opacity:.4;cursor:default}
   button.ghost{background:none;border-color:var(--line);color:var(--cream);text-transform:none;font-weight:500}
@@ -27,16 +31,19 @@
   .msg{font-size:13px;margin-top:6px} .msg.bad{color:var(--bad)} .msg.ok{color:var(--ok)}
   .views{display:grid;grid-template-columns:1fr;gap:10px}
   @media (min-width:760px){ .views{grid-template-columns:1fr 1fr} }
-  .view{position:relative} .view canvas,.view video{width:100%;height:auto;display:block;border-radius:6px;background:#000}
+  .view canvas,.view video{width:100%;height:auto;display:block;border-radius:6px;background:#000}
   .view .cap{font:600 12px monospace;color:rgba(243,233,210,.75);margin:4px 0}
   .legend span{display:inline-flex;align-items:center;gap:5px;margin-right:12px;font:12px monospace}
   .legend b{display:inline-block;width:18px;height:3px;border-radius:2px}
-  pre{background:#08111d;border:1px solid var(--line);border-radius:6px;padding:10px;font:12px/1.5 monospace;white-space:pre-wrap;margin:6px 0 0;max-height:300px;overflow:auto}
+  table.cmp{width:100%;border-collapse:collapse;font:12.5px/1.4 monospace;margin:6px 0}
+  table.cmp th,table.cmp td{border-top:1px solid var(--line);padding:6px 4px;text-align:left;vertical-align:top}
+  table.cmp th{color:var(--ochre);font-weight:700}
+  pre{background:#08111d;border:1px solid var(--line);border-radius:6px;padding:10px;font:12px/1.5 monospace;white-space:pre-wrap;margin:6px 0 0;max-height:260px;overflow:auto}
 </style>
 </head>
 <body>
 <h1>Débug profondeur — Depth Anything V2</h1>
-<p class="lead">Page à part de « villes à l'horizon », pour juger ce qu'apporterait une carte de profondeur estimée sur une seule photo : écarter les objets proches (bouteille, montants de fenêtre, poteaux) avant de chercher la silhouette lointaine et ses pointes (clochers, tours), et savoir quand une image ne permet aucun calage. Rien ici ne touche l'appli.</p>
+<p class="lead">Page à part de « villes à l'horizon ». Elle estime la profondeur d'une photo, la met à l'échelle en mètres grâce au sol, puis simule le calage automatique (cap + champ de vision) sur les repères connus autour du lieu de prise de vue, avec deux méthodes : <b>méthode 1</b> = silhouette lue à la couleur du ciel (celle de l'appli aujourd'hui), <b>méthode 2</b> = silhouette « lointain seulement » tirée de la profondeur. Rien ici ne touche l'appli.</p>
 
 <div class="card">
   <h2>1 · Modèle</h2>
@@ -46,112 +53,161 @@
       <option value="auto">auto (fp16 si WebGPU, sinon q8)</option>
       <option value="q8">q8 — ~27 Mo, le plus léger</option>
       <option value="fp16">fp16 — ~50 Mo</option>
-      <option value="fp32">fp32 — ~99 Mo, référence</option>
+      <option value="fp32">fp32 — ~95 Mo, référence</option>
     </select>
     <label for="dev">Calcul</label>
-    <select id="dev">
-      <option value="auto">auto</option>
-      <option value="webgpu">WebGPU (carte graphique)</option>
-      <option value="wasm">WASM (processeur)</option>
-    </select>
+    <select id="dev"><option value="auto">auto</option><option value="webgpu">WebGPU (carte graphique)</option><option value="wasm">WASM (processeur)</option></select>
   </div>
-  <div class="row">
-    <button id="btnLoad">Charger le modèle</button>
-    <button class="ghost" id="btnForget">Supprimer le modèle du téléphone</button>
-  </div>
+  <div class="row"><button id="btnLoad">Charger le modèle</button><button class="ghost" id="btnForget">Supprimer le modèle du téléphone</button></div>
   <div class="bar"><i id="bar"></i></div>
-  <div id="loadOut" class="hint">Premier chargement : le modèle (fichiers ONNX) est téléchargé depuis huggingface.co, une seule fois, puis gardé dans la mémoire du navigateur (hors-ligne ensuite). WebGPU : plus rapide, si le navigateur le fournit (Chrome Android récent) ; sinon WASM, plus lent mais partout.</div>
+  <div id="loadOut" class="hint">Premier chargement : téléchargé depuis huggingface.co une seule fois, puis gardé dans la mémoire du navigateur (hors-ligne ensuite).</div>
 </div>
 
 <div class="card">
-  <h2>2 · Image</h2>
+  <h2>2 · Image et lieu de prise de vue</h2>
   <div class="row">
+    <label class="filebtn">Fichier (garde le GPS)<input type="file" id="fileRaw"></label>
+    <label class="filebtn ghost">Galerie<input type="file" id="file" accept="image/*"></label>
     <button class="ghost" id="btnCam">Caméra</button>
     <button id="btnSnap" disabled>Analyser l'image de la caméra</button>
-    <label class="ghost" style="display:inline-flex;align-items:center;gap:6px">Photo / capture <input type="file" id="file" accept="image/*"></label>
   </div>
-  <div class="hint">Une capture de l'appli convient (les étiquettes dessinées par-dessus créent elles aussi des pointes : c'est un bon test de ce qui serait écarté). Idéal : une photo brute de la caméra.</div>
+  <div class="hint"><b>Fichier</b> ouvre le gestionnaire de fichiers : la photo arrive intacte, avec sa position GPS, sa direction et sa focale. <b>Galerie</b> passe par le sélecteur de photos d'Android, qui retire la position. Formats : JPEG (les métadonnées des HEIC ne sont pas lues).</div>
+  <div id="exifOut" class="hint"></div>
   <div class="view" id="camView" hidden><video id="video" playsinline muted autoplay></video></div>
+  <div class="row">
+    <label for="pos">Position</label><input type="text" id="pos" placeholder="45.0705, 7.6828 (ou lien de carte)" style="flex:1 1 220px">
+  </div>
+  <div class="row">
+    <label for="head">Cap approx.</label><input type="number" id="head" min="0" max="360" step="1" placeholder="vide = 360°">
+    <label for="fov">Champ horiz.</label><input type="number" id="fov" min="20" max="120" step="0.5" value="67">
+    <label for="pitch">Inclinaison</label><input type="number" id="pitch" min="-30" max="30" step="0.5" value="0">
+    <label for="eye">Œil (m)</label><input type="number" id="eye" min="0" max="300" step="0.5" value="1.6">
+  </div>
+  <div class="hint">Cap : celui de la photo s'il est connu (recherche à ±25° autour), sinon laissez vide (recherche sur 360°, plus long). Champ horizontal : déduit de la focale de la photo ; le calage le recherche à ±15°. Inclinaison : 0 = photo prise à l'horizontale ; affinée par le calage. Œil : hauteur au-dessus du sol (étage : ≈ 3,2 m par niveau).</div>
 </div>
 
 <div class="card">
-  <h2>3 · Résultat</h2>
+  <h2>3 · Profondeur</h2>
   <div class="row">
-    <label for="near">Seuil « proche »</label><input type="range" id="near" min="5" max="95" value="55"><span class="stat" id="nearV">55 %</span>
-    <label for="skyT">Seuil « ciel »</label><input type="range" id="skyT" min="0" max="30" value="6"><span class="stat" id="skyV">6 %</span>
+    <label for="near">Proche si &lt;</label><input type="range" id="near" min="10" max="300" value="60"><span class="stat" id="nearV">60 m</span>
     <button class="ghost" id="btnRun" disabled>Relancer (chronomètre)</button>
   </div>
-  <div class="hint">Profondeur relative : 0 % = le plus loin de l'image (ciel), 100 % = le plus proche. Au-dessus du seuil « proche », un pixel est un obstacle à écarter. Sous le seuil « ciel », c'est du ciel d'après la profondeur (indépendant de la couleur : marche aussi sous un ciel gris ou blanc).</div>
+  <div class="hint">Mise à l'échelle par le sol : avec la hauteur de l'œil et l'inclinaison, chaque ligne de sol en bas de l'image est à une distance connue ; la profondeur relative du modèle est ajustée dessus et toute l'image passe en mètres. Ciel = très lointain ET couleur de ciel.</div>
   <div id="stats"></div>
   <div class="legend">
-    <span><b style="background:#fff"></b>silhouette actuelle (couleur du ciel)</span>
-    <span><b style="background:var(--far)"></b>silhouette « lointain seulement » (profondeur)</span>
-    <span><b style="background:var(--near)"></b>obstacles proches écartés</span>
-    <span>▲ pointes candidates au calage</span>
+    <span><b style="background:var(--m1)"></b>méthode 1 : silhouette couleur</span>
+    <span><b style="background:var(--m2)"></b>méthode 2 : silhouette profondeur</span>
+    <span><b style="background:var(--bad)"></b>objets proches</span>
+    <span>▼ pointes</span>
   </div>
   <div class="views">
-    <div class="view"><div class="cap">Image et silhouettes</div><canvas id="cvImg"></canvas></div>
-    <div class="view"><div class="cap">Carte de profondeur (bleu loin → rouge proche)</div><canvas id="cvDepth"></canvas></div>
+    <div class="view"><div class="cap">Image, silhouettes et repères calés</div><canvas id="cvImg"></canvas></div>
+    <div class="view"><div class="cap">Distance estimée (bleu loin → rouge proche)</div><canvas id="cvDepth"></canvas></div>
   </div>
+</div>
+
+<div class="card">
+  <h2>4 · Simulation du calage : méthode 1 contre méthode 2</h2>
+  <div class="row">
+    <label for="rad">Repères dans un rayon de</label><input type="number" id="rad" min="500" max="8000" step="500" value="3000"><span class="hint" style="margin:0">m</span>
+    <button id="btnCal" disabled>Chercher les repères et caler</button>
+  </div>
+  <div class="hint">Repères : tours, clochers, églises, cheminées, mâts, châteaux d'eau et immeubles d'au moins 40 m ou 13 niveaux, d'après OpenStreetMap (hauteur réelle si renseignée, sinon typique). Pour chaque méthode, on cherche le cap et le champ qui alignent le plus de pointes de la silhouette sur ces repères, à hauteur cohérente. Même recherche, seule la silhouette change.</div>
+  <div id="calOut"></div>
   <pre id="log"></pre>
 </div>
 
 <script type="module">
-// Depth Anything V2 Small (onnx-community/depth-anything-v2-small) via Transformers.js, entierement dans le navigateur.
 import { pipeline, env, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/dist/transformers.min.js';
-env.allowLocalModels=false; env.useBrowserCache=true; // le modele reste dans le cache du navigateur apres le 1er telechargement
-const MODEL='onnx-community/depth-anything-v2-small', MAXW=518; // 518 px : resolution native du modele
-const $=id=>document.getElementById(id), log=t=>{ $('log').textContent=(new Date().toLocaleTimeString()+'  '+t+'\n'+$('log').textContent).slice(0,6000); };
-const stat=(k,v,c)=>`<span class="stat ${c||''}">${k} : ${v}</span>`;
-let est=null, estInfo=null, cur=null, last=null; // cur : {canvas, w, h} ; last : resultat de la derniere inference
+env.allowLocalModels=false; env.useBrowserCache=true;
+const MODEL='onnx-community/depth-anything-v2-small', MAXW=518, D=Math.PI/180;
+const $=id=>document.getElementById(id), log=t=>{ $('log').textContent=(new Date().toLocaleTimeString()+'  '+t+'\n'+$('log').textContent).slice(0,8000); };
+const stat=(k,v,c)=>`<span class="stat ${c||''}">${k} : ${v}</span>`, wrap=a=>((a%360)+540)%360-180, esc=s=>String(s).replace(/[<&]/g,c=>c==='<'?'&lt;':'&amp;');
+let est=null, estInfo=null, cur=null, last=null, exif=null, cal=null;
 
-// ---------- 1. chargement du modele ----------
-function choice(){ const gpu=!!navigator.gpu; let dev=$('dev').value, prec=$('prec').value;
-  if(dev==='auto') dev=gpu?'webgpu':'wasm'; if(prec==='auto') prec=dev==='webgpu'?'fp16':'q8'; return {dev,prec,gpu}; }
+// ================= 1. modele =================
+function choice(){ const gpu=!!navigator.gpu; let dev=$('dev').value, prec=$('prec').value; if(dev==='auto') dev=gpu?'webgpu':'wasm'; if(prec==='auto') prec=dev==='webgpu'?'fp16':'q8'; return {dev,prec,gpu}; }
 async function loadModel(){
-  const c=choice(); $('btnLoad').disabled=true; const files={}; const t0=performance.now();
-  $('loadOut').textContent=`téléchargement / ouverture (${c.prec}, ${c.dev})…`;
-  const progress_callback=e=>{ if(e.status==='progress'&&e.total){ files[e.file]={l:e.loaded,t:e.total};
-      const L=Object.values(files).reduce((s,f)=>s+f.l,0), T=Object.values(files).reduce((s,f)=>s+f.t,0);
-      $('bar').style.width=(100*L/T).toFixed(0)+'%'; $('loadOut').textContent=`${(L/1048576).toFixed(1)} / ${(T/1048576).toFixed(1)} Mo · ${e.file}`; } };
-  try{
-    est=await pipeline('depth-estimation',MODEL,{device:c.dev,dtype:c.prec,progress_callback});
-    const mb=Object.values(files).reduce((s,f)=>s+f.t,0)/1048576, s=(performance.now()-t0)/1000;
-    estInfo={...c,mb,loadS:s}; $('bar').style.width='100%';
-    $('loadOut').innerHTML=`<span class="msg ok">Modèle prêt</span> · ${c.prec} · ${c.dev}${c.dev==='webgpu'?'':' (WebGPU '+(c.gpu?'disponible':'absent')+')'} · ${mb?mb.toFixed(1)+' Mo téléchargés':'déjà dans la mémoire du téléphone'} · ${s.toFixed(1)} s`;
-    log(`modèle chargé : ${c.prec}/${c.dev}, ${mb.toFixed(1)} Mo, ${s.toFixed(1)} s`); $('btnRun').disabled=!cur; $('btnSnap').disabled=!$('video').srcObject;
-    if(cur) run();
-  }catch(e){
-    $('loadOut').innerHTML=`<span class="msg bad">Échec : ${String(e&&e.message||e)}</span>`+(c.dev==='webgpu'?' — réessayez avec Calcul = WASM.':''); log('échec chargement : '+(e&&e.message||e));
-  }finally{ $('btnLoad').disabled=false; }
-}
+  const c=choice(); $('btnLoad').disabled=true; const files={}; const t0=performance.now(); $('loadOut').textContent=`téléchargement / ouverture (${c.prec}, ${c.dev})…`;
+  const progress_callback=e=>{ if(e.status==='progress'&&e.total){ files[e.file]={l:e.loaded,t:e.total}; const L=Object.values(files).reduce((s,f)=>s+f.l,0), T=Object.values(files).reduce((s,f)=>s+f.t,0);
+    $('bar').style.width=(100*L/T).toFixed(0)+'%'; $('loadOut').textContent=`${(L/1048576).toFixed(1)} / ${(T/1048576).toFixed(1)} Mo · ${e.file}`; } };
+  try{ est=await pipeline('depth-estimation',MODEL,{device:c.dev,dtype:c.prec,progress_callback});
+    const mb=Object.values(files).reduce((s,f)=>s+f.t,0)/1048576, s=(performance.now()-t0)/1000; estInfo={...c,mb}; $('bar').style.width='100%';
+    $('loadOut').innerHTML=`<span class="msg ok">Modèle prêt</span> · ${c.prec} · ${c.dev} · ${mb?mb.toFixed(1)+' Mo téléchargés':'déjà en mémoire'} · ${s.toFixed(1)} s`;
+    log(`modèle chargé : ${c.prec}/${c.dev}, ${mb.toFixed(1)} Mo, ${s.toFixed(1)} s`); $('btnSnap').disabled=!$('video').srcObject; if(cur) run();
+  }catch(e){ $('loadOut').innerHTML=`<span class="msg bad">Échec : ${esc(e&&e.message||e)}</span>`+(c.dev==='webgpu'?' — réessayez avec Calcul = WASM.':''); }
+  finally{ $('btnLoad').disabled=false; } }
 $('btnLoad').onclick=loadModel;
-$('btnForget').onclick=async()=>{ try{ const ks=await caches.keys(); let n=0; for(const k of ks) if(/transformers/i.test(k)){ await caches.delete(k); n++; } est=null; $('bar').style.width='0';
-  $('loadOut').textContent=n?'modèle supprimé de la mémoire du navigateur':'rien à supprimer'; }catch(e){ $('loadOut').textContent='suppression impossible : '+e.message; } };
+$('btnForget').onclick=async()=>{ try{ let n=0; for(const k of await caches.keys()) if(/transformers/i.test(k)){ await caches.delete(k); n++; } est=null; $('bar').style.width='0'; $('loadOut').textContent=n?'modèle supprimé':'rien à supprimer'; }catch(e){ $('loadOut').textContent='suppression impossible : '+e.message; } };
 
-// ---------- 2. image : camera ou fichier, ramenee a MAXW de large ----------
+// ================= 2. EXIF (JPEG) : GPS, direction, focale =================
+function readExif(buf){
+  const v=new DataView(buf); if(v.getUint16(0)!==0xFFD8) return null; let o=2;
+  while(o+4<v.byteLength){ const m=v.getUint16(o), len=v.getUint16(o+2); if(m===0xFFE1&&v.getUint32(o+4)===0x45786966) return parseTiff(v,o+10); if((m&0xFF00)!==0xFF00) break; o+=2+len; }
+  return null; }
+function parseTiff(v,t){
+  const le=v.getUint16(t)===0x4949, u16=p=>v.getUint16(p,le), u32=p=>v.getUint32(p,le);
+  const rat=p=>{ const d=u32(p+4); return d?u32(p)/d:0; }, srat=p=>{ const d=v.getInt32(p+4,le); return d?v.getInt32(p,le)/d:0; };
+  const ifd=off=>{ const out={}, n=u16(t+off); for(let i=0;i<n;i++){ const e=t+off+2+i*12, tag=u16(e), type=u16(e+2), cnt=u32(e+4), sz=[0,1,1,2,4,8,1,1,2,4,8,4,8][type]||1, vo=cnt*sz>4?t+u32(e+8):e+8;
+      let val; if(type===2){ let s=''; for(let k=0;k<cnt-1;k++) s+=String.fromCharCode(v.getUint8(vo+k)); val=s.trim(); }
+      else if(type===3) val=cnt===1?u16(vo):Array.from({length:cnt},(_,k)=>u16(vo+2*k)); else if(type===4) val=u32(vo);
+      else if(type===5) val=cnt===1?rat(vo):Array.from({length:cnt},(_,k)=>rat(vo+8*k)); else if(type===10) val=srat(vo); else if(type===1||type===7) val=v.getUint8(vo);
+      out[tag]=val; } return out; };
+  const i0=ifd(u32(t+4)), ex=i0[0x8769]?ifd(i0[0x8769]):{}, gps=i0[0x8825]?ifd(i0[0x8825]):{};
+  const dms=a=>Array.isArray(a)?a[0]+a[1]/60+a[2]/3600:null; const r={make:i0[0x010F],model:i0[0x0110],orient:i0[0x0112],date:ex[0x9003]||i0[0x0132],f:ex[0x920A],f35:ex[0xA405]};
+  if(gps[2]&&gps[4]){ r.lat=dms(gps[2])*(gps[1]==='S'?-1:1); r.lon=dms(gps[4])*(gps[3]==='W'?-1:1); }
+  if(gps[6]!=null) r.alt=gps[6]*(gps[5]===1?-1:1); if(gps[0x11]!=null) r.dir=gps[0x11], r.dirRef=gps[0x10];
+  return r; }
+// champ horizontal a partir de la focale equivalente 24x36 (definie sur la diagonale, 43,27 mm)
+const hfovFromF35=(f35,w,h)=>{ const dd=2*Math.atan(43.27/2/f35); return 2*Math.atan(Math.tan(dd/2)*w/Math.hypot(w,h))/D; };
+
+// ================= image =================
 function setImage(src,w,h){ const s=Math.min(1,MAXW/w), cw=Math.round(w*s), ch=Math.round(h*s), cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
-  cv.getContext('2d').drawImage(src,0,0,cw,ch); cur={canvas:cv,w:cw,h:ch}; $('btnRun').disabled=!est; if(est) run(); else draw(null); }
-$('file').onchange=e=>{ const f=e.target.files[0]; if(!f) return; const im=new Image(); im.onload=()=>{ setImage(im,im.naturalWidth,im.naturalHeight); URL.revokeObjectURL(im.src); }; im.src=URL.createObjectURL(f); };
-$('btnCam').onclick=async()=>{ try{ const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280}},audio:false});
-  $('video').srcObject=st; $('camView').hidden=false; $('btnSnap').disabled=!est; }catch(e){ log('caméra refusée : '+e.message); } };
-$('btnSnap').onclick=()=>{ const v=$('video'); if(v.videoWidth) setImage(v,v.videoWidth,v.videoHeight); };
+  cv.getContext('2d').drawImage(src,0,0,cw,ch); cur={canvas:cv,w:cw,h:ch}; cal=null; $('calOut').innerHTML=''; $('btnRun').disabled=!est; $('btnCal').disabled=false;
+  if(exif&&exif.f35){ const fv=hfovFromF35(exif.f35,cw,ch); $('fov').value=fv.toFixed(1); }
+  if(est) run(); else draw(); }
+async function openFile(f,raw){
+  exif=null; let info='';
+  try{ const buf=await f.arrayBuffer(); exif=readExif(buf); }catch(e){ exif=null; }
+  if(exif){ const parts=[];
+    if(exif.lat!=null){ parts.push(`GPS ${exif.lat.toFixed(5)}, ${exif.lon.toFixed(5)}`); $('pos').value=exif.lat.toFixed(6)+', '+exif.lon.toFixed(6); } else parts.push('<b>pas de position GPS</b>'+(raw?'':' (sélecteur Galerie : utilisez Fichier)'));
+    if(exif.dir!=null){ parts.push(`direction ${exif.dir.toFixed(1)}° (${exif.dirRef==='M'?'magnétique':'vraie'})`); $('head').value=Math.round(exif.dir); } else parts.push('pas de direction');
+    if(exif.f35){ parts.push(`focale ${exif.f35} mm éq. 24×36`); } else if(exif.f) parts.push(`focale ${exif.f.toFixed(2)} mm (sans équivalent 24×36)`);
+    if(exif.alt!=null) parts.push(`altitude ${exif.alt.toFixed(0)} m`); if(exif.model) parts.push(esc((exif.make||'')+' '+exif.model)); if(exif.date) parts.push(esc(exif.date));
+    info=parts.join(' · '); } else info='aucune métadonnée lisible (fichier non JPEG, ou retirée par le sélecteur)';
+  $('exifOut').innerHTML=info; log('photo : '+info.replace(/<[^>]+>/g,''));
+  const im=new Image(); im.onload=()=>{ setImage(im,im.naturalWidth,im.naturalHeight); URL.revokeObjectURL(im.src); }; im.src=URL.createObjectURL(f); }
+$('fileRaw').onchange=e=>{ const f=e.target.files[0]; if(f) openFile(f,true); };
+$('file').onchange=e=>{ const f=e.target.files[0]; if(f) openFile(f,false); };
+$('btnCam').onclick=async()=>{ try{ const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280}},audio:false}); $('video').srcObject=st; $('camView').hidden=false; $('btnSnap').disabled=!est; }catch(e){ log('caméra refusée : '+e.message); } };
+let livePitch=null; window.addEventListener('deviceorientation',e=>{ if(e.beta!=null) livePitch=e.beta-90; });
+$('btnSnap').onclick=()=>{ const v=$('video'); exif=null; $('exifOut').textContent='image de la caméra : inclinaison lue sur le téléphone'; if(livePitch!=null) $('pitch').value=livePitch.toFixed(1);
+  if(navigator.geolocation) navigator.geolocation.getCurrentPosition(p=>{ $('pos').value=p.coords.latitude.toFixed(6)+', '+p.coords.longitude.toFixed(6); },()=>{},{enableHighAccuracy:true,timeout:8000});
+  if(v.videoWidth) setImage(v,v.videoWidth,v.videoHeight); };
 
-// ---------- 3. inference et analyse ----------
+// ================= 3. profondeur, mise a l'echelle par le sol =================
 async function run(){
   if(!est||!cur) return; $('btnRun').disabled=true;
-  try{
-    const t0=performance.now(); const out=await est(RawImage.fromCanvas(cur.canvas)); const ms=performance.now()-t0;
-    const pd=out.predicted_depth, [h,w]=pd.dims, raw=pd.data; let mn=Infinity, mx=-Infinity; for(const v of raw){ if(v<mn) mn=v; if(v>mx) mx=v; }
-    const dep=new Float32Array(raw.length); for(let i=0;i<raw.length;i++) dep[i]=(raw[i]-mn)/((mx-mn)||1); // 0 = loin, 1 = proche
-    last={dep,w,h,ms}; log(`inférence ${ms.toFixed(0)} ms (${w}×${h}, ${estInfo.dev})`); draw(last);
-  }catch(e){ log('échec inférence : '+(e&&e.message||e)); }
-  finally{ $('btnRun').disabled=false; }
-}
+  try{ const t0=performance.now(); const out=await est(RawImage.fromCanvas(cur.canvas)); const ms=performance.now()-t0;
+    const pd=out.predicted_depth, [h,w]=pd.dims; last={disp:Float32Array.from(pd.data),w,h,ms}; log(`inférence ${ms.toFixed(0)} ms (${w}×${h}, ${estInfo.dev})`); draw();
+  }catch(e){ log('échec inférence : '+(e&&e.message||e)); } finally{ $('btnRun').disabled=false; } }
 $('btnRun').onclick=run;
-for(const id of ['near','skyT']) $(id).oninput=()=>{ $('nearV').textContent=$('near').value+' %'; $('skyV').textContent=$('skyT').value+' %'; if(last) draw(last); };
+$('near').oninput=()=>{ $('nearV').textContent=$('near').value+' m'; draw(); };
+for(const id of ['pitch','eye','fov']) $(id).onchange=()=>{ cal=null; draw(); };
 
-// silhouette "actuelle" : meme regle que l'appli (couleur du ciel apprise en haut de l'image, colonne par colonne)
+const geom=()=>{ const w=cur.w, h=cur.h, fov=+$('fov').value||67, f=(w/2)/Math.tan(fov/2*D); return {w,h,cx:w/2,cy:h/2,f,fov,pitch:+$('pitch').value||0,eye:Math.max(0.3,+$('eye').value||1.6)}; };
+const elevOfY=(g,y)=>g.pitch-Math.atan((y-g.cy)/g.f)/D;
+// disparite du modele ~ s/d + t : ajustee sur le sol (distance = oeil / tan(angle sous l'horizon)), moitie la plus coherente des points
+function metricFit(L,g){
+  const pts=[]; for(let y=Math.round(g.h*0.55);y<g.h;y+=2){ const e=elevOfY(g,y); if(e>-2.5||e<-45) continue; const invd=Math.tan(-e*D)/g.eye;
+    for(let x=Math.round(g.w*0.2);x<g.w*0.8;x+=4) pts.push([invd,L.disp[y*L.w+x]]); }
+  if(pts.length<30) return null;
+  const fit=P=>{ let sx=0,sy=0,sxx=0,sxy=0; for(const [x,y] of P){ sx+=x; sy+=y; sxx+=x*x; sxy+=x*y; } const n=P.length, den=n*sxx-sx*sx; if(!den) return null; const s=(n*sxy-sx*sy)/den; return {s,t:(sy-s*sx)/n}; };
+  let m=fit(pts); if(!m) return null;
+  for(let it=0;it<2;it++){ const r=pts.map(p=>({p,e:Math.abs(p[1]-(m.s*p[0]+m.t))})).sort((a,b)=>a.e-b.e); m=fit(r.slice(0,Math.max(20,r.length>>1)).map(q=>q.p))||m; }
+  return m.s>0?{...m,n:pts.length}:null; }
+const distOf=(m,disp)=>disp>m.t?m.s/(disp-m.t):Infinity;
+// methode 1 : couleur du ciel (meme regle que l'appli)
 function colorSkyline(d,w,h){
   const lum=i=>0.299*d[i]+0.587*d[i+1]+0.114*d[i+2], R=[],G=[],B=[]; let n=0, nb=0;
   for(let x=Math.round(w*0.02);x<w*0.98;x+=Math.max(1,Math.round(w/80))) for(let y=Math.round(h*0.04);y<h*0.12;y+=Math.max(1,Math.round(h*0.02))){ const i=(y*w+x)*4; n++;
@@ -163,56 +219,133 @@ function colorSkyline(d,w,h){
       const sky=(b>=r+12&&b>=g-5&&L>80)||(L>165&&sat<45)||Math.abs(r-ref[0])+Math.abs(g-ref[1])+Math.abs(b-ref[2])<60;
       if(first){ first=false; if(!sky){ out[x]=0; break; } }
       if(sky){ miss=0; ref=[ref[0]*0.92+r*0.08,ref[1]*0.92+g*0.08,ref[2]*0.92+b*0.08]; } else if(++miss>=2){ out[x]=y-1; break; } } }
-  return {ok:true,out};
-}
-// silhouette "lointain seulement" : 1er pixel (en descendant) qui n'est ni du ciel (profondeur < seuil ciel) ni un obstacle proche (> seuil proche)
-function depthSkyline(dep,w,h,skyT,nearT){
-  const far=new Int16Array(w).fill(-1), nearTop=new Int16Array(w).fill(-1);
-  for(let x=0;x<w;x++) for(let y=0;y<h;y++){ const v=dep[y*w+x]; if(v<skyT) continue; if(v>nearT){ if(nearTop[x]<0) nearTop[x]=y; continue; } far[x]=y; break; }
-  return {far,nearTop};
-}
-// pointes : sommets locaux nettement plus hauts que leurs voisins (meme principe que l'appli, en pixels)
-function peaks(sk,w,prom){ const out=[], win=Math.max(3,Math.round(w*0.012)), wide=Math.max(6,Math.round(w*0.03));
-  for(let x=wide;x<w-wide;x++){ const y=sk[x]; if(y<0) continue; let isTop=true, low=y;
-    for(let k=-win;k<=win;k++){ const q=sk[x+k]; if(q>=0&&q<y){ isTop=false; break; } }
-    if(!isTop) continue; for(let k=-wide;k<=wide;k++){ const q=sk[x+k]; if(q>low) low=q; }
-    if(low-y>=prom&&!out.some(p=>Math.abs(p.x-x)<win*2)) out.push({x,y,prom:low-y}); }
+  return {ok:true,out}; }
+// methode 2 : en descendant, on saute le ciel (tres loin ET couleur de ciel) ; le 1er pixel restant donne la silhouette s'il est lointain,
+// sinon la colonne est masquee par un objet proche (pas de silhouette lointaine lisible a cet endroit)
+function depthSkyline(L,img,g,m,nearM){
+  const {w,h}=g, out=new Int16Array(w).fill(-1), occ=new Uint8Array(w); let skyPix=0;
+  const skyCol=i=>{ const r=img[i],gg=img[i+1],b=img[i+2], Lm=0.299*r+0.587*gg+0.114*b, sat=Math.max(r,gg,b)-Math.min(r,gg,b); return (b>=r+8&&Lm>70)||(Lm>140&&sat<55); };
+  for(let x=0;x<w;x++){ let seenSky=false;
+    for(let y=0;y<h;y++){ const k=y*w+x, d=m?distOf(m,L.disp[k]):(L.disp[k]<0.06?Infinity:1000);
+      if(d>3000&&skyCol(k*4)){ seenSky=true; skyPix++; continue; }
+      if(!seenSky) break; // pas de ciel au-dessus : rien a lire dans cette colonne
+      if(d<nearM) occ[x]=1; else out[x]=y; break; } }
+  return {out,occ,skyFrac:skyPix/(w*h)}; }
+// pointes (meme principe que l'appli : sommet local dans +-0,8°, plus haut d'au moins PROM° que le plus bas a +-2°)
+const PROM=0.8;
+function peaks(sk,g){ const cols=[]; for(let x=0;x<g.w;x++) if(sk[x]>=0) cols.push({x,dd:Math.atan((x-g.cx)/g.f)/D,a:-Math.atan((sk[x]-g.cy)/g.f)/D,y:sk[x]});
+  const out=[]; for(const c of cols){ let isMax=true, mn=c.a; for(const o of cols){ const gp=Math.abs(o.dd-c.dd); if(gp<=0.8&&o.a>c.a){ isMax=false; break; } if(gp<=2&&o.a<mn) mn=o.a; }
+    if(!isMax||c.a-mn<PROM) continue; if(out.some(p=>Math.abs(p.dd-c.dd)<0.5)) continue; out.push({...c,prom:c.a-mn}); }
   return out; }
 const turbo=t=>{ t=Math.max(0,Math.min(1,t)); const r=34.61+t*(1172.33-t*(10793.56-t*(33300.12-t*(38394.49-t*14825.05)))), g=23.31+t*(557.33+t*(1225.33-t*(3574.96-t*(1073.77+t*707.56)))), b=27.2+t*(3211.1-t*(15327.97-t*(27814-t*(22569.18-t*6838.66))));
   return [Math.max(0,Math.min(255,r)),Math.max(0,Math.min(255,g)),Math.max(0,Math.min(255,b))]; };
 
-function draw(L){
-  if(!cur) return; const {w,h,canvas}=cur, ci=$('cvImg'), cd=$('cvDepth'); ci.width=w; ci.height=h; const x=ci.getContext('2d'); x.drawImage(canvas,0,0);
-  const img=canvas.getContext('2d').getImageData(0,0,w,h).data, cs=colorSkyline(img,w,h), prom=Math.max(4,Math.round(h*0.015));
-  const line=(sk,col,lw)=>{ x.strokeStyle=col; x.lineWidth=lw; x.beginPath(); let on=false; for(let i=0;i<w;i++){ const y=sk[i]; if(y<0){ on=false; continue; } on?x.lineTo(i,y):x.moveTo(i,y); on=true; } x.stroke(); };
-  const tri=(ps,col)=>{ x.fillStyle=col; for(const p of ps){ x.beginPath(); x.moveTo(p.x,p.y-3); x.lineTo(p.x-6,p.y-14); x.lineTo(p.x+6,p.y-14); x.closePath(); x.fill(); } };
+let A=null; // analyse courante (silhouettes, pointes) pour la simulation
+function analyse(){
+  const g=geom(), img=cur.canvas.getContext('2d').getImageData(0,0,g.w,g.h).data, cs=colorSkyline(img,g.w,g.h);
+  const r={g,img,m1:{sk:cs.ok?cs.out:new Int16Array(g.w).fill(-1),ok:cs.ok},m2:null,m:null};
+  r.m1.peaks=cs.ok?peaks(r.m1.sk,g):[];
+  if(last&&last.w===g.w&&last.h===g.h){ const m=metricFit(last,g); r.m=m; const nearM=+$('near').value, ds=depthSkyline(last,img,g,m,nearM);
+    r.m2={sk:ds.out,occ:ds.occ,ok:true,skyFrac:ds.skyFrac,peaks:peaks(ds.out,g)};
+    // pointes de la methode 1 posees sur un objet proche (ce que la profondeur ecarterait)
+    r.m1.fake=r.m1.peaks.filter(p=>{ const y=Math.min(g.h-1,p.y+2), d=m?distOf(m,last.disp[y*g.w+p.x]):0; return m&&d<nearM; }); }
+  return r; }
+function draw(){
+  if(!cur) return; A=analyse(); const {g}=A, ci=$('cvImg'), cd=$('cvDepth'); ci.width=g.w; ci.height=g.h; const x=ci.getContext('2d'); x.drawImage(cur.canvas,0,0);
+  const line=(sk,col,lw)=>{ x.strokeStyle=col; x.lineWidth=lw; x.beginPath(); let on=false; for(let i=0;i<g.w;i++){ const y=sk[i]; if(y<0){ on=false; continue; } on?x.lineTo(i,y):x.moveTo(i,y); on=true; } x.stroke(); };
+  const tri=(ps,col)=>{ x.fillStyle=col; for(const p of ps){ x.beginPath(); x.moveTo(p.x,p.y-2); x.lineTo(p.x-5,p.y-11); x.lineTo(p.x+5,p.y-11); x.closePath(); x.fill(); } };
   let html='';
-  if(cs.ok){ line(cs.out,'rgba(255,255,255,.9)',2); }
-  const pc=cs.ok?peaks(cs.out,w,prom):[];
-  if(!L){ $('stats').innerHTML=stat('silhouette couleur',cs.ok?'lisible':'ciel non reconnu',cs.ok?'ok':'bad')+stat('pointes (couleur)',pc.length)+stat('profondeur','chargez le modèle'); tri(pc,'#fff'); cd.width=1; return; }
-  const skyT=+$('skyT').value/100, nearT=+$('near').value/100, {dep}=L;
-  // carte de profondeur
-  cd.width=w; cd.height=h; const dx=cd.getContext('2d'), id=dx.createImageData(w,h);
-  for(let i=0;i<w*h;i++){ const [r,g,b]=turbo(L.dep[i]); id.data[i*4]=r; id.data[i*4+1]=g; id.data[i*4+2]=b; id.data[i*4+3]=255; } dx.putImageData(id,0,0);
-  // obstacles proches en rouge translucide sur l'image
-  const ov=x.createImageData(w,h); let nNear=0, nFar=0, nSky=0;
-  for(let i=0;i<w*h;i++){ const v=dep[i]; if(v>nearT){ nNear++; ov.data[i*4]=232; ov.data[i*4+1]=90; ov.data[i*4+2]=90; ov.data[i*4+3]=70; } else if(v<skyT) nSky++; else nFar++; }
-  const oc=document.createElement('canvas'); oc.width=w; oc.height=h; oc.getContext('2d').putImageData(ov,0,0); x.drawImage(oc,0,0);
-  if(cs.ok) line(cs.out,'rgba(255,255,255,.9)',2);
-  const ds=depthSkyline(dep,w,h,skyT,nearT); line(ds.far,'#6FCF97',2.5);
-  const pf=peaks(ds.far,w,prom);
-  // pointes "couleur" provenant d'un obstacle proche : celles que la profondeur ecarterait
-  const fake=pc.filter(p=>{ const y=Math.min(h-1,p.y+2); return dep[y*w+p.x]>nearT; });
-  tri(pc.filter(p=>!fake.includes(p)),'#fff'); tri(fake,'#E85A5A'); tri(pf,'#6FCF97');
-  const farCols=[...ds.far].filter(v=>v>=0).length, skyCols=[...ds.far].filter((v,i)=>v>0&&(ds.nearTop[i]<0||ds.nearTop[i]>v)).length;
-  const verdict=farCols<w*0.25?['pas de vue lointaine : aucun calage possible sur cette image','bad']:skyCols<w*0.3?['vue lointaine en partie masquée par des objets proches','']:['vue dégagée : calage possible','ok'];
-  html+=stat('inférence',L.ms.toFixed(0)+' ms',L.ms<800?'ok':'')+stat('calcul',estInfo.dev+' · '+estInfo.prec)+stat('modèle',estInfo.mb?estInfo.mb.toFixed(1)+' Mo':'en mémoire')
-    +stat('image',`${w}×${h}`)+stat('ciel',(100*nSky/(w*h)).toFixed(0)+' %')+stat('proche',(100*nNear/(w*h)).toFixed(0)+' %',nNear>w*h*0.3?'bad':'')
-    +stat('pointes couleur',pc.length)+stat('dont sur obstacle proche',fake.length,fake.length?'bad':'ok')+stat('pointes lointaines',pf.length,pf.length?'ok':'')
-    +`<div class="msg ${verdict[1]}">${verdict[0]}</div>`;
-  $('stats').innerHTML=html;
-}
-if(!navigator.gpu) log('WebGPU absent sur ce navigateur : le calcul se fera en WASM (plus lent).');
+  if(A.m2&&last){ const nearM=+$('near').value, ov=x.createImageData(g.w,g.h), id=cd.getContext('2d'); cd.width=g.w; cd.height=g.h; const dimg=cd.getContext('2d').createImageData(g.w,g.h); let nNear=0;
+    for(let i=0;i<g.w*g.h;i++){ const d=A.m?distOf(A.m,last.disp[i]):null, t=d==null?last.disp[i]:1-Math.min(1,Math.log10(Math.max(1,d))/3.5); const [r,gg,b]=turbo(t);
+      dimg.data[i*4]=r; dimg.data[i*4+1]=gg; dimg.data[i*4+2]=b; dimg.data[i*4+3]=255; if(d!=null&&d<nearM){ nNear++; ov.data[i*4]=232; ov.data[i*4+1]=90; ov.data[i*4+2]=90; ov.data[i*4+3]=60; } }
+    cd.getContext('2d').putImageData(dimg,0,0); const oc=document.createElement('canvas'); oc.width=g.w; oc.height=g.h; oc.getContext('2d').putImageData(ov,0,0); x.drawImage(oc,0,0);
+    const farCols=A.m2.sk.reduce((s,v)=>s+(v>=0),0), occCols=A.m2.occ.reduce((s,v)=>s+v,0);
+    const verdict=!A.m?['échelle inconnue (pas assez de sol visible en bas de l\'image) : distances relatives seulement','']:farCols<g.w*0.2?['pas de vue lointaine : aucun calage possible sur cette image','bad']:occCols>farCols?['vue lointaine en partie masquée par des objets proches','']:['vue lointaine dégagée : calage possible','ok'];
+    html+=stat('inférence',last.ms.toFixed(0)+' ms',last.ms<800?'ok':'')+stat('calcul',estInfo.dev+' · '+estInfo.prec)+stat('échelle',A.m?`sol, ${A.m.n} points`:'inconnue',A.m?'ok':'bad')
+      +stat('ciel',(100*A.m2.skyFrac).toFixed(0)+' %')+stat('proche (sol compris)',(100*nNear/(g.w*g.h)).toFixed(0)+' %')+stat('colonnes lointaines',farCols+'/'+g.w,farCols>g.w*0.4?'ok':'bad')
+      +stat('pointes m1',A.m1.peaks.length)+stat('dont sur objet proche',(A.m1.fake||[]).length,(A.m1.fake||[]).length?'bad':'ok')+stat('pointes m2',A.m2.peaks.length)
+      +`<div class="msg ${verdict[1]}">${verdict[0]}</div>`;
+  } else { cd.width=1; html+=stat('silhouette couleur',A.m1.ok?'lisible':'ciel non reconnu',A.m1.ok?'ok':'bad')+stat('pointes m1',A.m1.peaks.length)+stat('profondeur','chargez le modèle'); }
+  if(A.m1.ok) line(A.m1.sk,'rgba(255,255,255,.85)',1.5);
+  if(A.m2) line(A.m2.sk,'#6FCF97',2.2);
+  tri(A.m1.peaks.filter(p=>!(A.m1.fake||[]).includes(p)),'#fff'); tri(A.m1.fake||[],'#E85A5A'); if(A.m2) tri(A.m2.peaks,'#6FCF97');
+  if(cal) drawCal(x);
+  $('stats').innerHTML=html; }
+
+// ================= 4. reperes OSM et simulation du calage =================
+const OVERPASS=['https://overpass-api.de/api/interpreter','https://overpass.private.coffee/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+const TYPICAL_H={bell_tower:40,church:35,cathedral:55,basilica:45,chapel:15,mosque:30,synagogue:20,temple:20,tower:30,communications_tower:80,mast:40,chimney:45,water_tower:30};
+function parsePos(s){ const m=String(s).match(/(-?\d+(?:\.\d+)?)\s*[,; ]\s*(-?\d+(?:\.\d+)?)/)||String(s).match(/@(-?\d+\.\d+),(-?\d+\.\d+)/); return m?{lat:+m[1],lon:+m[2]}:null; }
+function distBrg(a,b){ const R=6371000, p1=a.lat*D, p2=b.lat*D, dl=(b.lon-a.lon)*D, dp=p2-p1;
+  const h=Math.sin(dp/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2, d=2*R*Math.asin(Math.sqrt(h));
+  const y=Math.sin(dl)*Math.cos(p2), x=Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl); return {d,b:(Math.atan2(y,x)/D+360)%360}; }
+async function fetchLandmarks(p,R){
+  const a=`(around:${R},${p.lat},${p.lon})`;
+  const q=`[out:json][timeout:25];(nwr${a}["man_made"~"^(tower|mast|chimney|water_tower|communications_tower)$"];nwr${a}["tower:type"~"^(bell_tower|communication|observation|clock)$"];nwr${a}["building"~"^(church|cathedral|chapel|basilica|mosque|synagogue|temple)$"];way${a}["building"]["height"~"^([4-9][0-9]|[1-9][0-9][0-9])"];way${a}["building"]["building:levels"~"^(1[3-9]|[2-9][0-9])$"];);out center tags;`;
+  let lastErr=null;
+  for(const u of OVERPASS){ try{ const ctl=new AbortController(), to=setTimeout(()=>ctl.abort(),20000);
+      const r=await fetch(u,{method:'POST',body:'data='+encodeURIComponent(q),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ctl.signal}); clearTimeout(to);
+      if(!r.ok) throw new Error('HTTP '+r.status); const j=await r.json(); log(`OSM : ${j.elements.length} éléments (${new URL(u).host})`); return j.elements; }catch(e){ lastErr=e; log(`OSM ${new URL(u).host} : ${e.message||e}`); } }
+  throw lastErr||new Error('Overpass injoignable'); }
+function toLandmarks(els,p,eye){
+  const out=[];
+  for(const e of els){ const t=e.tags||{}, lat=e.lat??e.center?.lat, lon=e.lon??e.center?.lon; if(lat==null) continue;
+    const kind=t['tower:type']==='bell_tower'?'bell_tower':t.building&&TYPICAL_H[t.building]?t.building:t.man_made||(t['tower:type']?'tower':'immeuble');
+    let hh=parseFloat(String(t.height||'').replace(',','.')); if(!(hh>0)&&t['building:levels']) hh=+t['building:levels']*3.2; const known=hh>0; if(!known) hh=TYPICAL_H[kind]||40;
+    const {d,b}=distBrg(p,{lat,lon}); if(d<120) continue;
+    out.push({name:t.name||t['name:fr']||({bell_tower:'clocher',church:'église',cathedral:'cathédrale',chimney:'cheminée',mast:'mât',water_tower:"château d'eau",tower:'tour',communications_tower:'tour télécom'}[kind]||kind),kind,h:hh,known,d,b,aTop:Math.atan2(hh-eye,d)/D}); }
+  // les plus visibles d'abord (hauteur apparente), 120 au plus
+  return out.sort((x,y)=>y.aTop-x.aTop).slice(0,120); }
+// recherche du cap et du champ : pour chaque (cap, champ), chaque repere dans le champ cherche une pointe a moins de TOLX ; les appariements
+// doivent etre coherents en hauteur (meme decalage d'inclinaison a VTOL pres). Score = nb de reperes appaires, puis precision.
+const TOLX=0.6, VTOL=1.2;
+function solve(pk,lms,g,H0,fov0){
+  if(pk.length<2||lms.length<2) return null;
+  const evalAt=(H,fov)=>{ const f=(g.w/2)/Math.tan(fov/2*D), half=fov/2-0.5, xs=pk.map(p=>p.x), m=[];
+    for(const L of lms){ const db=wrap(L.b-H); if(Math.abs(db)>half) continue; const x=g.cx+f*Math.tan(db*D); let bi=-1, be=1e9;
+      for(let i=0;i<xs.length;i++){ const e=Math.abs(xs[i]-x); if(e<be){ be=e; bi=i; } }
+      const eDeg=Math.atan(be/f)/D; if(eDeg>TOLX) continue; const p=pk[bi], aP=-Math.atan((p.y-g.cy)/f)/D; m.push({L,p,eDeg,v:L.aTop-aP}); }
+    if(m.length<2) return null;
+    const vs=m.map(q=>q.v).sort((a,b)=>a-b), med=vs[vs.length>>1], inl=m.filter(q=>Math.abs(q.v-med)<VTOL);
+    const used=new Set(), uniq=inl.filter(q=>used.has(q.p)?false:(used.add(q.p),true)); if(uniq.length<2) return null;
+    const rms=Math.sqrt(uniq.reduce((s,q)=>s+q.eDeg*q.eDeg,0)/uniq.length);
+    return {H:(H+360)%360,fov,pitch:med,n:uniq.length,rms,score:uniq.length*10-rms*5,m:uniq}; };
+  const span=H0==null?180:25, step=H0==null?0.5:0.25, c0=H0==null?0:H0; let best=[];
+  for(let H=c0-span;H<=c0+span;H+=step) for(let fov=Math.max(20,fov0-15);fov<=Math.min(120,fov0+15);fov+=1){ const r=evalAt(H,fov); if(r) best.push(r); }
+  best.sort((a,b)=>b.score-a.score); if(!best.length) return null;
+  // affinage autour des 3 meilleures, puis 2e solution franchement differente (> 3° de cap) pour juger de la confiance
+  let fine=[]; for(const s of best.slice(0,3)) for(let H=s.H-step;H<=s.H+step;H+=0.05) for(let fov=s.fov-1;fov<=s.fov+1;fov+=0.25){ const r=evalAt(H,fov); if(r) fine.push(r); }
+  fine.sort((a,b)=>b.score-a.score); const top=fine[0]||best[0], second=best.find(r=>Math.abs(wrap(r.H-top.H))>3);
+  return {...top,second}; }
+function verdictOf(s){ if(!s) return ['aucune solution (moins de 2 repères alignés)','bad']; const gap=s.second?s.n-s.second.n:s.n;
+  return s.n>=3&&gap>=2?['sûr','ok']:s.n>=2&&gap>=1?['plausible','']:['ambigu (une autre orientation aligne autant de repères)','bad']; }
+async function calibrate(){
+  if(!cur){ log('choisissez d\'abord une image'); return; } const p=parsePos($('pos').value); if(!p){ $('calOut').innerHTML='<div class="msg bad">Position manquante : collez les coordonnées du lieu de prise de vue.</div>'; return; }
+  $('btnCal').disabled=true; $('calOut').innerHTML='<div class="msg">Repères OpenStreetMap…</div>';
+  try{
+    const g=geom(), els=await fetchLandmarks(p,+$('rad').value||3000), lms=toLandmarks(els,p,g.eye); const H0=$('head').value===''?null:+$('head').value;
+    const t0=performance.now(); A=analyse();
+    const s1=A.m1.ok?solve(A.m1.peaks,lms,g,H0,g.fov):null, s2=A.m2?solve(A.m2.peaks,lms,g,H0,g.fov):null; const ms=performance.now()-t0;
+    cal={p,lms,s1,s2,g}; log(`calage simulé : ${lms.length} repères, ${ms.toFixed(0)} ms`);
+    const row=(nm,s,col)=>{ const v=verdictOf(s); return `<tr><td style="color:${col}"><b>${nm}</b></td><td>${s?s.H.toFixed(1)+'°':'—'}${s&&H0!=null?` <span style="opacity:.6">(${wrap(s.H-H0)>=0?'+':''}${wrap(s.H-H0).toFixed(1)}° / photo)</span>`:''}</td><td>${s?s.fov.toFixed(1)+'°':'—'}</td><td>${s?s.n:0}</td><td>${s?s.rms.toFixed(2)+'°':'—'}</td><td class="${v[1]==='ok'?'':''}" style="color:${v[1]==='ok'?'#6FCF97':v[1]==='bad'?'#E85A5A':'inherit'}">${v[0]}</td></tr>`
+      +(s?`<tr><td></td><td colspan="5" style="opacity:.75">${s.m.map(q=>esc(q.L.name)+` (${(q.L.d/1000).toFixed(1)} km${q.L.known?'':', h. typique'})`).join(' · ')}</td></tr>`:''); };
+    $('calOut').innerHTML=`<div class="hint">${lms.length} repères à moins de ${(+$('rad').value/1000).toFixed(1)} km · recherche ${H0==null?'sur 360°':`à ±25° de ${H0}°`}, champ ${g.fov}° ±15° · ${ms.toFixed(0)} ms</div>
+      <table class="cmp"><tr><th>Méthode</th><th>Cap</th><th>Champ</th><th>Repères</th><th>Écart</th><th>Verdict</th></tr>${row('1 · couleur',s1,'#fff')}${row('2 · profondeur',s2,'#6FCF97')}</table>
+      <div class="hint">Sur l'image : noms des repères placés avec le calage trouvé (blanc = méthode 1, vert = méthode 2). « Écart » = écart moyen entre pointes et repères appariés. Verdict « sûr » : au moins 3 repères et aucune autre orientation n'en aligne presque autant.</div>`;
+    if(s2&&Math.abs(s2.pitch-g.pitch)>1){ log(`inclinaison affinée par le calage : ${s2.pitch.toFixed(1)}°`); }
+    draw();
+  }catch(e){ $('calOut').innerHTML=`<div class="msg bad">${esc(e.message||e)}</div>`; }
+  finally{ $('btnCal').disabled=false; } }
+$('btnCal').onclick=calibrate;
+function drawCal(x){
+  const {g,lms}=cal; x.font='600 11px monospace'; x.textBaseline='bottom';
+  for(const [s,col,dy] of [[cal.s1,'#fff',0],[cal.s2,'#6FCF97',14]]){ if(!s) continue; const f=(g.w/2)/Math.tan(s.fov/2*D);
+    for(const q of s.m){ const db=wrap(q.L.b-s.H), px=g.cx+f*Math.tan(db*D), py=g.cy-f*Math.tan((q.L.aTop-s.pitch)*D);
+      x.strokeStyle=col; x.lineWidth=1.2; x.beginPath(); x.moveTo(px,py-4); x.lineTo(px,py-22-dy); x.stroke();
+      x.lineWidth=3; x.strokeStyle='rgba(14,26,43,.9)'; const t=q.L.name.slice(0,18); x.strokeText(t,px+3,py-22-dy); x.fillStyle=col; x.fillText(t,px+3,py-22-dy); } } }
+if(!navigator.gpu) log('WebGPU absent : calcul en WASM (plus lent).');
+// crochets de test
+window.__dbg={readExif,hfovFromF35,metricFit,solve,toLandmarks,geom:()=>geom(),analyse:()=>analyse(),state:()=>({cur,last,cal,A})};
 </script>
 </body>
 </html>
