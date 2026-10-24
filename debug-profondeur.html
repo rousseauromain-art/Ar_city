@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Débug profondeur — Depth Anything</title>
+<style>
+  :root{ --ink:#0E1A2B; --ink2:#182A42; --cream:#F3E9D2; --ochre:#E0A526; --line:rgba(243,233,210,.22); --ok:#6FCF97; --bad:#E85A5A; --sky:#7AA7E0; --far:#6FCF97; --near:#E85A5A; }
+  *{box-sizing:border-box}
+  body{margin:0 auto;background:var(--ink);color:var(--cream);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;padding:16px;max-width:960px}
+  h1{font-size:20px;margin:8px 0 2px}
+  p.lead{color:rgba(243,233,210,.7);margin:0 0 16px;font-size:13.5px}
+  .card{background:var(--ink2);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin-bottom:14px}
+  .card h2{font-size:14px;text-transform:uppercase;letter-spacing:.08em;margin:0 0 10px;color:var(--ochre)}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+  label{font-size:12.5px;color:rgba(243,233,210,.8)}
+  select,input[type=file]{background:var(--ink);border:1px solid var(--line);color:var(--cream);border-radius:4px;padding:6px 8px;font:13px monospace;max-width:100%}
+  input[type=range]{accent-color:var(--ochre);width:180px}
+  button{background:rgba(224,165,38,.16);border:1px solid rgba(224,165,38,.5);color:var(--ochre);border-radius:4px;padding:8px 12px;font:700 12.5px/1 monospace;text-transform:uppercase;letter-spacing:.04em;cursor:pointer}
+  button:disabled{opacity:.4;cursor:default}
+  button.ghost{background:none;border-color:var(--line);color:var(--cream);text-transform:none;font-weight:500}
+  .hint{font-size:12px;color:rgba(243,233,210,.55);margin:2px 0 8px}
+  .stat{display:inline-block;background:rgba(0,0,0,.25);border-radius:4px;padding:3px 8px;font:700 12px monospace;margin:0 6px 6px 0}
+  .stat.ok{color:var(--ok)} .stat.bad{color:var(--bad)}
+  .bar{height:8px;background:rgba(0,0,0,.3);border-radius:4px;overflow:hidden;margin:6px 0}
+  .bar i{display:block;height:100%;width:0;background:var(--ochre);transition:width .2s}
+  .msg{font-size:13px;margin-top:6px} .msg.bad{color:var(--bad)} .msg.ok{color:var(--ok)}
+  .views{display:grid;grid-template-columns:1fr;gap:10px}
+  @media (min-width:760px){ .views{grid-template-columns:1fr 1fr} }
+  .view{position:relative} .view canvas,.view video{width:100%;height:auto;display:block;border-radius:6px;background:#000}
+  .view .cap{font:600 12px monospace;color:rgba(243,233,210,.75);margin:4px 0}
+  .legend span{display:inline-flex;align-items:center;gap:5px;margin-right:12px;font:12px monospace}
+  .legend b{display:inline-block;width:18px;height:3px;border-radius:2px}
+  pre{background:#08111d;border:1px solid var(--line);border-radius:6px;padding:10px;font:12px/1.5 monospace;white-space:pre-wrap;margin:6px 0 0;max-height:300px;overflow:auto}
+</style>
+</head>
+<body>
+<h1>Débug profondeur — Depth Anything V2</h1>
+<p class="lead">Page à part de « villes à l'horizon », pour juger ce qu'apporterait une carte de profondeur estimée sur une seule photo : écarter les objets proches (bouteille, montants de fenêtre, poteaux) avant de chercher la silhouette lointaine et ses pointes (clochers, tours), et savoir quand une image ne permet aucun calage. Rien ici ne touche l'appli.</p>
+
+<div class="card">
+  <h2>1 · Modèle</h2>
+  <div class="row">
+    <label for="prec">Précision</label>
+    <select id="prec">
+      <option value="auto">auto (fp16 si WebGPU, sinon q8)</option>
+      <option value="q8">q8 — ~27 Mo, le plus léger</option>
+      <option value="fp16">fp16 — ~50 Mo</option>
+      <option value="fp32">fp32 — ~99 Mo, référence</option>
+    </select>
+    <label for="dev">Calcul</label>
+    <select id="dev">
+      <option value="auto">auto</option>
+      <option value="webgpu">WebGPU (carte graphique)</option>
+      <option value="wasm">WASM (processeur)</option>
+    </select>
+  </div>
+  <div class="row">
+    <button id="btnLoad">Charger le modèle</button>
+    <button class="ghost" id="btnForget">Supprimer le modèle du téléphone</button>
+  </div>
+  <div class="bar"><i id="bar"></i></div>
+  <div id="loadOut" class="hint">Premier chargement : le modèle (fichiers ONNX) est téléchargé depuis huggingface.co, une seule fois, puis gardé dans la mémoire du navigateur (hors-ligne ensuite). WebGPU : plus rapide, si le navigateur le fournit (Chrome Android récent) ; sinon WASM, plus lent mais partout.</div>
+</div>
+
+<div class="card">
+  <h2>2 · Image</h2>
+  <div class="row">
+    <button class="ghost" id="btnCam">Caméra</button>
+    <button id="btnSnap" disabled>Analyser l'image de la caméra</button>
+    <label class="ghost" style="display:inline-flex;align-items:center;gap:6px">Photo / capture <input type="file" id="file" accept="image/*"></label>
+  </div>
+  <div class="hint">Une capture de l'appli convient (les étiquettes dessinées par-dessus créent elles aussi des pointes : c'est un bon test de ce qui serait écarté). Idéal : une photo brute de la caméra.</div>
+  <div class="view" id="camView" hidden><video id="video" playsinline muted autoplay></video></div>
+</div>
+
+<div class="card">
+  <h2>3 · Résultat</h2>
+  <div class="row">
+    <label for="near">Seuil « proche »</label><input type="range" id="near" min="5" max="95" value="55"><span class="stat" id="nearV">55 %</span>
+    <label for="skyT">Seuil « ciel »</label><input type="range" id="skyT" min="0" max="30" value="6"><span class="stat" id="skyV">6 %</span>
+    <button class="ghost" id="btnRun" disabled>Relancer (chronomètre)</button>
+  </div>
+  <div class="hint">Profondeur relative : 0 % = le plus loin de l'image (ciel), 100 % = le plus proche. Au-dessus du seuil « proche », un pixel est un obstacle à écarter. Sous le seuil « ciel », c'est du ciel d'après la profondeur (indépendant de la couleur : marche aussi sous un ciel gris ou blanc).</div>
+  <div id="stats"></div>
+  <div class="legend">
+    <span><b style="background:#fff"></b>silhouette actuelle (couleur du ciel)</span>
+    <span><b style="background:var(--far)"></b>silhouette « lointain seulement » (profondeur)</span>
+    <span><b style="background:var(--near)"></b>obstacles proches écartés</span>
+    <span>▲ pointes candidates au calage</span>
+  </div>
+  <div class="views">
+    <div class="view"><div class="cap">Image et silhouettes</div><canvas id="cvImg"></canvas></div>
+    <div class="view"><div class="cap">Carte de profondeur (bleu loin → rouge proche)</div><canvas id="cvDepth"></canvas></div>
+  </div>
+  <pre id="log"></pre>
+</div>
+
+<script type="module">
+// Depth Anything V2 Small (onnx-community/depth-anything-v2-small) via Transformers.js, entierement dans le navigateur.
+import { pipeline, env, RawImage } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0/dist/transformers.min.js';
+env.allowLocalModels=false; env.useBrowserCache=true; // le modele reste dans le cache du navigateur apres le 1er telechargement
+const MODEL='onnx-community/depth-anything-v2-small', MAXW=518; // 518 px : resolution native du modele
+const $=id=>document.getElementById(id), log=t=>{ $('log').textContent=(new Date().toLocaleTimeString()+'  '+t+'\n'+$('log').textContent).slice(0,6000); };
+const stat=(k,v,c)=>`<span class="stat ${c||''}">${k} : ${v}</span>`;
+let est=null, estInfo=null, cur=null, last=null; // cur : {canvas, w, h} ; last : resultat de la derniere inference
+
+// ---------- 1. chargement du modele ----------
+function choice(){ const gpu=!!navigator.gpu; let dev=$('dev').value, prec=$('prec').value;
+  if(dev==='auto') dev=gpu?'webgpu':'wasm'; if(prec==='auto') prec=dev==='webgpu'?'fp16':'q8'; return {dev,prec,gpu}; }
+async function loadModel(){
+  const c=choice(); $('btnLoad').disabled=true; const files={}; const t0=performance.now();
+  $('loadOut').textContent=`téléchargement / ouverture (${c.prec}, ${c.dev})…`;
+  const progress_callback=e=>{ if(e.status==='progress'&&e.total){ files[e.file]={l:e.loaded,t:e.total};
+      const L=Object.values(files).reduce((s,f)=>s+f.l,0), T=Object.values(files).reduce((s,f)=>s+f.t,0);
+      $('bar').style.width=(100*L/T).toFixed(0)+'%'; $('loadOut').textContent=`${(L/1048576).toFixed(1)} / ${(T/1048576).toFixed(1)} Mo · ${e.file}`; } };
+  try{
+    est=await pipeline('depth-estimation',MODEL,{device:c.dev,dtype:c.prec,progress_callback});
+    const mb=Object.values(files).reduce((s,f)=>s+f.t,0)/1048576, s=(performance.now()-t0)/1000;
+    estInfo={...c,mb,loadS:s}; $('bar').style.width='100%';
+    $('loadOut').innerHTML=`<span class="msg ok">Modèle prêt</span> · ${c.prec} · ${c.dev}${c.dev==='webgpu'?'':' (WebGPU '+(c.gpu?'disponible':'absent')+')'} · ${mb?mb.toFixed(1)+' Mo téléchargés':'déjà dans la mémoire du téléphone'} · ${s.toFixed(1)} s`;
+    log(`modèle chargé : ${c.prec}/${c.dev}, ${mb.toFixed(1)} Mo, ${s.toFixed(1)} s`); $('btnRun').disabled=!cur; $('btnSnap').disabled=!$('video').srcObject;
+    if(cur) run();
+  }catch(e){
+    $('loadOut').innerHTML=`<span class="msg bad">Échec : ${String(e&&e.message||e)}</span>`+(c.dev==='webgpu'?' — réessayez avec Calcul = WASM.':''); log('échec chargement : '+(e&&e.message||e));
+  }finally{ $('btnLoad').disabled=false; }
+}
+$('btnLoad').onclick=loadModel;
+$('btnForget').onclick=async()=>{ try{ const ks=await caches.keys(); let n=0; for(const k of ks) if(/transformers/i.test(k)){ await caches.delete(k); n++; } est=null; $('bar').style.width='0';
+  $('loadOut').textContent=n?'modèle supprimé de la mémoire du navigateur':'rien à supprimer'; }catch(e){ $('loadOut').textContent='suppression impossible : '+e.message; } };
+
+// ---------- 2. image : camera ou fichier, ramenee a MAXW de large ----------
+function setImage(src,w,h){ const s=Math.min(1,MAXW/w), cw=Math.round(w*s), ch=Math.round(h*s), cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
+  cv.getContext('2d').drawImage(src,0,0,cw,ch); cur={canvas:cv,w:cw,h:ch}; $('btnRun').disabled=!est; if(est) run(); else draw(null); }
+$('file').onchange=e=>{ const f=e.target.files[0]; if(!f) return; const im=new Image(); im.onload=()=>{ setImage(im,im.naturalWidth,im.naturalHeight); URL.revokeObjectURL(im.src); }; im.src=URL.createObjectURL(f); };
+$('btnCam').onclick=async()=>{ try{ const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280}},audio:false});
+  $('video').srcObject=st; $('camView').hidden=false; $('btnSnap').disabled=!est; }catch(e){ log('caméra refusée : '+e.message); } };
+$('btnSnap').onclick=()=>{ const v=$('video'); if(v.videoWidth) setImage(v,v.videoWidth,v.videoHeight); };
+
+// ---------- 3. inference et analyse ----------
+async function run(){
+  if(!est||!cur) return; $('btnRun').disabled=true;
+  try{
+    const t0=performance.now(); const out=await est(RawImage.fromCanvas(cur.canvas)); const ms=performance.now()-t0;
+    const pd=out.predicted_depth, [h,w]=pd.dims, raw=pd.data; let mn=Infinity, mx=-Infinity; for(const v of raw){ if(v<mn) mn=v; if(v>mx) mx=v; }
+    const dep=new Float32Array(raw.length); for(let i=0;i<raw.length;i++) dep[i]=(raw[i]-mn)/((mx-mn)||1); // 0 = loin, 1 = proche
+    last={dep,w,h,ms}; log(`inférence ${ms.toFixed(0)} ms (${w}×${h}, ${estInfo.dev})`); draw(last);
+  }catch(e){ log('échec inférence : '+(e&&e.message||e)); }
+  finally{ $('btnRun').disabled=false; }
+}
+$('btnRun').onclick=run;
+for(const id of ['near','skyT']) $(id).oninput=()=>{ $('nearV').textContent=$('near').value+' %'; $('skyV').textContent=$('skyT').value+' %'; if(last) draw(last); };
+
+// silhouette "actuelle" : meme regle que l'appli (couleur du ciel apprise en haut de l'image, colonne par colonne)
+function colorSkyline(d,w,h){
+  const lum=i=>0.299*d[i]+0.587*d[i+1]+0.114*d[i+2], R=[],G=[],B=[]; let n=0, nb=0;
+  for(let x=Math.round(w*0.02);x<w*0.98;x+=Math.max(1,Math.round(w/80))) for(let y=Math.round(h*0.04);y<h*0.12;y+=Math.max(1,Math.round(h*0.02))){ const i=(y*w+x)*4; n++;
+    const L0=lum(i), s0=Math.max(d[i],d[i+1],d[i+2])-Math.min(d[i],d[i+1],d[i+2]); if((d[i+2]>=d[i]+12&&L0>80)||(L0>165&&s0<45)){ nb++; R.push(d[i]); G.push(d[i+1]); B.push(d[i+2]); } }
+  const out=new Int16Array(w).fill(-1); if(!n||nb<n*0.35) return {ok:false,out};
+  const med=a=>{ a.sort((x,y)=>x-y); return a[a.length>>1]; }, ref0=[med(R),med(G),med(B)];
+  for(let x=0;x<w;x++){ let ref=ref0.slice(), miss=0, first=true;
+    for(let y=0;y<h;y++){ const i=(y*w+x)*4, r=d[i],g=d[i+1],b=d[i+2], L=0.299*r+0.587*g+0.114*b, sat=Math.max(r,g,b)-Math.min(r,g,b);
+      const sky=(b>=r+12&&b>=g-5&&L>80)||(L>165&&sat<45)||Math.abs(r-ref[0])+Math.abs(g-ref[1])+Math.abs(b-ref[2])<60;
+      if(first){ first=false; if(!sky){ out[x]=0; break; } }
+      if(sky){ miss=0; ref=[ref[0]*0.92+r*0.08,ref[1]*0.92+g*0.08,ref[2]*0.92+b*0.08]; } else if(++miss>=2){ out[x]=y-1; break; } } }
+  return {ok:true,out};
+}
+// silhouette "lointain seulement" : 1er pixel (en descendant) qui n'est ni du ciel (profondeur < seuil ciel) ni un obstacle proche (> seuil proche)
+function depthSkyline(dep,w,h,skyT,nearT){
+  const far=new Int16Array(w).fill(-1), nearTop=new Int16Array(w).fill(-1);
+  for(let x=0;x<w;x++) for(let y=0;y<h;y++){ const v=dep[y*w+x]; if(v<skyT) continue; if(v>nearT){ if(nearTop[x]<0) nearTop[x]=y; continue; } far[x]=y; break; }
+  return {far,nearTop};
+}
+// pointes : sommets locaux nettement plus hauts que leurs voisins (meme principe que l'appli, en pixels)
+function peaks(sk,w,prom){ const out=[], win=Math.max(3,Math.round(w*0.012)), wide=Math.max(6,Math.round(w*0.03));
+  for(let x=wide;x<w-wide;x++){ const y=sk[x]; if(y<0) continue; let isTop=true, low=y;
+    for(let k=-win;k<=win;k++){ const q=sk[x+k]; if(q>=0&&q<y){ isTop=false; break; } }
+    if(!isTop) continue; for(let k=-wide;k<=wide;k++){ const q=sk[x+k]; if(q>low) low=q; }
+    if(low-y>=prom&&!out.some(p=>Math.abs(p.x-x)<win*2)) out.push({x,y,prom:low-y}); }
+  return out; }
+const turbo=t=>{ t=Math.max(0,Math.min(1,t)); const r=34.61+t*(1172.33-t*(10793.56-t*(33300.12-t*(38394.49-t*14825.05)))), g=23.31+t*(557.33+t*(1225.33-t*(3574.96-t*(1073.77+t*707.56)))), b=27.2+t*(3211.1-t*(15327.97-t*(27814-t*(22569.18-t*6838.66))));
+  return [Math.max(0,Math.min(255,r)),Math.max(0,Math.min(255,g)),Math.max(0,Math.min(255,b))]; };
+
+function draw(L){
+  if(!cur) return; const {w,h,canvas}=cur, ci=$('cvImg'), cd=$('cvDepth'); ci.width=w; ci.height=h; const x=ci.getContext('2d'); x.drawImage(canvas,0,0);
+  const img=canvas.getContext('2d').getImageData(0,0,w,h).data, cs=colorSkyline(img,w,h), prom=Math.max(4,Math.round(h*0.015));
+  const line=(sk,col,lw)=>{ x.strokeStyle=col; x.lineWidth=lw; x.beginPath(); let on=false; for(let i=0;i<w;i++){ const y=sk[i]; if(y<0){ on=false; continue; } on?x.lineTo(i,y):x.moveTo(i,y); on=true; } x.stroke(); };
+  const tri=(ps,col)=>{ x.fillStyle=col; for(const p of ps){ x.beginPath(); x.moveTo(p.x,p.y-3); x.lineTo(p.x-6,p.y-14); x.lineTo(p.x+6,p.y-14); x.closePath(); x.fill(); } };
+  let html='';
+  if(cs.ok){ line(cs.out,'rgba(255,255,255,.9)',2); }
+  const pc=cs.ok?peaks(cs.out,w,prom):[];
+  if(!L){ $('stats').innerHTML=stat('silhouette couleur',cs.ok?'lisible':'ciel non reconnu',cs.ok?'ok':'bad')+stat('pointes (couleur)',pc.length)+stat('profondeur','chargez le modèle'); tri(pc,'#fff'); cd.width=1; return; }
+  const skyT=+$('skyT').value/100, nearT=+$('near').value/100, {dep}=L;
+  // carte de profondeur
+  cd.width=w; cd.height=h; const dx=cd.getContext('2d'), id=dx.createImageData(w,h);
+  for(let i=0;i<w*h;i++){ const [r,g,b]=turbo(L.dep[i]); id.data[i*4]=r; id.data[i*4+1]=g; id.data[i*4+2]=b; id.data[i*4+3]=255; } dx.putImageData(id,0,0);
+  // obstacles proches en rouge translucide sur l'image
+  const ov=x.createImageData(w,h); let nNear=0, nFar=0, nSky=0;
+  for(let i=0;i<w*h;i++){ const v=dep[i]; if(v>nearT){ nNear++; ov.data[i*4]=232; ov.data[i*4+1]=90; ov.data[i*4+2]=90; ov.data[i*4+3]=70; } else if(v<skyT) nSky++; else nFar++; }
+  const oc=document.createElement('canvas'); oc.width=w; oc.height=h; oc.getContext('2d').putImageData(ov,0,0); x.drawImage(oc,0,0);
+  if(cs.ok) line(cs.out,'rgba(255,255,255,.9)',2);
+  const ds=depthSkyline(dep,w,h,skyT,nearT); line(ds.far,'#6FCF97',2.5);
+  const pf=peaks(ds.far,w,prom);
+  // pointes "couleur" provenant d'un obstacle proche : celles que la profondeur ecarterait
+  const fake=pc.filter(p=>{ const y=Math.min(h-1,p.y+2); return dep[y*w+p.x]>nearT; });
+  tri(pc.filter(p=>!fake.includes(p)),'#fff'); tri(fake,'#E85A5A'); tri(pf,'#6FCF97');
+  const farCols=[...ds.far].filter(v=>v>=0).length, skyCols=[...ds.far].filter((v,i)=>v>0&&(ds.nearTop[i]<0||ds.nearTop[i]>v)).length;
+  const verdict=farCols<w*0.25?['pas de vue lointaine : aucun calage possible sur cette image','bad']:skyCols<w*0.3?['vue lointaine en partie masquée par des objets proches','']:['vue dégagée : calage possible','ok'];
+  html+=stat('inférence',L.ms.toFixed(0)+' ms',L.ms<800?'ok':'')+stat('calcul',estInfo.dev+' · '+estInfo.prec)+stat('modèle',estInfo.mb?estInfo.mb.toFixed(1)+' Mo':'en mémoire')
+    +stat('image',`${w}×${h}`)+stat('ciel',(100*nSky/(w*h)).toFixed(0)+' %')+stat('proche',(100*nNear/(w*h)).toFixed(0)+' %',nNear>w*h*0.3?'bad':'')
+    +stat('pointes couleur',pc.length)+stat('dont sur obstacle proche',fake.length,fake.length?'bad':'ok')+stat('pointes lointaines',pf.length,pf.length?'ok':'')
+    +`<div class="msg ${verdict[1]}">${verdict[0]}</div>`;
+  $('stats').innerHTML=html;
+}
+if(!navigator.gpu) log('WebGPU absent sur ce navigateur : le calcul se fera en WASM (plus lent).');
+</script>
+</body>
+</html>
