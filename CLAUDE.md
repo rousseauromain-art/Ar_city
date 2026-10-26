@@ -91,7 +91,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - un crochet (`tests/helpers/hook.js`) injecté juste avant le dernier `})();` du script donne accès aux variables internes (`__vh.ev`) et capture les textes d'une image (`__vh.frame`) ;
   - `loadTileData` (relief synthétique), `overpassQuery` et `fetch` sont remplacés par des simulations ; horloge figée ; aucun accès réseau réel (`tests/helpers/app.js`).
 - **Photos et caches de test, hors du dépôt public :** dépôt privé `rousseauromain-art/Ar_city-photos` (photos originales avec EXIF) ; export du cache de l'appli (Réglages > Exporter le cache) à y déposer aussi. `tests/helpers/cache.js` (`readDump`, `seedCaches`) rejoue un export dans la Cache API de la page : le vrai code relit relief, lieux et monuments comme sur le téléphone. Ne jamais committer photos ni exports dans `Ar_city`.
-- **Couverts :** chargement sans erreur, redirection, pages de diagnostic, bloc WDCLASS identique, noms de lieux sans chevauchement, rempart de Saint-Malo (avec contrôle qui reproduit le bug d'avant), port dense.
+- **Couverts :** hauteur de prise de vue affichée (puce « œil »), chargement sans erreur, redirection, pages de diagnostic, bloc WDCLASS identique, noms de lieux sans chevauchement, rempart de Saint-Malo (avec contrôle qui reproduit le bug d'avant), port dense.
 - **Contexte :** les 47 séries précédentes, écrites hors du dépôt, sont perdues.
 - **À couvrir en priorité :**
   - **Relief :**
@@ -127,7 +127,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
    - tests et GitHub Actions (socle en place, voir « Tests ») ;
    - puis découpe en modules (sans outil de construction) ;
    - puis suppression du code mort : ancien placement des bateaux, moteur de relief v1, ancien mode Wikidata, etc.
-2. **Hauteur d'œil à l'écran :** l'afficher près du cap, avec un bouton « Réestimer » ; l'altitude GPS sert de deuxième source.
+2. **Hauteur d'œil à l'écran :** puce « œil » affichée à côté du rayon (fait, 26/10/2026). Reste : un bouton « Réestimer » ; l'altitude GPS comme deuxième source.
 3. **Boutons et calage :**
    - un libellé sous chaque icône de la colonne de boutons ;
    - un calage guidé en un seul bouton (« visez le soleil / la lune / ce repère ») ;
