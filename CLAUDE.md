@@ -42,6 +42,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - `placed` : rectangles et polygones déjà réservés ;
   - `rectHit` et `polysOverlap` : tests de chevauchement ;
   - placement générique : `placeSlanted` (noms inclinés à 45°, mémoire `lblMem`) et `placeFlat` ;
+  - repli à plat pour TOUS les lieux sans place pour le nom incliné (vers le haut, puis sous le point) ; avant le 26/10/2026 seuls les monuments l'avaient ;
   - `uiObstacles()` : réserve la place des boutons du bas.
 - **Lieux, `visibleCities()` :**
   - filtres : rayon, puis portée selon le type de lieu ;
@@ -90,7 +91,8 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - Playwright avec Chromium, page servie en http local (`tests/helpers/server.js`) ;
   - un crochet (`tests/helpers/hook.js`) injecté juste avant le dernier `})();` du script donne accès aux variables internes (`__vh.ev`) et capture les textes d'une image (`__vh.frame`) ;
   - `loadTileData` (relief synthétique), `overpassQuery` et `fetch` sont remplacés par des simulations ; horloge figée ; aucun accès réseau réel (`tests/helpers/app.js`).
-- **Couverts :** chargement sans erreur, redirection, pages de diagnostic, bloc WDCLASS identique, noms de lieux sans chevauchement, rempart de Saint-Malo (avec contrôle qui reproduit le bug d'avant), port dense.
+- **Photos et caches de test, hors du dépôt public :** dépôt privé `rousseauromain-art/Ar_city-photos` (photos originales avec EXIF) ; export du cache de l'appli (Réglages > Exporter le cache) à y déposer aussi. `tests/helpers/cache.js` (`readDump`, `seedCaches`) rejoue un export dans la Cache API de la page : le vrai code relit relief, lieux et monuments comme sur le téléphone. Ne jamais committer photos ni exports dans `Ar_city`.
+- **Couverts :** hauteur de prise de vue affichée (puce « œil »), chargement sans erreur, redirection, pages de diagnostic, bloc WDCLASS identique, noms de lieux sans chevauchement, rempart de Saint-Malo (avec contrôle qui reproduit le bug d'avant), port dense.
 - **Contexte :** les 47 séries précédentes, écrites hors du dépôt, sont perdues.
 - **À couvrir en priorité :**
   - **Relief :**
@@ -113,6 +115,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - **Autres :** caches (vivant, `dcFetch`, tuiles), trames AIS au format Blob, KMZ/KML, boutons et calques.
 
 ## Faits établis sur le terrain
+- **Calage sur photos (26/10/2026) :** Ibiza, direction EXIF + 90° = 267° contre soleil calculé 267,1° (le recalage sur le soleil donne −2,3° de cap). Saint-Malo : la direction EXIF est fausse d'environ 14° (le recalage sur les repères, −14,4°, remet le fort du Petit Bé à sa place). Turin : le recalage (−19,4°, champ 71,5° → 58,5°) dégradait un cap EXIF juste ; cause : concordances fortuites de repères en ville dense (corrigé par un test de permutation dans `landmarkFit`). Le champ affiché à Turin (58,5°) n'est pas reproduit sans les données de Turin : voir l'export du cache.
 - **Pixel :** la direction EXIF est décalée de +90° en paysage (vérifié sur 3 photos).
 - **Boussole :** 30 à 40° d'erreur près du métal (port de Saint-Malo).
 - **Horizon :** les pieds des passants donnent un indice d'horizon.
@@ -125,7 +128,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
    - tests et GitHub Actions (socle en place, voir « Tests ») ;
    - puis découpe en modules (sans outil de construction) ;
    - puis suppression du code mort : ancien placement des bateaux, moteur de relief v1, ancien mode Wikidata, etc.
-2. **Hauteur d'œil à l'écran :** l'afficher près du cap, avec un bouton « Réestimer » ; l'altitude GPS sert de deuxième source.
+2. **Hauteur d'œil à l'écran :** puce « œil » affichée à côté du rayon (fait, 26/10/2026). Reste : un bouton « Réestimer » ; l'altitude GPS comme deuxième source.
 3. **Boutons et calage :**
    - un libellé sous chaque icône de la colonne de boutons ;
    - un calage guidé en un seul bouton (« visez le soleil / la lune / ce repère ») ;
