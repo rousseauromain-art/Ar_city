@@ -42,6 +42,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - `placed` : rectangles et polygones déjà réservés ;
   - `rectHit` et `polysOverlap` : tests de chevauchement ;
   - placement générique : `placeSlanted` (noms inclinés à 45°, mémoire `lblMem`) et `placeFlat` ;
+  - repli à plat pour TOUS les lieux sans place pour le nom incliné (vers le haut, puis sous le point) ; avant le 26/10/2026 seuls les monuments l'avaient ;
   - `uiObstacles()` : réserve la place des boutons du bas.
 - **Lieux, `visibleCities()` :**
   - filtres : rayon, puis portée selon le type de lieu ;
