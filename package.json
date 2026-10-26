@@ -1,0 +1,12 @@
+{
+  "name": "villes-horizon",
+  "private": true,
+  "description": "Tests automatiques de Villes à l'horizon (la page est servie telle quelle, sans outil de construction)",
+  "scripts": {
+    "test": "playwright test",
+    "serve": "node tests/helpers/server.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

@@ -10,10 +10,11 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - les équipements télécom.
 - `villes-horizon.html` : une seule page (HTML, CSS et JS, environ 5 200 lignes), servie par GitHub Pages : https://rousseauromain-art.github.io/Ar_city/villes-horizon.html
 - `config.js` : adresse du relais. Il est public et ne contient aucun secret.
-- Pages de diagnostic :
-  - `debug-trafic.html` : AIS et avions ;
-  - `debug-profondeur.html` : Depth Anything V2 et SegFormer, rejouer une photo, export JSON ;
-  - `debug-lieux.html`.
+- `index.html` : redirige vers `villes-horizon.html`.
+- Pages de diagnostic, dans `debug/` (elles chargent `../config.js`) :
+  - `debug/debug-trafic.html` : AIS et avions ;
+  - `debug/debug-profondeur.html` : Depth Anything V2 et SegFormer, rejouer une photo, export JSON ;
+  - `debug/debug-lieux.html`.
 - Relais Cloudflare Worker `villes-horizon-relais` (rousseau-romain.workers.dev) :
   - les clés AISStream et OpenSky sont stockées en secrets du Worker ;
   - routes : /planes /ships /osm /telecom /geonames /geoapify /check /monuments /wdtile /ais-debug /calib /calib.csv ;
@@ -84,11 +85,12 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - `photoBench()` ; les mobiles sont désactivés dans ce mode.
 - **Cache générique :** `dcFetch`, `dcRead` et `dcPut`, sur la Cache API. Il faut du http(s) : pas de `file://`.
 
-## Tests, à recréer dans `tests/`
+## Tests (`tests/`, lancés par `npm test` et par GitHub Actions à chaque envoi et pull request)
 - **Technique :**
-  - Playwright avec Chromium, page servie en http local ;
-  - un crochet injecté juste avant le dernier `})();` du script donne accès aux variables internes ;
-  - `loadTileData`, `overpassQuery` et `fetch` sont remplacés par des simulations.
+  - Playwright avec Chromium, page servie en http local (`tests/helpers/server.js`) ;
+  - un crochet (`tests/helpers/hook.js`) injecté juste avant le dernier `})();` du script donne accès aux variables internes (`__vh.ev`) et capture les textes d'une image (`__vh.frame`) ;
+  - `loadTileData` (relief synthétique), `overpassQuery` et `fetch` sont remplacés par des simulations ; horloge figée ; aucun accès réseau réel (`tests/helpers/app.js`).
+- **Couverts :** chargement sans erreur, redirection, pages de diagnostic, bloc WDCLASS identique, noms de lieux sans chevauchement, rempart de Saint-Malo (avec contrôle qui reproduit le bug d'avant), port dense.
 - **Contexte :** les 47 séries précédentes, écrites hors du dépôt, sont perdues.
 - **À couvrir en priorité :**
   - **Relief :**
@@ -120,7 +122,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
 ## À faire (point du 25/10/2026)
 1. **Dépôt propre :**
    - relais dans `relais/` ;
-   - tests et GitHub Actions ;
+   - tests et GitHub Actions (socle en place, voir « Tests ») ;
    - puis découpe en modules (sans outil de construction) ;
    - puis suppression du code mort : ancien placement des bateaux, moteur de relief v1, ancien mode Wikidata, etc.
 2. **Hauteur d'œil à l'écran :** l'afficher près du cap, avec un bouton « Réestimer » ; l'altitude GPS sert de deuxième source.
