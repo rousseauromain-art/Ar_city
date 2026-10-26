@@ -1,0 +1,34 @@
+{
+  "name": "villes-horizon-relais",
+  "main": "relais-worker.js",
+  "compatibility_date": "2026-09-26",
+  "vars": {
+    "ALLOWED_ORIGIN": "https://rousseauromain-art.github.io"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "AIS_HUB",
+        "class_name": "AisHub"
+      },
+      {
+        "name": "CALIB_LOG",
+        "class_name": "CalibLog"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "AisHub"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "CalibLog"
+      ]
+    }
+  ]
+}
