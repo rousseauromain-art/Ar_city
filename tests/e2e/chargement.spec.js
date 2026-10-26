@@ -44,3 +44,12 @@ test('le tri Wikidata (bloc WDCLASS) est identique dans la page et dans debug-tr
   expect(main).not.toBeNull();
   expect(block('debug/debug-trafic.html')).toBe(main);
 });
+
+test('le script de villes-horizon.html est syntaxiquement valide (même sans le crochet de test)',async({page})=>{
+  const errors=[]; page.on('pageerror',e=>errors.push(String(e)));
+  await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
+  await page.goto('/villes-horizon.html?nohook=1');
+  await page.waitForLoadState('load');
+  expect(errors).toEqual([]);
+  expect(await page.evaluate(()=>!!document.getElementById('go')&&typeof window.APP_CONFIG)).toBe('object'); // le script a bien tourne jusqu'au bout
+});
