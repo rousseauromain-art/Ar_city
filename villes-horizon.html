@@ -297,6 +297,9 @@ video,#photoBg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover
     <label for="phv">Visibilité d'après la photo (on ne nomme que ce que la caméra voit)</label><input type="checkbox" id="phv">
   </div>
   <div class="row">
+    <label for="dbgSky">Debug : silhouette lue sur la photo (traits bleus, avec Tout voir)</label><input type="checkbox" id="dbgSky">
+  </div>
+  <div class="row">
     <label for="sky">Ligne d'horizon (aide au calage)</label><input type="checkbox" id="sky">
     <span class="hint" id="skyInfo">Dessine la silhouette théorique du relief : comparez-la à l'horizon réel pour caler, utile face à une île ou une côte sans repère net.</span>
   </div>
@@ -353,6 +356,12 @@ video,#photoBg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover
   </div>
   <div class="row zbtns">
     <button id="btnDbg">Ouvrir le diagnostic</button>
+  </div>
+  <div class="row zbtns">
+    <button id="btnCacheExp">Exporter le cache (pour analyse)</button>
+  </div>
+  <div class="row">
+    <span class="hint" id="cacheExpInfo">Enregistre dans un fichier JSON le relief de l'endroit où vous êtes et les données mémorisées (lieux, monuments, tours). Rejouées dans les tests, elles permettent de reproduire ce que l'appli a vu sur place. Le fichier ne contient ni réglages, ni calques perso (KMZ), ni mesures de calage ; les noms des données mémorisées indiquent les zones déjà visitées.</span>
   </div>
   </details>
   <details class="grp" data-grp="sim"><summary><b>Test et simulation</b><i class="gsum" id="sum_sim"></i></summary>
@@ -436,7 +445,7 @@ const ENDPOINTS=['https://overpass.private.coffee/api/interpreter','https://maps
    OpenSky ; seuls les bateaux necessitent une cle. */
 const CONFIG=Object.assign({relay:''},window.APP_CONFIG||{});
 const CONFIG_LOADED=!!window.APP_CONFIG;
-const APP_VERSION='2026-10-25 (j) · monuments : plus de seuil de langues après la requête (les peu connus sont supposés petits, la distance décide) · 2026-10-25 (i) · hauteur d\'œil relue dans le relief fin (remparts, falaises : la jetée ne cache plus Dinard) ; statues OpenStreetMap proches en monuments · 2026-10-25 (h) · bateaux : les plus proches nommés d\'abord, noms à plat en escalier sous l\'horizon, les autres regroupés « +N » ; aucun nom sous les boutons du bas · 2026-10-25 (g) · carnet de calage (chaque calage = une mesure, envoyée au relais), calage au doigt sur le soleil, « Reprendre l\'écart appris » · 2026-10-25 (f) · mémoire des bateaux et avions : relue dès le premier point GPS et dans les cases voisines · 2026-10-25 (e) · bateaux et avions : un nom par icône quand la place le permet (« +N » seulement faute de place) ; boutons Bateaux et Avions dans le menu Calques · 2026-10-25 (d) · hauteur des monuments dans l\'étiquette (↑72 m connue, ↑~45 m supposée) ; calage au doigt sur le sommet d\'un monument (cap + horizon si hauteur connue) ; photo rejouée : sans trafic en direct, chargements relancés au nouveau lieu · 2026-10-25 (c) · soleil : position exacte dessinée (☀), reflets écartés, heure de prise de vue fiable ; ville dense : plus d\'alignement des toits sur le relief · 2026-10-25 (b) · Caler auto : d\'abord le soleil s\'il est dans l\'image (cap et horizon exacts), horizon lu sans le premier plan (parasols, palmiers, personnes) · 2026-10-25 · photo rejouée : direction des photos horizontales du Pixel corrigée (+90°), banc d\'essai du calage auto · 2026-10-24 (b) · Réglages > Test et simulation : rejouer une photo (position, direction et focale lues dans le fichier, calques dessinés dessus, calage testable) · 2026-10-24 · calage : boussole + gyroscope (retour a la boussole si le gyroscope saute) ; reperes vus seulement dans Caler auto ; lecture photo en option (3 s) · 2026-10-23 (d) · reglages ranges en sections depliables (aides derriere "?"), pastille de reglage rapide du rayon, croix de visee en option · 2026-10-23 (c) · bateaux : couleur par type et rond a l\'arret facon MarineTraffic, fiche au toucher avec liens MarineTraffic / VesselFinder (avions : ADS-B Exchange / Flightradar24) · 2026-10-23 (b) · avions et bateaux : placement des noms generique (sans chevauchement), memoire d\'appareil ; croix de visee en mode KML · 2026-10-23 · bateaux : message clair quand AISStream est muet · 2026-10-22 (d) · cap stabilisé au gyroscope, calage automatique continu sur les repères vus (cap + zoom), règle de la photo étendue aux lieux · 2026-10-22 (c) · visibilité d\'après la photo : on ne nomme que ce que la caméra voit (silhouette réelle), nom calé sur la pointe visible · 2026-10-22 (b) · un monument caché derrière un plus proche (même direction) passe en Tout voir · 2026-10-22 · Turin : monuments posés sur le relief devant eux, crêtes filtrées, sonde dans l\'axe, priorité à ce qu\'on voit (bâtiments hauts OSM), relief 200 km et sommets lointains, calage du zoom, sol/étage, position simulée · 2026-10-21 · relief : secours AWS par tuile (Italie / hors Mapterhorn) · 2026-10-21 · zoom au pincement, 5 miroirs Overpass, structure BD TOPO · 2026-10-21 · repères/tours OSM en tuiles + tours ANFR, crêtes intérieures du relief · 2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
+const APP_VERSION='2026-10-26 · calage sur les repères : plus de cap ni de champ déduits de concordances fortuites (ville dense) ; export du cache (Réglages) ; traits bleus de la photo réservés au debug · 2026-10-25 (j) · monuments : plus de seuil de langues après la requête (les peu connus sont supposés petits, la distance décide) · 2026-10-25 (i) · hauteur d\'œil relue dans le relief fin (remparts, falaises : la jetée ne cache plus Dinard) ; statues OpenStreetMap proches en monuments · 2026-10-25 (h) · bateaux : les plus proches nommés d\'abord, noms à plat en escalier sous l\'horizon, les autres regroupés « +N » ; aucun nom sous les boutons du bas · 2026-10-25 (g) · carnet de calage (chaque calage = une mesure, envoyée au relais), calage au doigt sur le soleil, « Reprendre l\'écart appris » · 2026-10-25 (f) · mémoire des bateaux et avions : relue dès le premier point GPS et dans les cases voisines · 2026-10-25 (e) · bateaux et avions : un nom par icône quand la place le permet (« +N » seulement faute de place) ; boutons Bateaux et Avions dans le menu Calques · 2026-10-25 (d) · hauteur des monuments dans l\'étiquette (↑72 m connue, ↑~45 m supposée) ; calage au doigt sur le sommet d\'un monument (cap + horizon si hauteur connue) ; photo rejouée : sans trafic en direct, chargements relancés au nouveau lieu · 2026-10-25 (c) · soleil : position exacte dessinée (☀), reflets écartés, heure de prise de vue fiable ; ville dense : plus d\'alignement des toits sur le relief · 2026-10-25 (b) · Caler auto : d\'abord le soleil s\'il est dans l\'image (cap et horizon exacts), horizon lu sans le premier plan (parasols, palmiers, personnes) · 2026-10-25 · photo rejouée : direction des photos horizontales du Pixel corrigée (+90°), banc d\'essai du calage auto · 2026-10-24 (b) · Réglages > Test et simulation : rejouer une photo (position, direction et focale lues dans le fichier, calques dessinés dessus, calage testable) · 2026-10-24 · calage : boussole + gyroscope (retour a la boussole si le gyroscope saute) ; reperes vus seulement dans Caler auto ; lecture photo en option (3 s) · 2026-10-23 (d) · reglages ranges en sections depliables (aides derriere "?"), pastille de reglage rapide du rayon, croix de visee en option · 2026-10-23 (c) · bateaux : couleur par type et rond a l\'arret facon MarineTraffic, fiche au toucher avec liens MarineTraffic / VesselFinder (avions : ADS-B Exchange / Flightradar24) · 2026-10-23 (b) · avions et bateaux : placement des noms generique (sans chevauchement), memoire d\'appareil ; croix de visee en mode KML · 2026-10-23 · bateaux : message clair quand AISStream est muet · 2026-10-22 (d) · cap stabilisé au gyroscope, calage automatique continu sur les repères vus (cap + zoom), règle de la photo étendue aux lieux · 2026-10-22 (c) · visibilité d\'après la photo : on ne nomme que ce que la caméra voit (silhouette réelle), nom calé sur la pointe visible · 2026-10-22 (b) · un monument caché derrière un plus proche (même direction) passe en Tout voir · 2026-10-22 · Turin : monuments posés sur le relief devant eux, crêtes filtrées, sonde dans l\'axe, priorité à ce qu\'on voit (bâtiments hauts OSM), relief 200 km et sommets lointains, calage du zoom, sol/étage, position simulée · 2026-10-21 · relief : secours AWS par tuile (Italie / hors Mapterhorn) · 2026-10-21 · zoom au pincement, 5 miroirs Overpass, structure BD TOPO · 2026-10-21 · repères/tours OSM en tuiles + tours ANFR, crêtes intérieures du relief · 2026-10-12 · tours et mâts télécom : même base OSM que les repères hauts (mât sans hauteur/opérateur inclus) · 2026-10-11 · taille maximale des silhouettes de monuments (30 % de l\'écran) pour garder le nom visible de près ; 2026-10-10 · monuments proches toujours nets (15 plus proches ≤ 1,5 km), mâts TDF sans priorité et nets seulement s\'ils dépassent la crête, diagnostic d\'affichage dans les fiches, nom d\'usage des tours sans nom (commentaire OSM) ; 2026-10-09 (g) · couches perso : champs lus de tous les tableaux KML, liste numérotée dans l\'ordre du fichier (n°2 = champ #2 du diagnostic), stockage compact, jusqu\'à 60 000 points ; 2026-10-09 (f) · UX : bouton plein écran atteignable (barre du bas transparente aux touchers, outils sur 2 colonnes en paysage, cibles 44 px, accueil en paysage) ; couches perso : diagnostic de structure KMZ/KML sans contenu ; 2026-10-09 (e) · couches perso : champ KML au choix (10 premiers caractères) et recherche de site en gras ; 2026-10-09 (d) · couches perso KMZ/KML (locales), zones tactiles et toucher unifiés (pylônes regroupés) ; 2026-10-09 (c) · cache générique pour toutes les couches (mémoire, secours périmé, Recharger), tours TDF/télécom dans les monuments avec liens ; 2026-10-09 (b) · fiches de groupe génériques, repères hauts en violet + mémoire, calques défilants ; 2026-10-09 · monuments posés sur la ligne de relief ; 2026-10-08 (b) · monuments : tout Wikidata par tuile de 0,1° (sans filtre de classe), tri monuments / équipements urbains dans l\'appli, nouvelles icônes';
 const S={cross:false,gyro:true,photoVis:false,simOn:false,simPos:'',radius:60,camFov:67,hamlets:false,relief:true,reliefV1:false,obsHeight:0,showDist:true,filter:'',headOff:0,pitchOff:0,air:false,sea:false,airMax:120,seaMax:40,skyline:false,ridges:true,beyond:false,telecom:false,telecomMax:8,buildings:false,buildingsMax:12,chipsFold:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:false,heritage:false,beach:false}};
@@ -498,7 +507,7 @@ function loadSettings(){
   try{
     const raw=localStorage.getItem(PKEY); if(!raw) return;
     const saved=JSON.parse(raw);
-    for(const k of ['cross','gyro','photoVis','simOn','simPos','radius','camFov','hamlets','relief','reliefV1','obsHeight','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','ridges','beyond','telecom','telecomMax','buildings','buildingsMax','chipsFold'])
+    for(const k of ['cross','gyro','photoVis','dbgSky','simOn','simPos','radius','camFov','hamlets','relief','reliefV1','obsHeight','showDist','headOff','pitchOff','air','sea','airMax','seaMax','skyline','ridges','beyond','telecom','telecomMax','buildings','buildingsMax','chipsFold'])
       if(saved[k]!==undefined) S[k]=saved[k];
     // 24/10/2026 : la lecture continue de la photo etait active par defaut (et le calage continu) -> trop gourmand ; les anciens
     // reglages (reconnaissables a la cle autoCal, retiree) repartent avec la photo desactivee : c'est une option a cocher.
@@ -512,8 +521,8 @@ function saveSettings(){
   clearTimeout(saveSettingsT);
   saveSettingsT=setTimeout(()=>{
     try{
-      const {cross,gyro,photoVis,simOn,simPos,radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,ridges,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}=photoMode?{...S,...photoMode.backup}:S;
-      localStorage.setItem(PKEY,JSON.stringify({cross,gyro,photoVis,simOn,simPos,radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,ridges,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}));
+      const {cross,gyro,photoVis,dbgSky,simOn,simPos,radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,ridges,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}=photoMode?{...S,...photoMode.backup}:S;
+      localStorage.setItem(PKEY,JSON.stringify({cross,gyro,photoVis,dbgSky,simOn,simPos,radius,camFov,hamlets,relief,reliefV1,obsHeight,showDist,headOff,pitchOff,air,sea,airMax,seaMax,skyline,ridges,beyond,telecom,telecomMax,buildings,buildingsMax,chipsFold,poi,layers}));
     }catch(e){}
   },300);
 }
@@ -3174,8 +3183,9 @@ function draw(ts){
     ctx.restore();
   }
 
-  // silhouette REELLE lue sur la photo (Tout voir seulement) : pointilles bleu clair, pour verifier ce que l'appli a compris de l'image
-  if(S.beyond&&photoFresh()){ ctx.save(); ctx.setLineDash([2,4]); ctx.strokeStyle='rgba(140,220,255,.85)'; ctx.lineWidth=1.2; ctx.beginPath(); let on=false;
+  // silhouette REELLE lue sur la photo (Tout voir + option de debug) : pointilles bleu clair, pour verifier ce que l'appli a compris de l'image
+  // (26/10/2026 : plus affichee par defaut, le trace etait trop irregulier pour guider l'oeil)
+  if(S.dbgSky&&S.beyond&&photoFresh()){ ctx.save(); ctx.setLineDash([2,4]); ctx.strokeStyle='rgba(140,220,255,.85)'; ctx.lineWidth=1.2; ctx.beginPath(); let on=false;
     for(const col of photoSky.cols){ const dB=wrap(col.brg-heading); if(Math.abs(dB)>80){ on=false; continue; }
       const x=W/2+fh*Math.tan(dB*D), y=H/2+fh*Math.tan((pitch-col.a)*D); if(on) ctx.lineTo(x,y); else { ctx.moveTo(x,y); on=true; } }
     ctx.stroke(); ctx.restore(); }
@@ -4481,6 +4491,7 @@ $('sky').onchange=e=>{S.skyline=e.target.checked;saveSettings();if(S.skyline)com
 $('gyr').onchange=e=>{ S.gyro=e.target.checked; saveSettings(); };
 $('crs').onchange=e=>{ S.cross=e.target.checked; saveSettings(); };
 $('phv').onchange=e=>{ S.photoVis=e.target.checked; photoSky=null; citiesVer++; saveSettings(); };
+$('dbgSky').onchange=e=>{ S.dbgSky=e.target.checked; saveSettings(); };
 $('rdg').onchange=e=>{S.ridges=e.target.checked;saveSettings();};
 // POSITION (GPS ou simulee) : un seul point d'entree
 // 25/10/2026 (photo d'Ibiza rejouee depuis Saint-Malo : tours et immeubles absents) : un chargement en cours pour l'ancienne position, ou une
@@ -4656,16 +4667,28 @@ function landmarkFit(ps){ // -> {ok, corr, cam, names, msg}
   for(const h of hyps){ const sup=hyps.filter(o=>Math.abs(wrap(o.corr-h.corr))<AC_AGREE), names=new Set(sup.map(o=>o.L.c.name));
     const score=names.size*10-sup.reduce((s,o)=>s+Math.abs(wrap(o.corr-h.corr)),0);
     if(!best||score>best.score) best={h,sup,n:names.size,score}; }
-  let ok=best&&(best.n>=2||(best.n===1&&best.h.uniq&&best.h.p.prom>=2)), supSel=ok?best.sup:null;
+  // CONCORDANCES FORTUITES (26/10/2026, Turin : cap -19,4° et champ 71,5° -> 58,5° sur une photo dont la direction etait juste a quelques degres) :
+  // avec beaucoup de reperes et de pointes, quelques paires concordent par hasard presque toujours (94 % de 80 scenes aleatoires acceptees avant).
+  // Test de permutation : on decale chaque repere d'un ecart aleatoire (graine fixe) dans la fenetre de recherche, ce qui detruit toute concordance
+  // d'ensemble en gardant le meme nombre d'hypotheses, et l'on compte combien de fois le hasard rassemble autant de reperes que le meilleur cap.
+  // Le cap n'est accepte que si cela arrive dans moins de 5 % des tirages ; un repere seul ne vaut que s'il y a au plus 3 reperes dans le champ.
+  // frequence a laquelle le hasard rassemble au moins nBest reperes sur un meme cap (corrOf : correction proposee par chaque hypothese)
+  const chanceOf=(corrOf,nBest)=>{ let seed=12345; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647, RUNS=100, cs=hyps.map(corrOf); let hit=0;
+    for(let r=0;r<RUNS;r++){ const off=new Map(); for(const L of lms) off.set(L,(rnd()*2-1)*AC_WIN); const v=hyps.map((h,i)=>cs[i]+off.get(h.L)); let mx=0;
+      for(let i=0;i<v.length&&mx<nBest;i++){ const nm=new Set(); for(let k=0;k<v.length;k++) if(Math.abs(wrap(v[k]-v[i]))<AC_AGREE) nm.add(hyps[k].L); if(nm.size>mx) mx=nm.size; }
+      if(mx>=nBest) hit++; }
+    return hit/RUNS; };
+  const chance=best&&best.n>=2?chanceOf(h=>h.corr,best.n):1;
+  let ok=best&&((best.n>=2&&chance<0.05)||(best.n===1&&best.h.uniq&&best.h.p.prom>=2&&lms.length<=3)), supSel=ok?best.sup:null;
   const fhOf=cam=>(W/2)/Math.tan(vFovFor(cam)/2*D), impl=(o,cam)=>wrap(o.L.c.brg-Math.atan(Math.tan(o.p.dd*D)*ps.fh/fhOf(cam))/D);
   if(!ok&&hyps.length>=2){ let bp=null; // zoom faux : les ecarts ne concordent qu'apres correction du champ
     for(let i=0;i<hyps.length;i++) for(let j=i+1;j<hyps.length;j++){ const a=hyps[i], b=hyps[j]; if(a.L===b.L||Math.abs(a.p.dd-b.p.dd)<8) continue;
       for(let cam=Math.max(20,S.camFov-12);cam<=Math.min(110,S.camFov+12);cam+=0.5){ const r=Math.abs(wrap(impl(a,cam)-impl(b,cam))); if(!bp||r<bp.r) bp={r,cam,a,b}; } }
-    if(bp&&bp.r<0.2){ const m=impl(bp.a,bp.cam); supSel=hyps.filter(o=>Math.abs(wrap(impl(o,bp.cam)-m))<AC_AGREE); ok=new Set(supSel.map(o=>o.L)).size>=2; } }
+    if(bp&&bp.r<0.2){ const m=impl(bp.a,bp.cam); supSel=hyps.filter(o=>Math.abs(wrap(impl(o,bp.cam)-m))<AC_AGREE); const nz=new Set(supSel.map(o=>o.L)).size; ok=nz>=6&&chanceOf(o=>wrap(impl(o,bp.cam)),nz)<0.02; } } // champ deduit : au moins 6 reperes et moins de 2 % de chance (2 reperes + zoom libre concordent toujours)
   if(!ok) return {ok:false,msg:`${lms.length} repère(s), ${peaks.length} pointe(s) : pas de concordance sûre`};
   const sup=supSel.filter((o,i,a)=>a.findIndex(q=>q.L===o.L)===i); let corr=sup.reduce((s,o)=>s+o.corr,0)/sup.length, cam=S.camFov;
   if(sup.length>=2){ const dds=sup.map(o=>o.p.dd), span=Math.max(...dds)-Math.min(...dds);
-    if(span>=10){ const xs=sup.map(o=>Math.tan(o.p.dd*D)*ps.fh); let bc=null;
+    if(span>=10&&sup.length>=4){ const xs=sup.map(o=>Math.tan(o.p.dd*D)*ps.fh); let bc=null; // le champ n'est ajuste qu'avec au moins 4 reperes : 2 inconnues (cap, champ), avec 2 ou 3 reperes l'ajustement serait exact par construction
       const resid=c=>{ const fh2=(W/2)/Math.tan(vFovFor(c)/2*D), hs=sup.map((o,i)=>wrap(o.L.c.brg-Math.atan(xs[i]/fh2)/D)); const m=hs.reduce((s,v)=>s+v,0)/hs.length; return {r:Math.sqrt(hs.reduce((s,v)=>s+(v-m)*(v-m),0)/hs.length),m}; };
       const cur=resid(S.camFov);
       for(let c=Math.max(20,S.camFov-10);c<=Math.min(110,S.camFov+10);c+=0.5){ const q=resid(c); if(!bc||q.r<bc.r) bc={...q,cam:c}; }
@@ -5016,6 +5039,7 @@ $('btnReload').onclick=()=>{dcForceT=Date.now()+90000; if(S.buildings){ building
   $('rad').value=S.radius; $('radV').textContent=S.radius+' km'; radSync();
   $('fov').value=S.camFov; showFov();
   $('vil').checked=S.hamlets; $('rel').checked=S.relief; $('relv1').checked=S.reliefV1; $('dst').checked=S.showDist; $('sky').checked=S.skyline; $('simOn').checked=!!S.simOn; $('simPos').value=S.simPos||''; $('rdg').checked=S.ridges!==false; $('phv').checked=S.photoVis===true; $('gyr').checked=S.gyro!==false; $('crs').checked=!!S.cross;
+  $('dbgSky').checked=!!S.dbgSky;
   $('obsH').value=S.obsHeight; $('obsHV').textContent=fmtObsH(S.obsHeight); updateObsInfo();
   $('air').checked=S.air; $('sea').checked=S.sea; $('tel').checked=S.telecom; $('bld').checked=S.buildings;
   document.querySelector('.chips').classList.toggle('folded',S.chipsFold);
@@ -5110,6 +5134,36 @@ async function photoBench(){
   $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null;
 }
 $('btnBench').onclick=()=>{ $('sheet').classList.remove('open'); photoBench(); };
+// EXPORT DU CACHE (26/10/2026) : le cache de l'appareil (Cache API) contient exactement ce que l'appli a recu sur place : tuiles de relief, lieux,
+// monuments Wikidata, tours OSM. On le range dans un fichier pour rejouer un lieu dans les tests, sans reseau (tests/helpers/cache.js : memes cles,
+// memes entetes, donc le vrai code de l'appli relit ces entrees comme sur le telephone).
+// Format : {format:'vh-cache-1', version, at, pos, entries:[{c:'dc'|'t', k:cle ou url, t:date, type, enc:'text'|'b64', d}]}.
+// Relief : seulement les tuiles utiles ICI (bandes de computeTerrain, plus le secours AWS de chaque tuile Mapterhorn) ; donnees : tout le cache
+// sauf la memoire des mobiles (live/) et les empreintes de batiments (bd/, lourdes, inutiles au calage).
+function cacheReliefUrls(c){
+  const urls=new Set();
+  for(const b of bandsFor(BANDS_HR,c)) for(let iy=0;iy<b.ny;iy++) for(let ix=0;ix<b.nx;ix++){ const x=b.tx0+ix, y=b.ty0+iy;
+    urls.add(TILE_URL_HR(b.z,x,y)); for(let dy=0;dy<2;dy++) for(let dx=0;dx<2;dx++) urls.add(TILE_URL_LEGACY(b.z+1,2*x+dx,2*y+dy)); }
+  for(const b of bandsFor(BANDS_LEGACY,c)) for(let iy=0;iy<b.ny;iy++) for(let ix=0;ix<b.nx;ix++) urls.add(TILE_URL_LEGACY(b.z,b.tx0+ix,b.ty0+iy));
+  return urls; }
+const b64Of=async buf=>{ const u=new Uint8Array(buf); let s=''; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); return btoa(s); };
+async function cacheDump(){
+  if(!window.caches) throw new Error('Cache API indisponible (page ouverte en http, pas en file://)');
+  const entries=[], c0=pos?{lat:pos.lat,lon:pos.lon}:null, want=c0?cacheReliefUrls(c0):new Set();
+  const add=async(cname,keep,tag,keyOf)=>{ const c=await caches.open(cname);
+    for(const rq of await c.keys()){ if(!keep(rq.url)) continue; const r=await c.match(rq); if(!r) continue;
+      const type=r.headers.get('content-type')||'', t=+r.headers.get('x-t')||0, txt=/json|text/.test(type);
+      entries.push({c:tag,k:keyOf(rq.url),t,type,enc:txt?'text':'b64',d:txt?await r.text():await b64Of(await r.arrayBuffer())}); } };
+  await add(TCACHE,u=>want.has(u),'t',u=>u);
+  await add(DCACHE,u=>u.startsWith(DC_BASE)&&!/^(live|bd)\//.test(u.slice(DC_BASE.length)),'dc',u=>u.slice(DC_BASE.length));
+  return {format:'vh-cache-1',version:APP_VERSION.slice(0,60),at:new Date().toISOString(),pos:c0,radius:S.radius,entries}; }
+$('btnCacheExp').onclick=async()=>{ const b=$('btnCacheExp'), info=$('cacheExpInfo'), orig=b.textContent; b.disabled=true; b.textContent='Export…';
+  try{ const d=await cacheDump(), blob=new Blob([JSON.stringify(d)],{type:'application/json'}), a=document.createElement('a');
+    const nt=d.entries.filter(e=>e.c==='t').length, nd=d.entries.length-nt, tag=d.pos?`${d.pos.lat.toFixed(3)}_${d.pos.lon.toFixed(3)}`:'sans-position';
+    a.href=URL.createObjectURL(blob); a.download=`villes-horizon-cache_${tag}.json`; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },4000);
+    info.textContent=`Fichier créé : ${nt} tuile(s) de relief, ${nd} jeu(x) de données, ${(blob.size/1048576).toFixed(1)} Mo${nt?'':' — aucune tuile de relief ici : attendez la fin du calcul du relief, puis recommencez'}.`; }
+  catch(e){ info.textContent='Export impossible : '+friendlyErr(e); }
+  b.disabled=false; b.textContent=orig; };
 $('btnFold').addEventListener('click',()=>{ S.chipsFold=!S.chipsFold; document.querySelector('.chips').classList.toggle('folded',S.chipsFold); saveSettings(); });
 
 // ---------- photo ----------
