@@ -12,4 +12,4 @@ Ces tests vérifient des apports des 26 et 27/10/2026 qui ne sont **pas** dans l
 | `photo-plein-ecran.spec.js` | photo rejouée en plein écran : vue épurée | `052d217` |
 | `lieux-horizon-bas.spec.js` | repli à plat pour tous les lieux sans place (**cause probable de régression : à ne reprendre qu'après décision**) | `30ad8a7` |
 
-L'état complet de `main` avant la refonte est étiqueté `avant-refonte-2026-10-27`.
+L'état complet de `main` avant la refonte est conservé dans la branche `archive/avant-refonte-2026-10-27` (commit `f61db6e`).

@@ -2,7 +2,7 @@
 
 Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque décision importante.
 
-**Toute la refonte (méthode, architecture cible, règles, plan par étapes) : voir `REFONTE.md`** (et `VEILLE-ANCRAGE.md`). La v1 figée est la version `2026-10-25 (j)` ; l'étiquette `avant-refonte-2026-10-27` garde l'état de `main` d'avant.
+**Toute la refonte (méthode, architecture cible, règles, plan par étapes) : voir `REFONTE.md`** (et `VEILLE-ANCRAGE.md`). La v1 figée est la version `2026-10-25 (j)` ; la branche `archive/avant-refonte-2026-10-27` (commit `f61db6e`) garde l'état de `main` d'avant (étiquette impossible à pousser depuis les sessions cloud).
 
 ## Le projet
 - Application web de réalité augmentée façon PeakFinder. Par-dessus l'image de la caméra, elle affiche :
@@ -30,7 +30,8 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
 - **Code :** fonctions génériques et réutilisables. Une correction s'applique à tous les cas semblables, donc à tous les calques.
 - **Coût :** uniquement des solutions gratuites.
 - **Confidentialité :** les données réelles d'équipements TDF/ARCAD sont confidentielles. Ne jamais les demander.
-- **Matériel :** téléphone de test Google Pixel (Android, Chrome) ; poste de travail sous Windows 11, sans droits d'administrateur.
+- **Matériel :** il travaille **uniquement sur son téléphone** (Google Pixel, Android, Chrome) : pas de PC, pas de terminal, pas de git en ligne de commande.
+- **Ne jamais lui demander de lancer une commande git ou un terminal.** Claude fait tous les commits, branches, envois et pull requests. Romain ne fait que : tester sur le téléphone, fusionner une PR (bouton « Merge » de GitHub dans le navigateur ou l'appli), déposer des fichiers via le site GitHub (« Add files via upload », par exemple dans `Ar_city-photos`). Toute consigne à son attention se donne en gestes sur le téléphone.
 
 ## Règles de travail
 - **Branches :** `main` est la version en ligne. Une branche par sujet ; on relit le diff, puis on fusionne.
