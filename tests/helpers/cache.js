@@ -9,6 +9,12 @@ function readDump(file){
   if(d.format!=='vh-cache-1') throw new Error(`${file} : format inconnu (${d.format})`);
   return d;
 }
+// export en plusieurs paquets (..._p1sur3.json) : tous les fichiers du meme export, fusionnes en un seul rejeu
+function readDumps(files){
+  const ds=files.map(readDump), n=ds[0].parts||1;
+  if(ds.length!==n||new Set(ds.map(d=>d.at)).size!==1) throw new Error(`export incomplet ou melange : ${ds.length} fichier(s) pour ${n} paquet(s) attendu(s)`);
+  return {...ds[0],entries:ds.flatMap(d=>d.entries)};
+}
 async function seedCaches(page,dump,{batch=40}={}){
   for(let i=0;i<dump.entries.length;i+=batch){
     await page.evaluate(async({entries,NAMES,DC_BASE})=>{
@@ -22,4 +28,4 @@ async function seedCaches(page,dump,{batch=40}={}){
   }
   return dump.entries.length;
 }
-module.exports={readDump,seedCaches,NAMES};
+module.exports={readDump,readDumps,seedCaches,NAMES};
