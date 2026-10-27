@@ -2,15 +2,18 @@
 
 Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque décision importante.
 
+**Toute la refonte (méthode, architecture cible, règles, plan par étapes) : voir `REFONTE.md`** (et `VEILLE-ANCRAGE.md`). La v1 figée est la version `2026-10-25 (j)` ; l'étiquette `avant-refonte-2026-10-27` garde l'état de `main` d'avant.
+
 ## Le projet
 - Application web de réalité augmentée façon PeakFinder. Par-dessus l'image de la caméra, elle affiche :
   - les noms des lieux et des monuments ;
   - le relief ;
   - les bateaux (AIS) et les avions ;
   - les équipements télécom.
-- `villes-horizon.html` : une seule page (HTML, CSS et JS, environ 5 200 lignes), servie par GitHub Pages : https://rousseauromain-art.github.io/Ar_city/villes-horizon.html
-- `config.js` : adresse du relais. Il est public et ne contient aucun secret.
-- `index.html` : redirige vers `villes-horizon.html`.
+- `v1/villes-horizon.html` : l'application, version `2026-10-25 (j)` FIGÉE (une seule page, environ 5 200 lignes ; seul changement : `../config.js`). Adresse : https://rousseauromain-art.github.io/Ar_city/v1/villes-horizon.html
+- `villes-horizon.html` (racine) : redirige vers `v1/villes-horizon.html` (anciens liens, raccourci du téléphone).
+- `config.js` (à la racine) : adresse du relais. Il est public et ne contient aucun secret.
+- `index.html` : le lanceur (modes × versions ; v2 « en développement », sans lien).
 - Pages de diagnostic, dans `debug/` (elles chargent `../config.js`) :
   - `debug/debug-trafic.html` : AIS et avions ;
   - `debug/debug-profondeur.html` : Depth Anything V2 et SegFormer, rejouer une photo, export JSON ;
@@ -42,7 +45,6 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - `placed` : rectangles et polygones déjà réservés ;
   - `rectHit` et `polysOverlap` : tests de chevauchement ;
   - placement générique : `placeSlanted` (noms inclinés à 45°, mémoire `lblMem`) et `placeFlat` ;
-  - repli à plat pour TOUS les lieux sans place pour le nom incliné (vers le haut, puis sous le point) ; avant le 26/10/2026 seuls les monuments l'avaient ;
   - `uiObstacles()` : réserve la place des boutons du bas.
 - **Lieux, `visibleCities()` :**
   - filtres : rayon, puis portée selon le type de lieu ;
@@ -81,7 +83,6 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - boussole et gyroscope combinés par secteurs ;
   - carnet de calage : `calRecord` et `calFlush`, envoyés au relais sur `/calib`.
 - **Rejouer une photo :**
-  - plein écran en photo rejouée = vue épurée (classe `clean` : bandeaux et informations masqués, plus de place pour les noms) ;
   - `readExif` lit le GPS, l'heure (avec OffsetTimeOriginal), la focale en équivalent 24×36 et la direction ;
   - la direction est décalée de +90° sur Pixel en paysage, et peu fiable en portrait ;
   - `photoBench()` ; les mobiles sont désactivés dans ce mode.
@@ -89,11 +90,12 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
 
 ## Tests (`tests/`, lancés par `npm test` et par GitHub Actions à chaque envoi et pull request)
 - **Technique :**
-  - Playwright avec Chromium, page servie en http local (`tests/helpers/server.js`) ;
+  - Playwright avec Chromium, page servie en http local (`tests/helpers/server.js`) ; le crochet n'est injecté que dans `/v1/villes-horizon.html` ;
   - un crochet (`tests/helpers/hook.js`) injecté juste avant le dernier `})();` du script donne accès aux variables internes (`__vh.ev`) et capture les textes d'une image (`__vh.frame`) ;
   - `loadTileData` (relief synthétique), `overpassQuery` et `fetch` sont remplacés par des simulations ; horloge figée ; aucun accès réseau réel (`tests/helpers/app.js`).
 - **Photos et caches de test, hors du dépôt public :** dépôt privé `rousseauromain-art/Ar_city-photos` (photos originales avec EXIF) ; export du cache de l'appli (Réglages > Exporter le cache) à y déposer aussi. L'export est coupé en paquets de 20 Mo au plus (`..._p1sur3.json`, tous à déposer) ; `tests/helpers/cache.js` (`readDump`, `readDumps` pour les paquets, `seedCaches`) rejoue un export dans la Cache API de la page : le vrai code relit relief, lieux et monuments comme sur le téléphone. Ne jamais committer photos ni exports dans `Ar_city`.
-- **Couverts :** syntaxe du script sans le crochet de test (une apostrophe non échappée dans `APP_VERSION` a déjà cassé la page entière), hauteur de prise de vue (puce « œil » = correction, détail au toucher), repères rangés avec les calques, chargement sans erreur, redirection, pages de diagnostic, bloc WDCLASS identique, noms de lieux sans chevauchement, rempart de Saint-Malo (avec contrôle qui reproduit le bug d'avant), port dense.
+- **Visent la v1 (j), lancés :** chargement et syntaxe de `v1/`, redirection racine, lanceur, pages de diagnostic, bloc WDCLASS identique, noms de lieux sans chevauchement, rempart de Saint-Malo (avec contrôle), port dense.
+- **`tests/a-reprendre/` (non lancés) :** tests des apports des 26–27/10 absents de la v1 ; voir `tests/a-reprendre/LISEZMOI.md`.
 - **Contexte :** les 47 séries précédentes, écrites hors du dépôt, sont perdues.
 - **À couvrir en priorité :**
   - **Relief :**
@@ -129,7 +131,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
    - tests et GitHub Actions (socle en place, voir « Tests ») ;
    - puis découpe en modules (sans outil de construction) ;
    - puis suppression du code mort : ancien placement des bateaux, moteur de relief v1, ancien mode Wikidata, etc.
-2. **Hauteur d'œil à l'écran :** puce « œil » affichée à côté du rayon (fait, 26/10/2026). Reste : un bouton « Réestimer » ; l'altitude GPS comme deuxième source.
+2. **Hauteur d'œil à l'écran :** puce « œil » (faite dans `main` le 26/10, retirée de la v1 (j) ; à reprendre dans la v2, voir `REFONTE.md` §2). Reste : un bouton « Réestimer » ; l'altitude GPS comme deuxième source.
 3. **Boutons et calage :**
    - un libellé sous chaque icône de la colonne de boutons ;
    - un calage guidé en un seul bouton (« visez le soleil / la lune / ce repère ») ;

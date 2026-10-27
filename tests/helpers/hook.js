@@ -1,4 +1,4 @@
-// CROCHET DE TEST : insere par tests/helpers/server.js juste avant le dernier "})();" du script de villes-horizon.html,
+// CROCHET DE TEST : insere par tests/helpers/server.js juste avant le dernier "})();" du script de v1/villes-horizon.html,
 // donc dans la portee du script : il voit et remplace les variables internes. Jamais servi par GitHub Pages.
 // Configuration lue dans window.__VH_TEST (posee par tests/helpers/app.js avant le chargement de la page) :
 //   terrain : { features:[...] } relief simule (voir tElev), mer a 0 m ailleurs ; fineMissing : pas de relief fin
