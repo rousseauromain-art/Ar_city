@@ -3,11 +3,47 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0E1A2B">
 <title>Villes à l'horizon</title>
-<meta http-equiv="refresh" content="0; url=villes-horizon.html">
-<script>location.replace('villes-horizon.html'+location.search+location.hash);</script>
+<style>
+:root{--ink:#0E1A2B;--panel:#16263B;--cream:#F3E9D2;--ochre:#E0A526;--mute:#8E9AAB}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ink);color:var(--cream);font:17px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:560px;margin:0 auto;padding:max(22px,env(safe-area-inset-top)) 18px max(28px,env(safe-area-inset-bottom))}
+h1{margin:6px 0 2px;font-size:30px;letter-spacing:.01em}
+.sub{margin:0 0 22px;color:var(--mute);font-size:15px}
+h2{margin:26px 0 10px;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ochre)}
+.btn{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px;margin:0 0 12px;padding:14px 18px;border-radius:12px;border:1px solid rgba(224,165,38,.55);background:var(--panel);color:var(--cream);text-decoration:none;font-size:20px;font-weight:600}
+.btn:active{background:#1d3350}
+.btn small{display:block;margin-top:2px;font-size:14px;font-weight:400;color:var(--mute)}
+.btn::after{content:"›";font-size:28px;color:var(--ochre)}
+.btn.sec{min-height:56px;font-size:17px;border-color:rgba(243,233,210,.25)}
+.note{margin:-4px 0 14px;padding:0 4px;color:var(--mute);font-size:14px}
+.v2{display:flex;align-items:center;gap:10px;min-height:56px;padding:12px 18px;border-radius:12px;border:1px dashed rgba(243,233,210,.25);color:var(--mute);font-size:17px}
+.v2 b{color:var(--cream);font-weight:600}
+</style>
 </head>
 <body>
-<p><a href="villes-horizon.html">Ouvrir Villes à l'horizon</a></p>
+<main>
+  <h1>Villes à l'horizon</h1>
+  <p class="sub">Choisissez un mode et une version.</p>
+
+  <h2>Version 1 — référence</h2>
+  <a class="btn" href="v1/villes-horizon.html" id="ar">
+    <span>Réalité augmentée<small>Caméra, GPS et boussole, en direct</small></span>
+  </a>
+  <a class="btn" href="v1/villes-horizon.html" id="photo">
+    <span>Analyse d'une photo<small>Rejouer une photo avec ses lieux et son calage</small></span>
+  </a>
+  <p class="note" id="photoNote">Dans la v1 : touchez « Ouvrir la caméra », puis Réglages › Test et simulation › Rejouer une photo.</p>
+
+  <h2>Version 2</h2>
+  <div class="v2" id="v2"><b>v2</b> — en développement</div>
+
+  <h2>Outils de diagnostic</h2>
+  <a class="btn sec" href="debug/debug-trafic.html">Trafic : bateaux et avions</a>
+  <a class="btn sec" href="debug/debug-profondeur.html">Profondeur et photo</a>
+  <a class="btn sec" href="debug/debug-lieux.html">Lieux et monuments</a>
+</main>
 </body>
 </html>

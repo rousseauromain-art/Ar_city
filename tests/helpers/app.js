@@ -31,7 +31,7 @@ async function openApp(page,opts={}){
     await page.context().grantPermissions(['geolocation']);
     await page.context().setGeolocation({latitude:opts.pos.lat,longitude:opts.pos.lon,accuracy:5});
   }
-  await page.goto('/villes-horizon.html');
+  await page.goto('/v1/villes-horizon.html');
   await page.waitForFunction(()=>!!window.__vh);
   app.ev=expr=>page.evaluate(s=>window.__vh.ev(s),expr);
   app.frame=()=>page.evaluate(()=>window.__vh.frame());

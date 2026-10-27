@@ -1,4 +1,4 @@
-// Serveur http local des tests : sert le depot tel quel (comme GitHub Pages) et, pour villes-horizon.html seulement,
+// Serveur http local des tests : sert le depot tel quel (comme GitHub Pages) et, pour v1/villes-horizon.html seulement,
 // injecte le crochet de test (hook.js) juste avant le dernier "})();" du script principal.
 const http=require('http'), fs=require('fs'), path=require('path');
 const ROOT=path.resolve(__dirname,'..','..');
@@ -8,7 +8,7 @@ const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=
 
 function injectHook(html){
   const i=html.lastIndexOf('})();');
-  if(i<0) throw new Error('crochet de test : "})();" introuvable dans villes-horizon.html');
+  if(i<0) throw new Error('crochet de test : "})();" introuvable dans v1/villes-horizon.html');
   return html.slice(0,i)+'\n/*__VH_TEST_HOOK__*/\n'+HOOK+'\n'+html.slice(i);
 }
 
@@ -21,7 +21,7 @@ function start(port){
     fs.readFile(f,(err,buf)=>{
       if(err){ res.writeHead(404,{'Content-Type':'text/plain'}); return res.end('404'); }
       let body=buf;
-      if(path.basename(f)==='villes-horizon.html'&&u.searchParams.get('nohook')==null) body=injectHook(buf.toString('utf8'));
+      if(p==='/v1/villes-horizon.html'&&u.searchParams.get('nohook')==null) body=injectHook(buf.toString('utf8'));
       res.writeHead(200,{'Content-Type':TYPES[path.extname(f).toLowerCase()]||'application/octet-stream','Cache-Control':'no-store'});
       res.end(body);
     });
@@ -32,5 +32,5 @@ function start(port){
 module.exports={start,injectHook,ROOT};
 if(require.main===module){
   const port=+(process.env.PORT||4173);
-  start(port).then(()=>console.log(`Villes a l'horizon (tests) : http://127.0.0.1:${port}/villes-horizon.html`));
+  start(port).then(()=>console.log(`Villes a l'horizon (tests) : http://127.0.0.1:${port}/v1/villes-horizon.html`));
 }
