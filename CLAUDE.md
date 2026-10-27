@@ -18,6 +18,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - `debug/debug-trafic.html` : AIS et avions ;
   - `debug/debug-profondeur.html` : Depth Anything V2 et SegFormer, rejouer une photo, export JSON ;
   - `debug/debug-lieux.html`.
+  - `debug/debug-cache.html` : export du cache de l'appareil (relief d'un lieu, données mémorisées) en fichiers de 20 Mo au plus, à déposer dans `Ar_city-photos` ; lit les mêmes caches que la v1 sans la modifier.
 - Relais Cloudflare Worker `villes-horizon-relais` (rousseau-romain.workers.dev) :
   - les clés AISStream et OpenSky sont stockées en secrets du Worker ;
   - routes : /planes /ships /osm /telecom /geonames /geoapify /check /monuments /wdtile /ais-debug /calib /calib.csv ;
@@ -94,7 +95,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - Playwright avec Chromium, page servie en http local (`tests/helpers/server.js`) ; le crochet n'est injecté que dans `/v1/villes-horizon.html` ;
   - un crochet (`tests/helpers/hook.js`) injecté juste avant le dernier `})();` du script donne accès aux variables internes (`__vh.ev`) et capture les textes d'une image (`__vh.frame`) ;
   - `loadTileData` (relief synthétique), `overpassQuery` et `fetch` sont remplacés par des simulations ; horloge figée ; aucun accès réseau réel (`tests/helpers/app.js`).
-- **Photos et caches de test, hors du dépôt public :** dépôt privé `rousseauromain-art/Ar_city-photos` (photos originales avec EXIF) ; export du cache de l'appli (Réglages > Exporter le cache) à y déposer aussi. L'export est coupé en paquets de 20 Mo au plus (`..._p1sur3.json`, tous à déposer) ; `tests/helpers/cache.js` (`readDump`, `readDumps` pour les paquets, `seedCaches`) rejoue un export dans la Cache API de la page : le vrai code relit relief, lieux et monuments comme sur le téléphone. Ne jamais committer photos ni exports dans `Ar_city`.
+- **Photos et caches de test, hors du dépôt public :** dépôt privé `rousseauromain-art/Ar_city-photos` (photos originales avec EXIF) ; exports du cache faits avec `debug/debug-cache.html` (le relief d'un lieu s'exporte lieu par lieu, après avoir ouvert l'appli ou rejoué la photo à cet endroit ; les données en une fois), à y déposer aussi, par paquets de 20 Mo au plus (`..._p1sur3.json`, tous à déposer) ; `tests/helpers/cache.js` (`readDump`, `readDumps` et `readExports` pour les paquets et plusieurs exports, `seedCaches`) rejoue un export dans la Cache API de la page : le vrai code relit relief, lieux et monuments comme sur le téléphone. Ne jamais committer photos ni exports dans `Ar_city`.
 - **Visent la v1 (j), lancés :** chargement et syntaxe de `v1/`, redirection racine, lanceur, pages de diagnostic, bloc WDCLASS identique, noms de lieux sans chevauchement, rempart de Saint-Malo (avec contrôle), port dense.
 - **`tests/a-reprendre/` (non lancés) :** tests des apports des 26–27/10 absents de la v1 ; voir `tests/a-reprendre/LISEZMOI.md`.
 - **Contexte :** les 47 séries précédentes, écrites hors du dépôt, sont perdues.
