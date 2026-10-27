@@ -32,7 +32,7 @@ test('lanceur : modes de la v1, v2 en développement sans lien, outils de diagno
   await expect(page.locator('#photoNote')).toContainText('Rejouer une photo');
   const v2=page.locator('#v2'); await expect(v2).toContainText('v2'); await expect(v2).toContainText('en développement');
   expect(await v2.locator('a').count()).toBe(0);                    // pas de lien vers la v2 pour l'instant
-  for(const [nom,href] of [[/Trafic/,'debug/debug-trafic.html'],[/Profondeur/,'debug/debug-profondeur.html'],[/Lieux et monuments/,'debug/debug-lieux.html'],[/Export du cache/,'debug/debug-cache.html']])
+  for(const [nom,href] of [[/Trafic/,'debug/debug-trafic.html'],[/Profondeur/,'debug/debug-profondeur.html'],[/Lieux et monuments/,'debug/debug-lieux.html'],[/Export du cache/,'debug/debug-cache.html'],[/Outils v2/,'v2/outils.html']])
     await expect(page.getByRole('link',{name:nom})).toHaveAttribute('href',href);
   for(const l of await page.getByRole('link').all()){ const b=await l.boundingBox(); expect(b.height,'zone de toucher >= 44 px').toBeGreaterThanOrEqual(44); }
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);   // pas de defilement horizontal

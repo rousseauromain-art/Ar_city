@@ -14,6 +14,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
 - `villes-horizon.html` (racine) : redirige vers `v1/villes-horizon.html` (anciens liens, raccourci du téléphone).
 - `config.js` (à la racine) : adresse du relais. Il est public et ne contient aucun secret.
 - `index.html` : le lanceur (modes × versions ; v2 « en développement », sans lien).
+- `v2/outils.html` + `src/` : fondations de la v2 (étape 1 de `REFONTE.md`) : journal, état, stockage `vh2:`, drapeaux, rapport, réseau unique, Eruda avec `?debug=1`. Rôle de chaque dossier : `docs/ARCHITECTURE.md`.
 - Pages de diagnostic, dans `debug/` (elles chargent `../config.js`) :
   - `debug/debug-trafic.html` : AIS et avions ;
   - `debug/debug-profondeur.html` : Depth Anything V2 et SegFormer, rejouer une photo, export JSON ;
@@ -96,6 +97,8 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - un crochet (`tests/helpers/hook.js`) injecté juste avant le dernier `})();` du script donne accès aux variables internes (`__vh.ev`) et capture les textes d'une image (`__vh.frame`) ;
   - `loadTileData` (relief synthétique), `overpassQuery` et `fetch` sont remplacés par des simulations ; horloge figée ; aucun accès réseau réel (`tests/helpers/app.js`).
 - **Photos et caches de test, hors du dépôt public :** dépôt privé `rousseauromain-art/Ar_city-photos` (photos originales avec EXIF) ; exports du cache faits avec `debug/debug-cache.html` (le relief d'un lieu s'exporte lieu par lieu, après avoir ouvert l'appli ou rejoué la photo à cet endroit ; les données en une fois), à y déposer aussi, par paquets de 20 Mo au plus (`..._p1sur3.json`, tous à déposer) ; `tests/helpers/cache.js` (`readDump`, `readDumps` et `readExports` pour les paquets et plusieurs exports, `seedCaches`) rejoue un export dans la Cache API de la page : le vrai code relit relief, lieux et monuments comme sur le téléphone. Ne jamais committer photos ni exports dans `Ar_city`.
+- **Commandes (CI à chaque envoi et pull request) :** `npm run lint` (ESLint sur `src/` et `tests/unit/`), `npm run types` (`tsc --noEmit`, JSDoc strict), `npm run test:unit` (`node:test`, `tests/unit/*.test.mjs`), `npm run test:e2e` (Playwright), `npm test` (tout) ; `npm run dump:v1` (harnais ci-dessous, local).
+- **Harnais de caractérisation (`tests/caracterisation/`) :** `npm run dump:v1` rejoue les scènes de `scenes.mjs` dans la v1 figée (vrai code, caches de `Ar_city-photos` rejoués) et écrit un JSON par scène et par mode (Essentiel / Tout voir) : par calque et par élément, `etat` (net / transparent / absent), `raison`, `rendu` (dessiné / hors champ / sans place), position et opacité. Dumps dans `Ar_city-photos/dumps/` (privé). Voir `tests/caracterisation/LISEZMOI.md`.
 - **Visent la v1 (j), lancés :** chargement et syntaxe de `v1/`, redirection racine, lanceur, pages de diagnostic, bloc WDCLASS identique, noms de lieux sans chevauchement, rempart de Saint-Malo (avec contrôle), port dense.
 - **`tests/a-reprendre/` (non lancés) :** tests des apports des 26–27/10 absents de la v1 ; voir `tests/a-reprendre/LISEZMOI.md`.
 - **Contexte :** les 47 séries précédentes, écrites hors du dépôt, sont perdues.
@@ -128,6 +131,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
 - **Wikidata :** beaucoup de monuments de Saint-Malo n'ont pas de hauteur.
 
 ## À faire (point du 25/10/2026)
+0. **Refonte :** étapes 0 et 1 faites (v1 figée, lanceur, fondations v2, harnais) ; la suite est dans `REFONTE.md` §9.
 1. **Dépôt propre :**
    - relais dans `relais/` ;
    - tests et GitHub Actions (socle en place, voir « Tests ») ;

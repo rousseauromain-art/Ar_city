@@ -3,9 +3,11 @@
 // Configuration lue dans window.__VH_TEST (posee par tests/helpers/app.js avant le chargement de la page) :
 //   terrain : { features:[...] } relief simule (voir tElev), mer a 0 m ailleurs ; fineMissing : pas de relief fin
 //   overpass : { places:[elements Overpass] } renvoyes aux requetes de lieux ; [] pour toutes les autres
+//   reel : true = aucune simulation du relief ni d'Overpass (harnais de caracterisation : caches rejoues)
 {
   const T=window.__VH_TEST||{};
   const log={tiles:[],overpass:[]};
+  const vraiTuiles=loadTileData, vraiOverpass=overpassQuery; // reel : le vrai code lit les caches rejoues (voir helpers/cache.js), rien n'est simule
 
   // ---- relief simule : tuiles Terrarium construites a la demande ----
   // feature : { lat, lon, r (m), h (m) } disque, ou { from:[lat,lon], to:[lat,lon], w (m), h } bande (jetee, digue) ;
@@ -58,6 +60,8 @@
       rec.list.push({text:String(t),x,y,font:this.font,size,fill:String(this.fillStyle),align:this.textAlign,baseline:this.textBaseline,
         w:this.measureText(t).width,m:[m.a,m.b,m.c,m.d,m.e,m.f],dpr,alpha:this.globalAlpha}); }
     return o.fillText.call(this,t,x,y,...a); };
+
+  if(T.reel){ loadTileData=vraiTuiles; overpassQuery=vraiOverpass; }
 
   window.__vh={
     ev:s=>eval(s), // acces aux variables internes : __vh.ev('terrain.h0'), __vh.ev('S.headOff=90')

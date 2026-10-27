@@ -14,6 +14,10 @@ function initScript(cfg){
     window.__VH_NET.push(u.href);
     for(const r of (cfg.test.fetch||[])) if(new RegExp(r.match).test(u.href))
       return new Response(JSON.stringify(r.body),{status:r.status||200,headers:{'Content-Type':'application/json'}});
+    // tuile de relief absente du cache rejoue : « inexistante » (404), comme une tuile hors couverture, pas une panne reseau
+    if(cfg.test.reel&&/tiles\.mapterhorn\.com|elevation-tiles-prod/.test(u.href)) return new Response('',{status:404});
+    // gabarit TileJSON d'OpenFreeMap : lu avant les tuiles de sommets lointains, qui viennent ensuite du cache rejoue (jamais telechargees)
+    if(cfg.test.reel&&u.href==='https://tiles.openfreemap.org/planet') return new Response(JSON.stringify({tiles:['https://tiles.openfreemap.org/planet/rejeu/{z}/{x}/{y}.pbf']}),{status:200,headers:{'Content-Type':'application/json'}});
     return new Response('{"error":"hors ligne (test)"}',{status:503,headers:{'Content-Type':'application/json'}});
   };
 }
@@ -26,7 +30,7 @@ async function openApp(page,opts={}){
   await page.route(/^(?!http:\/\/(127\.0\.0\.1|localhost)[:/])/,r=>{ app.blocked.push(r.request().url()); return r.abort(); });
   await page.clock.setFixedTime(opts.time||NIGHT);
   const settings={relief:true,sea:false,air:false,telecom:false,buildings:false,headOff:0,pitchOff:0,photoVis:false,...(opts.settings||{})};
-  await page.addInitScript(initScript,{settings,test:{terrain:opts.terrain||{},overpass:{places:opts.places||[]},fetch:opts.fetch||[]}});
+  await page.addInitScript(initScript,{settings,test:{terrain:opts.terrain||{},overpass:{places:opts.places||[]},fetch:opts.fetch||[],reel:!!opts.reel}});
   if(opts.pos){
     await page.context().grantPermissions(['geolocation']);
     await page.context().setGeolocation({latitude:opts.pos.lat,longitude:opts.pos.lon,accuracy:5});
