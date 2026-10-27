@@ -81,6 +81,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - boussole et gyroscope combinés par secteurs ;
   - carnet de calage : `calRecord` et `calFlush`, envoyés au relais sur `/calib`.
 - **Rejouer une photo :**
+  - plein écran en photo rejouée = vue épurée (classe `clean` : bandeaux et informations masqués, plus de place pour les noms) ;
   - `readExif` lit le GPS, l'heure (avec OffsetTimeOriginal), la focale en équivalent 24×36 et la direction ;
   - la direction est décalée de +90° sur Pixel en paysage, et peu fiable en portrait ;
   - `photoBench()` ; les mobiles sont désactivés dans ce mode.
@@ -91,7 +92,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - Playwright avec Chromium, page servie en http local (`tests/helpers/server.js`) ;
   - un crochet (`tests/helpers/hook.js`) injecté juste avant le dernier `})();` du script donne accès aux variables internes (`__vh.ev`) et capture les textes d'une image (`__vh.frame`) ;
   - `loadTileData` (relief synthétique), `overpassQuery` et `fetch` sont remplacés par des simulations ; horloge figée ; aucun accès réseau réel (`tests/helpers/app.js`).
-- **Photos et caches de test, hors du dépôt public :** dépôt privé `rousseauromain-art/Ar_city-photos` (photos originales avec EXIF) ; export du cache de l'appli (Réglages > Exporter le cache) à y déposer aussi. L'export est coupé en paquets de 24 Mo au plus (`..._p1sur3.json`, tous à déposer) ; `tests/helpers/cache.js` (`readDump`, `readDumps` pour les paquets, `seedCaches`) rejoue un export dans la Cache API de la page : le vrai code relit relief, lieux et monuments comme sur le téléphone. Ne jamais committer photos ni exports dans `Ar_city`.
+- **Photos et caches de test, hors du dépôt public :** dépôt privé `rousseauromain-art/Ar_city-photos` (photos originales avec EXIF) ; export du cache de l'appli (Réglages > Exporter le cache) à y déposer aussi. L'export est coupé en paquets de 20 Mo au plus (`..._p1sur3.json`, tous à déposer) ; `tests/helpers/cache.js` (`readDump`, `readDumps` pour les paquets, `seedCaches`) rejoue un export dans la Cache API de la page : le vrai code relit relief, lieux et monuments comme sur le téléphone. Ne jamais committer photos ni exports dans `Ar_city`.
 - **Couverts :** syntaxe du script sans le crochet de test (une apostrophe non échappée dans `APP_VERSION` a déjà cassé la page entière), hauteur de prise de vue (puce « œil » = correction, détail au toucher), repères rangés avec les calques, chargement sans erreur, redirection, pages de diagnostic, bloc WDCLASS identique, noms de lieux sans chevauchement, rempart de Saint-Malo (avec contrôle qui reproduit le bug d'avant), port dense.
 - **Contexte :** les 47 séries précédentes, écrites hors du dépôt, sont perdues.
 - **À couvrir en priorité :**
