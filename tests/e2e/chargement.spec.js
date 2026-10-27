@@ -23,7 +23,7 @@ test('l\'ancienne adresse /villes-horizon.html redirige vers la v1 (requête et 
   await page.waitForURL(/\/v1\/villes-horizon\.html\?x=1#h$/);
 });
 
-test('lanceur : modes de la v1, v2 en développement sans lien, outils de diagnostic',async({page})=>{
+test('lanceur : modes de la v1, v2 en développement sans lien, outils de diagnostic (dont l\'export du cache)',async({page})=>{
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
   await page.goto('/index.html');
   const ar=page.getByRole('link',{name:/Réalité augmentée/}), ph=page.getByRole('link',{name:/Analyse d'une photo/});
@@ -32,7 +32,7 @@ test('lanceur : modes de la v1, v2 en développement sans lien, outils de diagno
   await expect(page.locator('#photoNote')).toContainText('Rejouer une photo');
   const v2=page.locator('#v2'); await expect(v2).toContainText('v2'); await expect(v2).toContainText('en développement');
   expect(await v2.locator('a').count()).toBe(0);                    // pas de lien vers la v2 pour l'instant
-  for(const [nom,href] of [[/Trafic/,'debug/debug-trafic.html'],[/Profondeur/,'debug/debug-profondeur.html'],[/Lieux et monuments/,'debug/debug-lieux.html']])
+  for(const [nom,href] of [[/Trafic/,'debug/debug-trafic.html'],[/Profondeur/,'debug/debug-profondeur.html'],[/Lieux et monuments/,'debug/debug-lieux.html'],[/Export du cache/,'debug/debug-cache.html']])
     await expect(page.getByRole('link',{name:nom})).toHaveAttribute('href',href);
   for(const l of await page.getByRole('link').all()){ const b=await l.boundingBox(); expect(b.height,'zone de toucher >= 44 px').toBeGreaterThanOrEqual(44); }
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);   // pas de defilement horizontal
