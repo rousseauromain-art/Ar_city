@@ -12,7 +12,7 @@
   }
   function enregistreur(ctx){
     let actif=false, chemin=[], events=[];
-    const orig={}, noms=['beginPath','moveTo','lineTo','quadraticCurveTo','bezierCurveTo','arc','rect','roundRect','closePath','stroke','fill','fillText','strokeText'];
+    const orig={}, noms=['beginPath','moveTo','lineTo','quadraticCurveTo','bezierCurveTo','arc','rect','roundRect','closePath','stroke','fill','fillText','strokeText','fillRect','strokeRect'];
     for(const n of noms) orig[n]=ctx[n];
     const r=v=>Math.round(v*1e9)/1e9;
     const transf=()=>{ const m=ctx.getTransform(); return [m.a,m.b,m.c,m.d,m.e,m.f].map(r); };
@@ -29,6 +29,8 @@
     ctx.stroke=function(...a){ const ch=cheminDe(a[0]); if(actif&&ch.length) events.push({t:'trait',chemin:ch,couleur:String(ctx.strokeStyle),largeur:r(ctx.lineWidth),tirets:ctx.getLineDash().map(r),
       jointure:ctx.lineJoin,extremite:ctx.lineCap,alpha:r(ctx.globalAlpha),m:transf()}); return orig.stroke.apply(this,a); };
     ctx.fill=function(...a){ const ch=cheminDe(a[0]), regle=typeof a[0]==='string'?a[0]:a[1]; if(actif&&ch.length) events.push({t:'remplissage',chemin:ch,couleur:String(ctx.fillStyle),regle,alpha:r(ctx.globalAlpha),m:transf()}); return orig.fill.apply(this,a); };
+    ctx.fillRect=function(x,y,w,h){ if(actif) events.push({t:'remplissage',chemin:[['rect',r(x),r(y),r(w),r(h)]],couleur:String(ctx.fillStyle),regle:undefined,alpha:r(ctx.globalAlpha),m:transf()}); return orig.fillRect.call(this,x,y,w,h); };
+    ctx.strokeRect=function(x,y,w,h){ if(actif) events.push({t:'trait',chemin:[['rect',r(x),r(y),r(w),r(h)]],couleur:String(ctx.strokeStyle),largeur:r(ctx.lineWidth),tirets:ctx.getLineDash().map(r),jointure:ctx.lineJoin,extremite:ctx.lineCap,alpha:r(ctx.globalAlpha),m:transf()}); return orig.strokeRect.call(this,x,y,w,h); };
     ctx.fillText=function(t,x,y,...a){ if(actif) events.push({t:'texte',texte:String(t),x:r(x),y:r(y),police:ctx.font,couleur:String(ctx.fillStyle),alignement:ctx.textAlign,
       ligneDeBase:ctx.textBaseline,alpha:r(ctx.globalAlpha),m:transf()}); return orig.fillText.call(this,t,x,y,...a); };
     ctx.strokeText=function(t,x,y,...a){ if(actif) events.push({t:'contour',texte:String(t),x:r(x),y:r(y),police:ctx.font,couleur:String(ctx.strokeStyle),largeur:r(ctx.lineWidth),jointure:ctx.lineJoin,

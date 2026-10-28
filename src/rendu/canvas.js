@@ -38,10 +38,12 @@ function cheminReutilisable(chemin) {
 export function dessiner(ctx, commandes) {
   for (const c of commandes) {
     if (c.type === 'trait') {
+      if (c.alpha !== undefined) { ctx.save(); ctx.globalAlpha = c.alpha; } // l'opacité ne déborde pas non plus
       tracer(ctx, c.chemin);
       ctx.setLineDash(c.tirets); ctx.lineJoin = c.jointure; ctx.lineCap = c.extremite; ctx.strokeStyle = c.couleur; ctx.lineWidth = c.largeur;
       ctx.stroke();
-      if (c.tirets.length) ctx.setLineDash([]); // les pointillés ne débordent pas sur ce qui est dessiné ensuite
+      if (c.alpha !== undefined) ctx.restore();
+      else if (c.tirets.length) ctx.setLineDash([]); // les pointillés ne débordent pas sur ce qui est dessiné ensuite
     } else if (c.type === 'remplissage') {
       tracer(ctx, c.chemin);
       ctx.fillStyle = c.couleur;
