@@ -25,7 +25,7 @@ donnees/ (réseau unique, cache, sources) ─────────┘        
 
 Sens des dépendances : `ui → rendu → calques → scene, calage, vision → noyau`. `donnees` et `entrees` fournissent les données ; `noyau` n'importe rien ; **un calque n'importe jamais un autre calque**.
 
-## Ce qui est en place (étapes 1 à 6)
+## Ce qui est en place (étapes 1 à 7a)
 
 | Module | Rôle |
 |---|---|
@@ -55,6 +55,8 @@ Sens des dépendances : `ui → rendu → calques → scene, calage, vision → 
 | `src/donnees/{mvt,overpass,openfreemap,relais-lieux,fusion}.js` | sources de lieux : décodeur de tuiles vectorielles, Overpass (course entre 5 miroirs), OpenFreeMap, Geoapify / GeoNames via le relais, fusion par nom et proximité |
 | `src/donnees/{cache-donnees,atlas,lieux,lieux-integres}.js` | mémoire générique par zone (frais → réseau → secours périmé), atlas hors ligne, chargement des lieux en parallèle, liste intégrée de dernier recours |
 | `src/donnees/{wikidata,monuments-wikidata,monuments}.js` | monuments Wikidata : tri monument / équipement / écarté (`wdClassify`), fabrication (plafonds, hauteurs supposées), chargement par tuiles du relais, Wikidata direct, mémoire de la zone |
+| `src/donnees/{telecom,reperes-hauts}.js` | pylônes ANFR (relais `/telecom`, mémoire 7 jours) et repères hauts OpenStreetMap (tours, clochers, immeubles hauts) au format de la v1 |
+| `src/donnees/{kml,kml-diagnostic,couches-perso}.js` | couches personnelles KMZ/KML : lecture locale, recherche, diagnostic de structure sans valeurs, mémoire `vh2-couches-perso` |
 | `src/donnees/{osm-tuiles,monuments-osm}.js` | objets OpenStreetMap par tuiles fixes ; tours télécom, bâtiments hauts, statues comme monuments, fusion sans doublon avec Wikidata |
 | `src/scene/regle-photo.js` | verdict « vu / caché / indéterminé » d'après la silhouette lue sur la photo (lieux et monuments) |
 | `src/rendu/placement.js`, `etiquettes.js` | **placement commun des noms** (inclinés à 45°, à plat, mémoire d'une image à l'autre, obstacles d'interface) et leur conversion en commandes de dessin |
