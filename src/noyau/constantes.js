@@ -27,3 +27,16 @@ export const DIAGONALE_24X36_MM = 43.27;
 
 /** Au-dessous de cette élévation (°), le soleil est considéré comme couché (v1 : `sunAlign`). */
 export const SOLEIL_COUCHE_DEG = -1;
+
+// ---- Crêtes intérieures du relief (v1 : bloc « cretes interieures », 22/10/2026) ----
+/** Montée minimale du masque (°) entre deux échantillons pour compter comme « en train de monter ». */
+export const CRETE_MONTEE_MIN_DEG = 1e-4;
+/** Une crête plus proche que ce seuil (km) est ignorée. */
+export const CRETE_DIST_MIN_KM = 0.35;
+/** Le plan suivant doit être au moins 1,25 fois plus loin que la crête. */
+export const CRETE_ECART_PLAN = 1.25;
+/** La crête doit se détacher d'au moins ce nombre de degrés de la silhouette finale. */
+export const CRETE_ECART_SILHOUETTE_DEG = 0.15;
+/** Dénivelé caché derrière la crête (m) : seuil Essentiel (vrai décrochement) et seuil Tout voir. */
+export const CRETE_DENIVELE_ESSENTIEL_M = 40;
+export const CRETE_DENIVELE_TOUT_M = 15;

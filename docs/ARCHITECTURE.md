@@ -25,7 +25,7 @@ donnees/ (réseau unique, cache, sources) ─────────┘        
 
 Sens des dépendances : `ui → rendu → calques → scene, calage, vision → noyau`. `donnees` et `entrees` fournissent les données ; `noyau` n'importe rien ; **un calque n'importe jamais un autre calque**.
 
-## Ce qui est en place (étapes 1 à 3)
+## Ce qui est en place (étapes 1 à 4)
 
 | Module | Rôle |
 |---|---|
@@ -45,6 +45,13 @@ Sens des dépendances : `ui → rendu → calques → scene, calage, vision → 
 | `src/scene/hauteur-oeil.js` | sol sous les pieds (relief fin, sinon 15e centile du modèle 30 m, mer exclue), altitude de l'œil |
 | `src/scene/masque.js`, `workers/masque-relief.js`, `scene/masque-worker.js` | masque sur 720 relèvements : fil principal par tranches de 8 ms, ou Worker (tuiles transférées sans copie) |
 | `src/scene/terrain.js` | relief en deux passes (lointain publié d'abord), repli AWS, hauteur d'œil relue dans le relief fin |
+| `src/rendu/projection.js` | **seule** projection relèvement/site → pixels, champ affiché, ligne d'horizon |
+| `src/rendu/commandes.js`, `canvas.js` | un calque renvoie des **commandes** de dessin (testables) ; `canvas.js` est le seul module qui dessine |
+| `src/rendu/reservations.js` | places déjà prises, chevauchement exact de rectangles inclinés, obstacles d'interface (base du placement des noms, étape 5) |
+| `src/rendu/repere-horizon.js` | ligne d'horizon pointillée et réticule |
+| `src/scene/cretes.js` | silhouette (angle, distance) et crêtes intérieures déduites du masque |
+| `src/calques/relief.js` | silhouette graduée, crêtes (Essentiel : principales ; Tout voir : toutes), pastilles de distance des plans |
+| `src/calques/photo-silhouette.js` | silhouette lue sur la photo, pointillés bleus, Tout voir seulement ; la lecture des pixels viendra avec `vision/` (étape 10) |
 | `src/scene/visibilite.js` | verdict « caché par le relief » commun à tous les calques (+ règle des tours OSM) ; les autres raisons viendront avec leurs calques |
 
 Toutes les dépendances (fetch, horloge, stockage, journal) sont **injectées** : les modules se testent sans navigateur.
@@ -60,6 +67,6 @@ La v1 figée, `debug/` et les tests Playwright (CommonJS) sont hors du lint et d
 
 ## Harnais de caractérisation
 
-`npm run dump:v1` rejoue chaque scène de `tests/caracterisation/scenes.mjs` dans la v1 **sans la modifier**, avec le vrai code de la page lisant les caches exportés (`debug/debug-cache.html`), et écrit un JSON par scène et par mode (Essentiel, Tout voir). Chaque élément de chaque calque : `etat` (net, transparent, absent), `raison`, `rendu` (dessiné, hors champ, sans place), position et opacité. Le comparateur complet v1/v2 par calque arrivera avec les premiers calques (étape 4) ; pour le relief, `tests/e2e/relief-v2-parite.spec.js` compare déjà, sur les scènes réelles, tuiles, hauteur d'œil, masque et verdict de chaque lieu (aucun écart toléré). Écart signalé : l'horloge de test figée laisserait la v1 garder l'altitude des lieux lue dans le relief lointain ; le harnais la relit, comme en conditions réelles.
+`npm run dump:v1` rejoue chaque scène de `tests/caracterisation/scenes.mjs` dans la v1 **sans la modifier**, avec le vrai code de la page lisant les caches exportés (`debug/debug-cache.html`), et écrit un JSON par scène et par mode (Essentiel, Tout voir). Chaque élément de chaque calque : `etat` (net, transparent, absent), `raison`, `rendu` (dessiné, hors champ, sans place), position et opacité. Le comparateur complet v1/v2 par calque arrivera avec les premiers calques (étape 4) ; pour le relief, `tests/e2e/relief-v2-parite.spec.js` compare déjà, sur les scènes réelles, tuiles, hauteur d'œil, masque et verdict de chaque lieu (aucun écart toléré). Pour le dessin, `tests/e2e/relief-v2-trace.spec.js` enregistre chaque trait et texte de la v1 (`tests/helpers/enregistreur.js`) et le compare à celui des commandes v2 rejouées, en Essentiel et en Tout voir. Écart signalé : l'horloge de test figée laisserait la v1 garder l'altitude des lieux lue dans le relief lointain ; le harnais la relit, comme en conditions réelles.
 
 Photos, exports et dumps restent dans le dépôt privé `Ar_city-photos` (ils révèlent des lieux et des dates).
