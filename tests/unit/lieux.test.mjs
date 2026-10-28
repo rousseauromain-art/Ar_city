@@ -3,7 +3,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { verifierSurPhoto } from '../../src/scene/regle-photo.js';
-import { classerLieux, preparerLieux, PRIORITE, PORTEE_KM } from '../../src/calques/lieux.js';
+import { classerLieux, preparerLieux, PORTEE_KM } from '../../src/calques/lieux.js';
+import { PRIORITE, assemblerListe, dedoublonner } from '../../src/scene/liste-affichage.js';
 import { angleSilhouette } from '../../src/scene/cretes.js';
 import { distanceEtCap, pointAuCap } from '../../src/noyau/geo.js';
 import { alea, terrainSynthetique } from './aide-relief.mjs';
@@ -40,7 +41,9 @@ test('classement : rayon, portée par type, tri par priorité puis distance, dou
   const pos = { lat: 48.6459, lon: -2.0281 };
   const lieux = [lieuA('Hameau', 'hamlet', 5, 10, pos), lieuA('Ville', 'city', 40, 20, pos), lieuA('Bourg', 'town', 20, 30, pos), lieuA('Village', 'village', 10, 40, pos), lieuA('Loin', 'village', 35, 50, pos),
     lieuA('HorsRayon', 'city', 100, 60, pos), lieuA('Phare', 'lighthouse', 3, 70, pos), lieuA('Rennes', 'city', 30, 80, pos), lieuA('rennes', 'city', 31, 80, pos), lieuA('Rennes', 'city', 90, 200, pos)];
-  const c = classerLieux(lieux, sans(pos), reglages({ toutVoir: true }));
+  const brut = classerLieux(lieux, sans(pos), reglages({ toutVoir: true }));
+  const tri = assemblerListe([brut.map((x) => x.el)], false), garde = new Set(dedoublonner(tri));
+  const c = tri.filter((e) => garde.has(e)).map((el) => /** @type {NonNullable<typeof brut[number]>} */ (brut.find((x) => x.el === el)));
   assert.deepEqual(c.map((x) => x.el.name), ['Rennes', 'Ville', 'Bourg', 'Village', 'Loin', 'Hameau']); // villes d’abord (par distance), puis bourgs, villages, hameaux
   assert.deepEqual(c.map((x) => x.el.kind), ['city', 'city', 'town', 'village', 'village', 'hamlet']);
   assert.ok(!c.some((x) => x.el.name === 'HorsRayon' || x.el.name === 'Phare'), 'hors rayon et non-lieux écartés');
