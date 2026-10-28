@@ -50,11 +50,13 @@
   // Chaque texte : contenu, position, police, couleur, alignement, largeur mesuree et matrice de transformation (rotation des
   // noms inclines, facteur dpr compris). Le ruban de cap et les messages, poses apres la scene, ne sont pas retenus.
   const rec={armed:null,active:false,depth:0,list:[]};
+  // enregistreur des traces (tests/helpers/enregistreur.js, pose par addInitScript) : facultatif, absent des tests qui ne comparent que les textes
+  const R=window.__enregistreur?window.__enregistreur(ctx):null;
   const o={clearRect:ctx.clearRect,save:ctx.save,restore:ctx.restore,fillText:ctx.fillText};
-  ctx.clearRect=function(...a){ if(rec.armed){ rec.active=true; rec.depth=0; rec.list=[]; } return o.clearRect.apply(this,a); };
+  ctx.clearRect=function(...a){ if(rec.armed){ rec.active=true; rec.depth=0; rec.list=[]; if(R) R.demarrer(); } return o.clearRect.apply(this,a); };
   ctx.save=function(){ if(rec.active) rec.depth++; return o.save.call(this); };
   ctx.restore=function(){ const r=o.restore.call(this);
-    if(rec.active&&--rec.depth===0){ rec.active=false; const done=rec.armed; rec.armed=null; done(rec.list); } return r; };
+    if(rec.active&&--rec.depth===0){ rec.active=false; if(R) R.arreter(); const done=rec.armed; rec.armed=null; done(rec.list); } return r; };
   ctx.fillText=function(t,x,y,...a){
     if(rec.active&&rec.depth>=1){ const m=this.getTransform(), size=parseFloat((/(\d+(?:\.\d+)?)px/.exec(this.font)||[])[1]||10);
       rec.list.push({text:String(t),x,y,font:this.font,size,fill:String(this.fillStyle),align:this.textAlign,baseline:this.textBaseline,
@@ -69,5 +71,7 @@
     // prochaine image complete ; les memoires d'une image a l'autre (mobiles 0,4 s, choix des bateaux, mesure des boutons) sont
     // remises a zero : l'horloge des tests est figee, elles ne se perimeraient jamais
     frame:()=>new Promise(res=>{ _mobCacheAt=0; shipSel={ids:null}; uiObsT=0; rec.armed=res; }),
+    // idem, avec les traces du canvas (stroke / fill / texte) de la scene : { textes, ops } ; exige window.__enregistreur
+    frameOps:()=>new Promise(res=>{ _mobCacheAt=0; shipSel={ids:null}; uiObsT=0; rec.armed=list=>res({textes:list,ops:R?R.evenements():[]}); }),
   };
 }
