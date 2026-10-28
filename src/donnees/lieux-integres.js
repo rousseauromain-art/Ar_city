@@ -1,0 +1,78 @@
+// @ts-check
+/**
+ * Liste intégrée de grandes villes (France surtout) : dernier recours hors ligne quand aucune source ni mémoire n'est disponible.
+ * Données statiques, aucune dépendance. Reprend `FALLBACK` de la v1.
+ */
+
+/** @typedef {import('./overpass.js').Lieu} Lieu */
+
+/** @type {readonly [string, number, number, string][]} */
+const VILLES = [
+  ['Rennes', 48.1173, -1.6778, 'city'],
+  ['Nantes', 47.2184, -1.5536, 'city'],
+  ['Brest', 48.3904, -4.4861, 'city'],
+  ['Saint-Malo', 48.6493, -2.0257, 'town'],
+  ['Vannes', 47.6582, -2.7608, 'town'],
+  ['Lorient', 47.7483, -3.3702, 'town'],
+  ['Quimper', 47.9960, -4.1024, 'town'],
+  ['Saint-Brieuc', 48.5142, -2.7650, 'town'],
+  ['Laval', 48.0704, -0.7734, 'town'],
+  ['Le Mans', 48.0061, 0.1996, 'city'],
+  ['Angers', 47.4784, -0.5632, 'city'],
+  ['Caen', 49.1829, -0.3707, 'city'],
+  ['Rouen', 49.4432, 1.0993, 'city'],
+  ['Tours', 47.3941, 0.6848, 'city'],
+  ['Orléans', 47.9029, 1.9093, 'city'],
+  ['Paris', 48.8566, 2.3522, 'city'],
+  ['Fougères', 48.3520, -1.2044, 'town'],
+  ['Vitré', 48.1244, -1.2100, 'town'],
+  ['Redon', 47.6510, -2.0851, 'town'],
+  ['Dinan', 48.4547, -2.0466, 'town'],
+  ['Morlaix', 48.5776, -3.8286, 'town'],
+  ['Lannion', 48.7326, -3.4591, 'town'],
+  ['Pontivy', 48.0685, -2.9622, 'town'],
+  ['Châteaubriant', 47.7167, -1.3760, 'town'],
+  ['Avranches', 48.6847, -1.3567, 'town'],
+  ['Granville', 48.8378, -1.5972, 'town'],
+  ['Cherbourg', 49.6337, -1.6222, 'town'],
+  ['Saint-Lô', 49.1157, -1.0904, 'town'],
+  ['Alençon', 48.4327, 0.0919, 'town'],
+  ['Saint-Nazaire', 47.2735, -2.2138, 'town'],
+  ['Cholet', 47.0603, -0.8804, 'town'],
+  ['La Rochelle', 46.1603, -1.1511, 'town'],
+  ['Niort', 46.3237, -0.4648, 'town'],
+  ['Poitiers', 46.5802, 0.3404, 'city'],
+  ['Le Havre', 49.4944, 0.1079, 'city'],
+  ['Chartres', 48.4439, 1.4890, 'town'],
+  ['Lille', 50.6292, 3.0573, 'city'],
+  ['Amiens', 49.8941, 2.2958, 'city'],
+  ['Reims', 49.2583, 4.0317, 'city'],
+  ['Strasbourg', 48.5734, 7.7521, 'city'],
+  ['Nancy', 48.6921, 6.1844, 'city'],
+  ['Metz', 49.1193, 6.1757, 'city'],
+  ['Dijon', 47.3220, 5.0415, 'city'],
+  ['Lyon', 45.7640, 4.8357, 'city'],
+  ['Grenoble', 45.1885, 5.7245, 'city'],
+  ['Clermont-Ferrand', 45.7772, 3.0870, 'city'],
+  ['Limoges', 45.8336, 1.2611, 'city'],
+  ['Bordeaux', 44.8378, -0.5792, 'city'],
+  ['Toulouse', 43.6047, 1.4442, 'city'],
+  ['Montpellier', 43.6108, 3.8767, 'city'],
+  ['Marseille', 43.2965, 5.3698, 'city'],
+  ['Nice', 43.7102, 7.2620, 'city'],
+  ['Toulon', 43.1242, 5.9280, 'city'],
+  ['Perpignan', 42.6887, 2.8948, 'city'],
+  ['Bayonne', 43.4929, -1.4748, 'town'],
+  ['Pau', 43.2951, -0.3708, 'town'],
+  ['Besançon', 47.2378, 6.0241, 'city'],
+  ['Mulhouse', 47.7508, 7.3359, 'city'],
+  ['Bourges', 47.0810, 2.3988, 'town'],
+  ['Angoulême', 45.6484, 0.1562, 'town'],
+  ['Saint-Hélier (Jersey)', 49.1868, -2.1068, 'town'],
+  ['Saint-Pierre-Port (Guernesey)', 49.4548, -2.5363, 'town'],
+  ['Bruxelles', 50.8503, 4.3517, 'city'],
+  ['Londres', 51.5074, -0.1278, 'city'],
+];
+
+/** @returns {Lieu[]} */
+export const listeIntegree = () => VILLES.map((c) => ({ name: c[0], lat: c[1], lon: c[2], kind: c[3], pop: 0, ele: null }));

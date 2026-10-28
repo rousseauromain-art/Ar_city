@@ -25,7 +25,7 @@ donnees/ (réseau unique, cache, sources) ─────────┘        
 
 Sens des dépendances : `ui → rendu → calques → scene, calage, vision → noyau`. `donnees` et `entrees` fournissent les données ; `noyau` n'importe rien ; **un calque n'importe jamais un autre calque**.
 
-## Ce qui est en place (étapes 1 à 4)
+## Ce qui est en place (étapes 1 à 5)
 
 | Module | Rôle |
 |---|---|
@@ -52,6 +52,11 @@ Sens des dépendances : `ui → rendu → calques → scene, calage, vision → 
 | `src/scene/cretes.js` | silhouette (angle, distance) et crêtes intérieures déduites du masque |
 | `src/calques/relief.js` | silhouette graduée, crêtes (Essentiel : principales ; Tout voir : toutes), pastilles de distance des plans |
 | `src/calques/photo-silhouette.js` | silhouette lue sur la photo, pointillés bleus, Tout voir seulement ; la lecture des pixels viendra avec `vision/` (étape 10) |
+| `src/donnees/{mvt,overpass,openfreemap,relais-lieux,fusion}.js` | sources de lieux : décodeur de tuiles vectorielles, Overpass (course entre 5 miroirs), OpenFreeMap, Geoapify / GeoNames via le relais, fusion par nom et proximité |
+| `src/donnees/{cache-donnees,atlas,lieux,lieux-integres}.js` | mémoire générique par zone (frais → réseau → secours périmé), atlas hors ligne, chargement des lieux en parallèle, liste intégrée de dernier recours |
+| `src/scene/regle-photo.js` | verdict « vu / caché / indéterminé » d'après la silhouette lue sur la photo (lieux et monuments) |
+| `src/rendu/placement.js`, `etiquettes.js` | **placement commun des noms** (inclinés à 45°, à plat, mémoire d'une image à l'autre, obstacles d'interface) et leur conversion en commandes de dessin |
+| `src/calques/lieux.js` | villes, bourgs, villages, hameaux : classement Essentiel / Tout voir avec raison, puis étiquettes à poser |
 | `src/scene/visibilite.js` | verdict « caché par le relief » commun à tous les calques (+ règle des tours OSM) ; les autres raisons viendront avec leurs calques |
 
 Toutes les dépendances (fetch, horloge, stockage, journal) sont **injectées** : les modules se testent sans navigateur.
@@ -67,6 +72,6 @@ La v1 figée, `debug/` et les tests Playwright (CommonJS) sont hors du lint et d
 
 ## Harnais de caractérisation
 
-`npm run dump:v1` rejoue chaque scène de `tests/caracterisation/scenes.mjs` dans la v1 **sans la modifier**, avec le vrai code de la page lisant les caches exportés (`debug/debug-cache.html`), et écrit un JSON par scène et par mode (Essentiel, Tout voir). Chaque élément de chaque calque : `etat` (net, transparent, absent), `raison`, `rendu` (dessiné, hors champ, sans place), position et opacité. Le comparateur complet v1/v2 par calque arrivera avec les premiers calques (étape 4) ; pour le relief, `tests/e2e/relief-v2-parite.spec.js` compare déjà, sur les scènes réelles, tuiles, hauteur d'œil, masque et verdict de chaque lieu (aucun écart toléré). Pour le dessin, `tests/e2e/relief-v2-trace.spec.js` enregistre chaque trait et texte de la v1 (`tests/helpers/enregistreur.js`) et le compare à celui des commandes v2 rejouées, en Essentiel et en Tout voir. Écart signalé : l'horloge de test figée laisserait la v1 garder l'altitude des lieux lue dans le relief lointain ; le harnais la relit, comme en conditions réelles.
+`npm run dump:v1` rejoue chaque scène de `tests/caracterisation/scenes.mjs` dans la v1 **sans la modifier**, avec le vrai code de la page lisant les caches exportés (`debug/debug-cache.html`), et écrit un JSON par scène et par mode (Essentiel, Tout voir). Chaque élément de chaque calque : `etat` (net, transparent, absent), `raison`, `rendu` (dessiné, hors champ, sans place), position et opacité. Le comparateur complet v1/v2 par calque arrivera avec les premiers calques (étape 4) ; pour le relief, `tests/e2e/relief-v2-parite.spec.js` compare déjà, sur les scènes réelles, tuiles, hauteur d'œil, masque et verdict de chaque lieu (aucun écart toléré). Pour les lieux, `tests/e2e/lieux-v2.spec.js` compare sur les 5 scènes de référence : la liste de lieux rechargée par la v2 depuis les mêmes caches, le classement, tous les traits et textes (mémoire de placement comprise) et le badge de l'œil. Pour le dessin du relief, `tests/e2e/relief-v2-trace.spec.js` enregistre chaque trait et texte de la v1 (`tests/helpers/enregistreur.js`) et le compare à celui des commandes v2 rejouées, en Essentiel et en Tout voir. Écart signalé : l'horloge de test figée laisserait la v1 garder l'altitude des lieux lue dans le relief lointain ; le harnais la relit, comme en conditions réelles.
 
 Photos, exports et dumps restent dans le dépôt privé `Ar_city-photos` (ils révèlent des lieux et des dates).

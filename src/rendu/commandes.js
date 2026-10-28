@@ -5,8 +5,9 @@
  */
 
 /**
- * Opération de chemin : ['M', x, y] déplacer, ['L', x, y] ligne, ['Q', cx, cy, x, y] courbe quadratique, ['R', x, y, l, h, rayon] rectangle arrondi.
- * @typedef {['M', number, number] | ['L', number, number] | ['Q', number, number, number, number] | ['R', number, number, number, number, number]} OperationChemin
+ * Opération de chemin : ['M', x, y] déplacer, ['L', x, y] ligne, ['Q', cx, cy, x, y] courbe quadratique, ['R', x, y, l, h, rayon] rectangle arrondi,
+ * ['A', x, y, rayon] cercle plein (arc de 0 à 7 rad : plus d'un tour, comme la v1).
+ * @typedef {['M', number, number] | ['L', number, number] | ['Q', number, number, number, number] | ['R', number, number, number, number, number] | ['A', number, number, number]} OperationChemin
  */
 /**
  * @typedef {object} CommandeTrait
@@ -17,7 +18,10 @@
  * @typedef {object} CommandeTexte
  * @property {'texte'} type @property {string} texte @property {number} x @property {number} y @property {string} police @property {string} couleur
  * @property {'left'|'center'|'right'} alignement @property {'alphabetic'|'middle'|'top'|'bottom'} ligneDeBase
- * @typedef {CommandeTrait | CommandeRemplissage | CommandeTexte} Commande
+ * @property {{couleur: string, largeur: number, jointure: 'miter'|'round'|'bevel', extremite: 'butt'|'round'|'square'} | null} contour liseré dessiné sous le texte
+ * @typedef {object} CommandeGroupe Enfants dessinés dans un repère local : origine en (x, y), pivoté de `angleRad`.
+ * @property {'groupe'} type @property {number} x @property {number} y @property {number} angleRad @property {Commande[]} enfants
+ * @typedef {CommandeTrait | CommandeRemplissage | CommandeTexte | CommandeGroupe} Commande
  */
 
 /** Réglages de trait par défaut du canvas. */
@@ -35,10 +39,14 @@ export const remplissage = (chemin, couleur) => ({ type: 'remplissage', chemin, 
 
 /**
  * @param {string} texte @param {number} x @param {number} y @param {string} police @param {string} couleur
- * @param {{alignement?: 'left'|'center'|'right', ligneDeBase?: 'alphabetic'|'middle'|'top'|'bottom'}} [options]
+ * @param {{alignement?: 'left'|'center'|'right', ligneDeBase?: 'alphabetic'|'middle'|'top'|'bottom', contour?: {couleur: string, largeur: number, jointure?: 'miter'|'round'|'bevel', extremite?: 'butt'|'round'|'square'}}} [options]
  * @returns {CommandeTexte}
  */
-export const texte = (texte, x, y, police, couleur, options = {}) => ({ type: 'texte', texte, x, y, police, couleur, alignement: options.alignement ?? 'left', ligneDeBase: options.ligneDeBase ?? 'alphabetic' });
+export const texte = (texte, x, y, police, couleur, options = {}) => ({ type: 'texte', texte, x, y, police, couleur, alignement: options.alignement ?? 'left', ligneDeBase: options.ligneDeBase ?? 'alphabetic',
+  contour: options.contour ? { couleur: options.contour.couleur, largeur: options.contour.largeur, jointure: options.contour.jointure ?? DEFAUTS.jointure, extremite: options.contour.extremite ?? DEFAUTS.extremite } : null });
+
+/** Enfants dessinés dans un repère local (origine en x, y ; pivoté de angleRad). @param {number} x @param {number} y @param {number} angleRad @param {Commande[]} enfants @returns {CommandeGroupe} */
+export const groupe = (x, y, angleRad, enfants) => ({ type: 'groupe', x, y, angleRad, enfants });
 
 /**
  * Courbe passant par les milieux des points (quadratiques), du point `i0` au point `i1` — celle de la silhouette et des crêtes de la v1.

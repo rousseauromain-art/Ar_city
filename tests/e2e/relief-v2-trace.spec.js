@@ -66,7 +66,7 @@ for(const sc of SCENES){
         const regl={silhouette:S.skyline,cretes:S.ridges!==false,distances:S.showDist,toutVoir:!!S.beyond};
         const lignes=await rl.calque.charger(null,{terrain:T}), classes=rl.calque.classer(lignes,null,regl);
         const cmds=[...hz.commandesHorizon(vue),...rl.calque.preparer(classes,vue,{terrain:T,reglages:regl,mesurerTexte:mesurer}),
-          ...ph.calque.preparer(analyse,vue,{reglages:{toutVoir:!!S.beyond,analyseActive:S.photoVis===true},maintenantMs:Date.now()})];
+          ...ph.calque.preparer(analyse,vue,{reglages:{toutVoir:!!S.beyond,analyseActive:S.photoVis===true},maintenantMs:Date.now(),jointure:'round'})];
         c2.setTransform(dpr,0,0,dpr,0,0); rec.demarrer();
         cv.avecRoulis(c2,vue,()=>cv.dessiner(c2,cmds));
         rec.arreter();

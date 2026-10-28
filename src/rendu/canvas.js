@@ -14,6 +14,7 @@ function tracer(ctx, chemin) {
     if (op[0] === 'M') ctx.moveTo(op[1], op[2]);
     else if (op[0] === 'L') ctx.lineTo(op[1], op[2]);
     else if (op[0] === 'Q') ctx.quadraticCurveTo(op[1], op[2], op[3], op[4]);
+    else if (op[0] === 'A') ctx.arc(op[1], op[2], op[3], 0, 7);
     else ctx.roundRect(op[1], op[2], op[3], op[4], op[5]);
   }
 }
@@ -29,8 +30,14 @@ export function dessiner(ctx, commandes) {
       tracer(ctx, c.chemin);
       ctx.fillStyle = c.couleur;
       ctx.fill();
+    } else if (c.type === 'groupe') {
+      ctx.save();
+      ctx.translate(c.x, c.y); ctx.rotate(c.angleRad);
+      try { dessiner(ctx, c.enfants); } finally { ctx.restore(); }
     } else {
-      ctx.font = c.police; ctx.textAlign = c.alignement; ctx.textBaseline = c.ligneDeBase; ctx.fillStyle = c.couleur;
+      ctx.font = c.police; ctx.textAlign = c.alignement; ctx.textBaseline = c.ligneDeBase;
+      if (c.contour) { ctx.lineJoin = c.contour.jointure; ctx.lineCap = c.contour.extremite; ctx.strokeStyle = c.contour.couleur; ctx.lineWidth = c.contour.largeur; ctx.strokeText(c.texte, c.x, c.y); }
+      ctx.fillStyle = c.couleur;
       ctx.fillText(c.texte, c.x, c.y);
     }
   }
