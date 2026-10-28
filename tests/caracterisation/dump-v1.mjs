@@ -121,6 +121,9 @@ async function jouerScene(browser, scene, exports, mode) {
   if (scene.photo) { await page.setInputFiles('#photoFile', path.join(PHOTOS_DIR, scene.photo)); await app.waitFor('photoMode&&pos'); }
   else await app.waitFor('pos');
   await attendreStable(app);
+  // L'horloge de la page est figée : terrain.at est identique aux deux publications du relief (lointain, puis fin) et la v1 garde alors l'altitude
+  // des lieux lue dans le relief lointain (c.demT). En conditions réelles l'horloge avance et elles sont relues : on reproduit ce comportement.
+  await app.ev('for (const c of cities.concat(farPeaks, monumentSites)) c.demT = 0; applyOcclusion(false)');
   await app.ev(`setBeyond(${mode === 'tout-voir'})`);
   await attendreStable(app, 1500);
   for (let i = 0; i < 3; i++) await app.frame(); // les premières images précèdent les derniers chargements ; la mémoire de placement se fixe

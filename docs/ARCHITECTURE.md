@@ -25,7 +25,7 @@ donnees/ (réseau unique, cache, sources) ─────────┘        
 
 Sens des dépendances : `ui → rendu → calques → scene, calage, vision → noyau`. `donnees` et `entrees` fournissent les données ; `noyau` n'importe rien ; **un calque n'importe jamais un autre calque**.
 
-## Ce qui est en place (étape 1)
+## Ce qui est en place (étapes 1 à 3)
 
 | Module | Rôle |
 |---|---|
@@ -38,6 +38,14 @@ Sens des dépendances : `ui → rendu → calques → scene, calage, vision → 
 | `src/donnees/reseau.js` | **seul accès réseau** : délai, nouvelles tentatives, doublons fusionnés, cache, hors ligne |
 | `src/ui/outils-page.js` | écran de `v2/outils.html` (DOM uniquement) |
 | `src/types.d.ts` | types communs : `Vue`, `Calque`, `ElementClasse`, `RapportV2` |
+| `src/noyau/*` (étape 2) | constantes, maths d'angles, géo (distance, cap, courbure, horizon), soleil, EXIF et direction du Pixel |
+| `src/donnees/tuiles-relief.js` | tuiles d'altitude : Mapterhorn, secours AWS (mosaïque de 4 tuiles), mer, abandon après 4 échecs |
+| `src/donnees/cache-api.js`, `decodage-navigateur.js` | périphérie : Cache API (`vh2-…`) et décodage webp/png en pixels bruts |
+| `src/scene/relief.js` | bandes de tuiles, altitude en un point, masque par relèvement (la silhouette) |
+| `src/scene/hauteur-oeil.js` | sol sous les pieds (relief fin, sinon 15e centile du modèle 30 m, mer exclue), altitude de l'œil |
+| `src/scene/masque.js`, `workers/masque-relief.js`, `scene/masque-worker.js` | masque sur 720 relèvements : fil principal par tranches de 8 ms, ou Worker (tuiles transférées sans copie) |
+| `src/scene/terrain.js` | relief en deux passes (lointain publié d'abord), repli AWS, hauteur d'œil relue dans le relief fin |
+| `src/scene/visibilite.js` | verdict « caché par le relief » commun à tous les calques (+ règle des tours OSM) ; les autres raisons viendront avec leurs calques |
 
 Toutes les dépendances (fetch, horloge, stockage, journal) sont **injectées** : les modules se testent sans navigateur.
 
@@ -52,6 +60,6 @@ La v1 figée, `debug/` et les tests Playwright (CommonJS) sont hors du lint et d
 
 ## Harnais de caractérisation
 
-`npm run dump:v1` rejoue chaque scène de `tests/caracterisation/scenes.mjs` dans la v1 **sans la modifier**, avec le vrai code de la page lisant les caches exportés (`debug/debug-cache.html`), et écrit un JSON par scène et par mode (Essentiel, Tout voir). Chaque élément de chaque calque : `etat` (net, transparent, absent), `raison`, `rendu` (dessiné, hors champ, sans place), position et opacité. À l'étape 3, la v2 produira le même format et un comparateur signalera tout écart non listé dans `tests/ecarts-acceptes.json`.
+`npm run dump:v1` rejoue chaque scène de `tests/caracterisation/scenes.mjs` dans la v1 **sans la modifier**, avec le vrai code de la page lisant les caches exportés (`debug/debug-cache.html`), et écrit un JSON par scène et par mode (Essentiel, Tout voir). Chaque élément de chaque calque : `etat` (net, transparent, absent), `raison`, `rendu` (dessiné, hors champ, sans place), position et opacité. Le comparateur complet v1/v2 par calque arrivera avec les premiers calques (étape 4) ; pour le relief, `tests/e2e/relief-v2-parite.spec.js` compare déjà, sur les scènes réelles, tuiles, hauteur d'œil, masque et verdict de chaque lieu (aucun écart toléré). Écart signalé : l'horloge de test figée laisserait la v1 garder l'altitude des lieux lue dans le relief lointain ; le harnais la relit, comme en conditions réelles.
 
 Photos, exports et dumps restent dans le dépôt privé `Ar_city-photos` (ils révèlent des lieux et des dates).
