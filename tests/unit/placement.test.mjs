@@ -92,7 +92,7 @@ test('étiquettes : un nom net, un fantôme pointillé, comptes, rejeu sur un co
   const mesurerTexte = (/** @type {string} */ _p, /** @type {string} */ t) => t.length * 7;
   const base = { proprietaire: null, detail: '12 m · 3.4 km', taille: 16, y: 250, teinte: '243,233,210', decalage: 10, elevation: 18 };
   const r = composerEtiquettes([{ ...base, cle: 'a', texte: 'Rennes', x: 100, opacite: 1, fantome: false }, { ...base, cle: 'b', texte: 'Dinard', x: 400, opacite: 0.4, fantome: true, detail: '' }], placeur, { mesurerTexte, familles: { affichage: 'Serif', mono: 'Mono' } });
-  assert.deepEqual(r.comptes, { eligibles: 2, affichees: 1, fantomes: 1, sansPlace: 0 });
+  assert.deepEqual(r.comptes, { eligibles: 2, affichees: 1, fantomes: 1, sansPlace: 0, fantomesVus: 1 });
   const [fil1, point1, nom1, fil2] = r.commandes;
   assert.deepEqual(/** @type {any} */ (fil1).tirets, []); assert.deepEqual(/** @type {any} */ (fil2).tirets, [2, 3]);
   assert.deepEqual(/** @type {any} */ (point1).chemin, [['A', 100, 250, 2.4]]);
@@ -108,5 +108,5 @@ test('étiquettes : un nom net, un fantôme pointillé, comptes, rejeu sur un co
 test('étiquettes : faute de place le nom est compté, jamais dessiné', () => {
   const placeur = creerPlaceur({ largeurPx: 300, hauteurPx: 300, limiteHautePx: 250, reservations: [], memoire: new Map() });
   const r = composerEtiquettes([{ cle: 'a', proprietaire: null, texte: 'Trop haut', detail: '', taille: 16, x: 150, y: 260, opacite: 1, teinte: '1,2,3', fantome: false, decalage: 10, elevation: 18 }], placeur, { mesurerTexte: () => 50, familles: { affichage: 'a', mono: 'b' } });
-  assert.deepEqual(r.comptes, { eligibles: 1, affichees: 0, fantomes: 0, sansPlace: 1 }); assert.deepEqual(r.commandes, []);
+  assert.deepEqual(r.comptes, { eligibles: 1, affichees: 0, fantomes: 0, sansPlace: 1, fantomesVus: 0 }); assert.deepEqual(r.commandes, []);
 });

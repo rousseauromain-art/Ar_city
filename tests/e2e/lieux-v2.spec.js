@@ -63,13 +63,15 @@ for(const sc of SCENES){
       const e1=await app.ev(EXTRAIRE_V1);
       const v2=await page.evaluate(async({e1,mem0,lieux})=>{
         const pr=await import('/src/rendu/projection.js'), cv=await import('/src/rendu/canvas.js'), hz=await import('/src/rendu/repere-horizon.js'),
-          pl=await import('/src/rendu/placement.js'), et=await import('/src/rendu/etiquettes.js'), ly=await import('/src/calques/lieux.js'), ph=await import('/src/calques/photo-silhouette.js');
+          pl=await import('/src/rendu/placement.js'), et=await import('/src/rendu/etiquettes.js'), ly=await import('/src/calques/lieux.js'), ph=await import('/src/calques/photo-silhouette.js'), la=await import('/src/scene/liste-affichage.js');
         const ev=s=>window.__vh.ev(s), T=ev('terrain'), photoSky=ev('photoSky'), S=e1.S;
         const bands=T.bands.map(b=>({z:b.z,max:b.max,ts:b.ts,shift:b.shift,garantie:b.guaranteed,tx0:b.tx0,ty0:b.ty0,nx:b.nx,ny:b.ny,tiles:b.tiles,altIdx:b.altIdx}));
         const vue={largeurPx:e1.W,hauteurPx:e1.H,capDeg:e1.P.heading,inclinaisonDeg:e1.P.pitch,roulisDeg:e1.P.roll,champDeg:pr.champAffiche(S.camFov,{largeurPx:e1.W,hauteurPx:e1.H},{largeurPx:e1.flux.w,hauteurPx:e1.flux.h})};
         if(Math.abs(vue.champDeg-e1.fov)>1e-12) throw new Error('champ affiché différent');
         const reglages={rayonKm:S.radius,relief:S.relief,toutVoir:S.beyond,analyseActive:S.photoVis,couche:S.places,distances:S.showDist,filtre:S.filter};
-        const classes=ly.classerLieux(lieux,{pos:ev('pos'),terrain:{h0:T.h0,pm:T.pm,bands},analysePhoto:photoSky,maintenantMs:Date.now()},reglages);
+        const brut=ly.classerLieux(lieux,{pos:ev('pos'),terrain:{h0:T.h0,pm:T.pm,bands},analysePhoto:photoSky,maintenantMs:Date.now()},reglages);
+        const tri=la.assemblerListe([brut.map(c=>c.el)],false), gardes=new Set(la.dedoublonner(tri)); // tri et doublons : communs à tous les calques
+        const classes=tri.filter(e=>gardes.has(e)).map(el=>brut.find(c=>c.el===el));
         const {etiquettes,fantomesEnChamp}=ly.preparerLieux(classes,vue,reglages);
         const cn=document.createElement('canvas'); cn.width=e1.W*e1.dpr; cn.height=e1.H*e1.dpr; const c2=cn.getContext('2d'), rec=window.__enregistreur(c2);
         const mesurerTexte=(police,t)=>{ c2.font=police; return c2.measureText(t).width; };
@@ -79,7 +81,7 @@ for(const sc of SCENES){
         const silhouettePhoto=ph.calque.preparer(photoSky,vue,{reglages:{toutVoir:S.beyond,analyseActive:S.photoVis},maintenantMs:Date.now(),jointure:'miter'}); // réglage « ligne d'horizon » coupé : la v1 n'a pas laissé de jointure ronde
         cv.avecRoulis(c2,vue,()=>cv.dessiner(c2,[...hz.commandesHorizon(vue),...silhouettePhoto,...commandes]));
         rec.arreter();
-        return {ops:rec.evenements(),comptes,fantomesEnChamp,mem1:[...memoire],
+        return {ops:rec.evenements(),comptes,fantomesEnChamp,fantomesVus:comptes.fantomesVus,mem1:[...memoire],
           liste:classes.map(c=>({name:c.el.name,lat:c.el.lat,lon:c.el.lon,kind:c.el.kind,dist:c.el.dist,brg:c.el.brg,far:c.el.far,hidden:c.el.hidden,photoHid:c.el.photoHid,aG:c.el.aG,aP:c.el.aP,mask:c.el.mask}))};
       },{e1,mem0:v1.mem0,lieux:await app.ev(`cities.map(c=>${strip})`)});
 
@@ -88,7 +90,7 @@ for(const sc of SCENES){
       expect(v2.liste.length,`${tag} : nombre de lieux classés`).toBe(e1.list.length);
       expect(v2.liste,`${tag} : lieux classés (ordre, portée, relief, photo, doublons)`).toEqual(e1.list);
       // 4. comptes et badge
-      expect({eligible:v2.comptes.eligibles,shown:v2.comptes.affichees,ghost:v2.comptes.fantomes,noRoom:v2.comptes.sansPlace,ghostInView:v2.fantomesEnChamp},`${tag} : comptes`).toEqual(e1.stats);
+      expect({eligible:v2.comptes.eligibles,shown:v2.comptes.affichees,ghost:v2.comptes.fantomes,noRoom:v2.comptes.sansPlace,ghostInView:mode==='tout-voir'?v2.fantomesVus:v2.fantomesEnChamp},`${tag} : comptes`).toEqual(e1.stats);
       expect(mode==='tout-voir'?0:v2.fantomesEnChamp,`${tag} : badge de l'œil`).toBe(e1.badge);
       // 3. dessin
       expect(v1.mem0.length>=0).toBe(true);

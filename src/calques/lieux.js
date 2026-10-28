@@ -24,13 +24,8 @@ import { RAD, HAUTEUR_YEUX_M } from '../noyau/constantes.js';
 /** @typedef {Lieu & {dist: number, brg: number, far: boolean, hidden: boolean, photoHid: boolean, aG: number | null, aP: number | null, mask: number | null}} LieuCalcule */
 /** @typedef {{el: LieuCalcule, etat: 'net' | 'transparent' | 'absent', raison: string | null}} LieuClasse */
 
-/** Priorité d'affichage par type : plus petit = posé d'abord (v1 : `RANK`). */
-export const PRIORITE = Object.freeze(/** @type {Record<string, number>} */ ({ monument: -1, city: 0, town: 1, lighthouse: 1, island: 1, cape: 2, peak: 2, village: 2, view: 3, rock: 3, heritage: 3, beach: 4, hamlet: 4, isolated_dwelling: 4, poi: 3 }));
 /** Portée d'affichage par type, en km (v1 : `MAXD`) ; villes et bourgs : aucune limite. */
 export const PORTEE_KM = Object.freeze(/** @type {Record<string, number>} */ ({ village: 30, hamlet: 12, isolated_dwelling: 12, lighthouse: 40, cape: 30, peak: 45, island: 60, rock: 20, view: 20, heritage: 15, beach: 12, poi: 15 }));
-/** Homonymes à moins de cette distance (km) : un seul est gardé (OSM décrit parfois un même lieu par plusieurs objets). */
-export const DOUBLON_KM = 2;
-
 /**
  * @typedef {object} SceneLieux
  * @property {{lat: number, lon: number}} pos @property {{h0: number, pm: import('../scene/masque.js').Masque, bands: import('../scene/relief.js').Bande[]} | null} terrain
@@ -41,7 +36,8 @@ export const DOUBLON_KM = 2;
  */
 
 /**
- * Classe les lieux. Le résultat suit l'ordre d'affichage (priorité, puis distance) ; `etat` et `raison` suivent le contrat de REFONTE.md §4.
+ * Classe les lieux : `etat` et `raison` suivent le contrat de REFONTE.md §4. Le tri par priorité et le dédoublonnage sont COMMUNS à tous les calques :
+ * ils sont faits par scene/liste-affichage.js sur l'union des listes.
  * @param {Lieu[]} lieux @param {SceneLieux} scene @param {ReglagesLieux} reglages
  * @returns {LieuClasse[]}
  */
@@ -58,20 +54,8 @@ export function classerLieux(lieux, scene, reglages) {
     const v = masque && terrain ? verdictRelief(masque, terrain.bands, { ...l, dist: distKm, brg: capDeg }) : null;
     calcules.push({ ...l, dist: distKm, brg: capDeg, far: portee !== undefined && distKm > portee, hidden: v ? v.hidden : false, photoHid: false, aG: v ? v.aG : null, aP: v ? v.aP : null, mask: v ? v.mask : null });
   }
-  calcules.sort((a, b) => (PRIORITE[a.kind] ?? 3) - (PRIORITE[b.kind] ?? 3) || a.dist - b.dist);
   appliquerRegleDePhoto(calcules, scene, reglages, avecRelief);
-  // doublons : on garde le plus significatif (déjà trié en tête) et on écarte les homonymes à moins de 2 km
-  /** @type {Map<string, LieuCalcule[]>} */
-  const vus = new Map();
-  /** @type {LieuCalcule[]} */
-  const gardes = [];
-  for (const c of calcules) {
-    const k = normaliser(c.name), g = vus.get(k);
-    if (g && g.some((o) => distanceEtCap(o, c).distKm < DOUBLON_KM)) continue;
-    if (g) g.push(c); else vus.set(k, [c]);
-    gardes.push(c);
-  }
-  return gardes.map((el) => {
+  return calcules.map((el) => {
     const fantome = el.far || (avecRelief && el.hidden);
     const raison = !fantome ? null : avecRelief && el.hidden ? 'caché par le relief' : el.photoHid ? 'caché sur la photo' : 'trop loin pour sa catégorie';
     return { el, etat: !fantome ? 'net' : reglages.toutVoir ? 'transparent' : 'absent', raison };

@@ -6,22 +6,26 @@
 
 /**
  * Opération de chemin : ['M', x, y] déplacer, ['L', x, y] ligne, ['Q', cx, cy, x, y] courbe quadratique, ['R', x, y, l, h, rayon] rectangle arrondi,
- * ['A', x, y, rayon] cercle plein (arc de 0 à 7 rad : plus d'un tour, comme la v1).
- * @typedef {['M', number, number] | ['L', number, number] | ['Q', number, number, number, number] | ['R', number, number, number, number, number] | ['A', number, number, number]} OperationChemin
+ * ['A', x, y, rayon] cercle plein (arc de 0 à 7 rad : plus d'un tour, comme la v1), ['AR', x, y, rayon, a0, a1, antihoraire?] arc général (sens horaire si absent),
+ * ['RC', x, y, l, h] rectangle, ['Z'] fermeture du sous-chemin.
+ * @typedef {['M', number, number] | ['L', number, number] | ['Q', number, number, number, number] | ['R', number, number, number, number, number] | ['A', number, number, number] | ['AR', number, number, number, number, number, boolean?] | ['RC', number, number, number, number] | ['Z']} OperationChemin
  */
 /**
  * @typedef {object} CommandeTrait
  * @property {'trait'} type @property {OperationChemin[]} chemin @property {string} couleur @property {number} largeur
  * @property {number[]} tirets @property {'miter'|'round'|'bevel'} jointure @property {'butt'|'round'|'square'} extremite
  * @typedef {object} CommandeRemplissage
- * @property {'remplissage'} type @property {OperationChemin[]} chemin @property {string} couleur
+ * @property {'remplissage'} type @property {OperationChemin[]} chemin @property {string} couleur @property {'nonzero'|'evenodd'} [regle] règle de remplissage (absente : celle par défaut du canvas)
  * @typedef {object} CommandeTexte
  * @property {'texte'} type @property {string} texte @property {number} x @property {number} y @property {string} police @property {string} couleur
  * @property {'left'|'center'|'right'} alignement @property {'alphabetic'|'middle'|'top'|'bottom'} ligneDeBase
  * @property {{couleur: string, largeur: number, jointure: 'miter'|'round'|'bevel', extremite: 'butt'|'round'|'square'} | null} contour liseré dessiné sous le texte
  * @typedef {object} CommandeGroupe Enfants dessinés dans un repère local : origine en (x, y), pivoté de `angleRad`.
  * @property {'groupe'} type @property {number} x @property {number} y @property {number} angleRad @property {Commande[]} enfants
- * @typedef {CommandeTrait | CommandeRemplissage | CommandeTexte | CommandeGroupe} Commande
+ * @typedef {object} CommandeGlyphe Pictogramme posé sur sa base (x, y) : halo sombre, puis remplissages et traits de sa couleur, rejoué avec des chemins réutilisables.
+ * @property {'glyphe'} type @property {number} x @property {number} y @property {number} alpha @property {string} couleur
+ * @property {{fill: OperationChemin[]|null, fill2: OperationChemin[]|null, stroke: OperationChemin[]|null, evenodd: boolean}} chemins
+ * @typedef {CommandeTrait | CommandeRemplissage | CommandeTexte | CommandeGroupe | CommandeGlyphe} Commande
  */
 
 /** Réglages de trait par défaut du canvas. */
@@ -34,8 +38,11 @@ const DEFAUTS = { tirets: /** @type {number[]} */ ([]), jointure: /** @type {'mi
  */
 export const trait = (chemin, couleur, largeur, style = {}) => ({ type: 'trait', chemin, couleur, largeur, tirets: style.tirets ?? DEFAUTS.tirets, jointure: style.jointure ?? DEFAUTS.jointure, extremite: style.extremite ?? DEFAUTS.extremite });
 
-/** @param {OperationChemin[]} chemin @param {string} couleur @returns {CommandeRemplissage} */
-export const remplissage = (chemin, couleur) => ({ type: 'remplissage', chemin, couleur });
+/** @param {OperationChemin[]} chemin @param {string} couleur @param {'nonzero'|'evenodd'} [regle] @returns {CommandeRemplissage} */
+export const remplissage = (chemin, couleur, regle) => (regle ? { type: 'remplissage', chemin, couleur, regle } : { type: 'remplissage', chemin, couleur });
+
+/** @param {number} x @param {number} y @param {number} alpha @param {string} couleur @param {CommandeGlyphe['chemins']} chemins @returns {CommandeGlyphe} */
+export const glyphe = (x, y, alpha, couleur, chemins) => ({ type: 'glyphe', x, y, alpha, couleur, chemins });
 
 /**
  * @param {string} texte @param {number} x @param {number} y @param {string} police @param {string} couleur
