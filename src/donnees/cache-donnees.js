@@ -57,6 +57,9 @@ export function creerCacheDonnees(nom, { caches: stockage = globalThis.caches, m
   }
 
   return {
+    lire, ecrire, elaguer, compter,
+    /** Élague tous les 10 enregistrements d'un genre (v1 : `dcPuts[kind] % 10 === 1`). @param {string} genre @param {string} prefixe @param {number} max */
+    async elaguerSiBesoin(genre, prefixe, max) { if ((ecritures[genre] = (ecritures[genre] || 0) + 1) % 10 === 1) await elaguer(prefixe, max); },
     /**
      * @param {string} genre compteur de diagnostic @param {string} cle
      * @param {{ttlMs: number, charger: () => Promise<any>, binaire?: boolean, secoursMs?: number, contourner?: boolean, elaguer?: [string, number]}} o
