@@ -5,4 +5,7 @@
 - `cache-donnees.js` : mémoire générique par zone (frais → réseau → secours périmé). `atlas.js`, `lieux-integres.js` : hors ligne.
 - `wikidata.js`, `monuments-wikidata.js`, `monuments.js` : monuments Wikidata (étape 6a).
 - `osm-tuiles.js`, `monuments-osm.js` : tours, bâtiments hauts et statues OpenStreetMap (étape 6a).
-Les pylônes ANFR et les bâtiments BD TOPO arrivent avec leurs calques (étape 7) ; le calque `monuments` les reçoit en paramètres.
+- `telecom.js` : pylônes et supports ANFR via le relais (nature → icône, opérateurs, 5G, mémoire 7 jours, secours périmé) (étape 7a).
+- `reperes-hauts.js` : tours, clochers, châteaux d'eau, cheminées, mâts et immeubles hauts OpenStreetMap, noms fabriqués (étape 7a).
+- `kml.js`, `kml-diagnostic.js`, `couches-perso.js` : couches personnelles KMZ/KML lues en local, diagnostic sans valeurs, mémoire `vh2-couches-perso` (étape 7a).
+Les bâtiments BD TOPO (calque Silhouette, éteint par défaut) restent à reprendre ; le calque `monuments` reçoit pylônes et repères en paramètres.

@@ -8,7 +8,7 @@ export function fauxCaches() {
     const m = noms.get(n) ?? new Map();
     noms.set(n, m);
     return { match: async (/** @type {string} */ u) => m.get(u)?.clone(), put: async (/** @type {string} */ u, /** @type {Response} */ r) => { m.set(u, r); },
-      keys: async () => [...m.keys()].map((url) => ({ url })), delete: async (/** @type {{url: string}} */ k) => m.delete(k.url) };
+      keys: async () => [...m.keys()].map((url) => ({ url })), delete: async (/** @type {{url: string} | string} */ k) => m.delete(typeof k === 'string' ? k : k.url) };
   } };
 }
 
