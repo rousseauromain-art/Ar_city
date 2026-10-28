@@ -15,6 +15,7 @@ import { ErreurReseau } from '../../src/donnees/reseau.js';
 import { normaliser } from '../../src/noyau/texte.js';
 import { coucheMVT, tuileMVT } from './aide-mvt.mjs';
 import { alea } from './aide-relief.mjs';
+import { fauxCaches } from './aide-caches.mjs';
 
 const src = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url), 'utf8');
 /** @param {string} debut @param {string} fin */
@@ -140,19 +141,6 @@ test('Overpass : les requêtes sont exécutées une à la fois', async () => {
   await Promise.all([ovp.interroger('1', 1000), ovp.interroger('2', 1000), ovp.interroger('3', 1000)]);
   assert.equal(max, 1);
 });
-
-/** Faux CacheStorage minimal. */
-function fauxCaches() {
-  /** @type {Map<string, Map<string, Response>>} */
-  const noms = new Map();
-  return { noms, open: async (/** @type {string} */ n) => {
-    /** @type {Map<string, Response>} */
-    const m = noms.get(n) ?? new Map();
-    noms.set(n, m);
-    return { match: async (/** @type {string} */ u) => m.get(u)?.clone(), put: async (/** @type {string} */ u, /** @type {Response} */ r) => { m.set(u, r); },
-      keys: async () => [...m.keys()].map((url) => ({ url })), delete: async (/** @type {{url: string}} */ k) => m.delete(k.url) };
-  } };
-}
 
 test('cache : mémoire fraîche sans requête, requête enregistrée, secours périmé si le réseau échoue', async () => {
   let t = 1000;
