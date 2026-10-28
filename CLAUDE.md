@@ -131,7 +131,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
 - **Wikidata :** beaucoup de monuments de Saint-Malo n'ont pas de hauteur.
 
 ## À faire (point du 25/10/2026)
-0. **Refonte :** étapes 0 et 1 faites (v1 figée, lanceur, fondations v2, harnais) ; la suite est dans `REFONTE.md` §9.
+0. **Refonte :** étapes 0, 1 et 2 faites (v1 figée, lanceur, fondations v2, harnais, `src/noyau/`) ; la suite est dans `REFONTE.md` §9.
 1. **Dépôt propre :**
    - relais dans `relais/` ;
    - tests et GitHub Actions (socle en place, voir « Tests ») ;
