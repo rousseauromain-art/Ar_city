@@ -21,3 +21,12 @@ export function tuile(z, x, y, ts) {
   }
   return d;
 }
+
+/** Terrain synthétique complet (bandes de tuiles et masque) autour de Saint-Malo, pour les tests des calques. */
+export async function terrainSynthetique() {
+  const { creerBandes, BANDES_HR } = await import('../../src/scene/relief.js');
+  const { calculerMasque } = await import('../../src/scene/masque.js');
+  const pos = { lat: 48.6459, lon: -2.0281 }, bands = creerBandes(BANDES_HR, pos);
+  for (const b of bands) for (let i = 0; i < b.tiles.length; i++) b.tiles[i] = tuile(b.z, b.tx0 + (i % b.nx), b.ty0 + Math.floor(i / b.nx), b.ts);
+  return { pos, h0: 15.6, bands, pm: await calculerMasque(bands, pos, 15.6, async () => {}) };
+}

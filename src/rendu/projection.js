@@ -52,3 +52,16 @@ export const ordonneeHorizon = (v) => borner(v.hauteurPx / 2 + focalePx(v) * Mat
 
 /** Demi-champ horizontal (°) augmenté de 4° : au-delà, un point n'est plus dessiné (v1 : `hf`). @param {VueRendu} v */
 export const demiChampDeg = (v) => Math.atan((v.largeurPx / 2) / focalePx(v)) / RAD + 4;
+
+/**
+ * Abscisse d'un relèvement s'il est dans le champ utile, sinon null : au plus 80° (ou 80 % du champ) du cap, et à 40 px près de l'écran
+ * (v1 : `inView`). `decalageDeg` : recalage fin sur la pointe lue sur la photo (monuments).
+ * @param {VueRendu} v @param {number} relevementDeg @param {number} [decalageDeg]
+ * @returns {number | null}
+ */
+export function abscisseSiVisible(v, relevementDeg, decalageDeg = 0) {
+  const dB = ecartAngle(relevementDeg + decalageDeg - v.capDeg);
+  if (Math.abs(dB) > Math.min(80, v.champDeg * 0.8)) return null;
+  const x = xDepuisEcart(v, dB);
+  return x < -40 || x > v.largeurPx + 40 ? null : x;
+}

@@ -28,7 +28,7 @@ const attendreReel = (/** @type {number} */ ms) => new Promise((ok) => setTimeou
 
 /**
  * @param {{
- *   fetchImpl?: (url: string, init: {signal: AbortSignal}) => Promise<Response>,
+ *   fetchImpl?: (url: string, init: {signal: AbortSignal, method?: string, body?: string, headers?: Record<string, string>}) => Promise<Response>,
  *   attendre?: (ms: number) => Promise<void>,
  *   minuteur?: {setTimeout: (fn: () => void, ms: number) => any, clearTimeout: (id: any) => void},
  *   maintenant?: () => number,
@@ -114,6 +114,31 @@ export function creerReseau({
         .finally(() => { enVol.delete(cle); });
       enVol.set(cle, p);
       return p;
+    },
+    /**
+     * Une requête unique (GET ou POST) : délai maximal, AUCUNE nouvelle tentative, pas de fusion, pas de cache. Pour les appelants qui gèrent
+     * eux-mêmes la concurrence (course entre miroirs Overpass, tuiles en parallèle). `signal` externe : annule la requête.
+     * @param {string} url
+     * @param {{methode?: 'GET'|'POST', corps?: string, entetes?: Record<string, string>, analyse?: 'json'|'texte'|'octets', delaiMs?: number, signal?: AbortSignal}} [options]
+     * @returns {Promise<unknown>}
+     */
+    async requeter(url, options = {}) {
+      if (horsLigne) throw new ErreurReseau('mode hors ligne', 0, url);
+      const delai = options.delaiMs ?? delaiMs, analyse = options.analyse ?? 'json';
+      const ctrl = new AbortController();
+      let delaiDepasse = false;
+      const id = minuteur.setTimeout(() => { delaiDepasse = true; ctrl.abort(); }, delai);
+      const externe = options.signal;
+      const relais = () => ctrl.abort();
+      if (externe) { if (externe.aborted) ctrl.abort(); else externe.addEventListener('abort', relais, { once: true }); }
+      try {
+        const rep = await fetchImpl(url, { signal: ctrl.signal, ...(options.methode === 'POST' ? { method: 'POST', body: options.corps, headers: options.entetes } : {}) });
+        if (!rep.ok) throw new ErreurReseau(`HTTP ${rep.status}`, rep.status, url);
+        return analyse === 'json' ? await rep.json() : analyse === 'texte' ? await rep.text() : new Uint8Array(await rep.arrayBuffer());
+      } catch (e) {
+        if (e instanceof ErreurReseau) throw e;
+        throw new ErreurReseau(delaiDepasse ? `délai de ${delai} ms dépassé` : externe && externe.aborted ? 'requête annulée' : `échec réseau : ${e instanceof Error ? e.message : String(e)}`, 0, url);
+      } finally { minuteur.clearTimeout(id); if (externe) externe.removeEventListener('abort', relais); }
     },
     /** @param {boolean} actif */
     definirHorsLigne(actif) { horsLigne = !!actif; },

@@ -1,3 +1,3 @@
-# calques — UN FICHIER PAR CALQUE (étape 4 : relief, photo-silhouette)
-Un calque exporte `charger`, `classer`, `preparer` (REFONTE.md §7) et ne dessine jamais : `preparer` renvoie des commandes (rendu/commandes.js).
-Un calque n'importe jamais un autre calque.
+# calques — UN FICHIER PAR CALQUE (étapes 4 et 5 : relief, photo-silhouette, lieux)
+Un calque exporte `charger`, `classer`, `preparer` (REFONTE.md §7) et ne dessine ni ne place jamais : `preparer` renvoie des commandes ou des étiquettes que `rendu/` pose et dessine.
+Un calque n'importe jamais un autre calque (`lieux` ne lit que la constante `ANALYSE_VALIDE_MS` de `photo-silhouette`).

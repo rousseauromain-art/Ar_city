@@ -27,8 +27,12 @@ const ECART_MAX_DEG = 80;
  */
 export const silhouetteVisible = ({ toutVoir, analyseActive }, analyse, maintenantMs) => toutVoir && analyseActive && !!analyse && analyse.ok && maintenantMs - analyse.t < ANALYSE_VALIDE_MS;
 
-/** @param {AnalysePhoto} analyse @param {VueRendu} vue @returns {import('../rendu/commandes.js').Commande[]} */
-export function commandesSilhouettePhoto(analyse, vue) {
+/**
+ * @param {AnalysePhoto} analyse @param {VueRendu} vue
+ * @param {{jointure?: 'miter'|'round'|'bevel'}} [options] jointure des segments : la v1 héritait, sans le vouloir, de celle laissée par la silhouette du relief
+ * @returns {import('../rendu/commandes.js').Commande[]}
+ */
+export function commandesSilhouettePhoto(analyse, vue, { jointure = 'round' } = {}) {
   /** @type {import('../rendu/commandes.js').OperationChemin[]} */
   const chemin = [];
   let enCours = false;
@@ -38,7 +42,7 @@ export function commandesSilhouettePhoto(analyse, vue) {
     const x = xDepuisEcart(vue, dB), y = yDepuisSite(vue, col.a);
     if (enCours) chemin.push(['L', x, y]); else { chemin.push(['M', x, y]); enCours = true; }
   }
-  return [trait(chemin, 'rgba(140,220,255,.85)', 1.2, { tirets: [2, 4], jointure: 'round' })];
+  return [trait(chemin, 'rgba(140,220,255,.85)', 1.2, { tirets: [2, 4], jointure })];
 }
 
 export const calque = {
@@ -46,9 +50,9 @@ export const calque = {
   libelle: 'Silhouette lue sur la photo',
   /**
    * @param {AnalysePhoto | null} analyse @param {VueRendu} vue
-   * @param {{reglages: {toutVoir: boolean, analyseActive: boolean}, maintenantMs: number}} contexte
+   * @param {{reglages: {toutVoir: boolean, analyseActive: boolean}, maintenantMs: number, jointure?: 'miter'|'round'|'bevel'}} contexte
    */
-  preparer(analyse, vue, { reglages, maintenantMs }) {
-    return analyse && silhouetteVisible(reglages, analyse, maintenantMs) ? commandesSilhouettePhoto(analyse, vue) : [];
+  preparer(analyse, vue, { reglages, maintenantMs, jointure }) {
+    return analyse && silhouetteVisible(reglages, analyse, maintenantMs) ? commandesSilhouettePhoto(analyse, vue, { jointure }) : [];
   },
 };
