@@ -46,7 +46,7 @@ import { messageCentral, texteStatut } from './statut.js';
 
 /**
  * @param {{vue: import('../rendu/projection.js').VueRendu, reglages: Reglages, donnees: DonneesScene | null, memoires: MemoiresScene, ecran: EcranScene, maintenantMs: number, etat: EtatScene}} e
- * @returns {{scene: Commande[], ecran: Commande[], bilan: {affiches: number, badge: number, statut: string, message: string, etage: 'bas' | 'haut', comptes: import('../rendu/etiquettes.js').ComptesEtiquettes | null, zones: {bande: unknown[], avions: unknown[], bateaux: unknown[]}}}}
+ * @returns {{scene: Commande[], ecran: Commande[], bilan: {liste: any[], affiches: number, badge: number, statut: string, message: string, etage: 'bas' | 'haut', comptes: import('../rendu/etiquettes.js').ComptesEtiquettes | null, zones: {bande: unknown[], avions: unknown[], bateaux: unknown[]}}}}
  */
 export function composerScene({ vue, reglages: S, donnees: D, memoires: M, ecran: E, maintenantMs, etat }) {
   const { mesurerTexte, familles } = E, W = vue.largeurPx, H = vue.hauteurPx;
@@ -61,7 +61,7 @@ export function composerScene({ vue, reglages: S, donnees: D, memoires: M, ecran
   const base = [...commandesHorizon(vue), ...(S.cross ? commandesCroix(vue, { mesurerTexte, familles }) : [])];
   if (!D || !D.pos) {
     const h = habille(0, 0, 0);
-    return { scene: base, ecran: surimpression(h.message), bilan: { affiches: 0, badge: 0, statut: h.statut, message: h.message, etage: basse ? 'bas' : 'haut', comptes: null, zones: { bande: [], avions: [], bateaux: [] } } };
+    return { scene: base, ecran: surimpression(h.message), bilan: { liste: [], affiches: 0, badge: 0, statut: h.statut, message: h.message, etage: basse ? 'bas' : 'haut', comptes: null, zones: { bande: [], avions: [], bateaux: [] } } };
   }
   const terrain = D.terrain, ligneRelief = S.skyline && !!terrain, jointureHeritee = ligneRelief ? 'round' : 'miter';
   // 1. relief et traits bleus de la photo
@@ -92,5 +92,5 @@ export function composerScene({ vue, reglages: S, donnees: D, memoires: M, ecran
   return { scene: [...base, ...(bandeHaut ? bandeHaut.commandes : []), ...noms.commandes, ...(bandeBas ? bandeBas.commandes : []), ...pointeurs, ...commandesIcones(groupes, vue), ...avions.commandes, ...bateaux.commandes,
       ...commandesSoleil(vue, etat.utcMs ? positionSoleil(etat.utcMs, D.pos.lat, D.pos.lon) : null, { familles, jointure: 'round', extremite: 'butt' })],
     ecran: surimpression(h.message),
-    bilan: { affiches: c.affiches, badge: S.beyond ? 0 : c.fantomesEnChamp, statut: h.statut, message: h.message, etage: basse ? 'bas' : 'haut', comptes: noms.comptes, zones: { bande: bande.zones, avions: avions.zones, bateaux: bateaux.zones } } };
+    bilan: { liste: c.liste, affiches: c.affiches, badge: S.beyond ? 0 : c.fantomesEnChamp, statut: h.statut, message: h.message, etage: basse ? 'bas' : 'haut', comptes: noms.comptes, zones: { bande: bande.zones, avions: avions.zones, bateaux: bateaux.zones } } };
 }

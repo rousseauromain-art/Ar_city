@@ -73,6 +73,8 @@ Sens des dépendances : `ui → rendu → calques → scene, calage, vision → 
 | `src/ui/page-photo.js`, `style.css`, `v2/photo.html` | page v2 « photo rejouée », même interface que la v1 |
 | `src/donnees/sommets-lointains.js` | grands sommets jusqu'à 200 km (tuiles OpenFreeMap z7), gardés 60 jours |
 | `src/moteur/` | **moteur de scène** (étape 9a) : `composerScene` assemble tous les calques dans l'ordre de la v1 (horizon, croix, relief, noms, bande, mobiles, ruban de cap, message), réglages et leur mémorisation, bandeau d'état |
+| `src/vision/{lire-pixels,soleil}.js` | lecture des pixels de l'image (seule périphérie DOM) et détection du disque du soleil (taches, reflets) |
+| `src/calage/{soleil,pointage}.js` | calage sur le soleil et pointage au doigt (corrections de cap et d'horizon, messages de la v1) |
 | `src/rendu/soleil.js` | symbole du soleil à sa position calculée (heure de la prise de vue en photo) |
 | `src/rendu/{ruban-cap,croix-visee}.js` | ruban de cap (graduations, cardinaux) et croix de visée |
 | `src/rendu/icones.js` | pictogrammes et silhouettes de monuments (listes d'opérations de chemin, sans canvas) |
