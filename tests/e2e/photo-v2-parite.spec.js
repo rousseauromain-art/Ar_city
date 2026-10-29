@@ -8,6 +8,9 @@ const {seedCaches,readExports}=require('../helpers/cache.js');
 const {reliefUrls}=require('../helpers/relief-urls.js');
 const fs=require('fs');
 
+// local seulement (dépôt privé) : sous forte charge, un seul rejeu sur une dizaine tombait pendant qu'une des deux pages finissait de charger (écart d'ops à la 1re pose) ; une reprise suffit, un vrai écart échoue deux fois
+test.describe.configure({retries:1});
+
 const SCENES=[
   {id:'saint-malo-rempart',photo:'PXL_20261025_112230293.jpg',radius:30},
   {id:'turin-san-carlo',photo:'PXL_20261022_104200724.jpg',radius:30},
@@ -60,8 +63,8 @@ for(const sc of SCENES){
     // attendre que la v2 ait fini de charger et que rien ne bouge
     let derniere='', stable=0; const t0=Date.now();
     while(Date.now()-t0<240000){
-      const sig=await p2.evaluate(()=>{ const a=window.__vh2.app, e=a.etat(); return [e.version,a.occupe()].join('|'); });
-      stable=sig===derniere&&sig.endsWith('false')?stable+500:0; derniere=sig; if(stable>=4000) break; await new Promise(r=>setTimeout(r,500));
+      const sig=await p2.evaluate(()=>{ const a=window.__vh2.app, e=a.etat(), pret=e.etatRelief==='ok'&&!e.chargementLieux&&!/en cours|atlas|intégrée/.test(e.source); return [e.version,pret,a.occupe()].join('|'); }); // « prêt » : relief fini, lieux des sources vivantes (sous charge, la v2 peut rester immobile plusieurs secondes avant de finir)
+      stable=sig===derniere&&sig.endsWith('|true|false')?stable+500:0; derniere=sig; if(stable>=4000) break; await new Promise(r=>setTimeout(r,500));
     }
     expect(stable,'la v2 doit finir de charger').toBeGreaterThanOrEqual(4000);
     const bilan=await p2.evaluate(()=>{ const d=window.__vh2.app.donnees(); return {lieux:d.lieux.length,monuments:d.monuments.length,pylones:d.pylones.length,reperes:d.reperes.length,terrain:!!d.terrain}; });

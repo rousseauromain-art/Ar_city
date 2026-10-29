@@ -18,7 +18,7 @@ import { analyserPhoto, texteInfoPhoto, lirePositionTexte } from '../entrees/pho
 import { champAffiche } from '../rendu/projection.js';
 import { avecRoulis, dessiner } from '../rendu/canvas.js';
 import { RAD } from '../noyau/constantes.js';
-import { creerFusion, poseCapteurs, noterCalage, etatFusion } from '../entrees/capteurs.js';
+import { creerFusion, poseCapteurs, noterCalage, etatFusion, mesuresFusion } from '../entrees/capteurs.js';
 import { creerEntreeDirecte } from '../entrees/direct.js';
 
 /** @param {string} id @returns {any} */
@@ -46,7 +46,12 @@ export function demarrerPage({ mode }) {
 
   const video = /** @type {HTMLVideoElement | null} */ (document.getElementById('cam'));
   const simulee = () => S.simOn && !!lirePositionTexte(S.simPos);
-  const entree = direct && video ? creerEntreeDirecte({ video, fusion, journal, positionSimulee: simulee, surPosition: (p) => app.definirPosition({ lat: p.lat, lon: p.lon }) }) : null;
+  const entree = direct && video ? creerEntreeDirecte({ video, fusion, journal, positionSimulee: simulee, surPosition: (p) => app.definirPosition({ lat: p.lat, lon: p.lon }),
+    surRetourBoussole: (m) => { dernierRetour = { t: Date.now(), m, headOff: S.headOff, pitchOff: S.pitchOff }; } }) : null;
+  /** Dernier « retour à la boussole » : instant, mesures de la fusion et calage au moment du saut (diagnostic). @type {null | {t: number, m: ReturnType<typeof mesuresFusion>, headOff: number, pitchOff: number}} */
+  let dernierRetour = null;
+  /** Échantillons du cap (1 par seconde, 10 min) : cap affiché, boussole, gyroscope, repère, calage — pour comprendre un décrochage. @type {{t: number, cap: number, boussole: number | null, gyro: number | null, repere: number | null, headOff: number, pitchOff: number}[]} */
+  const echantillons = [];
   const ov = /** @type {HTMLCanvasElement} */ ($('ov')), ctx = /** @type {CanvasRenderingContext2D} */ (ov.getContext('2d'));
   const css = getComputedStyle(document.body), familles = { affichage: css.getPropertyValue('--display'), mono: css.getPropertyValue('--mono') };
   let W = 0, H = 0, dpr = 1, safeT = 0;
@@ -148,8 +153,13 @@ export function demarrerPage({ mode }) {
   $('btnDbg').addEventListener('click', () => {
     $('sheet').classList.remove('open');
     const e = app.etat(), d = app.donnees();
-    const lignes = [`version ${VERSION_V2}`, `position ${d.pos ? d.pos.lat.toFixed(5) + ', ' + d.pos.lon.toFixed(5) : '—'}`, `lieux ${e.lieux} (${echap(e.source)})`, `relief ${e.etatRelief || '—'}`, `monuments ${d.monuments.length} · ${echap(e.monuments)}`,
-      `pylônes ${echap(e.telecom)} · repères hauts ${echap(e.reperes)}`, `relais ${relais || 'non configuré'}`, ...(direct ? [`capteurs : ${echap(etatFusion(fusion, S, Date.now()))}`, `caméra ${entree && entree.etat().cameraOk ? 'active' : 'inactive'}${entree && entree.etat().erreurCamera ? ' · ' + echap(entree.etat().erreurCamera) : ''}`, `avions : ${echap(e.messageAir || '—')} · bateaux : ${echap(e.messageSea || '—')}`] : [])];
+    const lignes = [`version ${VERSION_V2}`, `position ${d.pos ? d.pos.lat.toFixed(5) + ', ' + d.pos.lon.toFixed(5) : '—'}`, `lieux : ${e.lieux} (${echap(e.source)}) — ${e.chargementLieux ? 'chargement en cours depuis ' + Math.round(e.depuisLieuxMs / 1000) + ' s' : 'chargement terminé'} · rayon ${S.radius} km`,
+      ...e.sourcesLieux.map((s) => `&nbsp;&nbsp;${echap(s.nom)} : ${echap(s.etat)}${s.n !== undefined ? ' · ' + s.n + ' lieux' : ''}${s.raison ? ' · ' + echap(s.raison.slice(0, 140)) : ''}`),
+      `relief : ${S.relief ? echap(e.etatRelief || 'pas encore calculé') : 'désactivé'}`, `monuments ${d.monuments.length} · ${echap(e.monuments)}`,
+      `pylônes ${echap(e.telecom)} · repères hauts ${echap(e.reperes)}`, `relais ${relais || 'non configuré'}`, ...(direct ? [`capteurs : ${echap(etatFusion(fusion, S, Date.now()))}`, `mesures : ${(() => { const m = mesuresFusion(fusion, Date.now()), f = (/** @type {number | null} */ v) => (v === null ? '—' : v.toFixed(1) + '°'); return `boussole ${f(m.capBoussole)} · gyroscope ${f(m.capGyroscope)} · repère ${f(m.reperGyroscope)} · âge gyroscope ${m.ageGyroscopeMs === null ? '—' : Math.round(m.ageGyroscopeMs) + ' ms'} · désaccord depuis ${Math.round(m.desaccordDepuisMs)} ms${m.boussoleEnPause ? ' · boussole en pause' : ''}`; })()}`, `cap affiché ${pose().capDeg.toFixed(1)}° · calage ${S.headOff.toFixed(1)}° / ${S.pitchOff.toFixed(1)}°`,
+        ...(dernierRetour ? [`dernier retour à la boussole : il y a ${Math.round((Date.now() - dernierRetour.t) / 1000)} s · boussole ${dernierRetour.m.capBoussole?.toFixed(0)}° · gyroscope ${dernierRetour.m.capGyroscope?.toFixed(0)}° · calage ${dernierRetour.headOff.toFixed(1)}°`] : []),
+        `trace du cap (10 dernières secondes) : ${echantillons.slice(-10).map((x) => x.cap.toFixed(0)).join(' ')}`,
+        `caméra ${entree && entree.etat().cameraOk ? 'active' : 'inactive'}${entree && entree.etat().erreurCamera ? ' · ' + echap(entree.etat().erreurCamera) : ''}`, `avions : ${echap(e.messageAir || '—')} · bateaux : ${echap(e.messageSea || '—')}`] : [])];
     $('dbgTitle').textContent = 'Diagnostic';
     $('dbgBody').innerHTML = `<div class="dbgsec">État</div>${lignes.map((l) => `<div class="dbgline">${l}</div>`).join('')}<div class="dbgsec">Journal</div>`
       + `<div class="dbgsec">Mémoire de l'appareil (hit = relue, net = téléchargée, stale = périmée par défaut de réseau, fail = échec)</div>`
@@ -251,6 +261,12 @@ export function demarrerPage({ mode }) {
 
   // ---------- boucle d'affichage : 30 images/s au plus ----------
   let derniere = 0, dernierBilan = /** @type {any} */ (null);
+  if (direct) setInterval(() => { // trace du cap : un saut du cap AFFICHÉ de plus de 15° en 1 s sans geste de l'utilisateur est journalisé avec toutes les mesures
+    const t = Date.now(), m = mesuresFusion(fusion, t), cap = pose().capDeg, avant = echantillons[echantillons.length - 1];
+    echantillons.push({ t, cap, boussole: m.capBoussole, gyro: m.capGyroscope, repere: m.reperGyroscope, headOff: S.headOff, pitchOff: S.pitchOff });
+    if (echantillons.length > 600) echantillons.shift();
+    if (avant && !drag && Math.abs(((cap - avant.cap + 540) % 360) - 180) > 15) journal.avert('cap', `saut du cap affiché : ${avant.cap.toFixed(0)}° → ${cap.toFixed(0)}° en ${Math.round((t - avant.t) / 1000)} s`, { avant, maintenant: echantillons[echantillons.length - 1], mesures: m });
+  }, 1000);
   function image(/** @type {number} */ t) {
     requestAnimationFrame(image);
     if (t - derniere < 33) return;

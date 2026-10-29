@@ -14,6 +14,7 @@ import { creerOpenFreeMap } from '../donnees/openfreemap.js';
 import { creerSourcesRelais } from '../donnees/relais-lieux.js';
 import { creerAtlas } from '../donnees/atlas.js';
 import { creerSourceLieux } from '../donnees/lieux.js';
+import { listeIntegree } from '../donnees/lieux-integres.js';
 import { creerSourceSommets } from '../donnees/sommets-lointains.js';
 import { creerSourceMonuments, rayonMonuments } from '../donnees/monuments.js';
 import { creerSourceOsm } from '../donnees/osm-tuiles.js';
@@ -72,7 +73,8 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   const reseauTuiles = creerReseau({ journal, fetchImpl, maintenant, cache: creerCacheOctets('vh2-terrain', { caches, maintenant, journal, secours: [CACHE_TERRAIN_V1] }) });
   const overpass = creerOverpass({ reseau: /** @type {any} */ (reseau), miroirs: MIROIRS_OVERPASS, journal });
   const openfreemap = creerOpenFreeMap({ reseau: /** @type {any} */ (reseau), journal });
-  const sourceLieux = creerSourceLieux({ cache: cacheDonnees, overpass, openfreemap, relais: creerSourcesRelais({ reseau: /** @type {any} */ (reseau), relais }), atlas: creerAtlas(st), journal });
+  const atlas = creerAtlas(st);
+  const sourceLieux = creerSourceLieux({ cache: cacheDonnees, overpass, openfreemap, relais: creerSourcesRelais({ reseau: /** @type {any} */ (reseau), relais }), atlas, journal });
   const sourceSommets = creerSourceSommets({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, openfreemap });
   const sourceMonuments = creerSourceMonuments({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, stockage: st, relais, maintenant, journal });
   const osm = creerSourceOsm({ cache: cacheDonnees, overpass });
@@ -88,7 +90,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
 
   /** Ce qui est chargé, et d'où. */
   const D = /** @type {DonneesScene & {mobiles: any[]}} */ ({ pos: /** @type {any} */ (null), terrain: null, lieux: [], monuments: [], pylones: [], reperes: [], doublonsReperes: [], couchesPerso: [], mobiles: [], analysePhoto: null });
-  const E = { source: '', chargementLieux: false, etatRelief: '', msgMonuments: '', msgTelecom: '', msgReperes: '', rayonCharge: 0, dernierLieux: /** @type {Point | null} */ (null) };
+  const E = { source: '', debutLieux: 0, sourcesLieux: /** @type {import('../donnees/lieux.js').DetailSource[]} */ ([]), chargementLieux: false, etatRelief: '', msgMonuments: '', msgTelecom: '', msgReperes: '', rayonCharge: 0, dernierLieux: /** @type {Point | null} */ (null) };
   /** @type {{lieux: Point | null, sommets: Point | null, terrain: Point | null, monuments: Point | null, telecom: Point | null, reperes: Point | null}} */
   const couvert = { lieux: null, sommets: null, terrain: null, monuments: null, telecom: null, reperes: null };
   const occupe = { lieux: false, sommets: false, terrain: false, monuments: false, telecom: false, reperes: false };
@@ -98,6 +100,10 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   const trafic = { mode: /** @type {'direct' | 'photo'} */ ('photo'), avions: /** @type {import('../donnees/trafic.js').Avion[]} */ ([]), navires: /** @type {Map<string, import('../donnees/trafic.js').Navire>} */ (new Map()), pauseAir: 0,
     msgAir: '', msgSea: '', minuteurAir: /** @type {any} */ (0), minuteurSea: /** @type {any} */ (0), minuteurRattrapage: /** @type {any} */ (0), cacheMobilesT: 0 };
   let version = 0;
+  // comme la v1 : on part de l'atlas des lieux (repris de la v1 s'il existe), sinon de la liste intégrée, affichés tout de suite pendant que les sources répondent
+  lieuxBase = atlas.nombre() ? atlas.lieux() : listeIntegree();
+  E.source = atlas.nombre() ? `atlas local (${atlas.nombre()} lieux)` : 'liste intégrée';
+  D.lieux = lieuxBase;
   const change = (/** @type {string} */ quoi) => { version++; quandChange(quoi); };
   /** Les lieux de la v1 (`cities`) d'abord, puis les sommets lointains (`farPeaks`) : l'ordre compte pour les égalités de tri. */
   const publierLieux = () => { D.lieux = sommets.length ? lieuxBase.concat(sommets) : lieuxBase; };
@@ -116,9 +122,12 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     const S = reglages(), pos = D.pos;
     if (!pos || occupe.lieux) return;
     if (!sourceLieux.doitRecharger({ force, dernier: couvert.lieux, source: E.source, rayonCharge: E.rayonCharge, pos, rayonKm: S.radius })) return;
-    occupe.lieux = true; E.chargementLieux = true; change('lieux');
+    occupe.lieux = true; E.chargementLieux = true; E.debutLieux = maintenant(); change('lieux');
     try {
-      const r = await sourceLieux.charger({ pos, rayonKm: S.radius, hameaux: S.hamlets, reperes: /** @type {any} */ (S.poi), sourceActuelle: E.source, lieuxActuels: lieuxBase });
+      const sourceAvant = E.source;
+      const r = await sourceLieux.charger({ pos, rayonKm: S.radius, hameaux: S.hamlets, reperes: /** @type {any} */ (S.poi), sourceActuelle: sourceAvant, lieuxActuels: lieuxBase,
+        quandPartiel: (p) => { E.sourcesLieux = p.sources; if (!encore(pos) || !p.lieux.length) { change('lieux'); return; } lieuxBase = p.lieux; publierLieux(); E.source = p.source; change('lieux'); } });
+      E.sourcesLieux = r.sources;
       if (encore(pos)) { lieuxBase = r.lieux; publierLieux(); E.source = r.source; E.rayonCharge = S.radius; if (r.enLigne) couvert.lieux = { ...pos }; }
     } catch (e) { journal.erreur('app', 'chargement des lieux', e); }
     occupe.lieux = false; E.chargementLieux = false; change('lieux');
@@ -280,8 +289,8 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     donnees: () => D,
     /** Corrige la hauteur d'œil : relit le relief. @param {number} m */
     corrigerHauteurOeil(m) { reglages().obsHeight = m; return chargerTerrain(true); },
-    /** @returns {{version: number, source: string, chargementLieux: boolean, etatRelief: string, monuments: string, telecom: string, reperes: string, messageAir: string, messageSea: string, lieux: number, sommets: number, nbMonuments: number}} */
-    etat: () => ({ version, source: E.source, chargementLieux: E.chargementLieux, etatRelief: E.etatRelief, monuments: E.msgMonuments, telecom: E.msgTelecom, reperes: E.msgReperes, messageAir: trafic.msgAir, messageSea: trafic.msgSea, lieux: lieuxBase.length, sommets: sommets.length, nbMonuments: D.monuments.length }),
+    /** @returns {{version: number, source: string, chargementLieux: boolean, depuisLieuxMs: number, sourcesLieux: import('../donnees/lieux.js').DetailSource[], etatRelief: string, monuments: string, telecom: string, reperes: string, messageAir: string, messageSea: string, lieux: number, sommets: number, nbMonuments: number}} */
+    etat: () => ({ version, source: E.source, chargementLieux: E.chargementLieux, depuisLieuxMs: E.chargementLieux ? maintenant() - E.debutLieux : 0, sourcesLieux: E.sourcesLieux, etatRelief: E.etatRelief, monuments: E.msgMonuments, telecom: E.msgTelecom, reperes: E.msgReperes, messageAir: trafic.msgAir, messageSea: trafic.msgSea, lieux: lieuxBase.length, sommets: sommets.length, nbMonuments: D.monuments.length }),
     /** Compteurs de la mémoire de l'appareil par genre : { hit, net, stale, fail }. */
     compteursCache: () => cacheDonnees.compteurs(),
     /** Vrai si un chargement est en cours. */

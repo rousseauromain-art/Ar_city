@@ -123,6 +123,15 @@ export function poseCapteurs(f, S, t) {
   return { capDeg, inclinaisonDeg, roulisDeg };
 }
 
+/**
+ * Valeurs instantanées de la fusion, pour le diagnostic et pour comprendre un saut de cap : cap de la boussole, cap du gyroscope, repère du gyroscope, âge de la dernière mesure.
+ * @param {Fusion} f @param {number} t
+ */
+export function mesuresFusion(f, t) {
+  return { capBoussole: f.svAbs ? capDe(f.svAbs) : null, capGyroscope: f.svRel ? capDe(f.svRel) : null, reperGyroscope: f.gyroK, ageGyroscopeMs: f.relT ? t - f.relT : null, retoursBoussole: f.gyroResets,
+    secteursAppris: f.magBins.filter(Boolean).length, boussoleEnPause: t < f.magPauseUntil, desaccordDepuisMs: f.gyroJumpT ? t - f.gyroJumpT : 0 };
+}
+
 /** Texte du diagnostic sur l'état de la fusion. @param {Fusion} f @param {{gyro?: boolean}} S @param {number} t */
 export function etatFusion(f, S, t) {
   const nb = f.magBins.filter(Boolean);
