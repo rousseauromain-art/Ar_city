@@ -252,6 +252,8 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   }
 
   return {
+    /** Le réseau unique (le carnet de calage s'en sert pour son envoi au relais). */
+    reseau,
     /** Le relief affiché est-il périmé pour la position courante (absent, ou calculé à plus de 300 m) ? */
     reliefPerime: () => !D.terrain || !D.pos || !E.terrainCentre || distanceEtCap(D.pos, E.terrainCentre).distKm > PROCHE_KM,
     /** Avant un calage : relance le relief s'il est périmé et attend sa première publication (au plus `msMax`), comme la v1 (le relief lointain suffit : pas besoin du relief fin). @param {number} [msMax] */

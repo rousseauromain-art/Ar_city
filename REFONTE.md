@@ -162,7 +162,7 @@ export const calque = {
 | 7 | Calques `equipements`, `reperes`, `kml` | Parité v1 |
 | 8 | Calques `bateaux`, `avions` | Parité v1 |
 | 9 | `entrees/` (direct et photo → même `Vue`), `v2/ar.html`, `v2/photo.html`. Découpée : **9a** moteur de scène `src/moteur/` (fait : trame complète identique à la v1 sur 5 scènes), **9b** page photo (faite : `v2/photo.html`, trame et données identiques à la v1 de bout en bout sur 3 scènes réelles), **9c** page direct (faite : `v2/ar.html`, capteurs identiques à la v1, direct = photo pour la même vue), 9d fiches (option) | Les deux modes affichent la même scène |
-| 10 | `vision/` et `calage/` | Banc d'essai au moins aussi bon que la v1 |
+| 10 | `vision/` et `calage/`. Découpée : **10a** calage sur le soleil + pointage, **10b** visibilité d'après la photo, **10c** « Caler auto » (soleil, relief, repères), **10d** carnet de calage, écart appris, banc d'essai (faite : étape terminée ; `photoBench` de la v1 = `executerBanc` de la v2 sur 4 photos réelles, mêmes dix verdicts et mêmes messages ; à valider sur le terrain) | Banc d'essai au moins aussi bon que la v1 |
 | 11 | **Après parité :** orientation et ancrage (voir `VEILLE-ANCRAGE.md`), reprise des apports 26–27/10, refonte graphique | Une PR « Évolution » par sujet, validée par Romain |
 | 12 | La v2 devient le choix par défaut ; la v1 reste accessible, puis est archivée | Validation sur le terrain |
 

@@ -3,7 +3,6 @@
  * Page de la v2 (v2/photo.html en photo rejouée, v2/ar.html en direct) : même interface que la v1, branchée sur la racine de composition (app/application.js) et le moteur de scène (moteur/scene.js).
  * DOM uniquement : la logique est dans src/. Entrées : le document, config.js (APP_CONFIG.relay), le fichier choisi. Sortie : le canvas à 30 images/s, les réglages mémorisés (`vh2:reglages`).
  * Les deux modes ne diffèrent que par la pose (photo : réglages de calage ; direct : capteurs), l'image de fond (photo ou caméra), la position (EXIF ou GPS) et le trafic en direct.
- * Pas encore branchés (étape 10) : calage automatique, calage appris, viser un repère, banc d'essai, visibilité d'après la photo, soleil.
  */
 import { journal } from '../outils/journal.js';
 import { etat } from '../outils/etat.js';
@@ -18,17 +17,21 @@ import { analyserPhoto, texteInfoPhoto, lirePositionTexte } from '../entrees/pho
 import { champAffiche } from '../rendu/projection.js';
 import { avecRoulis, dessiner } from '../rendu/canvas.js';
 import { RAD } from '../noyau/constantes.js';
-import { creerFusion, poseCapteurs, noterCalage, etatFusion, mesuresFusion } from '../entrees/capteurs.js';
+import { creerFusion, poseCapteurs, noterCalage, etatFusion, mesuresFusion, gyroActif } from '../entrees/capteurs.js';
 import { creerEntreeDirecte } from '../entrees/direct.js';
 import { lirePixelsRecadres } from '../vision/lire-pixels.js';
 import { observerCiel, PERIODE_ANALYSE_MS, LARGEUR_ANALYSE_PX } from '../vision/silhouette-ciel.js';
 import { calerSurSoleil } from '../calage/soleil.js';
 import { calerAutomatiquement } from '../calage/auto.js';
-import { monumentsPourCalage } from '../calage/reperes.js';
+import { monumentsPourCalage, reperesPourCalage } from '../calage/reperes.js';
 import { luminance } from '../calage/horizon.js';
 import { villeDense } from '../scene/liste-affichage.js';
 import { pointer } from '../calage/pointage.js';
 import { positionSoleil } from '../noyau/astro.js';
+import { ecartAngle } from '../noyau/maths.js';
+import { creerCarnet } from '../app/carnet.js';
+import { creerMesure, ecartAppris, resumeCarnet, sourceAuto } from '../calage/carnet.js';
+import { executerBanc, pourquoiIgnore, texteSynthese } from '../calage/banc.js';
 import { nomMonument, nomsDeLieux } from '../calques/monuments.js';
 
 /** @param {string} id @returns {any} */
@@ -53,6 +56,7 @@ export function demarrerPage({ mode }) {
   const app = creerApplication({ reglages: () => S, journal, stockage, relais, urlWorkerMasque: new URL('../workers/masque-relief.js', import.meta.url), quandChange: () => {} });
   app.definirMode(mode);
   const fusion = creerFusion();
+  const carnet = creerCarnet({ stockage, journal, relais, reseau: app.reseau }); carnet.demarrer();
 
   const video = /** @type {HTMLVideoElement | null} */ (document.getElementById('cam'));
   const simulee = () => S.simOn && !!lirePositionTexte(S.simPos);
@@ -156,7 +160,19 @@ export function demarrerPage({ mode }) {
   const soleilMaintenant = () => { const d = app.donnees(), t = photoMode ? photoMode.photo.utc : Date.now(); return d.pos && t ? positionSoleil(t, d.pos.lat, d.pos.lon) : null; };
   /** Applique une correction de cap et d'horizon : la boussole est mise en pause (direct), le calage mémorisé. @param {number} dh @param {number} dp */
   function appliquerCalage(dh, dp) { S.headOff += dh; S.pitchOff += dp; if (direct) noterCalage(fusion, Date.now()); sauver(); }
-  let calageEnCours = false;
+  let calageEnCours = false, bancEnCours = false;
+  /** Consigne un calage au carnet (rien pendant le banc d'essai, ni sans position) : cap brut contre cap juste. @param {string} src @param {{h: number, p: number} | null} avant @param {Record<string, unknown>} [extra] */
+  function consigner(src, avant, extra) {
+    const d = app.donnees(); if (bancEnCours || !d.pos) return;
+    const po = pose(), maintenant = Date.now(), cam = entree ? entree.etat() : null, so = soleilMaintenant(), ph = photoMode, ex = ph ? ph.photo.exif : null;
+    const m = creerMesure({ src, avant, extra, capDeg: po.capDeg, inclinaisonDeg: po.inclinaisonDeg, headOff: S.headOff, pitchOff: S.pitchOff, camFov: S.camFov, pos: d.pos, precisionM: cam ? cam.precisionM : null, soleil: so,
+      utcPhotoMs: ph ? ph.photo.utc : null, maintenantMs: maintenant, appareil: carnet.appareil, modele: carnet.modele(), ua: navigator.userAgent || '', gyro: direct && gyroActif(fusion, S, maintenant),
+      photo: ph ? { make: (ex && ex.make) || '', model: (ex && ex.model) || '', orient: ex ? ex.orient : null, dir: ex && ex.dir !== undefined ? ex.dir : null, dirRef: ex && ex.dirRef ? ex.dirRef : null, dirCorr: ph.photo.correctionDeg || 0, w: ph.w, h: ph.h } : null,
+      secteursMag: fusion.magBins.filter(Boolean).map((q) => /** @type {{v: number}} */ (q).v), retoursBoussole: fusion.gyroResets });
+    if (m) carnet.consigner(m);
+  }
+  /** Écart appris pour cet appareil, ici (calage/carnet.js). */
+  const apprisIci = () => { const d = app.donnees(), po = pose(); return ecartAppris(carnet.lire().mesures, { pos: d.pos, capDeg: po.capDeg, headOff: S.headOff, appareil: carnet.appareil, maintenantMs: Date.now() }); };
   /** Cherche le disque du soleil dans l'image SANS rien appliquer (le calage et les tests de parité s'en servent). */
   function evaluerSoleil() {
     const src = imageSource(), d = app.donnees();
@@ -184,9 +200,11 @@ export function demarrerPage({ mode }) {
     try {
       const r = await evaluerAuto();
       if (r.applique) {
+        const avant = { h: S.headOff, p: S.pitchOff };
         S.headOff += r.dh; S.pitchOff += r.dp; if (r.champ !== null) S.camFov = r.champ;
         if (direct) noterCalage(fusion, Date.now());
         sauver(); synchroniser(); journal.info('calage', r.message);
+        consigner(sourceAuto(r.source), avant, { msg: r.message.slice(0, 120) });
       }
       return r.message;
     } finally { calageEnCours = false; }
@@ -211,10 +229,53 @@ export function demarrerPage({ mode }) {
   function pointerSur(x, y) {
     const r = evaluerPointage(x, y);
     if (r.aucun) { note(r.note, 4500); return; }
+    const avant = { h: S.headOff, p: S.pitchOff };
     appliquerCalage(r.correctionCapDeg, r.correctionHorizonDeg || 0);
+    consigner(r.source === 'soleil' ? 'soleil touché' : r.source === 'repere' ? 'repère touché' : 'lieu touché', avant, { ref: r.nom, refDist: r.distKm, refHeight: r.hauteurConnueM !== null ? Math.round(r.hauteurConnueM) : null });
     journal.info('calage', r.note);
     note(r.note, 7000);
   }
+  // ---------- écart appris et banc d'essai ----------
+  $('btnLearned').addEventListener('click', () => {
+    if (photoMode) { note('L’écart appris corrige les capteurs : il se reprend en direct (page « Réalité augmentée »).', 6000); return; }
+    const L = apprisIci();
+    if (!L) { note('pas encore d’écart appris : calez une première fois ici (soleil, repère, glisser)'); return; }
+    S.headOff = L.off; sauver(); if (direct) noterCalage(fusion, Date.now());
+    note(`écart appris repris : ${L.off >= 0 ? '+' : ''}${L.off.toFixed(1)}° (${L.comment})`, 6000);
+  });
+  const signe = (/** @type {number} */ v) => (v >= 0 ? '+' : '') + v.toFixed(1) + '°';
+  /** Banc d'essai (photo rejouée) : dix départs décalés, « Caler auto » à chaque fois, verdict par départ ; le résultat s'affiche dans le diagnostic. */
+  async function lancerBanc() {
+    if (!photoMode || bancEnCours) return;
+    const ph = photoMode, b = $('btnBench'); b.disabled = true; bancEnCours = true;
+    const reference = { h: S.headOff, p: S.pitchOff, c: S.camFov }, info = $('photoInfo');
+    try {
+      const sol = evaluerSoleil(); // le soleil, s'il est visible, donne une référence indépendante du calage à la main
+      const po = pose(), d = app.donnees(), fh0 = (W / 2) / Math.tan(vFov() / 2 * RAD), avecRelief = S.relief && !!d.terrain;
+      const liste = d.pos ? monumentsPourCalage({ monuments: d.monuments, elements: (dernierBilan && dernierBilan.monuments) || [], pos: d.pos, terrain: d.terrain }) : [];
+      const utilisables = reperesPourCalage(/** @type {any} */ ({ heading: po.capDeg, fh: fh0 }), liste, { largeurPx: W }, { avecRelief, correctionOeilM: S.obsHeight || 0 }).map((o) => o.c);
+      const dansChamp = liste.filter((c) => c.cat !== 'equip' && c.dist !== null && c.dist !== undefined && Math.abs(ecartAngle(/** @type {number} */ (c.brg) - po.capDeg)) < vFov() / 2);
+      const res = await executerBanc({ reference,
+        appliquer: (h, p, c) => { S.headOff = h; S.pitchOff = p; S.camFov = c; synchroniser(); dessinerImage(); dessinerImage(); },
+        calerAuto, lireEtat: () => ({ h: S.headOff, p: S.pitchOff, c: S.camFov }),
+        surDepart: (dh, dc) => { info.textContent = `banc d'essai : départ ${dh >= 0 ? '+' : ''}${dh}° / champ ${dc >= 0 ? '+' : ''}${dc}°…`; } });
+      const synth = texteSynthese(res.synthese, res.lignes.length), col = { 'réussi': '#6FCF97', 'refusé': '#F2C14E', 'faux': '#E85A5A' };
+      info.textContent = 'banc d\'essai : ' + synth; journal[res.synthese.faux ? 'avert' : 'info']('banc', synth);
+      const dKm = (/** @type {number} */ x) => (x < 10 ? x.toFixed(1) : String(Math.round(x)));
+      $('dbgTitle').textContent = 'Banc d\'essai du calage';
+      $('dbgBody').innerHTML = `<div class="dbgsec">Référence (calage à la main)</div><div class="dbgline">cap ${reference.h.toFixed(1)}° · horizon ${signe(reference.p)} · champ ${reference.c}° · direction de la photo ${echap(ph.photo.direction)} → écart ${signe(ecartAngle(reference.h - ph.photo.capDeg))}</div>`
+        + `<div class="dbgsec">Soleil (référence indépendante)</div><div class="dbgline">${sol.ok ? `soleil calculé à ${sol.soleil.azDeg.toFixed(1)}° / ${sol.soleil.elDeg.toFixed(1)}° : d'après lui, votre calage à la main est décalé de <b>${signe(-sol.dh)}</b> en cap et de <b>${signe(-sol.dp)}</b> en horizon` : 'non utilisable : ' + echap(sol.message)}</div>`
+        + `<div class="dbgsec">Résultat : ${synth}</div><table style="width:100%;border-collapse:collapse;font:12px/1.4 var(--mono)"><tr style="color:#E0A526"><td>départ</td><td>reste</td><td>résultat</td></tr>`
+        + res.lignes.map((r) => `<tr style="border-top:1px solid rgba(243,233,210,.15)"><td>cap ${signe(r.dh)}<br>champ ${signe(r.dc)}</td><td>cap ${signe(r.eh)}<br>champ ${signe(r.ec)}</td><td><b style="color:${col[r.verdict]}">${r.verdict}</b><br><span style="opacity:.7">${echap(r.message)}</span></td></tr>`).join('') + '</table>'
+        + `<div class="dbgsec">Repères utilisables par le calage sur cette vue (${utilisables.length})</div><div class="dbgline">${utilisables.map((c) => `${echap(c.name)} (${dKm(/** @type {number} */ (c.dist))} km)`).join(' · ') || 'aucun'}</div>`
+        + `<div class="dbgsec">Monuments dans le champ ignorés par le calage</div><div class="dbgline">${dansChamp.filter((c) => !utilisables.includes(c)).map((c) => `${echap(c.name)} : ${pourquoiIgnore(/** @type {any} */ (c), avecRelief) || '—'}`).join('<br>') || 'aucun'}</div>`;
+      $('dbg').classList.add('open');
+      banc.dernier = { ...res, soleil: sol.ok ? { dh: sol.dh, dp: sol.dp } : null, utilisables: utilisables.map((c) => c.name), ignores: dansChamp.filter((c) => !utilisables.includes(c)).map((c) => [c.name, pourquoiIgnore(/** @type {any} */ (c), avecRelief)]) };
+    } finally { bancEnCours = false; $('fov').value = String(S.camFov); synchroniser(); b.disabled = !photoMode; }
+  }
+  /** @type {{dernier: any}} */
+  const banc = { dernier: null };
+  $('btnBench').addEventListener('click', () => { $('sheet').classList.remove('open'); lancerBanc(); });
   const bascule = (/** @type {string} */ id) => $(id).classList.toggle('open');
   $('btnLayers').addEventListener('click', () => { bascule('layers'); $('btnLayers').setAttribute('aria-expanded', String($('layers').classList.contains('open'))); });
   $('btnSet').addEventListener('click', () => $('sheet').classList.add('open')); $('btnClose').addEventListener('click', () => $('sheet').classList.remove('open'));
@@ -259,7 +320,13 @@ export function demarrerPage({ mode }) {
         `trace du cap (10 dernières secondes) : ${echantillons.slice(-10).map((x) => x.cap.toFixed(0)).join(' ')}`,
         `caméra ${entree && entree.etat().cameraOk ? 'active' : 'inactive'}${entree && entree.etat().erreurCamera ? ' · ' + echap(entree.etat().erreurCamera) : ''}`, `avions : ${echap(e.messageAir || '—')} · bateaux : ${echap(e.messageSea || '—')}`] : [])];
     $('dbgTitle').textContent = 'Diagnostic';
-    $('dbgBody').innerHTML = `<div class="dbgsec">État</div>${lignes.map((l) => `<div class="dbgline">${l}</div>`).join('')}<div class="dbgsec">Journal</div>`
+    const cr = resumeCarnet(carnet.lire(), { appareil: carnet.appareil, modele: carnet.modele(), appris: apprisIci() }), fd = (/** @type {number | null} */ v) => (v === null ? '—' : signe(v));
+    const carnetHtml = `<div class="dbgsec">Carnet de calage</div><div class="dbgline">appareil ${echap(cr.appareil)} · ${echap(cr.modele)} · ${cr.nb} mesure(s) sur l'appareil${cr.enAttente ? ` · ${cr.enAttente} en attente d'envoi` : ''}${relais ? '' : ' · relais absent : pas d\'envoi'}</div>`
+      + `<div class="dbgline">${cr.parSource.map((x) => `${echap(x.source)} : écart médian <b>${fd(x.medianeDeg)}</b> (${x.n})`).join('<br>') || 'aucune mesure : calez (glisser, toucher un repère ou le soleil, Caler auto)'}</div>`
+      + `<div class="dbgline">écart appris ici : ${cr.appris ? `<b>${fd(cr.appris.off)}</b> (${echap(cr.appris.comment)})` : 'pas encore'}</div>`
+      + `<div class="dbgline">${cr.dernieres.map((m) => `${new Date(m.rec).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${echap(m.src)} · brut ${(+m.raw).toFixed(0)}° → ${(+m.hdg).toFixed(0)}° (${fd(m.off)})${m.sun ? ` · soleil ${m.sun.az}°/${m.sun.el}°` : ''}`).join('<br>')}</div>`
+      + (relais ? `<div class="dbgline"><a style="color:#F2C14E" target="_blank" rel="noopener" href="${echap(relais)}/calib.csv?dev=${echap(cr.appareil)}">mes mesures (CSV)</a> · <a style="color:#F2C14E" target="_blank" rel="noopener" href="${echap(relais)}/calib.csv">tous les appareils (CSV)</a></div>` : '');
+    $('dbgBody').innerHTML = `<div class="dbgsec">État</div>${lignes.map((l) => `<div class="dbgline">${l}</div>`).join('')}${carnetHtml}<div class="dbgsec">Journal</div>`
       + `<div class="dbgsec">Mémoire de l'appareil (hit = relue, net = téléchargée, stale = périmée par défaut de réseau, fail = échec)</div>`
       + Object.entries(app.compteursCache()).map(([genre, c]) => `<div class="dbgline">${echap(genre)} : ${c.hit} hit · ${c.net} net · ${c.stale} stale · ${c.fail} fail</div>`).join('')
       + `<div class="dbgsec">Journal (le plus récent en premier)</div>`
@@ -276,7 +343,7 @@ export function demarrerPage({ mode }) {
     if (!r.ok) { URL.revokeObjectURL(url); info.textContent = r.raison; $('sheet').classList.add('open'); return; }
     const p = r.photo, backup = photoMode ? photoMode.backup : { headOff: S.headOff, pitchOff: S.pitchOff, camFov: S.camFov };
     if (photoMode) URL.revokeObjectURL(photoMode.url);
-    photoMode = { img, w, h, url, backup, photo: p };
+    photoMode = { img, w, h, url, backup, photo: p }; $('btnBench').disabled = bancEnCours;
     if (p.champDeg !== null) S.camFov = p.champDeg;
     S.headOff = p.capDeg; S.pitchOff = 0; img.hidden = false; $('photoChip').hidden = false;
     memoires.placement.clear(); memoires.lignes.clear(); memoires.choixBateaux = { ids: null }; memoires.calageMonuments.clear(); memoires.analyseT = null;
@@ -288,7 +355,7 @@ export function demarrerPage({ mode }) {
   }
   function quitterPhoto() {
     if (!photoMode) return;
-    Object.assign(S, photoMode.backup); URL.revokeObjectURL(photoMode.url); photoMode = null;
+    Object.assign(S, photoMode.backup); URL.revokeObjectURL(photoMode.url); photoMode = null; $('btnBench').disabled = true;
     const img = $('photoBg'); img.hidden = true; img.removeAttribute('src'); $('photoChip').hidden = true; $('photoInfo').textContent = '';
     synchroniser(); sauver(); $('start').style.display = '';
   }
@@ -335,7 +402,7 @@ export function demarrerPage({ mode }) {
   ov.addEventListener('pointerup', (e) => {
     const etaitPincement = !!pinch; ptrs.delete(e.pointerId);
     if (etaitPincement) { if (ptrs.size < 2) { pinch = null; sauver(); } drag = null; return; }
-    if (drag && !drag.moved && Date.now() - drag.t < 450) { S.headOff = drag.h; S.pitchOff = drag.p; if (modePointage) { definirModePointage(false); pointerSur(e.clientX, e.clientY); } } else { sauver(); if (direct && drag && drag.moved) noterCalage(fusion, Date.now()); } // calage récent : la boussole ne le défait pas
+    if (drag && !drag.moved && Date.now() - drag.t < 450) { S.headOff = drag.h; S.pitchOff = drag.p; if (modePointage) { definirModePointage(false); pointerSur(e.clientX, e.clientY); } } else { sauver(); if (direct && drag && drag.moved) noterCalage(fusion, Date.now()); if (drag && drag.moved && ((direct && fusion.capteur) || photoMode)) consigner('glisser', { h: drag.h, p: drag.p }); } // calage récent : la boussole ne le défait pas
     drag = null;
   });
   ov.addEventListener('pointercancel', (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; drag = null; });
@@ -396,7 +463,7 @@ export function demarrerPage({ mode }) {
   redimensionner(); synchroniser(); $('photoBg').hidden = true; $('photoChip').hidden = true;
   if (!direct) { const simu = simulee() ? lirePositionTexte(S.simPos) : null; if (simu) app.definirPosition(simu); }
   journal.info('page', `page ${direct ? 'direct' : 'photo'} ouverte (${VERSION_V2})`);
-  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, vFov, analyserCiel, analyse, evaluerSoleil, evaluerAuto, calerAuto, evaluerPointage, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
+  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, vFov, analyserCiel, analyse, evaluerSoleil, evaluerAuto, calerAuto, evaluerPointage, carnet, consigner, apprisIci, lancerBanc, banc, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
   requestAnimationFrame(image);
 }
 

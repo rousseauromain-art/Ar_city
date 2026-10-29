@@ -123,7 +123,7 @@
   </div>
   <div class="row zbtns">
     <button id="btnAutoAlign">Caler auto</button>
-    <button id="btnLearned" class="etape10" disabled>Reprendre l'écart appris</button>
+    <button id="btnLearned">Reprendre l'écart appris</button>
   </div>
     <div id="poiList"></div>
   <div class="row">
@@ -178,7 +178,7 @@
     <label>Rejouer une photo</label><button type="button" id="btnPhoto">Ouvrir un fichier</button>
     <input type="file" id="photoFile" hidden>
     <span class="hint">Ouvrez une photo prise avec le téléphone, par le gestionnaire de fichiers pour garder ses métadonnées (une photo choisie dans la galerie perd sa position). L'appli se place à sa position GPS, dans sa direction et avec sa focale, et dessine ses calques par-dessus, comme sur place. Glissez pour corriger, « Caler auto » pour tester le calage. Rien n'est enregistré : à la sortie, votre calage, votre champ et votre position reviennent.</span>
-    <button type="button" id="btnBench" class="etape10" disabled>Tester le calage auto</button>
+    <button type="button" id="btnBench" disabled>Tester le calage auto</button>
     <span class="hint">Banc d'essai : calez d'abord la photo à la main (c'est la référence), puis lancez le test. L'appli repart de la référence volontairement décalée (cap ±4, ±8, ±12°, champ ±6°), lance « Caler auto » à chaque fois et mesure l'écart restant. Elle liste aussi les repères dont le calage peut se servir sur cette vue, et ceux qu'il ignore.</span>
     <span class="hint" id="photoInfo" style="display:block"></span>
   </div>
