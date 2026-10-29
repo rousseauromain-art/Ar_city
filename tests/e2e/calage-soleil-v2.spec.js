@@ -40,12 +40,11 @@ test('« Caler auto » : le disque du soleil corrige le cap faux de l’EXIF (ca
   expect(erreurs).toEqual([]);
 });
 
-test('« Caler auto » la nuit : refus clair (« soleil couché »), calage inchangé',async({page})=>{
+test('« Caler auto » la nuit, sans relief : le soleil est couché, le relief indisponible, les repères sans réponse — message clair, calage inchangé',async({page})=>{
   const photo=await photoAvecSoleil(page,{nuit:true}), erreurs=await ouvrir(page,photo);
   const avant=await page.evaluate(()=>window.__vh2.S.headOff);
   await page.click('#btnAlign');
-  await expect(page.locator('#note')).toContainText('soleil couché');
-  await expect(page.locator('#note')).toContainText('étape 10c');
+  await expect(page.locator('#note')).toContainText('relief indisponible · repères :');
   expect(await page.evaluate(()=>window.__vh2.S.headOff)).toBe(avant);
   expect(erreurs).toEqual([]);
 });

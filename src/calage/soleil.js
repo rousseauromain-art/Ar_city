@@ -9,6 +9,7 @@ import { ecartAngle } from '../noyau/maths.js';
 import { MARGE_SOLEIL_DEG, detecterTaches, candidatsSoleil, meilleurCandidat } from '../vision/soleil.js';
 
 /** @typedef {import('../vision/soleil.js').Pixels} Pixels */
+/** @typedef {{ok: true, dh: number, dp: number, soleil: {azDeg: number, elDeg: number}, n: number} | {ok: false, message: string}} ResultatSoleil */
 
 /**
  * @param {{

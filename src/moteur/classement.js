@@ -47,7 +47,7 @@ export function classerScene({ S, D, vue, maintenantMs, snapPrecedent, analyseAp
   // nombre de noms nets (bandeau d'état) : sans fantôme, filtre appliqué, lieux seulement si leur calque est allumé
   const fq = S.filter ? normaliser(S.filter) : '';
   const affiches = /** @type {{etat: string, el: {name: string, kind: string}}[]} */ ([...cm, ...cl, ...ce]).filter((c) => c.etat === 'net' && (!fq || normaliser(c.el.name).includes(fq)) && (S.layers.places || c.el.kind === 'monument')).length;
-  return { avecRelief, rg, dense: M.dense, snapSuivant: M.snapSuivant, liste, etiquettes, fantomesEnChamp: pm.fantomesEnChamp + pL.fantomesEnChamp, affiches, classesEquipements: ce };
+  return { avecRelief, rg, monumentsTous: classesM.map((c) => c.el), dense: M.dense, snapSuivant: M.snapSuivant, liste, etiquettes, fantomesEnChamp: pm.fantomesEnChamp + pL.fantomesEnChamp, affiches, classesEquipements: ce };
 }
 
 /**

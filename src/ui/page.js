@@ -23,6 +23,10 @@ import { creerEntreeDirecte } from '../entrees/direct.js';
 import { lirePixelsRecadres } from '../vision/lire-pixels.js';
 import { observerCiel, PERIODE_ANALYSE_MS, LARGEUR_ANALYSE_PX } from '../vision/silhouette-ciel.js';
 import { calerSurSoleil } from '../calage/soleil.js';
+import { calerAutomatiquement } from '../calage/auto.js';
+import { monumentsPourCalage } from '../calage/reperes.js';
+import { luminance } from '../calage/horizon.js';
+import { villeDense } from '../scene/liste-affichage.js';
 import { pointer } from '../calage/pointage.js';
 import { positionSoleil } from '../noyau/astro.js';
 import { nomMonument, nomsDeLieux } from '../calques/monuments.js';
@@ -150,7 +154,6 @@ export function demarrerPage({ mode }) {
   const imageSource = () => (photoMode ? photoMode.img : video && entree && entree.flux() ? video : null);
   /** Le soleil à l'instant de la prise de vue (photo) ou maintenant (direct). */
   const soleilMaintenant = () => { const d = app.donnees(), t = photoMode ? photoMode.photo.utc : Date.now(); return d.pos && t ? positionSoleil(t, d.pos.lat, d.pos.lon) : null; };
-  const enRelatif = (/** @type {number} */ v) => (v >= 0 ? '+' : '') + v.toFixed(1) + '°';
   /** Applique une correction de cap et d'horizon : la boussole est mise en pause (direct), le calage mémorisé. @param {number} dh @param {number} dp */
   function appliquerCalage(dh, dp) { S.headOff += dh; S.pitchOff += dp; if (direct) noterCalage(fusion, Date.now()); sauver(); }
   let calageEnCours = false;
@@ -160,23 +163,40 @@ export function demarrerPage({ mode }) {
     return calerSurSoleil({ pos: d.pos, soleil: soleilMaintenant(), pose: pose(), champDeg: vFov(), ecran: { largeurPx: W, hauteurPx: H }, large: !!(photoMode && photoMode.photo.peuFiable),
       lirePixels: (cw) => lirePixelsRecadres(src, cw, { largeurPx: W, hauteurPx: H }) });
   }
-  /** « Caler auto » : pour l'instant le soleil seul (étape 10a) ; le relief et les repères viennent à l'étape 10c. @returns {string} */
-  function calerAuto() {
-    if (calageEnCours) return 'calage deja en cours';
+  /** Dimensions de l'écran pour les lectures d'image. */
+  const ecranPx = () => ({ largeurPx: W, hauteurPx: H });
+  /** « Caler auto » SANS rien appliquer : soleil, puis relief, puis repères (calage/auto.js). Sert au calage et aux tests de parité. @returns {Promise<import('../calage/auto.js').ResultatAuto>} */
+  function evaluerAuto() {
     const src = imageSource(), d = app.donnees();
-    if (!src) return 'caméra indisponible';
-    if (!d.pos) return 'GPS indisponible';
+    return calerAutomatiquement({ pos: d.pos, pose: pose(), camFov: S.camFov, ecran: ecranPx(), champAffiche: (cam) => champAffiche(cam, ecranPx(), fluxImage()), photo: !!photoMode,
+      villeDense: villeDense({ pos: d.pos, cities: /** @type {any} */ (d.lieux), monuments: /** @type {any} */ (d.monuments), batiments: /** @type {any} */ (d.reperes) }), avecRelief: S.relief && !!d.terrain, correctionOeilM: S.obsHeight || 0,
+      attendreRelief: () => app.attendreRelief(8000), relief: () => { const t = app.donnees().terrain; return t ? t.pm : null; }, soleil: () => evaluerSoleil(),
+      lireLuminance: (cw) => { const px = lirePixelsRecadres(src, cw, ecranPx()); return px ? luminance(px) : null; },
+      lireSilhouette: (po, fh) => { const px = lirePixelsRecadres(src, LARGEUR_ANALYSE_PX, ecranPx()); return px ? observerCiel(px, { ecran: ecranPx(), pose: po, focalePx: fh }) : null; },
+      liste: d.pos ? monumentsPourCalage({ monuments: d.monuments, elements: (dernierBilan && dernierBilan.monuments) || [], pos: d.pos, terrain: d.terrain }) : [] }); // la v1 cherche ses repères dans tout `monumentSites`, pas dans la liste affichée
+  }
+  /** « Caler auto » : applique le résultat (cap, horizon, champ), met la boussole en pause (direct), mémorise. @returns {Promise<string>} le message */
+  async function calerAuto() {
+    if (calageEnCours) return 'calage deja en cours';
+    if (!imageSource()) return 'caméra indisponible';
+    if (!app.donnees().pos) return 'GPS indisponible';
     calageEnCours = true;
     try {
-      const r = evaluerSoleil();
-      if (!r.ok) return `${r.message} · calage sur le relief et les repères : étape 10c`;
-      appliquerCalage(r.dh, r.dp);
-      const m = `calé sur le soleil (${r.soleil.azDeg.toFixed(1)}°, ${r.soleil.elDeg.toFixed(1)}° de haut) : cap ${enRelatif(r.dh)}, horizon ${enRelatif(r.dp)}`;
-      journal.info('calage', m);
-      return m;
+      const r = await evaluerAuto();
+      if (r.applique) {
+        S.headOff += r.dh; S.pitchOff += r.dp; if (r.champ !== null) S.camFov = r.champ;
+        if (direct) noterCalage(fusion, Date.now());
+        sauver(); synchroniser(); journal.info('calage', r.message);
+      }
+      return r.message;
     } finally { calageEnCours = false; }
   }
-  $('btnAlign').addEventListener('click', () => { const b = $('btnAlign'); b.classList.add('on'); note('Calage en cours…', 20000); setTimeout(() => { note(calerAuto(), 6000); b.classList.remove('on'); }, 30); });
+  $('btnAlign').addEventListener('click', async () => { const b = $('btnAlign'); b.classList.add('on'); note('Calage en cours…', 20000); const m = await calerAuto(); note(m, 6000); b.classList.remove('on'); });
+  $('btnAutoAlign').addEventListener('click', async () => {
+    const b = $('btnAutoAlign'), orig = b.textContent; b.disabled = true; b.textContent = 'Analyse…';
+    const m = await calerAuto(); b.textContent = m.length > 34 ? m.slice(0, 32) + '…' : m; note(m);
+    setTimeout(() => { b.disabled = false; b.textContent = orig; }, 3500);
+  });
   /** Mode pointage : le prochain appui bref sur l'image est « voici, à cet endroit, un repère que je reconnais ». */
   let modePointage = false;
   const definirModePointage = (/** @type {boolean} */ v) => { modePointage = v; $('btnPoint').classList.toggle('on', v); if (v) note('Touchez un repère connu à l’écran (rocher, île, sommet…)', 8000); };
@@ -376,7 +396,7 @@ export function demarrerPage({ mode }) {
   redimensionner(); synchroniser(); $('photoBg').hidden = true; $('photoChip').hidden = true;
   if (!direct) { const simu = simulee() ? lirePositionTexte(S.simPos) : null; if (simu) app.definirPosition(simu); }
   journal.info('page', `page ${direct ? 'direct' : 'photo'} ouverte (${VERSION_V2})`);
-  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, analyserCiel, analyse, evaluerSoleil, evaluerPointage, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
+  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, vFov, analyserCiel, analyse, evaluerSoleil, evaluerAuto, calerAuto, evaluerPointage, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
   requestAnimationFrame(image);
 }
 
