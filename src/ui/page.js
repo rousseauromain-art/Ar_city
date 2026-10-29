@@ -36,6 +36,8 @@ import { nomMonument, nomsDeLieux } from '../calques/monuments.js';
 
 /** @param {string} id @returns {any} */
 const $ = (id) => { const e = document.getElementById(id); if (!e) throw new Error(`élément #${id} introuvable`); return e; };
+/** Élément facultatif (absent de la page en direct : la photo rejouée a sa propre page) : un élément détaché si la page ne l'a pas. @param {string} id @returns {any} */
+const $f = (id) => document.getElementById(id) || document.createElement('span');
 
 /** @param {{mode: 'photo' | 'direct'}} o `photo` : photo rejouée (v2/photo.html) ; `direct` : caméra, GPS et capteurs (v2/ar.html). */
 export function demarrerPage({ mode }) {
@@ -132,13 +134,33 @@ export function demarrerPage({ mode }) {
   $('btnFold').addEventListener('click', () => { S.chipsFold = !S.chipsFold; sauver(); synchroniser(); });
   $('fov').addEventListener('input', (/** @type {any} */ e) => { S.camFov = +e.target.value; montrerChamp(); }); $('fov').addEventListener('change', sauver);
   let minuteurOeil = 0;
-  $('obsH').addEventListener('input', (/** @type {any} */ e) => { S.obsHeight = +e.target.value; synchroniser(); clearTimeout(minuteurOeil); minuteurOeil = window.setTimeout(() => { sauver(); app.corrigerHauteurOeil(S.obsHeight); }, 400); });
+  /** Corrige la hauteur d'œil (curseur des réglages ou de la puce) : libellés tout de suite, relief recalculé au relâchement (400 ms sans mouvement). @param {number} m */
+  const regleOeil = (m) => { S.obsHeight = m; synchroniser(); clearTimeout(minuteurOeil); minuteurOeil = window.setTimeout(() => { sauver(); app.corrigerHauteurOeil(S.obsHeight); }, 400); };
+  $('obsH').addEventListener('input', (/** @type {any} */ e) => regleOeil(+e.target.value));
+  // puce « œil » : la correction appliquée à l'altitude estimée (« œil +2 m ») ; un toucher ouvre le détail (sol, source, altitude de l'œil) et le curseur de correction
+  const fmtOeil = (/** @type {number} */ v) => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v) + ' m';
+  let minuteurPopOeil = 0; const refermerPopOeil = () => { clearTimeout(minuteurPopOeil); minuteurPopOeil = window.setTimeout(() => { $('eyePop').hidden = true; }, 6000); };
+  $('eyeChip').addEventListener('click', () => { const p = $('eyePop'); p.hidden = !p.hidden; if (!p.hidden) refermerPopOeil(); });
+  $('eyeQ').addEventListener('input', (/** @type {any} */ e) => { regleOeil(+e.target.value); refermerPopOeil(); });
+  let derniereOeil = '';
+  /** Met à jour la puce « œil », son détail et la ligne du réglage d'après le relief calculé ; sans relief, la puce disparaît. */
+  function synchroOeil() {
+    const t = /** @type {any} */ (app.donnees().terrain), vue = S.calculRelief !== false && t && t.solM !== undefined ? `${t.solM}|${t.origine}|${t.h0}|${S.obsHeight}` : '';
+    if (vue === derniereOeil) return; derniereOeil = vue;
+    const chip = $('eyeChip');
+    if (!vue) { chip.hidden = true; $('eyePop').hidden = true; $('obsHInfo').textContent = 'Sol estimé : calcul du relief en attente.'; return; }
+    const detail = `Sol estimé ${Math.round(t.solM)} m (${t.origine}) · correction ${fmtOeil(S.obsHeight)} → œil à ${Math.round(t.h0)} m`;
+    chip.hidden = false; chip.textContent = `œil ${fmtOeil(S.obsHeight)}`; $('eyePopT').textContent = detail; $('eyeQ').value = String(S.obsHeight); $('obsHInfo').textContent = detail;
+  }
   $('floorN').addEventListener('change', (/** @type {any} */ e) => { const m = Math.round((+e.target.value || 0) * 3.2); S.obsHeight = Math.min(250, m); synchroniser(); sauver(); app.corrigerHauteurOeil(S.obsHeight); });
   $('flt').addEventListener('input', (/** @type {any} */ e) => { S.filter = e.target.value; });
   $('simPos').addEventListener('change', (/** @type {any} */ e) => { S.simPos = e.target.value; sauver(); });
   $('reset').addEventListener('click', () => { S.headOff = 0; S.pitchOff = 0; sauver(); note('Calage remis à zéro'); });
   $('btnReload').addEventListener('click', () => { memoires.placement.clear(); app.recharger({ lieux: true, terrain: true, monuments: true, telecom: true, reperes: true }); note('Rechargement des lieux et du relief…'); });
   $('btnSky').addEventListener('click', () => { app.recharger({ terrain: true }); note('Relief recalculé'); });
+  /** Vue épurée : en photo rejouée, le plein écran masque bandeau de la photo, état, rayon, œil et aide ; leur place revient aux noms. Hors photo, rien ne change. */
+  const syncEpure = () => document.body.classList.toggle('clean', !!photoMode && !!document.fullscreenElement);
+  document.addEventListener('fullscreenchange', () => { syncEpure(); setTimeout(redimensionner, 120); });
   $('btnFs').addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.().catch(() => {}); });
   $('calib').addEventListener('click', () => { S.headOff = 0; S.pitchOff = 0; sauver(); note('Calage remis à zéro'); });
   // ---------- visibilité d'après la photo : silhouette du ciel lue sur l'image, rafraîchie toutes les 3 s ----------
@@ -248,8 +270,8 @@ export function demarrerPage({ mode }) {
   /** Banc d'essai (photo rejouée) : dix départs décalés, « Caler auto » à chaque fois, verdict par départ ; le résultat s'affiche dans le diagnostic. */
   async function lancerBanc() {
     if (!photoMode || bancEnCours) return;
-    const ph = photoMode, b = $('btnBench'); b.disabled = true; bancEnCours = true;
-    const reference = { h: S.headOff, p: S.pitchOff, c: S.camFov }, info = $('photoInfo');
+    const ph = photoMode, b = $f('btnBench'); b.disabled = true; bancEnCours = true;
+    const reference = { h: S.headOff, p: S.pitchOff, c: S.camFov }, info = $f('photoInfo');
     try {
       const sol = evaluerSoleil(); // le soleil, s'il est visible, donne une référence indépendante du calage à la main
       const po = pose(), d = app.donnees(), fh0 = (W / 2) / Math.tan(vFov() / 2 * RAD), avecRelief = S.relief && !!d.terrain;
@@ -276,7 +298,7 @@ export function demarrerPage({ mode }) {
   }
   /** @type {{dernier: any}} */
   const banc = { dernier: null };
-  $('btnBench').addEventListener('click', () => { $('sheet').classList.remove('open'); lancerBanc(); });
+  $f('btnBench').addEventListener('click', () => { $('sheet').classList.remove('open'); lancerBanc(); });
   const bascule = (/** @type {string} */ id) => $(id).classList.toggle('open');
   $('btnLayers').addEventListener('click', () => { bascule('layers'); $('btnLayers').setAttribute('aria-expanded', String($('layers').classList.contains('open'))); });
   $('btnSet').addEventListener('click', () => $('sheet').classList.add('open')); $('btnClose').addEventListener('click', () => $('sheet').classList.remove('open'));
@@ -338,13 +360,13 @@ export function demarrerPage({ mode }) {
 
   // ---------- photo ----------
   async function ouvrirPhoto(/** @type {File} */ f) {
-    const info = $('photoInfo'), octets = await f.arrayBuffer(), img = $('photoBg'), url = URL.createObjectURL(f);
+    const info = $f('photoInfo'), octets = await f.arrayBuffer(), img = $('photoBg'), url = URL.createObjectURL(f);
     try { await new Promise((ok, ko) => { img.onload = ok; img.onerror = ko; img.src = url; }); } catch { URL.revokeObjectURL(url); info.textContent = 'Image illisible (format non pris en charge par le navigateur ?)'; return; }
     const w = img.naturalWidth, h = img.naturalHeight, r = analyserPhoto(octets, { largeurPx: w, hauteurPx: h, positionSimulee: S.simOn ? S.simPos : S.simPos });
     if (!r.ok) { URL.revokeObjectURL(url); info.textContent = r.raison; $('sheet').classList.add('open'); return; }
     const p = r.photo, backup = photoMode ? photoMode.backup : { headOff: S.headOff, pitchOff: S.pitchOff, camFov: S.camFov };
     if (photoMode) URL.revokeObjectURL(photoMode.url);
-    photoMode = { img, w, h, url, backup, photo: p }; $('btnBench').disabled = bancEnCours;
+    photoMode = { img, w, h, url, backup, photo: p }; $f('btnBench').disabled = bancEnCours; syncEpure();
     if (p.champDeg !== null) S.camFov = p.champDeg;
     S.headOff = p.capDeg; S.pitchOff = 0; img.hidden = false; $('photoChip').hidden = false;
     memoires.placement.clear(); memoires.lignes.clear(); memoires.choixBateaux = { ids: null }; memoires.calageMonuments.clear(); memoires.analyseT = null;
@@ -356,13 +378,12 @@ export function demarrerPage({ mode }) {
   }
   function quitterPhoto() {
     if (!photoMode) return;
-    Object.assign(S, photoMode.backup); URL.revokeObjectURL(photoMode.url); photoMode = null; $('btnBench').disabled = true;
-    const img = $('photoBg'); img.hidden = true; img.removeAttribute('src'); $('photoChip').hidden = true; $('photoInfo').textContent = '';
+    Object.assign(S, photoMode.backup); URL.revokeObjectURL(photoMode.url); photoMode = null; $f('btnBench').disabled = true; syncEpure();
+    const img = $('photoBg'); img.hidden = true; img.removeAttribute('src'); $('photoChip').hidden = true; $f('photoInfo').textContent = '';
     synchroniser(); sauver(); $('start').style.display = '';
   }
-  const choisir = () => $('photoFile').click();
+  const choisir = () => $f('photoFile').click();
   if (direct) {
-    $('btnPhoto').disabled = true; $('btnPhoto').classList.add('etape10'); $('photoInfo').textContent = 'Pour rejouer une photo, ouvrez la page « Photo rejouée » du lanceur.';
     $('go').addEventListener('click', async () => {
       $('start').style.display = 'none';
       if (entree) await entree.demarrer();
@@ -370,11 +391,11 @@ export function demarrerPage({ mode }) {
       const simu = simulee() ? lirePositionTexte(S.simPos) : null; if (simu) app.definirPosition(simu);
     });
   } else $('go').addEventListener('click', choisir);
-  $('btnPhoto').addEventListener('click', choisir); $('photoChip').addEventListener('click', quitterPhoto);
+  $f('btnPhoto').addEventListener('click', choisir); $('photoChip').addEventListener('click', quitterPhoto);
   /** Position simulée : le GPS est ignoré tant que la case est cochée ; décochée, la position revient à la prochaine mesure. */
   const appliquerSimulee = () => { const p = simulee() ? lirePositionTexte(S.simPos) : null; if (p && !photoMode) { app.definirPosition(p); note(`Position simulée : ${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`); } };
   $('simOn').addEventListener('change', appliquerSimulee); $('simPos').addEventListener('change', appliquerSimulee);
-  $('photoFile').addEventListener('change', (/** @type {any} */ e) => { const f = e.target.files[0]; e.target.value = ''; if (f) ouvrirPhoto(f); });
+  $f('photoFile').addEventListener('change', (/** @type {any} */ e) => { const f = e.target.files[0]; e.target.value = ''; if (f) ouvrirPhoto(f); });
 
   // ---------- glisser (cap, horizon) et pincer (champ) ----------
   /** @type {null | {x: number, y: number, h: number, p: number, moved: boolean, t: number}} */
@@ -442,6 +463,7 @@ export function demarrerPage({ mode }) {
   function dessinerImage() {
     if (S.photoVis === true && imageSource() && !document.hidden && Date.now() - analyse.t > PERIODE_ANALYSE_MS) { analyse.t = Date.now(); try { analyserCiel(); } catch (e) { journal.erreur('vision', 'analyse du ciel', e); } }
     const d = app.donnees(), e = app.etat();
+    synchroOeil();
     const po = pose(), maintenant = Date.now(), cam = entree ? entree.etat() : null;
     if (direct) app.actualiserMobiles(maintenant);
     const vue = { largeurPx: W, hauteurPx: H, capDeg: po.capDeg, inclinaisonDeg: po.inclinaisonDeg, roulisDeg: po.roulisDeg, champDeg: vFov() };
@@ -464,7 +486,7 @@ export function demarrerPage({ mode }) {
   redimensionner(); synchroniser(); $('photoBg').hidden = true; $('photoChip').hidden = true;
   if (!direct) { const simu = simulee() ? lirePositionTexte(S.simPos) : null; if (simu) app.definirPosition(simu); }
   journal.info('page', `page ${direct ? 'direct' : 'photo'} ouverte (${VERSION_V2})`);
-  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, vFov, analyserCiel, analyse, evaluerSoleil, evaluerAuto, calerAuto, evaluerPointage, carnet, consigner, apprisIci, lancerBanc, banc, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
+  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, vFov, analyserCiel, analyse, evaluerSoleil, evaluerAuto, calerAuto, evaluerPointage, synchroOeil, carnet, consigner, apprisIci, lancerBanc, banc, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
   requestAnimationFrame(image);
 }
 

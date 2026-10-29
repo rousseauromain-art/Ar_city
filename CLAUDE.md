@@ -139,7 +139,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
    - tests et GitHub Actions (socle en place, voir « Tests ») ;
    - puis découpe en modules (sans outil de construction) ;
    - puis suppression du code mort : ancien placement des bateaux, moteur de relief v1, ancien mode Wikidata, etc.
-2. **Hauteur d'œil à l'écran :** puce « œil » (faite dans `main` le 26/10, retirée de la v1 (j) ; à reprendre dans la v2, voir `REFONTE.md` §2). Reste : un bouton « Réestimer » ; l'altitude GPS comme deuxième source.
+2. **Hauteur d'œil à l'écran :** puce « œil » reprise dans la v2 (étape 11a). Reste : un bouton « Réestimer » ; l'altitude GPS comme deuxième source.
 3. **Boutons et calage :**
    - un libellé sous chaque icône de la colonne de boutons ;
    - un calage guidé en un seul bouton (« visez le soleil / la lune / ce repère ») ;

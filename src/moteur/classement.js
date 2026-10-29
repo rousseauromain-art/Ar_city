@@ -18,7 +18,7 @@ import { normaliser } from '../noyau/texte.js';
 /**
  * Données chargées (le moteur ne charge rien lui-même).
  * @typedef {object} DonneesScene
- * @property {{lat: number, lon: number}} pos @property {{h0: number, pm: import('../scene/masque.js').Masque, bands: import('../scene/relief.js').Bande[]} | null} terrain
+ * @property {{lat: number, lon: number}} pos @property {{h0: number, pm: import('../scene/masque.js').Masque, bands: import('../scene/relief.js').Bande[], solM?: number, origine?: string} | null} terrain
  * @property {import('../donnees/overpass.js').Lieu[]} lieux établissements, lieux remarquables ET sommets lointains (`farPeak`)
  * @property {import('../donnees/monuments-wikidata.js').Monument[]} monuments monuments et équipements urbains @property {import('../donnees/telecom.js').SiteTelecom[]} pylones
  * @property {import('../donnees/reperes-hauts.js').Repere[]} reperes @property {boolean[]} doublonsReperes `doublonsReperes[i]` : le repère `i` est déjà dessiné comme monument

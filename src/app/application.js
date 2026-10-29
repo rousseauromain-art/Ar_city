@@ -157,7 +157,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     occupe.terrain = true; E.etatRelief = 'calcul…'; change('relief');
     try {
       await calculerTerrainAvecRepli({ pos, source: 'mapterhorn', chargeur: chargeurTuiles, masque, correctionOeilM: S.obsHeight || 0, maintenant,
-        publier: (t) => { if (!encore(pos)) return; D.terrain = { h0: t.h0, pm: t.pm, bands: t.bands }; E.terrainCentre = { ...pos }; E.etatRelief = t.refining || t.partial ? 'calcul…' : 'ok'; change('relief'); } });
+        publier: (t) => { if (!encore(pos)) return; D.terrain = { h0: t.h0, pm: t.pm, bands: t.bands, solM: t.solM, origine: t.origine }; E.terrainCentre = { ...pos }; E.etatRelief = t.refining || t.partial ? 'calcul…' : 'ok'; change('relief'); } });
       couvert.terrain = { ...pos }; E.etatRelief = 'ok';
     } catch (e) { E.etatRelief = 'indispo'; journal.erreur('app', 'relief', e); }
     occupe.terrain = false; change('relief');
