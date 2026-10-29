@@ -1,0 +1,212 @@
+// @ts-check
+/**
+ * RACINE DE COMPOSITION de la v2 : le seul endroit qui assemble réseau, caches, sources de données, relief et moteur de scène. Les modules de `donnees/` ne se connaissent pas entre eux,
+ * le moteur ne charge rien : ici, on décide QUAND charger (mêmes seuils de déplacement que la v1), on garde ce qui est chargé et on prévient l'affichage quand quelque chose change.
+ * Entrées : réglages (lus à chaque décision), position, journal, stockage, adresse du relais, adresse du Worker du masque. Sortie : `donnees()` (pour `composerScene`) + `etat()` (diagnostic).
+ * Les chargements ne bloquent jamais l'affichage : une erreur est journalisée, l'étape suivante continue, un recul progressif évite de harceler un service en panne.
+ * Dépend de : donnees/*, scene/terrain.js, scene/masque-worker.js, noyau/geo.js.
+ */
+import { creerReseau } from '../donnees/reseau.js';
+import { creerCacheDonnees } from '../donnees/cache-donnees.js';
+import { creerCacheOctets } from '../donnees/cache-api.js';
+import { creerOverpass, MIROIRS_OVERPASS } from '../donnees/overpass.js';
+import { creerOpenFreeMap } from '../donnees/openfreemap.js';
+import { creerSourcesRelais } from '../donnees/relais-lieux.js';
+import { creerAtlas } from '../donnees/atlas.js';
+import { creerSourceLieux } from '../donnees/lieux.js';
+import { creerSourceSommets } from '../donnees/sommets-lointains.js';
+import { creerSourceMonuments, rayonMonuments } from '../donnees/monuments.js';
+import { creerSourceOsm } from '../donnees/osm-tuiles.js';
+import { combinerMonuments, doublonsBatiments, separerTuilesOsm } from '../donnees/monuments-osm.js';
+import { creerSourceTelecom, doitChargerTelecom, reculSuivant, rayonTelecom, telecomVoulu, RECUL_INITIAL_MS } from '../donnees/telecom.js';
+import { creerSourceReperes } from '../donnees/reperes-hauts.js';
+import { creerChargeurTuiles } from '../donnees/tuiles-relief.js';
+import { decoderTuile } from '../donnees/decodage-navigateur.js';
+import { calculerTerrainAvecRepli } from '../scene/terrain.js';
+import { calculerMasque } from '../scene/masque.js';
+import { creerMasqueWorker } from '../scene/masque-worker.js';
+import { distanceEtCap } from '../noyau/geo.js';
+import { PROCHE_KM } from '../scene/relief.js';
+
+/** @typedef {import('../moteur/classement.js').DonneesScene} DonneesScene */
+/** @typedef {import('../moteur/reglages.js').Reglages} Reglages */
+/** @typedef {{lat: number, lon: number}} Point */
+
+/** Stockage de la v2 vu par les sources de données : `lire(nom, valeurParDefaut)`. @param {ReturnType<typeof import('../outils/stockage.js').creerStockage>} s */
+const stockageSimple = (s) => ({ lire: (/** @type {string} */ nom, /** @type {any} */ defaut) => s.lire(nom, { parDefaut: defaut === undefined ? null : defaut }), ecrire: (/** @type {string} */ nom, /** @type {unknown} */ v) => s.ecrire(nom, v) });
+
+/**
+ * @param {{
+ *   reglages: () => Reglages,
+ *   journal: ReturnType<typeof import('../outils/journal.js').creerJournal>,
+ *   stockage: ReturnType<typeof import('../outils/stockage.js').creerStockage>,
+ *   relais?: string,
+ *   urlWorkerMasque?: string | URL,
+ *   fetchImpl?: (url: string, init: any) => Promise<Response>,
+ *   caches?: CacheStorage,
+ *   maintenant?: () => number,
+ *   quandChange?: (quoi: string) => void,
+ * }} p
+ */
+export function creerApplication({ reglages, journal, stockage, relais, urlWorkerMasque, fetchImpl, caches = globalThis.caches, maintenant = Date.now, quandChange = () => {} }) {
+  const st = stockageSimple(stockage);
+  const reseau = creerReseau({ journal, fetchImpl, maintenant, cache: null });
+  const cacheDonnees = creerCacheDonnees('vh2-donnees', { caches, maintenant, journal });
+  const reseauTuiles = creerReseau({ journal, fetchImpl, maintenant, cache: creerCacheOctets('vh2-terrain', { caches, maintenant, journal }) });
+  const overpass = creerOverpass({ reseau: /** @type {any} */ (reseau), miroirs: MIROIRS_OVERPASS, journal });
+  const openfreemap = creerOpenFreeMap({ reseau: /** @type {any} */ (reseau), journal });
+  const sourceLieux = creerSourceLieux({ cache: cacheDonnees, overpass, openfreemap, relais: creerSourcesRelais({ reseau: /** @type {any} */ (reseau), relais }), atlas: creerAtlas(st), journal });
+  const sourceSommets = creerSourceSommets({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, openfreemap });
+  const sourceMonuments = creerSourceMonuments({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, stockage: st, relais, maintenant, journal });
+  const osm = creerSourceOsm({ cache: cacheDonnees, overpass });
+  const sourceTelecom = creerSourceTelecom({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, relais, maintenant });
+  const sourceReperes = creerSourceReperes({ osm, overpass, cache: cacheDonnees, journal });
+  const chargeurTuiles = creerChargeurTuiles({ reseau: /** @type {any} */ (reseauTuiles), decoder: decoderTuile });
+  /** @type {import('../scene/masque.js').CalculMasque} */
+  let masque = (b, c, o) => calculerMasque(b, c, o);
+  if (urlWorkerMasque && typeof Worker !== 'undefined') { try { masque = creerMasqueWorker(urlWorkerMasque); } catch (e) { journal.avert('app', 'Worker du masque indisponible : calcul sur le fil principal', e); } }
+
+  /** Ce qui est chargé, et d'où. */
+  const D = /** @type {DonneesScene & {mobiles: any[]}} */ ({ pos: /** @type {any} */ (null), terrain: null, lieux: [], monuments: [], pylones: [], reperes: [], doublonsReperes: [], couchesPerso: [], mobiles: [], analysePhoto: null });
+  const E = { source: '', chargementLieux: false, etatRelief: '', msgMonuments: '', msgTelecom: '', msgReperes: '', rayonCharge: 0, dernierLieux: /** @type {Point | null} */ (null) };
+  /** @type {{lieux: Point | null, sommets: Point | null, terrain: Point | null, monuments: Point | null, telecom: Point | null, reperes: Point | null}} */
+  const couvert = { lieux: null, sommets: null, terrain: null, monuments: null, telecom: null, reperes: null };
+  const occupe = { lieux: false, sommets: false, terrain: false, monuments: false, telecom: false, reperes: false };
+  const recul = { telecom: { t: /** @type {number | null} */ (null), ms: RECUL_INITIAL_MS }, monuments: { t: /** @type {number | null} */ (null), ms: 30000 }, reperes: { t: /** @type {number | null} */ (null), ms: 30000 } };
+  let lieuxBase = /** @type {import('../donnees/overpass.js').Lieu[]} */ ([]), sommets = /** @type {import('../donnees/overpass.js').Lieu[]} */ ([]), baseWikidata = /** @type {any[]} */ ([]), tuilesOsm = /** @type {any[]} */ ([]), batiments = /** @type {any[]} */ ([]);
+  let version = 0;
+  const change = (/** @type {string} */ quoi) => { version++; quandChange(quoi); };
+  /** Les lieux de la v1 (`cities`) d'abord, puis les sommets lointains (`farPeaks`) : l'ordre compte pour les égalités de tri. */
+  const publierLieux = () => { D.lieux = sommets.length ? lieuxBase.concat(sommets) : lieuxBase; };
+  const encore = (/** @type {Point} */ ici) => !!D.pos && D.pos.lat === ici.lat && D.pos.lon === ici.lon; // la position n'a pas changé pendant le chargement
+
+  /** Monuments finaux : base Wikidata + tours, bâtiments hauts et statues OSM. Les doublons repères/monuments sont recalculés avec. */
+  function recomposerMonuments() {
+    if (!D.pos) return;
+    const S = reglages(), sep = separerTuilesOsm(tuilesOsm);
+    D.monuments = combinerMonuments({ pos: D.pos, rayonKm: rayonMonuments(S.radius), cities: /** @type {any} */ (lieuxBase), tours: sep.tours, statues: sep.statues, hints: {}, supportsAnfr: /** @type {any} */ (D.pylones),
+      batiments: /** @type {any} */ (batiments), avecAnfr: !!S.layers.monuments }, baseWikidata);
+    D.doublonsReperes = doublonsBatiments(D.reperes, D.monuments);
+  }
+
+  async function chargerLieux(force = false) {
+    const S = reglages(), pos = D.pos;
+    if (!pos || occupe.lieux) return;
+    if (!sourceLieux.doitRecharger({ force, dernier: couvert.lieux, source: E.source, rayonCharge: E.rayonCharge, pos, rayonKm: S.radius })) return;
+    occupe.lieux = true; E.chargementLieux = true; change('lieux');
+    try {
+      const r = await sourceLieux.charger({ pos, rayonKm: S.radius, hameaux: S.hamlets, reperes: /** @type {any} */ (S.poi), sourceActuelle: E.source, lieuxActuels: lieuxBase });
+      if (encore(pos)) { lieuxBase = r.lieux; publierLieux(); E.source = r.source; E.rayonCharge = S.radius; if (r.enLigne) couvert.lieux = { ...pos }; }
+    } catch (e) { journal.erreur('app', 'chargement des lieux', e); }
+    occupe.lieux = false; E.chargementLieux = false; change('lieux');
+  }
+
+  async function chargerSommets(force = false) {
+    const S = reglages(), pos = D.pos;
+    if (!pos || !S.relief || occupe.sommets) return;
+    if (!force && couvert.sommets && distanceEtCap(pos, couvert.sommets).distKm < 25) return;
+    occupe.sommets = true;
+    try {
+      const r = await sourceSommets.charger({ pos });
+      if (encore(pos)) { sommets = r.sommets; publierLieux(); recomposerMonuments(); if (r.tuilesOk) couvert.sommets = { ...pos }; }
+      journal.info('app', `${r.sommets.length} grand(s) sommet(s) lointain(s) (${r.tuilesOk}/${r.tuiles} tuile(s))`);
+    } catch (e) { journal.avert('app', 'sommets lointains indisponibles', e); }
+    occupe.sommets = false; change('sommets');
+  }
+
+  async function chargerTerrain(force = false) {
+    const S = reglages(), pos = D.pos;
+    if (!pos || !S.relief || occupe.terrain) return;
+    if (!force && couvert.terrain && distanceEtCap(pos, couvert.terrain).distKm < PROCHE_KM) return;
+    occupe.terrain = true; E.etatRelief = 'calcul…'; change('relief');
+    try {
+      await calculerTerrainAvecRepli({ pos, source: 'mapterhorn', chargeur: chargeurTuiles, masque, correctionOeilM: S.obsHeight || 0, maintenant,
+        publier: (t) => { if (!encore(pos)) return; D.terrain = { h0: t.h0, pm: t.pm, bands: t.bands }; E.etatRelief = t.refining || t.partial ? 'calcul…' : 'ok'; change('relief'); } });
+      couvert.terrain = { ...pos }; E.etatRelief = 'ok';
+    } catch (e) { E.etatRelief = 'indispo'; journal.erreur('app', 'relief', e); }
+    occupe.terrain = false; change('relief');
+  }
+
+  async function chargerMonuments(force = false) {
+    const S = reglages(), pos = D.pos;
+    if (!pos || !S.layers.monuments || occupe.monuments) return;
+    const R = rayonMonuments(S.radius);
+    if (!force && couvert.monuments && distanceEtCap(pos, couvert.monuments).distKm < R * 0.25) return;
+    if (!force && recul.monuments.t !== null && maintenant() - recul.monuments.t < recul.monuments.ms) return;
+    occupe.monuments = true; E.msgMonuments = 'recherche…'; change('monuments');
+    try {
+      const r = await sourceMonuments.charger({ pos, rayonKm: S.radius, force, pendantChargement: (f) => { if (!encore(pos)) return; baseWikidata = f.gardes; recomposerMonuments(); change('monuments'); } });
+      E.msgMonuments = r.comment;
+      if (r.fabrication && encore(pos)) { baseWikidata = r.fabrication.gardes; recomposerMonuments(); }
+      if (r.statut === 'indisponible' || r.tuilesEnEchec) { recul.monuments.t = maintenant(); recul.monuments.ms = reculSuivant(recul.monuments.ms); } else { recul.monuments.t = null; recul.monuments.ms = 30000; couvert.monuments = { ...pos }; }
+      change('monuments');
+      const F = Math.min(12, R), o = await osm.charger(pos, F, R, (els) => { if (!encore(pos)) return; tuilesOsm = els; recomposerMonuments(); change('monuments'); });
+      if (encore(pos)) { tuilesOsm = o.objets; recomposerMonuments(); }
+    } catch (e) { E.msgMonuments = 'indispo'; recul.monuments.t = maintenant(); recul.monuments.ms = reculSuivant(recul.monuments.ms); journal.erreur('app', 'monuments', e); }
+    occupe.monuments = false; change('monuments');
+  }
+
+  async function chargerTelecom(force = false) {
+    const S = reglages(), pos = D.pos;
+    if (!pos || occupe.telecom) return;
+    const demande = { telecom: S.telecom, monuments: !!S.layers.monuments, telecomMaxKm: S.telecomMax };
+    if (!telecomVoulu(demande) || !relais) return;
+    const rayonKm = rayonTelecom(demande);
+    if (!force && !doitChargerTelecom({ pos, couvertEn: couvert.telecom, rayonKm, echecT: recul.telecom.t, reculMs: recul.telecom.ms, maintenant: maintenant() })) return;
+    occupe.telecom = true; E.msgTelecom = 'recherche…'; change('telecom');
+    try {
+      const r = await sourceTelecom.charger({ pos, rayonKm, contourner: force });
+      if (encore(pos)) { D.pylones = r.sites; recomposerMonuments(); }
+      E.msgTelecom = r.horsFrance ? 'hors de France' : `${r.sites.length} site(s)`;
+      if (r.source === 'secours') { recul.telecom.t = maintenant(); recul.telecom.ms = reculSuivant(recul.telecom.ms); } else { recul.telecom.t = null; recul.telecom.ms = RECUL_INITIAL_MS; couvert.telecom = { ...pos }; }
+    } catch (e) { E.msgTelecom = 'indispo'; recul.telecom.t = maintenant(); recul.telecom.ms = reculSuivant(recul.telecom.ms); journal.erreur('app', 'télécom', e); }
+    occupe.telecom = false; change('telecom');
+  }
+
+  async function chargerReperes(force = false) {
+    const S = reglages(), pos = D.pos;
+    if (!pos || !S.buildings || occupe.reperes) return;
+    if (!force && couvert.reperes && distanceEtCap(pos, couvert.reperes).distKm < Math.max(1, S.buildingsMax * 0.3)) return;
+    if (!force && recul.reperes.t !== null && maintenant() - recul.reperes.t < recul.reperes.ms) return;
+    occupe.reperes = true; E.msgReperes = 'recherche…'; change('reperes');
+    try {
+      const r = await sourceReperes.charger({ pos, rayonKm: S.buildingsMax, quandPartiel: (liste) => { if (!encore(pos)) return; batiments = liste; D.reperes = liste; recomposerMonuments(); change('reperes'); } });
+      if (encore(pos)) { batiments = r.liste; D.reperes = r.liste; recomposerMonuments(); }
+      E.msgReperes = `${r.liste.length} repère(s)`;
+      if (r.partiel) { recul.reperes.t = maintenant(); recul.reperes.ms = reculSuivant(recul.reperes.ms); } else { recul.reperes.t = null; recul.reperes.ms = 30000; couvert.reperes = { ...pos }; }
+    } catch (e) { E.msgReperes = 'indispo'; recul.reperes.t = maintenant(); recul.reperes.ms = reculSuivant(recul.reperes.ms); journal.erreur('app', 'repères hauts', e); }
+    occupe.reperes = false; change('reperes');
+  }
+
+  const chargeurs = { lieux: chargerLieux, sommets: chargerSommets, terrain: chargerTerrain, monuments: chargerMonuments, telecom: chargerTelecom, reperes: chargerReperes };
+  /** Tout ce qui doit l'être pour la position courante (chaque chargeur applique ses propres seuils). @param {boolean} [force] */
+  const actualiser = (force = false) => Promise.allSettled(Object.values(chargeurs).map((c) => c(force)));
+
+  return {
+    /** Nouvelle position (GPS, photo, simulation) : les chargements dont le seuil de déplacement est dépassé repartent. @param {Point} pos @param {{force?: boolean}} [o] */
+    definirPosition(pos, { force = false } = {}) {
+      const saut = D.pos ? distanceEtCap(D.pos, pos).distKm : Infinity;
+      D.pos = { lat: pos.lat, lon: pos.lon };
+      if (saut > 2) { D.terrain = null; sommets = []; publierLieux(); D.monuments = []; D.pylones = []; D.reperes = []; D.doublonsReperes = []; baseWikidata = []; tuilesOsm = []; batiments = []; Object.assign(couvert, { lieux: null, sommets: null, terrain: null, monuments: null, telecom: null, reperes: null }); }
+      change('position');
+      return actualiser(force || saut > 2);
+    },
+    /** Après un changement de réglage (rayon, calques, relief…) : relance ce qui est nécessaire. @param {{lieux?: boolean, terrain?: boolean, monuments?: boolean, telecom?: boolean, reperes?: boolean}} [quoi] */
+    recharger(quoi = {}) {
+      if (quoi.terrain) { couvert.terrain = null; couvert.sommets = null; }
+      if (quoi.monuments) couvert.monuments = null;
+      if (quoi.telecom) couvert.telecom = null;
+      if (quoi.reperes) couvert.reperes = null;
+      return Promise.allSettled([chargerLieux(!!quoi.lieux), chargerSommets(!!quoi.terrain), chargerTerrain(!!quoi.terrain), chargerMonuments(!!quoi.monuments), chargerTelecom(!!quoi.telecom), chargerReperes(!!quoi.reperes)]);
+    },
+    actualiser,
+    /** Données pour `composerScene`. */
+    donnees: () => D,
+    /** Corrige la hauteur d'œil : relit le relief. @param {number} m */
+    corrigerHauteurOeil(m) { reglages().obsHeight = m; return chargerTerrain(true); },
+    /** @returns {{version: number, source: string, chargementLieux: boolean, etatRelief: string, monuments: string, telecom: string, reperes: string, lieux: number, sommets: number, nbMonuments: number}} */
+    etat: () => ({ version, source: E.source, chargementLieux: E.chargementLieux, etatRelief: E.etatRelief, monuments: E.msgMonuments, telecom: E.msgTelecom, reperes: E.msgReperes, lieux: lieuxBase.length, sommets: sommets.length, nbMonuments: D.monuments.length }),
+    /** Vrai si un chargement est en cours. */
+    occupe: () => Object.values(occupe).some(Boolean),
+  };
+}

@@ -161,7 +161,7 @@ export const calque = {
 | 6 | Calque `monuments` | Parité v1 |
 | 7 | Calques `equipements`, `reperes`, `kml` | Parité v1 |
 | 8 | Calques `bateaux`, `avions` | Parité v1 |
-| 9 | `entrees/` (direct et photo → même `Vue`), `v2/ar.html`, `v2/photo.html`. Découpée : **9a** moteur de scène `src/moteur/` (fait : trame complète identique à la v1 sur 5 scènes), **9b** page photo, **9c** page direct, 9d fiches (option) | Les deux modes affichent la même scène |
+| 9 | `entrees/` (direct et photo → même `Vue`), `v2/ar.html`, `v2/photo.html`. Découpée : **9a** moteur de scène `src/moteur/` (fait : trame complète identique à la v1 sur 5 scènes), **9b** page photo (faite : `v2/photo.html`, trame et données identiques à la v1 de bout en bout sur 3 scènes réelles), **9c** page direct, 9d fiches (option) | Les deux modes affichent la même scène |
 | 10 | `vision/` et `calage/` | Banc d'essai au moins aussi bon que la v1 |
 | 11 | **Après parité :** orientation et ancrage (voir `VEILLE-ANCRAGE.md`), reprise des apports 26–27/10, refonte graphique | Une PR « Évolution » par sujet, validée par Romain |
 | 12 | La v2 devient le choix par défaut ; la v1 reste accessible, puis est archivée | Validation sur le terrain |

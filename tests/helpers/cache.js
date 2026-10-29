@@ -15,7 +15,7 @@ function readDumps(files){
   if(ds.length!==n||new Set(ds.map(d=>d.at)).size!==1) throw new Error(`export incomplet ou melange : ${ds.length} fichier(s) pour ${n} paquet(s) attendu(s)`);
   return {...ds[0],entries:ds.flatMap(d=>d.entries)};
 }
-async function seedCaches(page,dump,{batch=40}={}){
+async function seedCaches(page,dump,{batch=40,noms=NAMES}={}){
   for(let i=0;i<dump.entries.length;i+=batch){
     await page.evaluate(async({entries,NAMES,DC_BASE})=>{
       const now=Date.now(); // entrees fraiches : l'horloge des tests est figee, la date d'origine les ferait perimer
@@ -24,7 +24,7 @@ async function seedCaches(page,dump,{batch=40}={}){
         const c=await caches.open(NAMES[e.c]);
         await c.put(e.c==='dc'?DC_BASE+e.k:e.k,new Response(body,{headers:{'x-t':String(now),'content-type':e.type||'application/octet-stream'}}));
       }
-    },{entries:dump.entries.slice(i,i+batch),NAMES,DC_BASE});
+    },{entries:dump.entries.slice(i,i+batch),NAMES:noms,DC_BASE});
   }
   return dump.entries.length;
 }
