@@ -59,3 +59,16 @@ test('le bouton œil bascule Essentiel / Tout voir et les commandes de l’étap
   for(const id of ['btnAlign','btnPoint','btnAutoAlign','btnLearned','btnBench']) await expect(page.locator('#'+id)).toBeDisabled();
   expect(erreurs).toEqual([]);
 });
+
+test('la v2 reprend l’atlas des lieux de la v1 (même origine) quand le réseau est coupé',async({page})=>{
+  const atlas={zones:[],items:{'Dinard@48.633,-2.067':{name:'Dinard',lat:48.6333,lon:-2.0667,kind:'town',pop:10000,ele:null,t:1},'Cancale@48.676,-1.852':{name:'Cancale',lat:48.6761,lon:-1.8519,kind:'town',pop:5000,ele:null,t:1}}};
+  await page.addInitScript(a=>{ try{ localStorage.setItem('vh_atlas_v1',JSON.stringify(a)); }catch(e){} },atlas);
+  const erreurs=await ouvrir(page);
+  await page.setInputFiles('#photoFile',{name:'PXL_test.jpg',mimeType:'image/jpeg',buffer:await photoDeTest(page)});
+  await expect(page.locator('#photoChip')).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>window.__vh2.app.donnees().lieux.map(l=>l.name).sort().join(',')),{timeout:20000}).toContain('Dinard');
+  expect(await page.evaluate(()=>window.__vh2.app.etat().source)).toMatch(/atlas local/);
+  // la v1 n'est pas modifiée : sa clé est intacte
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('vh_atlas_v1')).items['Dinard@48.633,-2.067'].name)).toBe('Dinard');
+  expect(erreurs).toEqual([]);
+});

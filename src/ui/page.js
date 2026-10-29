@@ -139,6 +139,12 @@ export function demarrerPage({ mode }) {
 
   // ---------- diagnostic ----------
   const echap = (/** @type {string} */ t) => String(t).replace(/[<&>]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c] || c));
+  /** La raison d'un échec, quand le journal l'a gardée : « — HTTP 429 », « — échec réseau : Failed to fetch »… @param {unknown} d */
+  const raison = (d) => {
+    if (!d) return '';
+    const o = /** @type {any} */ (d), t = typeof d === 'string' ? d : o.message || o.nom || JSON.stringify(d);
+    return ` <span style="color:var(--ochre)">— ${echap(String(t).slice(0, 200))}</span>`;
+  };
   $('btnDbg').addEventListener('click', () => {
     $('sheet').classList.remove('open');
     const e = app.etat(), d = app.donnees();
@@ -146,7 +152,10 @@ export function demarrerPage({ mode }) {
       `pylônes ${echap(e.telecom)} · repères hauts ${echap(e.reperes)}`, `relais ${relais || 'non configuré'}`, ...(direct ? [`capteurs : ${echap(etatFusion(fusion, S, Date.now()))}`, `caméra ${entree && entree.etat().cameraOk ? 'active' : 'inactive'}${entree && entree.etat().erreurCamera ? ' · ' + echap(entree.etat().erreurCamera) : ''}`, `avions : ${echap(e.messageAir || '—')} · bateaux : ${echap(e.messageSea || '—')}`] : [])];
     $('dbgTitle').textContent = 'Diagnostic';
     $('dbgBody').innerHTML = `<div class="dbgsec">État</div>${lignes.map((l) => `<div class="dbgline">${l}</div>`).join('')}<div class="dbgsec">Journal</div>`
-      + journal.entrees(60).reverse().map((x) => `<div class="dbgline">${new Date(x.t).toLocaleTimeString('fr-FR')} · ${x.niveau} · ${echap(x.module)} · ${echap(x.message)}</div>`).join('');
+      + `<div class="dbgsec">Mémoire de l'appareil (hit = relue, net = téléchargée, stale = périmée par défaut de réseau, fail = échec)</div>`
+      + Object.entries(app.compteursCache()).map(([genre, c]) => `<div class="dbgline">${echap(genre)} : ${c.hit} hit · ${c.net} net · ${c.stale} stale · ${c.fail} fail</div>`).join('')
+      + `<div class="dbgsec">Journal (le plus récent en premier)</div>`
+      + journal.entrees(80).reverse().map((x) => `<div class="dbgline">${new Date(x.t).toLocaleTimeString('fr-FR')} · ${x.niveau} · ${echap(x.module)} · ${echap(x.message)}${raison(x.donnees)}</div>`).join('');
     $('dbg').classList.add('open');
   });
   $('dbgClose').addEventListener('click', () => $('dbg').classList.remove('open'));

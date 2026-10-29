@@ -66,6 +66,7 @@ Sens des dépendances : `ui → rendu → calques → scene, calage, vision → 
 | `src/rendu/{mobiles,escalier}.js` | icônes des mobiles regroupées et réservées avant les étiquettes, noms d'avions (incliné, à plat, « NOM +N »), noms de bateaux à plat en escalier avec choix des plus proches et pastilles « +N » |
 | `src/calques/{avions,bateaux}.js` | classement des avions et des bateaux (champ, horizon, recherche) |
 | `src/rendu/bande.js` | **bande des équipements commune** (équipements urbains, pylônes, repères hauts, couches personnelles) : groupes, icône + pastille du nombre, nom à côté, dessous ou en haut, étage bas ou haut, sites trouvés, pastilles au bord |
+| `src/donnees/cache-donnees.js`, `cache-api.js` (`secours`) | la v2 relit les caches de la v1 (`vh-data-v1`, `vh-terrain-v1`) sans jamais y écrire |
 | `src/app/application.js` | **racine de composition** (étape 9b) : assemble réseau, caches, sources de données et relief, décide quand charger (seuils de la v1), publie les données au moteur |
 | `src/entrees/{capteurs,direct}.js`, `v2/ar.html` | page en direct : fusion boussole/gyroscope (pure, identique à la v1), caméra, GPS, événements d'orientation |
 | `src/entrees/photo.js` | photo rejouée : position, cap (correction du Pixel), champ, heure, d'après l'EXIF |

@@ -6,17 +6,23 @@
 
 /**
  * @param {string} nom nom du cache (`vh2-terrain` en production)
- * @param {{caches?: CacheStorage, maintenant?: () => number, journal?: {avert: (m: string, msg: string, d?: unknown) => unknown}}} [deps]
+ * @param {{caches?: CacheStorage, maintenant?: () => number, journal?: {avert: (m: string, msg: string, d?: unknown) => unknown}, secours?: string[]}} [deps]
+ *   `secours` : noms de caches lus en dernier recours, jamais écrits (la v2 relit les tuiles de relief de la v1, `vh-terrain-v1`).
  * @returns {import('./reseau.js').CacheReseau}
  */
-export function creerCacheOctets(nom, { caches: stockage = globalThis.caches, maintenant = Date.now, journal } = {}) {
+export function creerCacheOctets(nom, { caches: stockage = globalThis.caches, maintenant = Date.now, journal, secours = [] } = {}) {
   /** @param {string} cle */
   const url = (cle) => cle;
   return {
     async lire(cle) {
       if (!stockage) return null;
       try {
-        const rep = await (await stockage.open(nom)).match(url(cle));
+        let rep = await (await stockage.open(nom)).match(url(cle));
+        for (const autre of secours) {
+          if (rep) break;
+          if (stockage.has && !(await stockage.has(autre))) continue; // pas de création d'un cache vide dans l'espace de la v1
+          rep = await (await stockage.open(autre)).match(url(cle));
+        }
         return rep ? { donnees: new Uint8Array(await rep.arrayBuffer()), t: maintenant() } : null;
       } catch (e) { if (journal) journal.avert('cache', `lecture ${nom} impossible`, e); return null; }
     },

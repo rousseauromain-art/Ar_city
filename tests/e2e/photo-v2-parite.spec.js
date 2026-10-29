@@ -17,7 +17,7 @@ const SCENES=[
 const POSES=[[0,0],[37,3],[-80,-2]];
 const REGLAGES={relief:true,skyline:true,hamlets:true,telecom:true,buildings:true,sea:false,air:false,photoVis:false,cross:false,
   layers:{places:true,monuments:true,equip:true,urban:false,urbClip:true,urbSmooth:true,urbFill:true},poi:{lighthouse:true,cape:true,rock:true,view:true,heritage:true,beach:true}};
-const NOMS_V2={t:'vh2-terrain',dc:'vh2-donnees'};
+const NOMS_V2=process.env.CACHE_V1?{t:'vh-terrain-v1',dc:'vh-data-v1'}:{t:'vh2-terrain',dc:'vh2-donnees'}; // CACHE_V1=1 : la v2 ne trouve ses données que dans les caches de la v1
 
 function fichiersExport(){ return fs.readdirSync(PHOTOS_DIR).filter(f=>/^villes-horizon-.*\.json$/.test(f)).map(f=>path.join(PHOTOS_DIR,f)); }
 
