@@ -1,4 +1,4 @@
 # ui — réglages, calques, fiches, pages. DOM uniquement.
 - `page.js` : la page, en mode `photo` (v2/photo.html, entrée `page-photo.js`) ou `direct` (v2/ar.html, entrée `page-ar.js`), même interface que la v1 (balisage et style repris tels quels, `style.css`). Branche les commandes sur les réglages (`moteur/reglages.js`), la racine de composition (`app/application.js`) et le moteur de scène (`moteur/scene.js`) ; boucle d'affichage à 30 images/s ; glisser (cap, horizon) et pincer (champ) ; déclencheur ; diagnostic.
-- Les commandes qui dépendent de l'étape 10 (calage automatique, calage appris, viser un repère, banc d'essai, visibilité d'après la photo) sont présentes mais désactivées. Le symbole du soleil est affiché ; le calage SUR le soleil reste à l'étape 10.
+- Étape 10 terminée : calage sur le soleil, pointage, « Caler auto », visibilité d'après la photo, carnet de calage (chaque calage consigné, section du diagnostic), « Reprendre l'écart appris » (en direct ; en photo la page l'explique) et banc d'essai (photo rejouée : tableau de dix départs dans le diagnostic).
 - `outils-page.js` (v2/outils.html) : journal, relais, rapport.

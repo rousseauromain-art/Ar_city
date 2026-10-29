@@ -50,13 +50,14 @@ test('une photo sans position ni position simulée est refusée avec une explica
   expect(erreurs).toEqual([]);
 });
 
-test('le bouton œil bascule Essentiel / Tout voir ; les commandes de l’étape 10d (calage appris, banc d’essai) sont désactivées',async({page})=>{
+test('le bouton œil bascule Essentiel / Tout voir ; le banc d’essai s’active avec la photo, le calage appris reste actif (étape 10d)',async({page})=>{
   const erreurs=await ouvrir(page);
   await page.setInputFiles('#photoFile',{name:'PXL_test.jpg',mimeType:'image/jpeg',buffer:await photoDeTest(page)});
   await expect(page.locator('#photoChip')).toBeVisible();
   await page.click('#btnBeyond'); await expect(page.locator('#eyeLbl')).toHaveText('Tout voir');
   await page.click('#btnBeyond'); await expect(page.locator('#eyeLbl')).toHaveText('Essentiel');
-  for(const id of ['btnLearned','btnBench']) await expect(page.locator('#'+id)).toBeDisabled();
+  await expect(page.locator('#btnLearned')).toBeEnabled(); await expect(page.locator('#btnBench')).toBeEnabled();
+  await page.click('#photoChip'); await expect(page.locator('#btnBench')).toBeDisabled();
   expect(erreurs).toEqual([]);
 });
 
