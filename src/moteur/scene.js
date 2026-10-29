@@ -34,7 +34,7 @@ import { messageCentral, texteStatut } from './statut.js';
  * Mémoires entre deux images, MISES À JOUR par composerScene.
  * @typedef {object} MemoiresScene
  * @property {Map<string, {side: number, k: number}>} placement place de chaque nom à l'image précédente @property {Map<string, number>} lignes ligne de chaque nom de la bande
- * @property {import('../rendu/escalier.js').ChoixBateaux} choixBateaux bateaux nommés @property {Map<string, number>} calageMonuments calage fin des monuments sur la silhouette lue
+ * @property {import('../rendu/escalier.js').ChoixBateaux} choixBateaux bateaux nommés @property {Map<string, number>} calageMonuments calage fin des monuments sur la silhouette lue @property {number | null} [analyseT] instant de la dernière analyse dont le lissage a déjà avancé
  * @typedef {object} EcranScene
  * @property {import('../rendu/reservations.js').Reservation[]} reservations rectangles de l'interface qu'aucun nom ne doit recouvrir @property {number} safeT hauteur de la zone de sécurité (haut) @property {number} safeB marge basse (px)
  * @property {(police: string, texte: string) => number} mesurerTexte @property {{affichage: string, mono: string}} familles
@@ -68,7 +68,7 @@ export function composerScene({ vue, reglages: S, donnees: D, memoires: M, ecran
   if (terrain) base.push(...calqueRelief.preparer(S.skyline ? classerCretes(cretesDe(terrain.pm), { toutVoir: S.beyond }) : [], vue, { terrain, reglages: { silhouette: S.skyline, cretes: S.ridges !== false, distances: S.showDist, toutVoir: S.beyond }, mesurerTexte }));
   base.push(...calquePhoto.preparer(D.analysePhoto, vue, { reglages: { toutVoir: S.beyond, analyseActive: S.photoVis === true }, maintenantMs, jointure: jointureHeritee }));
   // 2. classements, étiquettes, bande, mobiles
-  const c = classerScene({ S, D, vue, maintenantMs, snapPrecedent: M.calageMonuments }), { couches, trouves } = couchesDeLaBande({ S, D, classesEquipements: c.classesEquipements });
+  const c = classerScene({ S, D, vue, maintenantMs, snapPrecedent: M.calageMonuments, analyseAppliqueeT: M.analyseT }), { couches, trouves } = couchesDeLaBande({ S, D, classesEquipements: c.classesEquipements });
   const oeilM = terrain ? terrain.h0 : 1.6, fq = S.filter ? normaliser(S.filter) : '', scM = { oeilM };
   const mobiles = [...classerMobiles(D.mobiles, vue, scM, { couche: S.air, filtre: fq }, 'plane'), ...classerNavires(D.mobiles, vue, scM, { couche: S.sea, filtre: fq })]
     .filter((x) => x.etat === 'net').sort((a, b) => a.el.ordre - b.el.ordre).map((x) => x.el);
@@ -87,7 +87,7 @@ export function composerScene({ vue, reglages: S, donnees: D, memoires: M, ecran
   const optM = { mesurerTexte, familles, distances: S.showDist }, avions = composerAvions(groupes, placeur, optM);
   const bateaux = poserBateaux({ bateaux: groupes.filter((g) => g.kind === 'ship').flatMap((g) => g.items.map((it) => ({ ...it, g }))), vue, reservations: placeur.reservations, estIcone: (r) => groupes.includes(/** @type {any} */ (r[5])),
     mesurerTexte, familles, maintenantMs, choix: M.choixBateaux, distances: S.showDist });
-  M.choixBateaux = bateaux.choix; M.calageMonuments = c.snapSuivant;
+  M.choixBateaux = bateaux.choix; M.calageMonuments = c.snapSuivant; M.analyseT = D.analysePhoto ? D.analysePhoto.t : null;
   const h = habille(c.affiches, D.lieux.filter((l) => !l.farPeak).length, c.liste.length);
   return { scene: [...base, ...(bandeHaut ? bandeHaut.commandes : []), ...noms.commandes, ...(bandeBas ? bandeBas.commandes : []), ...pointeurs, ...commandesIcones(groupes, vue), ...avions.commandes, ...bateaux.commandes,
       ...commandesSoleil(vue, etat.utcMs ? positionSoleil(etat.utcMs, D.pos.lat, D.pos.lon) : null, { familles, jointure: 'round', extremite: 'butt' })],

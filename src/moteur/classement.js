@@ -27,13 +27,13 @@ import { normaliser } from '../noyau/texte.js';
  */
 
 /**
- * @param {{S: Reglages, D: DonneesScene, vue: import('../rendu/projection.js').VueRendu, maintenantMs: number, snapPrecedent?: Map<string, number>}} e
+ * @param {{S: Reglages, D: DonneesScene, vue: import('../rendu/projection.js').VueRendu, maintenantMs: number, snapPrecedent?: Map<string, number>, analyseAppliqueeT?: number | null}} e `analyseAppliqueeT` : instant de l'analyse dont le lissage du calage fin a déjà avancé
  */
-export function classerScene({ S, D, vue, maintenantMs, snapPrecedent }) {
+export function classerScene({ S, D, vue, maintenantMs, snapPrecedent, analyseAppliqueeT = null }) {
   const { pos, terrain } = D, avecRelief = S.relief && !!terrain, analyseActive = S.photoVis === true;
   const monuments = S.layers.monuments, equip = monuments && S.layers.equip !== false;
   const rg = { rayonKm: S.radius, relief: S.relief, toutVoir: S.beyond, analyseActive, couche: monuments, distances: S.showDist, filtre: S.filter };
-  const scene = { pos, terrain, analysePhoto: D.analysePhoto, maintenantMs, cities: D.lieux, batiments: D.reperes, monuments: D.monuments, snapPrecedent };
+  const scene = { pos, terrain, analysePhoto: D.analysePhoto, maintenantMs, cities: D.lieux, batiments: D.reperes, monuments: D.monuments, snapPrecedent, analyseDejaAppliquee: !!D.analysePhoto && analyseAppliqueeT === D.analysePhoto.t };
   const M = classerMonuments(D.monuments, scene, rg), classesM = monuments ? M.classes : [];
   const classesL = classerLieux(D.lieux, scene, { ...rg, couche: S.layers.places });
   const E = classerEquipements(D.monuments, scene, { rayonKm: S.radius, relief: S.relief, couche: equip });

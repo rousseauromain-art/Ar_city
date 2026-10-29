@@ -90,3 +90,25 @@ test('les lieux de l’atlas sont à l’écran tout de suite, avant la fin du c
   await expect(page.locator('#dbgBody')).toContainText('OSM : en cours');
   expect(erreurs).toEqual([]);
 });
+
+test('visibilité d’après la photo : la case lit la silhouette du ciel (ciel / décor), la publie, la diagnostique, et la retire quand on la décoche',async({page})=>{
+  const erreurs=await ouvrir(page);
+  await page.setInputFiles('#photoFile',{name:'PXL_test.jpg',mimeType:'image/jpeg',buffer:await photoDeTest(page)});
+  await expect(page.locator('#photoChip')).toBeVisible();
+  expect(await page.evaluate(()=>window.__vh2.app.donnees().analysePhoto)).toBeNull();
+  await page.click('#btnSet'); await page.click('details[data-grp=cap] summary'); await page.check('#phv');
+  await expect.poll(()=>page.evaluate(()=>{ const a=window.__vh2.app.donnees().analysePhoto; return a&&a.ok; }),{timeout:10000}).toBe(true);
+  const a=await page.evaluate(()=>{ const x=window.__vh2.app.donnees().analysePhoto; return {n:x.cols.length,skyFrac:x.skyFrac,angles:x.cols.map(c=>c.a),top:x.cols.filter(c=>c.top).length}; });
+  expect(a.n).toBeGreaterThan(120); expect(a.skyFrac).toBeGreaterThan(0.9); expect(a.top).toBe(0);
+  // photo : ciel en haut, décor en bas, horizon au milieu de l'image ; l'écran affiche un horizon à 0° : la limite lue est à ~0°
+  for(const v of a.angles) expect(Math.abs(v)).toBeLessThan(2.5);
+  // mémorisé sous vh2:, diagnostic lisible
+  expect(JSON.parse(await page.evaluate(()=>localStorage.getItem('vh2:reglages'))).d.photoVis).toBe(true);
+  await page.click('details[data-grp=off] summary'); await page.click('#btnDbg');
+  await expect(page.locator('#dbgBody')).toContainText('silhouette lue il y a');
+  await expect(page.locator('#dbgBody')).toContainText('colonnes (ciel');
+  await page.click('#dbgClose'); await page.click('#btnSet');
+  await page.uncheck('#phv');
+  expect(await page.evaluate(()=>window.__vh2.app.donnees().analysePhoto)).toBeNull();
+  expect(erreurs).toEqual([]);
+});

@@ -21,6 +21,7 @@ import { RAD } from '../noyau/constantes.js';
 import { creerFusion, poseCapteurs, noterCalage, etatFusion, mesuresFusion } from '../entrees/capteurs.js';
 import { creerEntreeDirecte } from '../entrees/direct.js';
 import { lirePixelsRecadres } from '../vision/lire-pixels.js';
+import { observerCiel, PERIODE_ANALYSE_MS, LARGEUR_ANALYSE_PX } from '../vision/silhouette-ciel.js';
 import { calerSurSoleil } from '../calage/soleil.js';
 import { pointer } from '../calage/pointage.js';
 import { positionSoleil } from '../noyau/astro.js';
@@ -60,7 +61,7 @@ export function demarrerPage({ mode }) {
   const ov = /** @type {HTMLCanvasElement} */ ($('ov')), ctx = /** @type {CanvasRenderingContext2D} */ (ov.getContext('2d'));
   const css = getComputedStyle(document.body), familles = { affichage: css.getPropertyValue('--display'), mono: css.getPropertyValue('--mono') };
   let W = 0, H = 0, dpr = 1, safeT = 0;
-  const memoires = { placement: new Map(), lignes: new Map(), choixBateaux: { ids: null }, calageMonuments: new Map() };
+  const memoires = { placement: new Map(), lignes: new Map(), choixBateaux: { ids: null }, calageMonuments: new Map(), analyseT: /** @type {number | null} */ (null) };
   const mesurerTexte = (/** @type {string} */ police, /** @type {string} */ t) => { ctx.font = police; return ctx.measureText(t).width; };
 
   function redimensionner() {
@@ -131,6 +132,19 @@ export function demarrerPage({ mode }) {
   $('btnSky').addEventListener('click', () => { app.recharger({ terrain: true }); note('Relief recalculé'); });
   $('btnFs').addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.().catch(() => {}); });
   $('calib').addEventListener('click', () => { S.headOff = 0; S.pitchOff = 0; sauver(); note('Calage remis à zéro'); });
+  // ---------- visibilité d'après la photo : silhouette du ciel lue sur l'image, rafraîchie toutes les 3 s ----------
+  /** @type {{t: number, ms: number, derniere: null | {ok: boolean, skyFrac: number, cols: unknown[], t: number}}} */
+  const analyse = { t: 0, ms: 0, derniere: null };
+  /** Lit l'image, cherche la limite du ciel et la publie (datée, avec la pose du moment : l'analyse n'est valable que pour cette pose). */
+  function analyserCiel() {
+    const src = imageSource(); if (!src) return;
+    const t0 = performance.now(), po = pose(), fh = (W / 2) / Math.tan(vFov() / 2 * RAD), px = lirePixelsRecadres(src, LARGEUR_ANALYSE_PX, { largeurPx: W, hauteurPx: H });
+    if (!px) return;
+    const r = observerCiel(px, { ecran: { largeurPx: W, hauteurPx: H }, pose: po, focalePx: fh });
+    analyse.ms = performance.now() - t0;
+    const a = { ...r, t: Date.now(), heading: po.capDeg, pitch: po.inclinaisonDeg, fh };
+    analyse.derniere = a; app.definirAnalysePhoto(a);
+  }
   // ---------- calage : sur le soleil (bouton cible) et par pointage (bouton réticule) ----------
   /** Image dont on lit les pixels : la photo, ou le flux de la caméra une fois prêt. */
   const imageSource = () => (photoMode ? photoMode.img : video && entree && entree.flux() ? video : null);
@@ -186,7 +200,8 @@ export function demarrerPage({ mode }) {
   $('btnSet').addEventListener('click', () => $('sheet').classList.add('open')); $('btnClose').addEventListener('click', () => $('sheet').classList.remove('open'));
   $('btnFind').addEventListener('click', () => { $('sheet').classList.add('open'); setTimeout(() => $('flt').focus(), 300); });
   for (const id of ['btnZoneDL', 'btnZoneDel']) { const b = $(id); b.disabled = true; b.classList.add('etape10'); }
-  $('phv').disabled = true; $('phv').checked = false;
+  $('phv').checked = S.photoVis === true;
+  $('phv').addEventListener('change', (/** @type {any} */ e) => { S.photoVis = e.target.checked; app.definirAnalysePhoto(null); analyse.derniere = null; sauver(); });
   $('gyr').disabled = !direct; $('gyr').checked = S.gyro !== false;
   $('gyr').addEventListener('change', (/** @type {any} */ e) => { S.gyro = e.target.checked; sauver(); });
   $('btnCacheClr').addEventListener('click', async () => {
@@ -210,7 +225,15 @@ export function demarrerPage({ mode }) {
     const e = app.etat(), d = app.donnees();
     const lignes = [`version ${VERSION_V2}`, `position ${d.pos ? d.pos.lat.toFixed(5) + ', ' + d.pos.lon.toFixed(5) : '—'}`, `lieux : ${e.lieux} (${echap(e.source)}) — ${e.chargementLieux ? 'chargement en cours depuis ' + Math.round(e.depuisLieuxMs / 1000) + ' s' : 'chargement terminé'} · rayon ${S.radius} km`,
       ...e.sourcesLieux.map((s) => `&nbsp;&nbsp;${echap(s.nom)} : ${echap(s.etat)}${s.n !== undefined ? ' · ' + s.n + ' lieux' : ''}${s.raison ? ' · ' + echap(s.raison.slice(0, 140)) : ''}`),
-      `relief : ${S.relief ? echap(e.etatRelief || 'pas encore calculé') : 'désactivé'}`, `monuments ${d.monuments.length} · ${echap(e.monuments)}`,
+      `relief : ${S.relief ? echap(e.etatRelief || 'pas encore calculé') : 'désactivé'}`,
+      `visibilité d'après la photo : ${(() => {
+        const a = analyse.derniere, liste = /** @type {any[]} */ ((dernierBilan && dernierBilan.liste) || []);
+        if (S.photoVis !== true) return 'désactivée (Réglages)';
+        if (!imageSource()) return 'caméra indisponible : règles estimées seulement';
+        if (!a) return 'en attente de la première image';
+        if (!a.ok) return `ciel illisible (${Math.round((a.skyFrac || 0) * 100)} % du haut de l'image) : règles estimées seulement · analyse ${analyse.ms.toFixed(1)} ms`;
+        return `silhouette lue il y a ${Math.round((Date.now() - a.t) / 1000)} s sur ${a.cols.length} colonnes (ciel ${Math.round(a.skyFrac * 100)} % du haut de l'image) · ${liste.filter((m) => m.kind === 'monument' && m.photo === true).length} monument(s) vus, ${liste.filter((m) => m.photoHid).length} cachés · analyse ${analyse.ms.toFixed(1)} ms`;
+      })()}`, `monuments ${d.monuments.length} · ${echap(e.monuments)}`,
       `pylônes ${echap(e.telecom)} · repères hauts ${echap(e.reperes)}`, `relais ${relais || 'non configuré'}`, ...(direct ? [`capteurs : ${echap(etatFusion(fusion, S, Date.now()))}`, `mesures : ${(() => { const m = mesuresFusion(fusion, Date.now()), f = (/** @type {number | null} */ v) => (v === null ? '—' : v.toFixed(1) + '°'); return `boussole ${f(m.capBoussole)} · gyroscope ${f(m.capGyroscope)} · repère ${f(m.reperGyroscope)} · âge gyroscope ${m.ageGyroscopeMs === null ? '—' : Math.round(m.ageGyroscopeMs) + ' ms'} · désaccord depuis ${Math.round(m.desaccordDepuisMs)} ms${m.boussoleEnPause ? ' · boussole en pause' : ''}`; })()}`, `cap affiché ${pose().capDeg.toFixed(1)}° · calage ${S.headOff.toFixed(1)}° / ${S.pitchOff.toFixed(1)}°`,
         ...(dernierRetour ? [`dernier retour à la boussole : il y a ${Math.round((Date.now() - dernierRetour.t) / 1000)} s · boussole ${dernierRetour.m.capBoussole?.toFixed(0)}° · gyroscope ${dernierRetour.m.capGyroscope?.toFixed(0)}° · calage ${dernierRetour.headOff.toFixed(1)}°`] : []),
         `trace du cap (10 dernières secondes) : ${echantillons.slice(-10).map((x) => x.cap.toFixed(0)).join(' ')}`,
@@ -236,7 +259,7 @@ export function demarrerPage({ mode }) {
     photoMode = { img, w, h, url, backup, photo: p };
     if (p.champDeg !== null) S.camFov = p.champDeg;
     S.headOff = p.capDeg; S.pitchOff = 0; img.hidden = false; $('photoChip').hidden = false;
-    memoires.placement.clear(); memoires.lignes.clear(); memoires.choixBateaux = { ids: null }; memoires.calageMonuments.clear();
+    memoires.placement.clear(); memoires.lignes.clear(); memoires.choixBateaux = { ids: null }; memoires.calageMonuments.clear(); memoires.analyseT = null;
     synchroniser(); $('start').style.display = 'none';
     info.textContent = texteInfoPhoto(p, S.camFov);
     journal.info('photo', `photo rejouée : ${info.textContent}`);
@@ -329,6 +352,7 @@ export function demarrerPage({ mode }) {
     dessinerImage();
   }
   function dessinerImage() {
+    if (S.photoVis === true && imageSource() && !document.hidden && Date.now() - analyse.t > PERIODE_ANALYSE_MS) { analyse.t = Date.now(); try { analyserCiel(); } catch (e) { journal.erreur('vision', 'analyse du ciel', e); } }
     const d = app.donnees(), e = app.etat();
     const po = pose(), maintenant = Date.now(), cam = entree ? entree.etat() : null;
     if (direct) app.actualiserMobiles(maintenant);
@@ -352,7 +376,7 @@ export function demarrerPage({ mode }) {
   redimensionner(); synchroniser(); $('photoBg').hidden = true; $('photoChip').hidden = true;
   if (!direct) { const simu = simulee() ? lirePositionTexte(S.simPos) : null; if (simu) app.definirPosition(simu); }
   journal.info('page', `page ${direct ? 'direct' : 'photo'} ouverte (${VERSION_V2})`);
-  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, evaluerSoleil, evaluerPointage, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
+  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, analyserCiel, analyse, evaluerSoleil, evaluerPointage, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
   requestAnimationFrame(image);
 }
 
