@@ -53,7 +53,7 @@ export function composerScene({ vue, reglages: S, donnees: D, memoires: M, ecran
   const hy = ordonneeHorizon(vue), lowTop = hy + 30, lowBot = H - Math.max(8, E.safeB) - 6, basse = lowBot - lowTop >= 46, hautLimite = E.safeT + 24 + 14;
   const habille = (/** @type {number} */ affiches, /** @type {number} */ nbLieux, /** @type {number} */ nbListe) => ({
     message: messageCentral({ erreurCamera: etat.erreurCamera, photo: etat.photo, pos: D && D.pos, nbLieux, nbListe, rayonKm: S.radius, capteur: etat.capteur }),
-    statut: texteStatut({ affiches, pos: D && D.pos, precisionM: etat.precisionM, chargement: etat.chargement, source: etat.source, relief: S.relief, etatRelief: etat.etatRelief, capteur: etat.capteur, photo: etat.photo,
+    statut: texteStatut({ affiches, pos: D && D.pos, precisionM: etat.precisionM, chargement: etat.chargement, source: etat.source, relief: S.calculRelief !== false, etatRelief: etat.etatRelief, capteur: etat.capteur, photo: etat.photo,
       air: S.air, sea: S.sea, messageAir: etat.messageAir, messageSea: etat.messageSea }) });
   /** @param {string} message @returns {Commande[]} */
   const surimpression = (message) => [...commandesRuban(vue, { safeT: E.safeT, familles }),

@@ -9,7 +9,7 @@
  * @typedef {object} Reglages
  * @property {boolean} cross croix de visée @property {boolean} gyro fusion boussole/gyroscope @property {boolean} photoVis analyse de la photo (étape 10)
  * @property {boolean} simOn position simulée @property {string} simPos « lat, lon » simulé @property {number} radius rayon des lieux (km) @property {number} camFov champ de la caméra (côté large, °)
- * @property {boolean} hamlets hameaux @property {boolean} relief relief (masquage) @property {boolean} reliefV1 tolérances d'origine @property {number} obsHeight correction de la hauteur d'œil (m)
+ * @property {boolean} hamlets hameaux @property {boolean} relief tenir compte du relief pour cacher ce qui est derrière (masquage) @property {boolean} calculRelief calculer le relief (ligne d'horizon, crêtes, calage) : indépendant du masquage @property {boolean} reliefV1 tolérances d'origine @property {number} obsHeight correction de la hauteur d'œil (m)
  * @property {boolean} showDist distances affichées @property {string} filter recherche par nom (jamais mémorisée) @property {number} headOff décalage de cap (°) @property {number} pitchOff décalage d'horizon (°)
  * @property {boolean} air @property {boolean} sea @property {number} airMax @property {number} seaMax avions et bateaux, portées (km)
  * @property {boolean} skyline ligne d'horizon du relief @property {boolean} ridges crêtes intérieures @property {boolean} beyond bouton œil (Tout voir)
@@ -19,13 +19,13 @@
  */
 
 /** @returns {Reglages} réglages par défaut (v1 l. 440). */
-export const reglagesParDefaut = () => ({ cross: false, gyro: true, photoVis: false, simOn: false, simPos: '', radius: 60, camFov: 67, hamlets: false, relief: true, reliefV1: false, obsHeight: 0, showDist: true, filter: '',
-  headOff: 0, pitchOff: 0, air: false, sea: false, airMax: 120, seaMax: 40, skyline: false, ridges: true, beyond: false, telecom: false, telecomMax: 8, buildings: false, buildingsMax: 12, chipsFold: false,
+export const reglagesParDefaut = () => ({ cross: false, gyro: true, photoVis: false, simOn: false, simPos: '', radius: 60, camFov: 67, hamlets: false, relief: true, calculRelief: true, reliefV1: false, obsHeight: 0, showDist: true, filter: '',
+  headOff: 0, pitchOff: 0, air: false, sea: false, airMax: 120, seaMax: 40, skyline: true, ridges: true, beyond: false, telecom: false, telecomMax: 8, buildings: false, buildingsMax: 12, chipsFold: false,
   layers: { places: true, monuments: true, equip: true, urban: false, urbClip: true, urbSmooth: true, urbFill: true },
   poi: { lighthouse: true, cape: true, rock: true, view: false, heritage: false, beach: false } });
 
 /** Clés mémorisées (liste blanche) ; `layers` et `poi` sont fusionnés clé par clé. */
-export const CLES_MEMORISEES = Object.freeze(['cross', 'gyro', 'photoVis', 'simOn', 'simPos', 'radius', 'camFov', 'hamlets', 'relief', 'reliefV1', 'obsHeight', 'showDist', 'headOff', 'pitchOff', 'air', 'sea', 'airMax', 'seaMax',
+export const CLES_MEMORISEES = Object.freeze(['cross', 'gyro', 'photoVis', 'simOn', 'simPos', 'radius', 'camFov', 'hamlets', 'relief', 'calculRelief', 'reliefV1', 'obsHeight', 'showDist', 'headOff', 'pitchOff', 'air', 'sea', 'airMax', 'seaMax',
   'skyline', 'ridges', 'beyond', 'telecom', 'telecomMax', 'buildings', 'buildingsMax', 'chipsFold']);
 
 /**

@@ -12,9 +12,26 @@ test('la v2 reprend la ligne de relief et le rayon de la v1, une seule fois, san
   await page.evaluate(()=>document.getElementById('btnDbg').click());
   await expect(page.locator('#dbgBody')).toContainText('repris de la v1');
   // le choix fait ensuite dans la v2 est gardé au rechargement
-  await page.evaluate(()=>{ const s=JSON.parse(localStorage.getItem('vh2:reglages')); s.d.skyline=false; localStorage.setItem('vh2:reglages',JSON.stringify(s)); });
+  await page.evaluate(()=>{ const s=JSON.parse(localStorage.getItem('vh2:reglages')); s.d.radius=25; localStorage.setItem('vh2:reglages',JSON.stringify(s)); });
   await page.reload();
-  expect(await page.evaluate(()=>window.__vh2.S.skyline)).toBe(false);
+  expect(await page.evaluate(()=>window.__vh2.S.radius)).toBe(25);
   expect(await page.evaluate(()=>localStorage.getItem('vh_settings_v2'))).toBe(JSON.stringify(v1));
+  expect(erreurs).toEqual([]);
+});
+
+test('relief : le calcul (ligne d’horizon, crêtes, calage) est séparé du masquage ; éteindre le calcul éteint aussi le masquage, cocher le masquage rallume le calcul',async({page})=>{
+  const erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
+  await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
+  await page.goto('/v2/photo.html');
+  const lire=()=>page.evaluate(()=>({calcul:window.__vh2.S.calculRelief,masquage:window.__vh2.S.relief,ligne:window.__vh2.S.skyline}));
+  expect(await lire()).toEqual({calcul:true,masquage:true,ligne:true}); // la ligne de relief est affichée par défaut
+  await page.evaluate(()=>document.getElementById('rel').click());     // masquage éteint : le calcul reste
+  expect(await lire()).toEqual({calcul:true,masquage:false,ligne:true});
+  await page.evaluate(()=>document.getElementById('relc').click());    // calcul éteint
+  expect(await lire()).toEqual({calcul:false,masquage:false,ligne:true});
+  await page.evaluate(()=>document.getElementById('btnDbg').click());
+  await expect(page.locator('#dbgBody')).toContainText('relief : désactivé');
+  await page.evaluate(()=>{ document.getElementById('dbgClose').click(); document.getElementById('rel').click(); }); // cocher le masquage rallume le calcul
+  expect(await lire()).toEqual({calcul:true,masquage:true,ligne:true});
   expect(erreurs).toEqual([]);
 });

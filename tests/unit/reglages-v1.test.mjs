@@ -17,8 +17,8 @@ test('première fois : l\'affichage de la v1 est repris, pas le calage ni la pos
 });
 test('une seule fois : ensuite les choix faits dans la v2 sont gardés', () => {
   const st = neuf(); reprendreReglagesV1(st, () => JSON.stringify(v1));
-  const S = lireReglages(st); S.skyline = false; st.ecrire('reglages', S);
-  assert.equal(reprendreReglagesV1(st, () => JSON.stringify(v1)), false); assert.equal(lireReglages(st).skyline, false);
+  const S = lireReglages(st); S.radius = 25; st.ecrire('reglages', S);
+  assert.equal(reprendreReglagesV1(st, () => JSON.stringify(v1)), false); assert.equal(lireReglages(st).radius, 25);
 });
 test('réglages déjà enregistrés par la v2 : l\'affichage est remplacé, le calage gardé', () => {
   const st = neuf(); st.ecrire('reglages', { headOff: 12, skyline: false, radius: 20, layers: { equip: false } });
@@ -26,5 +26,5 @@ test('réglages déjà enregistrés par la v2 : l\'affichage est remplacé, le c
   assert.equal(S.skyline, true); assert.equal(S.radius, 180); assert.equal(S.headOff, 12); assert.equal(S.layers.equip, false); assert.equal(S.layers.places, false);
 });
 test('rien ou illisible dans la v1 : réglages inchangés, et on ne réessaie pas', () => {
-  for (const brut of [null, 'pas du json', '42', '{}']) { const st = neuf(); assert.equal(reprendreReglagesV1(st, () => brut), false); assert.equal(lireReglages(st).skyline, false); assert.equal(reprendreReglagesV1(st, () => JSON.stringify(v1)), false); }
+  for (const brut of [null, 'pas du json', '42', '{}']) { const st = neuf(); assert.equal(reprendreReglagesV1(st, () => brut), false); assert.equal(lireReglages(st).radius, 60); assert.equal(reprendreReglagesV1(st, () => JSON.stringify(v1)), false); }
 });
