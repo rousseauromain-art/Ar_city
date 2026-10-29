@@ -6,3 +6,4 @@
 - `repere-horizon.js` : ligne d'horizon et réticule.
 - `icones.js` : pictogrammes et silhouettes de monuments en listes d'opérations ; `commandes.js`/`canvas.js` gèrent chemins, règle evenodd et commande glyphe ; `etiquettes.js` pose lieux et monuments (pastilles « +N »).
 - `bande.js` : bande des équipements (étape 7), commune à `equipements`, `reperes` et `kml` : groupement, icônes, noms, deux étages, pastilles au bord.
+- `mobiles.js`, `escalier.js` : avions et bateaux (étape 8) — regroupement et réservation des icônes, noms d'avions, noms de bateaux en escalier.
