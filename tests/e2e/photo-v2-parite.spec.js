@@ -56,6 +56,7 @@ for(const sc of SCENES){
     await seedCaches(p2,{entries:exp.entries.filter(e=>e.c==='dc'||urls.has(e.k))},{noms:NOMS_V2});
     await p2.setInputFiles('#start ~ input#photoFile, #photoFile',path.join(PHOTOS_DIR,sc.photo));
     await p2.waitForFunction(()=>window.__vh2&&window.__vh2.photo());
+    if(!sc.heureReelle) await p2.evaluate(()=>{ window.__vh2.photo().photo.utc=Date.UTC(2026,0,1,1,0,0); }); // heure de nuit comme dans la v1 des tests : pas de symbole du soleil (sauf la scène du soleil)
     // attendre que la v2 ait fini de charger et que rien ne bouge
     let derniere='', stable=0; const t0=Date.now();
     while(Date.now()-t0<240000){

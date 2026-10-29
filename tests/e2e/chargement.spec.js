@@ -26,13 +26,13 @@ test('l\'ancienne adresse /villes-horizon.html redirige vers la v1 (requête et 
 test('lanceur : modes de la v1, v2 en développement (page photo en test), outils de diagnostic (dont l\'export du cache)',async({page})=>{
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
   await page.goto('/index.html');
-  const ar=page.getByRole('link',{name:/Réalité augmentée/}), ph=page.getByRole('link',{name:/Analyse d'une photo/});
+  const ar=page.getByRole('link',{name:/^Réalité augmentée(?! — v2)/}), ph=page.getByRole('link',{name:/Analyse d'une photo/});
   await expect(ar).toHaveAttribute('href','v1/villes-horizon.html');
   await expect(ph).toHaveAttribute('href','v1/villes-horizon.html');
   await expect(page.locator('#photoNote')).toContainText('Rejouer une photo');
   const v2=page.locator('#v2'); await expect(v2).toContainText('v2'); await expect(v2).toContainText('en développement');
   await expect(page.getByRole('link',{name:/Photo rejouée — v2/})).toHaveAttribute('href','v2/photo.html'); // la page direct n'existe pas encore
-  expect(await page.locator('a[href="v2/ar.html"]').count()).toBe(0);
+  await expect(page.getByRole('link',{name:/Réalité augmentée — v2/})).toHaveAttribute('href','v2/ar.html');
   for(const [nom,href] of [[/Trafic/,'debug/debug-trafic.html'],[/Profondeur/,'debug/debug-profondeur.html'],[/Lieux et monuments/,'debug/debug-lieux.html'],[/Export du cache/,'debug/debug-cache.html'],[/Outils v2/,'v2/outils.html']])
     await expect(page.getByRole('link',{name:nom})).toHaveAttribute('href',href);
   for(const l of await page.getByRole('link').all()){ const b=await l.boundingBox(); expect(b.height,'zone de toucher >= 44 px').toBeGreaterThanOrEqual(44); }
