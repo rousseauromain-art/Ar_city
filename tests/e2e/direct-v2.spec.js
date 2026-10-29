@@ -115,3 +115,22 @@ test('trafic en direct : avions et bateaux du relais (simulé) arrivent dans la 
   expect(erreurs).toEqual([]);
   await ctx.close();
 });
+
+test('capteurs branchés dès le chargement (comme la v1) ; le diagnostic donne les mesures et la trace du cap',async({browser})=>{
+  const {ctx,page,erreurs}=await ouvrirDirect(browser);
+  await orienter(page,120);                                       // AVANT de toucher « Ouvrir la caméra »
+  expect(await page.evaluate(()=>window.__vh2.fusion.capteur)).toBe(true);
+  expect((await page.evaluate(()=>window.__vh2.pose())).capDeg).toBeCloseTo(120,3);
+  await page.click('#go');
+  await expect.poll(()=>page.evaluate(()=>!!window.__vh2.app.donnees().pos),{timeout:15000}).toBe(true);
+  await page.waitForTimeout(2500);                                // quelques échantillons de la trace du cap
+  await page.click('#btnSet'); await page.click('details[data-grp=off] summary'); await page.click('#btnDbg');
+  const diag=page.locator('#dbgBody');
+  await expect(diag).toContainText('mesures : boussole 120.0°');
+  await expect(diag).toContainText('trace du cap (10 dernières secondes) : 120');
+  await expect(diag).toContainText('cap affiché 120.0°');
+  // un saut du repère du gyroscope est journalisé avec toutes les mesures
+  await page.evaluate(()=>{ for(let i=0;i<4;i++){ window.dispatchEvent(new DeviceOrientationEvent('deviceorientation',{alpha:300,beta:90,gamma:0,absolute:false})); } });
+  expect(erreurs).toEqual([]);
+  await ctx.close();
+});

@@ -72,3 +72,21 @@ test('la v2 reprend l’atlas des lieux de la v1 (même origine) quand le résea
   expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('vh_atlas_v1')).items['Dinard@48.633,-2.067'].name)).toBe('Dinard');
   expect(erreurs).toEqual([]);
 });
+
+test('les lieux de l’atlas sont à l’écran tout de suite, avant la fin du chargement (Overpass qui ne répond pas)',async({page})=>{
+  const atlas={zones:[],items:{'Dinard@48.633,-2.067':{name:'Dinard',lat:48.6333,lon:-2.0667,kind:'town',pop:10000,ele:null,t:1}}};
+  await page.addInitScript(a=>{ try{ localStorage.setItem('vh_atlas_v1',JSON.stringify(a)); }catch(e){} },atlas);
+  const erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
+  await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>{ if(/overpass|maps\.mail\.ru/.test(r.request().url())) return; /* jamais de réponse */ return r.abort(); });
+  await page.goto('/v2/photo.html');
+  await page.setInputFiles('#photoFile',{name:'PXL_test.jpg',mimeType:'image/jpeg',buffer:await photoDeTest(page)});
+  await expect(page.locator('#photoChip')).toBeVisible();
+  await expect.poll(()=>page.evaluate(()=>window.__vh2.app.donnees().lieux.some(l=>l.name==='Dinard'))).toBe(true);
+  const e=await page.evaluate(()=>window.__vh2.app.etat());
+  expect(e.chargementLieux).toBe(true);   // la course entre miroirs dure encore
+  expect(e.source).toMatch(/atlas local|\(en cours\)/);
+  await page.click('#btnSet'); await page.click('details[data-grp=off] summary'); await page.click('#btnDbg');
+  await expect(page.locator('#dbgBody')).toContainText('chargement en cours depuis');
+  await expect(page.locator('#dbgBody')).toContainText('OSM : en cours');
+  expect(erreurs).toEqual([]);
+});

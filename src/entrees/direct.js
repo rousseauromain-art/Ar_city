@@ -5,7 +5,7 @@
  * Entrées : élément `<video>`, fusion des capteurs, rappel de position. Sortie : contrôleur { demarrer, arreter, etat, flux }. Reprend `startCamera`, `#go` et les écouteurs de la v1.
  * Dépend de : entrees/capteurs.js.
  */
-import { surOrientation } from './capteurs.js';
+import { surOrientation, mesuresFusion } from './capteurs.js';
 
 /**
  * @param {{
@@ -13,12 +13,13 @@ import { surOrientation } from './capteurs.js';
  *   fusion: import('./capteurs.js').Fusion,
  *   journal: {info: (m: string, msg: string, d?: unknown) => unknown, avert: (m: string, msg: string, d?: unknown) => unknown},
  *   surPosition: (p: {lat: number, lon: number, precisionM: number}) => void,
+ *   surRetourBoussole?: (mesures: ReturnType<typeof mesuresFusion>) => void,
  *   positionSimulee?: () => boolean,
  *   maintenant?: () => number,
  *   fenetre?: Window,
  * }} o
  */
-export function creerEntreeDirecte({ video, fusion, journal, surPosition, positionSimulee = () => false, maintenant = Date.now, fenetre = window }) {
+export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRetourBoussole, positionSimulee = () => false, maintenant = Date.now, fenetre = window }) {
   /** @type {MediaStream | null} */
   let flux = null;
   let demarre = false, enCours = false, erreurCamera = '', gpsErreur = '', precisionM = 0;
@@ -50,8 +51,22 @@ export function creerEntreeDirecte({ video, fusion, journal, surPosition, positi
   function surMesure(e, absolu) {
     const angle = (fenetre.screen.orientation && fenetre.screen.orientation.angle) ?? /** @type {any} */ (fenetre).orientation ?? 0;
     const r = surOrientation(fusion, { alpha: e.alpha, beta: e.beta, gamma: e.gamma, webkitCompassHeading: /** @type {any} */ (e).webkitCompassHeading, angleEcran: angle }, absolu, maintenant());
-    if (r.reinitialise) journal.avert('cap', 'gyroscope et boussole en désaccord de plus de 40° : repère du gyroscope réinitialisé, retour à la boussole');
+    if (r.reinitialise) {
+      const m = mesuresFusion(fusion, maintenant());
+      journal.avert('cap', 'gyroscope et boussole en désaccord de plus de 40° : repère du gyroscope réinitialisé, retour à la boussole', m);
+      if (surRetourBoussole) surRetourBoussole(m);
+    }
   }
+
+  let capteursBranches = false;
+  /** Écouteurs d'orientation (une seule fois), branchés dès la création comme dans la v1 : quand on touche « Ouvrir la caméra », le gyroscope est chaud et la boussole apprise. */
+  function brancherCapteurs() {
+    if (capteursBranches) return;
+    capteursBranches = true;
+    fenetre.addEventListener('deviceorientationabsolute', (e) => surMesure(/** @type {DeviceOrientationEvent} */ (e), true));
+    fenetre.addEventListener('deviceorientation', (e) => surMesure(/** @type {DeviceOrientationEvent} */ (e), /** @type {DeviceOrientationEvent} */ (e).absolute === true));
+  }
+  brancherCapteurs(); // toujours, comme la v1 : sans permission accordée les événements ne viennent simplement pas (iOS), et Chrome expose lui aussi `requestPermission`
 
   return {
     /** À appeler depuis un geste de l'utilisateur (permission d'orientation d'iOS, caméra, position). */
@@ -66,8 +81,6 @@ export function creerEntreeDirecte({ video, fusion, journal, surPosition, positi
           surPosition({ lat: p.coords.latitude, lon: p.coords.longitude, precisionM: p.coords.accuracy });
         }, (err) => { erreurCamera = erreurCamera || ''; journal.avert('direct', 'GPS refusé : ' + err.message); gpsErreur = 'GPS refusé : ' + err.message; }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
       } else gpsErreur = 'GPS indisponible';
-      fenetre.addEventListener('deviceorientationabsolute', (e) => surMesure(/** @type {DeviceOrientationEvent} */ (e), true));
-      fenetre.addEventListener('deviceorientation', (e) => surMesure(/** @type {DeviceOrientationEvent} */ (e), /** @type {DeviceOrientationEvent} */ (e).absolute === true));
       doc.addEventListener('visibilitychange', () => { if (!demarre) return; if (doc.hidden) arreterCamera(); else if (!cameraVivante()) demarrerCamera(); });
       fenetre.addEventListener('pageshow', (e) => { if (demarre && /** @type {PageTransitionEvent} */ (e).persisted && !cameraVivante()) demarrerCamera(); });
       fenetre.addEventListener('focus', () => { if (demarre && !doc.hidden && !cameraVivante()) demarrerCamera(); });

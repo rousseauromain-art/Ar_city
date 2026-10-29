@@ -275,3 +275,35 @@ test('lieux : quand recharger', () => {
   assert.equal(src.doitRecharger({ ...p, pos: { lat: 48.1, lon: -2 } }), true); // ~11 km > 25 % de 30 km
   assert.equal(normaliser('Châteaubriant'), 'chateaubriant');
 });
+
+test('lieux : publication progressive — OpenFreeMap s’affiche sans attendre Overpass, le résultat final est celui d’un chargement sans rappel', async () => {
+  /** @type {() => void} */
+  let finirOsm = () => {};
+  const osmLent = new Promise((ok) => { finirOsm = () => ok([L('Rennes', 'city', 48.1, -1.7), L('La Lande', 'hamlet')]); });
+  const fabrique = (/** @type {Promise<any>} */ osm) => {
+    const mem = /** @type {Record<string, any>} */ ({});
+    return creerSourceLieux({ cache: creerCacheDonnees('vh2-p', { caches: /** @type {any} */ (fauxCaches()) }), atlas: creerAtlas({ lire: (n, d) => mem[n] ?? d, ecrire: (n, v) => { mem[n] = v; return true; } }),
+      overpass: /** @type {any} */ ({ interroger: () => osm }), openfreemap: /** @type {any} */ ({ charger: async () => [L('rennes', 'city', 48.1, -1.7, 40), L('Dinan', 'town')] }),
+      relais: /** @type {any} */ ({ disponible: false }) });
+  };
+  const partiels = /** @type {{noms: string[], source: string, sources: any[]}[]} */ ([]);
+  const enCours = fabrique(osmLent).charger({ ...base, quandPartiel: (p) => partiels.push({ noms: p.lieux.map((l) => l.name), source: p.source, sources: p.sources }) });
+  await new Promise((ok) => setTimeout(ok, 20));
+  assert.equal(partiels.length, 1, 'une publication partielle, Overpass n’a pas répondu');
+  assert.deepEqual(partiels[0].noms, ['rennes', 'Dinan']); assert.equal(partiels[0].source, 'OpenFreeMap (en cours)');
+  assert.deepEqual(partiels[0].sources.map((s) => [s.nom, s.etat]), [['OSM', 'en cours'], ['OpenFreeMap', 'réseau']]);
+  finirOsm();
+  const final = await enCours;
+  const sansRappel = await fabrique(Promise.resolve([L('Rennes', 'city', 48.1, -1.7), L('La Lande', 'hamlet')])).charger(base);
+  assert.deepEqual(final.lieux, sansRappel.lieux); assert.equal(final.source, 'OSM+OpenFreeMap');
+  assert.deepEqual(final.sources.map((s) => s.etat), ['réseau', 'réseau']);
+  assert.equal(partiels.length, 2, 'puis une publication par source réglée');
+});
+
+test('lieux : une source en échec est annoncée avec sa raison', async () => {
+  const mem = /** @type {Record<string, any>} */ ({});
+  const src = creerSourceLieux({ cache: creerCacheDonnees('vh2-e', { caches: /** @type {any} */ (fauxCaches()) }), atlas: creerAtlas({ lire: (n, d) => mem[n] ?? d, ecrire: (n, v) => { mem[n] = v; return true; } }),
+    overpass: /** @type {any} */ ({ interroger: async () => { throw new Error('HTTP 504'); } }), openfreemap: /** @type {any} */ ({ charger: async () => [L('Dinan', 'town')] }), relais: /** @type {any} */ ({ disponible: false }) });
+  const r = await src.charger(base);
+  assert.deepEqual(r.sources.map((s) => [s.nom, s.etat, s.raison ?? s.n]), [['OSM', 'échec', 'HTTP 504'], ['OpenFreeMap', 'réseau', 1]]);
+});

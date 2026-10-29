@@ -17,7 +17,8 @@ import { listeIntegree } from './lieux-integres.js';
  * @typedef {object} ResultatLieux
  * @property {Lieu[]} lieux @property {string} source sources utilisées, jointes par « + » (« (mémoire) » = mémoire périmée en secours)
  * @property {boolean} secours une source a répondu depuis la mémoire périmée : le réseau doit être retenté
- * @property {boolean} enLigne au moins une source vivante a répondu
+ * @property {boolean} enLigne au moins une source vivante a répondu @property {DetailSource[]} sources état de chaque source (diagnostic)
+ * @typedef {{nom: string, etat: 'en cours' | 'réseau' | 'mémoire' | 'mémoire périmée' | 'échec', n?: number, raison?: string}} DetailSource
  */
 
 /** Durée de vie de la mémoire des lieux : 7 jours. */
@@ -39,10 +40,12 @@ export const sourceVivante = (s) => !!s && s.split('+').every((t) => SOURCES_VIV
 export function creerSourceLieux({ cache, overpass, openfreemap, relais, atlas, journal }) {
   return {
     /**
-     * @param {{pos: Point, rayonKm: number, hameaux: boolean, reperes: Record<string, boolean>, sourceActuelle?: string, lieuxActuels?: Lieu[]}} p
+     * `quandPartiel` : appelée à chaque source réglée avec la fusion de ce qui est déjà arrivé, pour afficher les lieux sans attendre la plus lente (les miroirs Overpass peuvent
+     * mettre plus de 30 s à échouer pendant qu'OpenFreeMap répond de la mémoire en 1 s). Le résultat final reste la fusion complète, dans l'ordre canonique des sources.
+     * @param {{pos: Point, rayonKm: number, hameaux: boolean, reperes: Record<string, boolean>, sourceActuelle?: string, lieuxActuels?: Lieu[], quandPartiel?: (p: {lieux: Lieu[], source: string, sources: DetailSource[]}) => void}} p
      * @returns {Promise<ResultatLieux>}
      */
-    async charger({ pos, rayonKm, hameaux, reperes, sourceActuelle = '', lieuxActuels = [] }) {
+    async charger({ pos, rayonKm, hameaux, reperes, sourceActuelle = '', lieuxActuels = [], quandPartiel }) {
       // La requête est centrée sur la case (arrondie) et son rayon agrandi d'une marge : une même mémoire sert à tout déplacement dans la case.
       const cellD = Math.max(0.01, Math.min(0.05, rayonKm / 1200)), pc = { lat: Math.round(pos.lat / cellD) * cellD, lon: Math.round(pos.lon / cellD) * cellD };
       const rQ = Math.ceil(rayonKm + cellD * 111 * 0.75), r = Math.round(rQ * 1000), plafond = (/** @type {number} */ km) => Math.min(r, km * 1000);
@@ -53,7 +56,22 @@ export function creerSourceLieux({ cache, overpass, openfreemap, relais, atlas, 
       const noms = ['OSM', 'OpenFreeMap'];
       const taches = [cf('osm', () => overpass.interroger(q, 20000)), cf('ofm', () => openfreemap.charger(pc, rQ, hameaux))];
       if (relais.disponible) { noms.push('Geoapify', 'GeoNames'); taches.push(cf('gpf', () => relais.geoapify(pc, rQ, reperes)), cf('gnm', () => relais.geonames(pc, rQ, reperes))); }
-      const regles = await Promise.allSettled(taches);
+      /** @type {DetailSource[]} */
+      const details = noms.map((nom) => ({ nom, etat: 'en cours' }));
+      /** @type {(Lieu[] | null)[]} */
+      const arrives = noms.map(() => null);
+      const annoncer = () => {
+        if (!quandPartiel) return;
+        const listes = /** @type {Lieu[][]} */ (arrives.filter((l) => l !== null));
+        if (!listes.length) { quandPartiel({ lieux: [], source: '', sources: details.map((d) => ({ ...d })) }); return; }
+        let lieux = fusionnerParNomEtProximite(listes, 1.5);
+        if (!hameaux) lieux = lieux.filter((c) => c.kind !== 'hamlet' && c.kind !== 'isolated_dwelling');
+        quandPartiel({ lieux, source: noms.filter((_, i) => arrives[i] !== null).join('+') + ' (en cours)', sources: details.map((d) => ({ ...d })) });
+      };
+      const suivies = taches.map((t, i) => t.then(
+        (v) => { arrives[i] = v.donnees; details[i] = { nom: noms[i], etat: v.source === 'reseau' ? 'réseau' : v.source === 'cache' ? 'mémoire' : 'mémoire périmée', n: v.donnees.length }; annoncer(); return v; },
+        (e) => { details[i] = { nom: noms[i], etat: 'échec', raison: e instanceof Error ? e.message : String(e) }; annoncer(); throw e; }));
+      const regles = await Promise.allSettled(suivies);
       regles.forEach((res, i) => {
         if (!journal) return;
         if (res.status === 'fulfilled') journal.info('lieux', `${noms[i]} : ${res.value.donnees.length} lieux${res.value.source === 'reseau' ? '' : ` (${res.value.source})`}`);
@@ -76,14 +94,14 @@ export function creerSourceLieux({ cache, overpass, openfreemap, relais, atlas, 
         if (!hameaux) lieux = lieux.filter((c) => c.kind !== 'hamlet' && c.kind !== 'isolated_dwelling'); // filtre uniforme, quelle que soit la source d'origine
         const ajoutes = atlas.absorber(lieux, pos, rayonKm); // alimente l'atlas : on retombera dessus si toutes les sources tombent plus tard
         if (ajoutes && journal) journal.info('lieux', `atlas : +${ajoutes} lieux mémorisés (${atlas.nombre()} au total)`);
-        return { lieux, source: utilisees.join('+'), secours, enLigne: true };
+        return { lieux, source: utilisees.join('+'), secours, enLigne: true, sources: details };
       }
       if (!sourceVivante(sourceActuelle)) { // rien de vivant déjà chargé : atlas local, puis liste intégrée
-        if (atlas.nombre()) return { lieux: atlas.lieux(), source: `atlas local (${atlas.nombre()} lieux)`, secours: true, enLigne: false };
-        return { lieux: listeIntegree(), source: 'liste intégrée (hors ligne)', secours: true, enLigne: false };
+        if (atlas.nombre()) return { lieux: atlas.lieux(), source: `atlas local (${atlas.nombre()} lieux)`, secours: true, enLigne: false, sources: details };
+        return { lieux: listeIntegree(), source: 'liste intégrée (hors ligne)', secours: true, enLigne: false, sources: details };
       }
       if (journal) journal.avert('lieux', `conservation des ${lieuxActuels.length} lieux déjà chargés`);
-      return { lieux: lieuxActuels, source: sourceActuelle, secours: true, enLigne: false };
+      return { lieux: lieuxActuels, source: sourceActuelle, secours: true, enLigne: false, sources: details };
     },
     /**
      * Faut-il (re)charger ? Oui si forcé, si rien n'a été chargé, si la source n'est pas vivante (atlas, liste intégrée), si le rayon a grandi
