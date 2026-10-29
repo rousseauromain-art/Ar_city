@@ -119,7 +119,7 @@ export function creerReseau({
      * Une requête unique (GET ou POST) : délai maximal, AUCUNE nouvelle tentative, pas de fusion, pas de cache. Pour les appelants qui gèrent
      * eux-mêmes la concurrence (course entre miroirs Overpass, tuiles en parallèle). `signal` externe : annule la requête.
      * @param {string} url
-     * `brut` : renvoie { ok, statut, donnees } SANS lever d'erreur sur un statut HTTP d'échec (les relais y mettent un message JSON utile) ; une panne
+     * `brut` : renvoie { ok, statut, donnees, entetes } (entetes.get(nom) lit un en-tête de réponse) SANS lever d'erreur sur un statut HTTP d'échec (les relais y mettent un message JSON utile) ; une panne
      * réseau ou un délai dépassé lève toujours une ErreurReseau de statut 0.
      * @param {{methode?: 'GET'|'POST', corps?: string, entetes?: Record<string, string>, analyse?: 'json'|'texte'|'octets', delaiMs?: number, signal?: AbortSignal, brut?: boolean}} [options]
      * @returns {Promise<unknown>}
@@ -139,7 +139,7 @@ export function creerReseau({
           /** @type {unknown} */
           let donnees = {};
           try { donnees = await rep.json(); } catch { /* corps absent ou non JSON : objet vide, comme la v1 */ }
-          return { ok: rep.ok, statut: rep.status, donnees };
+          return { ok: rep.ok, statut: rep.status, donnees, entetes: { get: (/** @type {string} */ nom) => (rep.headers ? rep.headers.get(nom) : null) } };
         }
         if (!rep.ok) throw new ErreurReseau(`HTTP ${rep.status}`, rep.status, url);
         return analyse === 'json' ? await rep.json() : analyse === 'texte' ? await rep.text() : new Uint8Array(await rep.arrayBuffer());
