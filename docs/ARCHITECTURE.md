@@ -67,6 +67,7 @@ Sens des dépendances : `ui → rendu → calques → scene, calage, vision → 
 | `src/calques/{avions,bateaux}.js` | classement des avions et des bateaux (champ, horizon, recherche) |
 | `src/rendu/bande.js` | **bande des équipements commune** (équipements urbains, pylônes, repères hauts, couches personnelles) : groupes, icône + pastille du nombre, nom à côté, dessous ou en haut, étage bas ou haut, sites trouvés, pastilles au bord |
 | `src/app/application.js` | **racine de composition** (étape 9b) : assemble réseau, caches, sources de données et relief, décide quand charger (seuils de la v1), publie les données au moteur |
+| `src/entrees/{capteurs,direct}.js`, `v2/ar.html` | page en direct : fusion boussole/gyroscope (pure, identique à la v1), caméra, GPS, événements d'orientation |
 | `src/entrees/photo.js` | photo rejouée : position, cap (correction du Pixel), champ, heure, d'après l'EXIF |
 | `src/ui/page-photo.js`, `style.css`, `v2/photo.html` | page v2 « photo rejouée », même interface que la v1 |
 | `src/donnees/sommets-lointains.js` | grands sommets jusqu'à 200 km (tuiles OpenFreeMap z7), gardés 60 jours |

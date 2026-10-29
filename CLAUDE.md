@@ -15,6 +15,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
 - `config.js` (à la racine) : adresse du relais. Il est public et ne contient aucun secret.
 - `index.html` : le lanceur (modes × versions ; v2 « en développement », sans lien).
 - `v2/photo.html` : page v2 « photo rejouée » (même interface que la v1), liée depuis le lanceur ; commandes de l'étape 10 désactivées ; symbole du soleil affiché (heure EXIF), calage sur le soleil à l'étape 10.
+- `v2/ar.html` : page v2 en direct (caméra, GPS, boussole/gyroscope, trafic), même interface que la v1, liée depuis le lanceur.
 - `v2/outils.html` + `src/` : fondations de la v2 (étape 1 de `REFONTE.md`) : journal, état, stockage `vh2:`, drapeaux, rapport, réseau unique, Eruda avec `?debug=1`. Rôle de chaque dossier : `docs/ARCHITECTURE.md`.
 - Pages de diagnostic, dans `debug/` (elles chargent `../config.js`) :
   - `debug/debug-trafic.html` : AIS et avions ;
@@ -132,7 +133,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
 - **Wikidata :** beaucoup de monuments de Saint-Malo n'ont pas de hauteur.
 
 ## À faire (point du 25/10/2026)
-0. **Refonte :** étapes 0 à 8 faites, étape 9 en cours (9a moteur de scène `src/moteur/` fait, 9b page photo `v2/photo.html` + `src/app/` + `src/ui/` + `src/entrees/photo.js` faite, 9c page direct à venir) (v1 figée, lanceur, fondations v2, harnais, `src/noyau/`, `src/donnees/`, `src/scene/`, `src/rendu/`, calques `relief`, `photo-silhouette`, `lieux`, `monuments`, `equipements` (urbains et pylônes), `reperes` (repères hauts OSM), `kml`, `avions`, `bateaux` ; bande commune `rendu/bande.js` ; données du trafic en direct) ; la suite est dans `REFONTE.md` §9.
+0. **Refonte :** étapes 0 à 8 faites, étape 9 en cours (9a moteur de scène `src/moteur/` fait, 9b page photo `v2/photo.html` + `src/app/` + `src/ui/` + `src/entrees/photo.js` faite, 9c page direct `v2/ar.html` + `src/entrees/capteurs.js` et `direct.js` faite : étape 9 terminée, à valider sur le terrain) (v1 figée, lanceur, fondations v2, harnais, `src/noyau/`, `src/donnees/`, `src/scene/`, `src/rendu/`, calques `relief`, `photo-silhouette`, `lieux`, `monuments`, `equipements` (urbains et pylônes), `reperes` (repères hauts OSM), `kml`, `avions`, `bateaux` ; bande commune `rendu/bande.js` ; données du trafic en direct) ; la suite est dans `REFONTE.md` §9.
 1. **Dépôt propre :**
    - relais dans `relais/` ;
    - tests et GitHub Actions (socle en place, voir « Tests ») ;

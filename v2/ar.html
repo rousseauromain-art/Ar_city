@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0E1A2B">
+<title>Réalité augmentée — Villes à l'horizon v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../src/ui/style.css">
+</head>
+<body>
+<div id="stage">
+  <video id="cam" playsinline muted autoplay></video>
+  <img id="photoBg" alt="" hidden>
+  <canvas id="ov"></canvas>
+  <div id="safe"></div>
+  <div class="chips" id="chips">
+    <div class="chiprow">
+      <button id="btnFold" aria-label="Afficher ou masquer les informations"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+      <div id="status" class="chip">En attente…</div>
+      <button id="radChip" class="chip" aria-label="Zone de recherche">⌖ 60 km</button>
+    </div>
+    <div id="radPop" class="chip" hidden><input type="range" id="radQ" min="10" max="200" step="5" value="60" aria-label="Rayon de recherche"></div>
+    <div id="calib" class="chip"></div>
+    <div id="photoChip" class="chip" hidden></div>
+    <div id="filt" class="chip"></div>
+    <div id="note" class="chip"></div>
+  </div>
+  <div id="tools">
+    <button id="btnLayers" aria-label="Calques : choisir ce qui s'affiche" title="Calques" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M12 3.5l8.5 4.5-8.5 4.5L3.5 8z"/><path d="M3.5 12.5l8.5 4.5 8.5-4.5"/><path d="M3.5 16.5l8.5 4.5 8.5-4.5"/></svg></button>
+    <button id="btnFind" aria-label="Chercher un lieu par nom (maintenir)" title="Chercher un lieu (maintenir)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/></svg></button>
+    <button id="btnAlign" class="etape10" disabled aria-label="Calage automatique" title="Caler automatiquement"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><path d="M12 2v5M12 17v5M2 12h5M17 12h5"/></svg></button>
+    <button id="btnPoint" class="etape10" disabled aria-label="Pointer un repere connu pour caler le cap" title="Touchez ensuite le repère visible à l'écran"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg></button>
+    <button id="btnReload" aria-label="Recharger les lieux et le relief" title="Recharger les lieux"><svg viewBox="0 0 24 24"><path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M20.5 3.5V9H15"/></svg></button>
+    <button id="btnFs" aria-label="Plein écran" title="Plein écran"><svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
+  </div>
+  <div id="flash"></div>
+  <div id="layers" role="dialog" aria-label="Calques">
+    <div class="lyT">Calques</div>
+    <label><svg viewBox="0 0 24 24" stroke="#F3E9D2"><path d="M4 19l5-14 5 14M6 14h6"/><path d="M15 19v-7a3 3 0 0 1 6 0v7M15 15h6"/></svg><span class="lyN">Lieux<em id="lyInfoPlaces">villes, villages, sommets…</em></span><input type="checkbox" id="lyPlaces"></label>
+    <label><svg viewBox="0 0 24 24" stroke="#F2C14E"><path d="M7 21l4-15h2l4 15M9.2 13.5h5.6M10 21a2 2 0 0 1 4 0M12 6V2.5"/></svg><span class="lyN">Monuments<em id="lyInfoMon">lieux emblématiques (Wikipédia)</em></span><input type="checkbox" id="lyMon"></label>
+    <label class="lySub"><svg viewBox="0 0 24 24" stroke="#78CDE8"><path d="M3 20h18M5 20v-5q7-9 14 0v5M9 20v-3q3-4 6 0v3"/></svg><span class="lyN">Équipements urbains<em id="lyInfoEq">stades, gares et métros, canaux, parcs, places, théâtres, ponts</em></span><input type="checkbox" id="lyEq"></label>
+    <label><svg viewBox="0 0 24 24" stroke="#E85A5A"><path d="M8 21l3.2-15h1.6L16 21M9.6 14.5l5.2-3M14.4 14.5l-5.2-3M8.8 18l6.8-2.6M15.2 18l-6.8-2.6M12 6V2.5M10 3.5h4"/></svg><span class="lyN">Pylônes télécom<em id="lyInfoTel">ANFR, France — via le relais</em></span><input type="checkbox" id="lyTel"></label>
+    <label><svg viewBox="0 0 24 24" stroke="#A98BFF"><path d="M6 21V8h7v13M13 12h5v9M8.5 11h2M8.5 14h2M8.5 17h2M15 15h1M15 18h1M9.5 8V4"/></svg><span class="lyN">Repères hauts<em id="lyInfoBld">tours, cheminées, châteaux d'eau (OSM)</em></span><input type="checkbox" id="lyBld"></label>
+    <label><svg viewBox="0 0 24 24" stroke="#7FE3C4"><path d="M3 16h18l-3 4H6zM12 3v12M12 4l6 9h-6M12 6l-5 7h5"/></svg><span class="lyN">Bateaux<em id="lyInfoSea">AIS, en direct — via le relais</em></span><input type="checkbox" id="lySea"></label>
+    <label><svg viewBox="0 0 24 24" stroke="#8FD3FF"><path d="M12 2.5c1 0 1.5 1 1.5 2.5v4.5l7.5 4.5v2l-7.5-2v4.5l2.5 2v1.5L12 21l-4 1v-1.5l2.5-2V14L3 16v-2l7.5-4.5V5c0-1.5.5-2.5 1.5-2.5z"/></svg><span class="lyN">Avions<em id="lyInfoAir">OpenSky, en direct</em></span><input type="checkbox" id="lyAir"></label>
+    <div id="lyUser"></div>
+    <div class="lyH">L'œil règle <b>combien</b> de noms ; les calques règlent <b>lesquels</b>.</div>
+  </div>
+  <div id="bar">
+    <button class="side" id="btnSet">Réglages</button>
+    <button id="shutter" aria-label="Prendre la photo"><i></i></button>
+    <button class="side" id="btnBeyond" aria-pressed="false" aria-label="Densité des noms : Essentiel ou Tout voir"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span id="eyeLbl">Essentiel</span><b id="eyeBadge"></b></button>
+  </div>
+</div>
+
+<div id="sheet">
+  <h2>Réglages <button id="btnClose">FERMER</button></h2>
+  <!-- toujours visibles : ce qu'on regle le plus souvent -->
+  <div class="row">
+    <label for="flt">Filtrer par nom</label><span class="val" id="fltN"></span>
+    <input type="search" id="flt" placeholder="ex. Crozon, Saint-" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <span class="hint" id="fltDiag" style="display:none;color:var(--ochre)"></span>
+    <span class="hint">Accents et majuscules ignores. Laissez vide pour tout afficher.</span>
+  </div>
+  <div class="row">
+    <label for="rad">Rayon de recherche</label><span class="val" id="radV">60 km</span>
+    <input type="range" id="rad" min="10" max="200" step="5" value="60">
+  </div>
+  <details class="grp" data-grp="aff"><summary><b>Affichage</b><i class="gsum" id="sum_aff"></i></summary>
+  <div class="row">
+    <label for="dst">Afficher les distances</label><input type="checkbox" id="dst" checked>
+  </div>
+  <div class="row">
+    <label for="vil">Hameaux et lieux-dits</label><input type="checkbox" id="vil">
+  </div>
+  <div class="row">
+    <label for="bey">Tout voir</label><input type="checkbox" id="bey">
+    <span class="hint">Par défaut (« Essentiel »), seuls les lieux visibles d'ici sont nommés. « Tout voir » ajoute en transparence, avec un trait pointillé, ceux cachés derrière le relief et ceux au-delà de la portée habituelle de leur catégorie (plage &gt; 12 km, village &gt; 30 km, île &gt; 60 km…). Raccourci : le bouton œil à droite du déclencheur ; le badge « +N » indique combien de lieux il ajouterait dans la direction visée. Les noms ne se chevauchent jamais : dans une zone très chargée, certains attendent d'avoir de la place.</span>
+  </div>
+  <div class="row">
+    <label for="rdg">Crêtes intérieures (relief en plusieurs plans, avec leur distance)</label><input type="checkbox" id="rdg">
+  </div>
+  </details>
+  <details class="grp" data-grp="cal"><summary><b>Calques en direct et équipements</b><i class="gsum" id="sum_cal"></i></summary>
+  <div class="row">
+    <label for="air">Avions<em>OpenSky &le; 120 km</em></label><input type="checkbox" id="air">
+  </div>
+  <div class="row">
+    <label for="sea">Bateaux<em>AISStream &le; 40 km</em></label><input type="checkbox" id="sea">
+    <span class="hint" id="seaHint">Passe par votre relais Cloudflare (config.js : relay), qui détient la clé AISStream. Mise à jour toutes les 30 s. La fraîcheur dépend surtout de la couverture radio AIS locale (stations terrestres) : un navire peut apparaître avec plusieurs dizaines de minutes de retard même sur MarineTraffic — ce n'est pas propre à cette app.</span>
+  </div>
+  <div class="row">
+    <label for="tel">Afficher (en rouge)<em>ANFR &le; 8 km</em></label><input type="checkbox" id="tel">
+    <span class="hint">France uniquement (source ANFR, via le relais). Propriétaire du support et opérateurs présents en appuyant sur une étiquette. Un pylône lointain peut mettre quelques secondes à apparaître.</span>
+  </div>
+  <div class="row">
+    <label for="bld">Afficher (en bleu)<em>OSM &le; 12 km</em></label><input type="checkbox" id="bld">
+    <span class="hint">Tours, clochers, cheminées, mâts, châteaux d'eau et immeubles élevés (source OpenStreetMap : tag "height" ou "building:levels"), affichés comme les pylônes télécom ci-dessus — sans correction de relief.</span>
+  </div>
+  </details>
+  <details class="grp" data-grp="cap"><summary><b>Calage et capteurs</b><i class="gsum" id="sum_cap"></i></summary>
+  <div class="row">
+    <label for="fov">Champ de la caméra</label><span class="val" id="fovV">67°</span>
+    <input type="range" id="fov" min="20" max="110" step="0.5" value="67">
+    <span class="hint">Angle du côté large du capteur (~67° pour un objectif principal standard). L'app en déduit le champ réellement affiché selon l'orientation et le recadrage. Le calage auto l'ajuste ; sinon, si deux lieux connus paraissent trop écartés ou trop serrés, corrigez ici.</span>
+  </div>
+  <div class="row">
+    <label for="gyr">Cap stabilisé au gyroscope (ne se décale plus en tournant)</label><input type="checkbox" id="gyr">
+  </div>
+  <div class="row">
+    <label for="phv">Visibilité d'après la photo (on ne nomme que ce que la caméra voit)</label><input type="checkbox" id="phv">
+  </div>
+  <div class="row">
+    <label for="sky">Ligne d'horizon (aide au calage)</label><input type="checkbox" id="sky">
+    <span class="hint" id="skyInfo">Dessine la silhouette théorique du relief : comparez-la à l'horizon réel pour caler, utile face à une île ou une côte sans repère net.</span>
+  </div>
+  <div class="row">
+    <label for="crs">Croix de visée (pointage d'un site lointain)</label><input type="checkbox" id="crs">
+    <span class="hint">Grande croix graduée au centre de l'écran (axe de la caméra), un trait par degré, avec l'azimut et le site lus : amenez le site visé dans la croix, comme pour pointer un faisceau hertzien.</span>
+  </div>
+  <div class="row zbtns">
+    <button id="btnAutoAlign" class="etape10" disabled>Caler auto</button>
+    <button id="btnLearned" class="etape10" disabled>Reprendre l'écart appris</button>
+  </div>
+    <div id="poiList"></div>
+  <div class="row">
+    <span class="hint">Glissez sur l'image : horizontalement pour caler le cap, verticalement pour caler l'horizon. Ou utilisez l'icône cible (calage automatique) : activez-la puis touchez un repère reconnaissable à l'écran (rocher, île, sommet…) — le cap se corrige d'un coup en le rattachant au lieu connu le plus proche en relèvement.</span>
+    <button id="reset">Remettre le calage à zéro</button>
+  </div>
+  </details>
+  <details class="grp" data-grp="rel"><summary><b>Relief et altitude</b><i class="gsum" id="sum_rel"></i></summary>
+  <div class="row">
+    <label for="rel">Masquer ce qui est caché par le relief</label><input type="checkbox" id="rel" checked>
+    <span class="hint">Calcule, pour chaque direction, la crête la plus haute devant chaque lieu (tuiles d'altitude Mapterhorn — IGN ~1 m à proximité en France, Copernicus ~30 m au-delà —, courbure terrestre incluse ; sous 300 m, le relief le plus fin est lissé pour qu'un obstacle proche insignifiant ne masque pas à tort un lieu lointain). Les lieux cachés derrière une colline disparaissent ; le bouton œil (en bas, « Tout voir ») les affiche en transparence.</span>
+  </div>
+  <div class="row">
+    <label for="obsH">Altitude de l'œil (correction)</label><span class="val" id="obsHV">0 m</span>
+    <input type="range" id="obsH" min="-30" max="250" step="1" value="0">
+    <label for="floorN">ou étage</label><input type="number" id="floorN" min="0" max="80" step="1" inputmode="numeric" placeholder="ex. 7" style="width:5em">
+    <span class="hint" id="obsHInfo"></span>
+    <span class="hint">Étage : ≈ 3,2 m par niveau (7ᵉ étage ≈ +22 m). L'altitude du sol sous vos pieds est estimée d'après le relief ; elle peut se tromper de 10 m ou plus, surtout en bord de mer ou de falaise (précision GPS, données à 30 m hors de France). Positif : balcon, étage (2ᵉ étage ≈ +6 m). Négatif : l'estimation vous place trop haut (ex. estimé 14 m alors que vous êtes au ras de l'eau → −11 m). Repère : l'altitude affichée par PeakFinder ou une carte topo.</span>
+  </div>
+  <div class="row zbtns">
+    <button id="btnSky">Recalculer le relief</button>
+  </div>
+  </details>
+  <details class="grp" data-grp="off"><summary><b>Hors-ligne et diagnostic</b><i class="gsum" id="sum_off"></i></summary>
+  <div class="row">
+    <span class="hint" id="zoneInfo">—</span>
+  </div>
+  <div class="row zbtns">
+    <button id="btnZoneDL">Telecharger cette zone (150 km)</button>
+    <button id="btnZoneDel">Supprimer</button>
+  </div>
+  <div class="row zbtns">
+    <button id="btnCacheClr">Vider le cache</button>
+  </div>
+  <div class="row">
+    <span class="hint">Supprime les tuiles de relief, l'atlas hors-ligne et les données mémorisées (pylônes, bâtiments, monuments). Les réglages et le calage sont conservés.</span>
+  </div>
+  <div class="row">
+    <span class="hint">Etat du cache, source des donnees et journal des requetes — utile pour verifier ce qui a bien ete recupere avant de partir sans reseau.</span>
+  </div>
+  <div class="row zbtns">
+    <button id="btnDbg">Ouvrir le diagnostic</button>
+  </div>
+  </details>
+  <details class="grp" data-grp="sim"><summary><b>Test et simulation</b><i class="gsum" id="sum_sim"></i></summary>
+  <div class="row">
+    <label for="simOn">Position simulée</label><input type="checkbox" id="simOn">
+    <input type="text" id="simPos" placeholder="45.0805, 7.6705 (ou lien Google Maps)" style="width:100%">
+    <span class="hint" id="simInfo">Pour revoir un lieu sans y être : collez des coordonnées (ou un lien de carte contenant @lat,lon). Le GPS est ignoré tant que la case est cochée ; tournez en glissant le doigt, la boussole reste active.</span>
+  </div>
+  <div class="row">
+    <label>Rejouer une photo</label><button type="button" id="btnPhoto">Ouvrir un fichier</button>
+    <input type="file" id="photoFile" hidden>
+    <span class="hint">Ouvrez une photo prise avec le téléphone, par le gestionnaire de fichiers pour garder ses métadonnées (une photo choisie dans la galerie perd sa position). L'appli se place à sa position GPS, dans sa direction et avec sa focale, et dessine ses calques par-dessus, comme sur place. Glissez pour corriger, « Caler auto » pour tester le calage. Rien n'est enregistré : à la sortie, votre calage, votre champ et votre position reviennent.</span>
+    <button type="button" id="btnBench" class="etape10" disabled>Tester le calage auto</button>
+    <span class="hint">Banc d'essai : calez d'abord la photo à la main (c'est la référence), puis lancez le test. L'appli repart de la référence volontairement décalée (cap ±4, ±8, ±12°, champ ±6°), lance « Caler auto » à chaque fois et mesure l'écart restant. Elle liste aussi les repères dont le calage peut se servir sur cette vue, et ceux qu'il ignore.</span>
+    <span class="hint" id="photoInfo" style="display:block"></span>
+  </div>
+  </details>
+  <details class="grp" data-grp="apr"><summary><b>À propos</b><i class="gsum" id="sum_apr"></i></summary>
+  <div class="row">
+    <span class="hint">Lieux : © contributeurs OpenStreetMap (ODbL). Relief : Mapterhorn (IGN RGE ALTI, Copernicus GLO-30), repli AWS Terrain Tiles (SRTM).</span>
+  </div>
+  <div class="row">
+    <span class="hint" id="verInfo"></span>
+  </div>
+  </details>
+</div>
+
+<div id="dbg">
+  <h2><span id="dbgTitle">Diagnostic</span> <button id="dbgClose">FERMER</button></h2>
+  <div id="dbgBody"></div>
+</div>
+
+<div id="shot">
+  <img id="shotImg" alt="Photo avec les villes à l'horizon">
+  <div class="acts">
+    <button id="shotClose">Fermer</button>
+    <button id="shotSave">Enregistrer</button>
+    <button id="shotShare" class="pri">Partager</button>
+  </div>
+</div>
+
+<div id="start">
+  <svg id="rose" viewBox="0 0 120 120" fill="none" stroke="#F3E9D2" stroke-width="1">
+    <circle cx="60" cy="60" r="56" opacity=".35"/><circle cx="60" cy="60" r="44" opacity=".2"/>
+    <path d="M60 6 L66 60 L60 114 L54 60 Z" fill="#E0A526" stroke="none"/>
+    <path d="M6 60 L60 54 L114 60 L60 66 Z" fill="#F3E9D2" stroke="none" opacity=".85"/>
+    <text x="60" y="30" fill="#0E1A2B" font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700" font-size="11" text-anchor="middle">N</text>
+  </svg>
+  <div class="eyebrow">Version 2 · réalité augmentée</div>
+  <h1>Villes à<br>l'horizon</h1>
+  <p>Pointez la caméra vers le paysage : les villes et bourgs voisins s'inscrivent au-dessus de l'horizon, avec leur distance. Puis prenez la photo.</p>
+  <ul>
+    <li><span>ACCÈS</span>Caméra arrière, position GPS et boussole — demandés au démarrage.</li>
+    <li><span>DONNÉES</span>Lieux OpenStreetMap chargés autour de vous (liste intégrée en secours).</li>
+    <li><span>CALAGE</span>Glissez sur l'image pour aligner le cap et l'horizon.</li>
+  </ul>
+  <button id="go">Ouvrir la caméra</button>
+  <small>Version 2 : données et réglages gardés à part de la v1. Nécessite une page en HTTPS (Safari ou Chrome). Fonctionne en portrait comme en paysage.</small>
+</div>
+<script src="../config.js" onerror="void 0"></script>
+<script type="module" src="../src/ui/page-ar.js"></script>
+</body>
+</html>
