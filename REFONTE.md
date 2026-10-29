@@ -95,7 +95,7 @@ src/
   calques/      UN FICHIER PAR CALQUE (voir §7) :
                 relief.js (silhouette, crêtes) · photo-silhouette.js (traits bleus) · lieux.js · monuments.js
                 (Wikidata, tours, bâtiments hauts, statues) · equipements.js (équipements urbains et pylônes télécom) · reperes.js (repères hauts OSM ;
-                les phares, caps et plages sont dans lieux.js depuis l'étape 5) · kml.js (points personnels) · bateaux.js · avions.js · astres.js (soleil, lune)
+                les phares, caps, plages et sommets sont dans lieux.js depuis l'étape 5b) · kml.js (points personnels) · bateaux.js · avions.js · astres.js (soleil, lune)
   rendu/        COMMUN : placement des noms (incliné, à plat, escalier), réservations, icônes, pastilles, dessin
   vision/       PUR sur ImageData : silhouette du ciel, soleil, lune (en Worker)
   calage/       PUR : soleil, relief, repères, carnet

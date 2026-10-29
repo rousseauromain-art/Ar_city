@@ -69,7 +69,7 @@ Sens des dépendances : `ui → rendu → calques → scene, calage, vision → 
 | `src/rendu/icones.js` | pictogrammes et silhouettes de monuments (listes d'opérations de chemin, sans canvas) |
 | `src/calques/{equipements,reperes,kml}.js` | équipements urbains et pylônes télécom, repères hauts OSM, couches personnelles : classement (portée, plafond, relief, doublons) et couches de bande à poser |
 | `src/calques/monuments.js` | monuments : classement Essentiel / Tout voir avec raison (portée, toits, plafond, masquage entre monuments, relief, photo), icônes et noms à poser |
-| `src/calques/lieux.js` | villes, bourgs, villages, hameaux : classement Essentiel / Tout voir avec raison, puis étiquettes à poser |
+| `src/calques/lieux.js` | villes, bourgs, villages, hameaux, lieux remarquables (phares, caps, îles, plages, sommets lointains) : classement Essentiel / Tout voir avec raison, puis étiquettes à poser |
 | `src/scene/visibilite.js` | verdict « caché par le relief » commun à tous les calques (+ règle des tours OSM) ; les autres raisons viendront avec leurs calques |
 
 Toutes les dépendances (fetch, horloge, stockage, journal) sont **injectées** : les modules se testent sans navigateur.

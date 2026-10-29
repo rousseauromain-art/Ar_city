@@ -7,7 +7,7 @@
  */
 import { CATEGORIES_REPERES, TYPES_LIEUX } from './categories-reperes.js';
 
-/** @typedef {{name: string, lat: number, lon: number, kind: string, pop: number, ele: number | null}} Lieu */
+/** @typedef {{name: string, lat: number, lon: number, kind: string, pop: number, ele: number | null, farPeak?: boolean}} Lieu */
 /** @typedef {{requeter: (url: string, o?: {methode?: 'GET'|'POST', corps?: string, entetes?: Record<string, string>, analyse?: 'json'|'texte'|'octets', delaiMs?: number, signal?: AbortSignal}) => Promise<unknown>}} ReseauRequeter */
 
 /** Miroirs publics mondiaux (5 serveurs indépendants). */

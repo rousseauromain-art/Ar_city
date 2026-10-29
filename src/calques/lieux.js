@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * Calque « lieux » : villes, bourgs, villages, hameaux. Classement (Essentiel / Tout voir, avec la raison de chaque absence) puis étiquettes à poser.
+ * Calque « lieux » : villes, bourgs, villages, hameaux ET lieux remarquables (phares, caps, îles, rochers, points de vue, patrimoine, plages, sommets, sommets lointains). Classement (Essentiel / Tout voir, avec la raison de chaque absence) puis étiquettes à poser.
  * Le placement et le dessin des noms sont faits par rendu/ pour TOUS les calques : ce calque ne place rien lui-même.
  * Essentiel : seulement les lieux visibles d'ici (ni cachés par le relief, ni au-delà de la portée de leur catégorie, ni cachés sur la photo).
  * Tout voir : en plus, en transparence, les autres — posés APRÈS les visibles, donc passer en Tout voir ne fait jamais disparaître un nom net.
@@ -13,7 +13,7 @@ import { HAUTEUR_TYPE_M, HAUTEUR_DEFAUT_M, verdictRelief } from '../scene/visibi
 import { angleSilhouette } from '../scene/cretes.js';
 import { verifierSurPhoto } from '../scene/regle-photo.js';
 import { ANALYSE_VALIDE_MS } from './photo-silhouette.js';
-import { TYPES_LIEUX } from '../donnees/categories-reperes.js';
+import { RELIEF_MAX_KM } from '../scene/relief.js';
 import { abscisseSiVisible, yDepuisSite } from '../rendu/projection.js';
 import { borner } from '../noyau/maths.js';
 import { RAD, HAUTEUR_YEUX_M } from '../noyau/constantes.js';
@@ -21,7 +21,7 @@ import { RAD, HAUTEUR_YEUX_M } from '../noyau/constantes.js';
 /** @typedef {import('../donnees/overpass.js').Lieu} Lieu */
 /** @typedef {import('../rendu/projection.js').VueRendu} VueRendu */
 /** @typedef {import('./photo-silhouette.js').AnalysePhoto} AnalysePhoto */
-/** @typedef {Lieu & {dist: number, brg: number, far: boolean, hidden: boolean, photoHid: boolean, aG: number | null, aP: number | null, mask: number | null}} LieuCalcule */
+/** @typedef {Lieu & {farPeak?: boolean, dist: number, brg: number, far: boolean, hidden: boolean, photoHid: boolean, aG: number | null, aP: number | null, mask: number | null}} LieuCalcule */
 /** @typedef {{el: LieuCalcule, etat: 'net' | 'transparent' | 'absent', raison: string | null}} LieuClasse */
 
 /** Portée d'affichage par type, en km (v1 : `MAXD`) ; villes et bourgs : aucune limite. */
@@ -47,17 +47,18 @@ export function classerLieux(lieux, scene, reglages) {
   /** @type {LieuCalcule[]} */
   const calcules = [];
   for (const l of lieux) {
-    if (!TYPES_LIEUX.has(l.kind)) continue;
     const { distKm, capDeg } = distanceEtCap(pos, l);
-    if (distKm > reglages.rayonKm) continue;
+    if (distKm > (l.farPeak ? RELIEF_MAX_KM : reglages.rayonKm)) continue; // un sommet lointain dépasse le rayon réglé
     const portee = PORTEE_KM[l.kind];
     const v = masque && terrain ? verdictRelief(masque, terrain.bands, { ...l, dist: distKm, brg: capDeg }) : null;
-    calcules.push({ ...l, dist: distKm, brg: capDeg, far: portee !== undefined && distKm > portee, hidden: v ? v.hidden : false, photoHid: false, aG: v ? v.aG : null, aP: v ? v.aP : null, mask: v ? v.mask : null });
+    // sommet lointain : seulement s'il se voit d'ici ; autre lieu : au-delà de la portée de sa catégorie, il devient un fantôme
+    const loin = l.farPeak ? !(avecRelief && !!v && v.aP !== null && !v.hidden) : portee !== undefined && distKm > portee;
+    calcules.push({ ...l, dist: distKm, brg: capDeg, far: loin, hidden: v ? v.hidden : false, photoHid: false, aG: v ? v.aG : null, aP: v ? v.aP : null, mask: v ? v.mask : null });
   }
   appliquerRegleDePhoto(calcules, scene, reglages, avecRelief);
   return calcules.map((el) => {
     const fantome = el.far || (avecRelief && el.hidden);
-    const raison = !fantome ? null : avecRelief && el.hidden ? 'caché par le relief' : el.photoHid ? 'caché sur la photo' : 'trop loin pour sa catégorie';
+    const raison = !fantome ? null : avecRelief && el.hidden ? 'caché par le relief' : el.photoHid ? 'caché sur la photo' : el.farPeak ? 'sommet lointain qu’on ne voit pas d’ici' : 'trop loin pour sa catégorie';
     return { el, etat: !fantome ? 'net' : reglages.toutVoir ? 'transparent' : 'absent', raison };
   });
 }
@@ -76,7 +77,9 @@ function appliquerRegleDePhoto(cs, scene, reglages, avecRelief) {
 }
 
 /** Corps du nom selon le type (v1). @param {string} kind */
-const tailleDuNom = (kind) => (kind === 'city' ? 18 : kind === 'town' ? 16 : kind === 'village' ? 14 : 12);
+const tailleDuNom = (kind) => (kind === 'city' ? 18 : kind === 'town' ? 16 : kind === 'village' ? 14 : TYPES_HABITES.has(kind) ? 12 : 13);
+/** Établissements humains (nom blanc) ; tout autre lieu est remarquable (nom ocre, point ocre). */
+const TYPES_HABITES = new Set(['city', 'town', 'village', 'hamlet', 'isolated_dwelling']);
 
 /**
  * Étiquettes à poser, dans l'ordre : nets d'abord, puis (Tout voir) les transparents. Un lieu hors champ est ignoré.
@@ -100,11 +103,11 @@ export function preparerLieux(classes, vue, reglages) {
     if (fantome) fantomesEnChamp++;
     let aA = 0;
     if (avecRelief && c.aG !== null) aA = c.hidden ? c.aG : Math.max(c.aG, Math.min(/** @type {number} */ (c.mask), /** @type {number} */ (c.aP)));
-    const taille = tailleDuNom(c.kind), opacite = (c.kind === 'city' || c.kind === 'town' ? 1 : 0.8) * (fantome ? 0.5 : 1);
+    const remarquable = !TYPES_HABITES.has(c.kind), taille = tailleDuNom(c.kind), opacite = (remarquable ? 0.9 : c.kind === 'city' || c.kind === 'town' ? 1 : 0.8) * (fantome ? 0.5 : 1);
     const altitude = c.ele !== null && c.ele !== undefined ? Math.round(c.ele) + ' m' : '';
     const distance = reglages.distances ? (c.dist < 10 ? c.dist.toFixed(1) : Math.round(c.dist)) + ' km' : '';
     etiquettes.push({ cle: c.name + '|' + c.kind, proprietaire: c, texte: c.name, detail: [altitude, distance].filter(Boolean).join(' · '), taille,
-      x, y: borner(yDepuisSite(vue, aA), -vue.hauteurPx, 2 * vue.hauteurPx), opacite, teinte: '243,233,210', fantome, decalage: 10, elevation: 18 });
+      x, y: borner(yDepuisSite(vue, aA), -vue.hauteurPx, 2 * vue.hauteurPx), opacite, teinte: remarquable ? '224,165,38' : '243,233,210', remarquable, fantome, decalage: 10, elevation: 18 });
   }
   if (!reglages.toutVoir) fantomesEnChamp = fantomesAffichables(fantomes, vue, fq);
   return { etiquettes, fantomesEnChamp };
@@ -124,7 +127,7 @@ export const calque = {
   id: 'lieux',
   libelle: 'Lieux',
   /** @param {unknown} _zone @param {{lieux: Lieu[]}} donnees */
-  async charger(_zone, donnees) { return donnees.lieux.filter((l) => TYPES_LIEUX.has(l.kind)); },
+  async charger(_zone, donnees) { return donnees.lieux; },
   /** @param {Lieu[]} lieux @param {SceneLieux} scene @param {ReglagesLieux} reglages */
   classer(lieux, scene, reglages) { return classerLieux(lieux, scene, reglages); },
   preparer: preparerLieux,

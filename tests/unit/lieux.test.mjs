@@ -44,9 +44,9 @@ test('classement : rayon, portée par type, tri par priorité puis distance, dou
   const brut = classerLieux(lieux, sans(pos), reglages({ toutVoir: true }));
   const tri = assemblerListe([brut.map((x) => x.el)], false), garde = new Set(dedoublonner(tri));
   const c = tri.filter((e) => garde.has(e)).map((el) => /** @type {NonNullable<typeof brut[number]>} */ (brut.find((x) => x.el === el)));
-  assert.deepEqual(c.map((x) => x.el.name), ['Rennes', 'Ville', 'Bourg', 'Village', 'Loin', 'Hameau']); // villes d’abord (par distance), puis bourgs, villages, hameaux
-  assert.deepEqual(c.map((x) => x.el.kind), ['city', 'city', 'town', 'village', 'village', 'hamlet']);
-  assert.ok(!c.some((x) => x.el.name === 'HorsRayon' || x.el.name === 'Phare'), 'hors rayon et non-lieux écartés');
+  assert.deepEqual(c.map((x) => x.el.name), ['Rennes', 'Ville', 'Phare', 'Bourg', 'Village', 'Loin', 'Hameau']); // villes d’abord (par distance), puis bourgs et phares (même priorité), villages, hameaux
+  assert.deepEqual(c.map((x) => x.el.kind), ['city', 'city', 'lighthouse', 'town', 'village', 'village', 'hamlet']);
+  assert.ok(!c.some((x) => x.el.name === 'HorsRayon'), 'hors rayon écarté');
   assert.equal(c.filter((x) => x.el.name.toLowerCase() === 'rennes').length, 1, 'homonymes à moins de 2 km fusionnés');
   const loin = c.find((x) => x.el.name === 'Loin');
   assert.deepEqual([loin?.etat, loin?.raison], ['transparent', 'trop loin pour sa catégorie']); assert.ok(PORTEE_KM.village === 30 && PRIORITE.city < PRIORITE.hamlet);
@@ -105,4 +105,30 @@ test('étiquettes : nets d’abord puis fantômes ; hors champ ignoré ; badge ;
   const avecEle = preparerLieux(classerLieux([{ ...lieux[0], ele: 12.4 }], scene, rg), vue, rg);
   assert.equal(avecEle.etiquettes[0].detail, '12 m · 5.0 km');
   assert.ok(Math.abs(distanceEtCap(pos, lieux[0]).distKm - 5) < 0.05 && angleSilhouette(T.pm, cap) > -90);
+});
+
+test('lieux remarquables : phares, caps, plages classés avec la portée de leur catégorie ; nom ocre, taille 13, opacité 0,9', () => {
+  const pos = { lat: 48.65, lon: -2.02 };
+  const l = [lieuA('Phare proche', 'lighthouse', 10, 10, pos), lieuA('Phare lointain', 'lighthouse', 45, 20, pos), lieuA('Plage', 'beach', 5, 30, pos), lieuA('Plage loin', 'beach', 20, 40, pos), lieuA('Village', 'village', 5, 50, pos), lieuA('Inconnu', 'zzz', 100, 60, pos)];
+  const cl = classerLieux(l, sans(pos), reglages({ rayonKm: 200, toutVoir: true }));
+  const par = (/** @type {string} */ n) => cl.find((c) => c.el.name === n);
+  assert.deepEqual(['Phare proche', 'Plage', 'Village'].map((n) => par(n)?.etat), ['net', 'net', 'net']);
+  assert.deepEqual(['Phare lointain', 'Plage loin'].map((n) => [par(n)?.etat, par(n)?.raison]), [['transparent', 'trop loin pour sa catégorie'], ['transparent', 'trop loin pour sa catégorie']], 'phare : 40 km, plage : 12 km');
+  assert.equal(par('Inconnu')?.etat, 'net', 'type sans portée connue : jamais écarté');
+  const vue = { largeurPx: 915, hauteurPx: 412, capDeg: 10, inclinaisonDeg: 0, roulisDeg: 0, champDeg: 65 };
+  const { etiquettes } = preparerLieux(cl.filter((c) => c.el.name === 'Phare proche' || c.el.name === 'Village'), vue, { ...reglages({ toutVoir: true }), distances: false });
+  const [phare] = etiquettes;
+  assert.deepEqual([phare.texte, phare.taille, phare.opacite, phare.teinte, phare.remarquable], ['Phare proche', 13, 0.9, '224,165,38', true]);
+});
+
+test('sommets lointains : au-delà du rayon réglé, nets seulement s’ils se voient d’ici (relief)', async () => {
+  const T = await terrainSynthetique();
+  const pos = { lat: 48.65, lon: -2.02 };
+  const sommet = (/** @type {string} */ name, /** @type {number} */ d, /** @type {number} */ c) => ({ ...lieuA(name, 'peak', d, c, pos), ele: 1500, farPeak: true });
+  const lointains = [sommet('Mont A', 120, 10), sommet('Mont B', 120, 100), sommet('Hors portée', 250, 10)];
+  const sansRelief = classerLieux(lointains, sans(pos), reglages({ rayonKm: 30, toutVoir: true, relief: false }));
+  assert.deepEqual(sansRelief.map((c) => [c.el.name, c.etat, c.el.far]), [['Mont A', 'transparent', true], ['Mont B', 'transparent', true]], 'sans relief : jamais nets ; 250 km dépasse RELIEF_MAX_KM (200)');
+  assert.equal(sansRelief[0].raison, 'sommet lointain qu’on ne voit pas d’ici');
+  const avec = classerLieux(lointains, { pos, terrain: T, analysePhoto: null, maintenantMs: 0 }, reglages({ rayonKm: 30, toutVoir: true, relief: true }));
+  assert.ok(avec.length === 2 && avec.every((c) => c.el.far === !(c.el.aP !== null && !c.el.hidden)), 'net ⇔ le relief le laisse voir');
 });
