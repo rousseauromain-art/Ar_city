@@ -20,8 +20,10 @@
       <button id="btnFold" aria-label="Afficher ou masquer les informations"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
       <div id="status" class="chip">En attente…</div>
       <button id="radChip" class="chip" aria-label="Zone de recherche">⌖ 60 km</button>
+      <button id="eyeChip" class="chip" aria-label="Hauteur de prise de vue estimée" hidden></button>
     </div>
     <div id="radPop" class="chip" hidden><input type="range" id="radQ" min="10" max="200" step="5" value="60" aria-label="Rayon de recherche"></div>
+    <div id="eyePop" class="chip" hidden><span id="eyePopT"></span><input type="range" id="eyeQ" min="-30" max="250" step="1" value="0" aria-label="Correction de la hauteur de prise de vue"></div>
     <div id="calib" class="chip"></div>
     <div id="photoChip" class="chip" hidden></div>
     <div id="filt" class="chip"></div>

@@ -18,9 +18,13 @@ video,#photoBg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover
 
 /* status + calibration chips */
 .chips{position:absolute;top:calc(var(--safe-t) + 34px);left:calc(12px + var(--safe-l));max-width:calc(100% - var(--toolsW) - var(--safe-l) - var(--safe-r) - 40px);display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none}
-.chiprow{display:flex;gap:6px;align-items:center}
+.chiprow{display:flex;gap:6px;align-items:center;max-width:100%}
+.chiprow #status{min-width:0;flex:0 1 auto}.chiprow #btnFold,.chiprow #radChip,.chiprow #eyeChip{flex:none} /* écran étroit : seul le bandeau d'état se tronque, rayon et hauteur d'œil restent entiers et touchables */
+body.clean .chips{display:none!important} /* photo en plein écran : vue épurée */
 #radChip{pointer-events:auto;cursor:pointer;color:var(--ochre);border:1px solid rgba(224,165,38,.45)}
-#radPop{pointer-events:auto;padding:8px 10px;width:230px}#radPop input{width:100%;accent-color:var(--ochre)}
+#radPop,#eyePop{pointer-events:auto;padding:8px 10px;width:230px}#radPop input,#eyePop input{width:100%;accent-color:var(--ochre)}
+#eyeChip{pointer-events:auto;cursor:pointer;color:var(--ochre);border:1px solid rgba(224,165,38,.45)}
+#eyePop{white-space:normal;line-height:1.35}
 .chip{padding:5px 9px;border-radius:4px;background:rgba(14,26,43,.72);font:500 12px/1 var(--mono);color:var(--cream);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;backdrop-filter:blur(6px)}
 #calib,#filt{color:var(--ochre);display:none;pointer-events:auto}
 #note{display:none;color:var(--ochre);white-space:normal;line-height:1.35}
@@ -32,7 +36,7 @@ video,#photoBg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover
 #btnFold:active{background:rgba(243,233,210,.2)}
 .chips.folded #btnFold svg{transform:rotate(-90deg)}
 /* replie : tout le bandeau (compteur de lieux inclus) disparait, seul le bouton reste */
-.chips.folded #status,.chips.folded #calib,.chips.folded #filt,.chips.folded #note{display:none!important}
+.chips.folded #status,.chips.folded #eyePop,.chips.folded #calib,.chips.folded #filt,.chips.folded #note{display:none!important}
 #tools{position:absolute;top:calc(var(--safe-t) + 34px);right:calc(12px + var(--safe-r));display:grid;grid-template-columns:repeat(var(--tcols),var(--tb));gap:var(--tg)}
 #tools button{width:var(--tb);height:var(--tb);display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.72);backdrop-filter:blur(6px)}
 #tools svg{width:19px;height:19px;stroke:var(--cream);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}

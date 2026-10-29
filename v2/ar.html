@@ -21,8 +21,10 @@
       <button id="btnFold" aria-label="Afficher ou masquer les informations"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
       <div id="status" class="chip">En attente…</div>
       <button id="radChip" class="chip" aria-label="Zone de recherche">⌖ 60 km</button>
+      <button id="eyeChip" class="chip" aria-label="Hauteur de prise de vue estimée" hidden></button>
     </div>
     <div id="radPop" class="chip" hidden><input type="range" id="radQ" min="10" max="200" step="5" value="60" aria-label="Rayon de recherche"></div>
+    <div id="eyePop" class="chip" hidden><span id="eyePopT"></span><input type="range" id="eyeQ" min="-30" max="250" step="1" value="0" aria-label="Correction de la hauteur de prise de vue"></div>
     <div id="calib" class="chip"></div>
     <div id="photoChip" class="chip" hidden></div>
     <div id="filt" class="chip"></div>
@@ -177,14 +179,6 @@
     <label for="simOn">Position simulée</label><input type="checkbox" id="simOn">
     <input type="text" id="simPos" placeholder="45.0805, 7.6705 (ou lien Google Maps)" style="width:100%">
     <span class="hint" id="simInfo">Pour revoir un lieu sans y être : collez des coordonnées (ou un lien de carte contenant @lat,lon). Le GPS est ignoré tant que la case est cochée ; tournez en glissant le doigt, la boussole reste active.</span>
-  </div>
-  <div class="row">
-    <label>Rejouer une photo</label><button type="button" id="btnPhoto">Ouvrir un fichier</button>
-    <input type="file" id="photoFile" hidden>
-    <span class="hint">Ouvrez une photo prise avec le téléphone, par le gestionnaire de fichiers pour garder ses métadonnées (une photo choisie dans la galerie perd sa position). L'appli se place à sa position GPS, dans sa direction et avec sa focale, et dessine ses calques par-dessus, comme sur place. Glissez pour corriger, « Caler auto » pour tester le calage. Rien n'est enregistré : à la sortie, votre calage, votre champ et votre position reviennent.</span>
-    <button type="button" id="btnBench" disabled>Tester le calage auto</button>
-    <span class="hint">Banc d'essai : calez d'abord la photo à la main (c'est la référence), puis lancez le test. L'appli repart de la référence volontairement décalée (cap ±4, ±8, ±12°, champ ±6°), lance « Caler auto » à chaque fois et mesure l'écart restant. Elle liste aussi les repères dont le calage peut se servir sur cette vue, et ceux qu'il ignore.</span>
-    <span class="hint" id="photoInfo" style="display:block"></span>
   </div>
   </details>
   <details class="grp" data-grp="apr"><summary><b>À propos</b><i class="gsum" id="sum_apr"></i></summary>
