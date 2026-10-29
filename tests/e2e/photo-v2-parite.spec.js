@@ -91,6 +91,7 @@ for(const sc of SCENES){
       for(let i=0;i<2;i++) await app.frame();
       const f1=await page.evaluate(()=>window.__vh.frameOps(false,true));
       await p2.evaluate(({cap,inclPose,beyond})=>{ const v=window.__vh2; v.S.headOff=cap; v.S.pitchOff=inclPose; v.S.beyond=beyond; document.getElementById('note').style.display='none'; v.memoires.placement.clear(); v.memoires.lignes.clear(); for(let i=0;i<2;i++) v.rendreImage(); },{cap,inclPose,beyond:mode==='tout-voir'});
+      await p2.waitForTimeout(1100); // les obstacles d'interface de la v2 sont mesurés une fois par seconde : on laisse expirer la mesure faite pendant que la note était affichée
       const f2=await p2.evaluate(()=>{ const v=window.__vh2, rec=window.__enregistreur(v.ctx); rec.demarrer(); v.rendreImage(); rec.arreter(); return rec.evenements(); });
       const tag=`${mode} cap+${dCap} incl ${incl}`;
       { const k=f1.ops.findIndex((o,i)=>JSON.stringify(o)!==JSON.stringify(f2[i])); if(k>=0||f1.ops.length!==f2.length) console.log('DIFF',tag,k,f1.ops.length,f2.length,'\nV1',JSON.stringify(f1.ops.slice(Math.max(0,k-1),k+2)).slice(0,1500),'\nV2',JSON.stringify(f2.slice(Math.max(0,k-1),k+2)).slice(0,1500)); }

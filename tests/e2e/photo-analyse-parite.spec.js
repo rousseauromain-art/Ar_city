@@ -56,6 +56,7 @@ for(const sc of SCENES){
       // le calage fin des monuments sur la silhouette lue avance d'un pas de lissage PAR ANALYSE (la v1 ne recalcule sa liste qu'à chaque analyse, toutes les 3 s) : un pas des deux côtés
       for(let i=0;i<2;i++) await app.frame();
       const f1=await page.evaluate(()=>window.__vh.frameOps(false,true));
+      await p2.waitForTimeout(1100); // mesure des obstacles d'interface (1 par seconde) : on laisse expirer celle faite pendant que la note était affichée
       const f2=await p2.evaluate(()=>{ const v=window.__vh2; for(let i=0;i<2;i++) v.rendreImage(); const rec=window.__enregistreur(v.ctx); rec.demarrer(); v.rendreImage(); rec.arreter(); return rec.evenements(); });
       { const k=f1.ops.findIndex((o,i)=>JSON.stringify(o)!==JSON.stringify(f2[i])); if(k>=0||f1.ops.length!==f2.length) console.log('DIFF',tag,k,f1.ops.length,f2.length); }
       expect(f2.length,`${tag} : nombre d'opérations`).toBe(f1.ops.length);
