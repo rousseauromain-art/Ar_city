@@ -132,7 +132,11 @@
   </details>
   <details class="grp" data-grp="rel"><summary><b>Relief et altitude</b><i class="gsum" id="sum_rel"></i></summary>
   <div class="row">
-    <label for="rel">Masquer ce qui est caché par le relief</label><input type="checkbox" id="rel" checked>
+    <label for="relc">Calculer le relief (ligne d'horizon, crêtes, calage)</label><input type="checkbox" id="relc" checked>
+    <span class="hint">Calcule le relief autour de vous. Il sert à la ligne d'horizon, aux crêtes et au calage automatique. Éteint : plus aucune ligne de relief, ni masquage, ni calage sur le relief.</span>
+  </div>
+  <div class="row">
+    <label for="rel">Cacher ce qui est derrière le relief</label><input type="checkbox" id="rel" checked>
     <span class="hint">Calcule, pour chaque direction, la crête la plus haute devant chaque lieu (tuiles d'altitude Mapterhorn — IGN ~1 m à proximité en France, Copernicus ~30 m au-delà —, courbure terrestre incluse ; sous 300 m, le relief le plus fin est lissé pour qu'un obstacle proche insignifiant ne masque pas à tort un lieu lointain). Les lieux cachés derrière une colline disparaissent ; le bouton œil (en bas, « Tout voir ») les affiche en transparence.</span>
   </div>
   <div class="row">

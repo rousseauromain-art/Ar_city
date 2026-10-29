@@ -135,7 +135,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
 
   async function chargerSommets(force = false) {
     const S = reglages(), pos = D.pos;
-    if (!pos || !S.relief || occupe.sommets) return;
+    if (!pos || S.calculRelief === false || occupe.sommets) return;
     if (!force && couvert.sommets && distanceEtCap(pos, couvert.sommets).distKm < 25) return;
     occupe.sommets = true;
     try {
@@ -148,7 +148,11 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
 
   async function chargerTerrain(force = false) {
     const S = reglages(), pos = D.pos;
-    if (!pos || !S.relief || occupe.terrain) return;
+    if (S.calculRelief === false) { // relief éteint : on retire celui qui était affiché
+      if (D.terrain) { D.terrain = null; E.terrainCentre = null; couvert.terrain = null; change('relief'); }
+      E.etatRelief = 'désactivé'; return;
+    }
+    if (!pos || occupe.terrain) return;
     if (!force && couvert.terrain && distanceEtCap(pos, couvert.terrain).distKm < PROCHE_KM) return;
     occupe.terrain = true; E.etatRelief = 'calcul…'; change('relief');
     try {
@@ -259,7 +263,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     /** Avant un calage : relance le relief s'il est périmé et attend sa première publication (au plus `msMax`), comme la v1 (le relief lointain suffit : pas besoin du relief fin). @param {number} [msMax] */
     async attendreRelief(msMax = 8000) {
       const perime = () => !D.terrain || !D.pos || !E.terrainCentre || distanceEtCap(D.pos, E.terrainCentre).distKm > PROCHE_KM;
-      if (!perime() || E.etatRelief === 'indispo' || !reglages().relief) return;
+      if (!perime() || E.etatRelief === 'indispo' || reglages().calculRelief === false) return;
       chargerTerrain(false);
       const t0 = maintenant();
       while (perime() && maintenant() - t0 < msMax) await new Promise((ok) => setTimeout(ok, 120));

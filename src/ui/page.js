@@ -105,7 +105,7 @@ export function demarrerPage({ mode }) {
     ['lyBld', (s) => s.buildings, (s, v) => { s.buildings = v; }, 'reperes'], ['lySea', (s) => s.sea, (s, v) => { s.sea = v; }], ['lyAir', (s) => s.air, (s, v) => { s.air = v; }],
     ['air', (s) => s.air, (s, v) => { s.air = v; }], ['sea', (s) => s.sea, (s, v) => { s.sea = v; }], ['tel', (s) => s.telecom, (s, v) => { s.telecom = v; }, 'telecom'], ['bld', (s) => s.buildings, (s, v) => { s.buildings = v; }, 'reperes'],
     ['dst', (s) => s.showDist, (s, v) => { s.showDist = v; }], ['vil', (s) => s.hamlets, (s, v) => { s.hamlets = v; }, 'lieux'], ['rdg', (s) => s.ridges !== false, (s, v) => { s.ridges = v; }],
-    ['sky', (s) => s.skyline, (s, v) => { s.skyline = v; }], ['crs', (s) => s.cross, (s, v) => { s.cross = v; }], ['rel', (s) => s.relief, (s, v) => { s.relief = v; }, 'terrain'],
+    ['sky', (s) => s.skyline, (s, v) => { s.skyline = v; }], ['crs', (s) => s.cross, (s, v) => { s.cross = v; }], ['rel', (s) => s.relief, (s, v) => { s.relief = v; if (v) s.calculRelief = true; }, 'terrain'], ['relc', (s) => s.calculRelief !== false, (s, v) => { s.calculRelief = v; if (!v) s.relief = false; }, 'terrain'],
     ['simOn', (s) => s.simOn, (s, v) => { s.simOn = v; }],
   ];
   function synchroniser() {
@@ -120,7 +120,7 @@ export function demarrerPage({ mode }) {
     ecrire(S, e.target.checked); sauver(); synchroniser();
     if (rechargement) app.recharger(rechargement === 'lieux' ? { lieux: true } : { [rechargement]: true });
     if (id === 'lyAir' || id === 'air' || id === 'lySea' || id === 'sea') app.synchroniserTrafic();
-    if (id === 'simOn' || id === 'rel') memoires.placement.clear();
+    if (id === 'simOn' || id === 'rel' || id === 'relc') memoires.placement.clear();
   });
   const setBeyond = (/** @type {boolean} */ v) => { S.beyond = v; sauver(); synchroniser(); };
   $('btnBeyond').addEventListener('click', () => setBeyond(!S.beyond));
@@ -307,7 +307,7 @@ export function demarrerPage({ mode }) {
     const e = app.etat(), d = app.donnees();
     const lignes = [`version ${VERSION_V2}`, `réglages d'affichage : ${reglagesRepris ? 'repris de la v1 au premier lancement' : 'propres à la v2'} · ligne de relief ${S.skyline ? 'affichée' : 'éteinte (Réglages › Ligne d\'horizon du relief)'}`, `position ${d.pos ? d.pos.lat.toFixed(5) + ', ' + d.pos.lon.toFixed(5) : '—'}`, `lieux : ${e.lieux} (${echap(e.source)}) — ${e.chargementLieux ? 'chargement en cours depuis ' + Math.round(e.depuisLieuxMs / 1000) + ' s' : 'chargement terminé'} · rayon ${S.radius} km`,
       ...e.sourcesLieux.map((s) => `&nbsp;&nbsp;${echap(s.nom)} : ${echap(s.etat)}${s.n !== undefined ? ' · ' + s.n + ' lieux' : ''}${s.raison ? ' · ' + echap(s.raison.slice(0, 140)) : ''}`),
-      `relief : ${S.relief ? echap(e.etatRelief || 'pas encore calculé') : 'désactivé'}`,
+      `relief : ${S.calculRelief !== false ? echap(e.etatRelief || 'pas encore calculé') : 'désactivé (Réglages › Calculer le relief)'} · masquage par le relief ${S.relief ? 'actif' : 'éteint'}`,
       `visibilité d'après la photo : ${(() => {
         const a = analyse.derniere, liste = /** @type {any[]} */ ((dernierBilan && dernierBilan.liste) || []);
         if (S.photoVis !== true) return 'désactivée (Réglages)';
