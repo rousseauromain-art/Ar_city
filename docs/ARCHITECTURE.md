@@ -25,7 +25,7 @@ donnees/ (réseau unique, cache, sources) ─────────┘        
 
 Sens des dépendances : `ui → rendu → calques → scene, calage, vision → noyau`. `donnees` et `entrees` fournissent les données ; `noyau` n'importe rien ; **un calque n'importe jamais un autre calque**.
 
-## Ce qui est en place (étapes 1 à 7a)
+## Ce qui est en place (étapes 1 à 7)
 
 | Module | Rôle |
 |---|---|
@@ -61,7 +61,9 @@ Sens des dépendances : `ui → rendu → calques → scene, calage, vision → 
 | `src/scene/regle-photo.js` | verdict « vu / caché / indéterminé » d'après la silhouette lue sur la photo (lieux et monuments) |
 | `src/rendu/placement.js`, `etiquettes.js` | **placement commun des noms** (inclinés à 45°, à plat, mémoire d'une image à l'autre, obstacles d'interface) et leur conversion en commandes de dessin |
 | `src/scene/liste-affichage.js` | liste commune lieux + monuments : priorité, score de notoriété, tri stable, dédoublonnage des homonymes, nets avant fantômes |
+| `src/rendu/bande.js` | **bande des équipements commune** (équipements urbains, pylônes, repères hauts, couches personnelles) : groupes, icône + pastille du nombre, nom à côté, dessous ou en haut, étage bas ou haut, sites trouvés, pastilles au bord |
 | `src/rendu/icones.js` | pictogrammes et silhouettes de monuments (listes d'opérations de chemin, sans canvas) |
+| `src/calques/{equipements,reperes,kml}.js` | équipements urbains et pylônes télécom, repères hauts OSM, couches personnelles : classement (portée, plafond, relief, doublons) et couches de bande à poser |
 | `src/calques/monuments.js` | monuments : classement Essentiel / Tout voir avec raison (portée, toits, plafond, masquage entre monuments, relief, photo), icônes et noms à poser |
 | `src/calques/lieux.js` | villes, bourgs, villages, hameaux : classement Essentiel / Tout voir avec raison, puis étiquettes à poser |
 | `src/scene/visibilite.js` | verdict « caché par le relief » commun à tous les calques (+ règle des tours OSM) ; les autres raisons viendront avec leurs calques |

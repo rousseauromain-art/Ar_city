@@ -53,7 +53,7 @@
   // enregistreur des traces (tests/helpers/enregistreur.js, pose par addInitScript) : facultatif, absent des tests qui ne comparent que les textes
   const R=window.__enregistreur?window.__enregistreur(ctx):null;
   const o={clearRect:ctx.clearRect,save:ctx.save,restore:ctx.restore,fillText:ctx.fillText};
-  ctx.clearRect=function(...a){ if(rec.armed){ rec.active=true; rec.depth=0; rec.list=[]; rec.mem0=[...lblMem]; if(R) R.demarrer(); } return o.clearRect.apply(this,a); };
+  ctx.clearRect=function(...a){ if(rec.armed){ rec.active=true; rec.depth=0; rec.list=[]; rec.mem0=[...lblMem]; rec.lane0=[...laneMem]; if(R) R.demarrer(); } return o.clearRect.apply(this,a); };
   ctx.save=function(){ if(rec.active) rec.depth++; return o.save.call(this); };
   ctx.restore=function(){ const r=o.restore.call(this);
     if(rec.active&&--rec.depth===0){ rec.active=false; if(R) R.arreter(); const done=rec.armed; rec.armed=null; done(rec.list); } return r; };
@@ -72,6 +72,6 @@
     // remises a zero : l'horloge des tests est figee, elles ne se perimeraient jamais
     frame:()=>new Promise(res=>{ _mobCacheAt=0; shipSel={ids:null}; uiObsT=0; rec.armed=res; }),
     // idem, avec les traces du canvas (stroke / fill / texte) de la scene : { textes, ops, mem0, mem1 } (memoire de placement des noms avant et apres l'image) ; exige window.__enregistreur
-    frameOps:()=>new Promise(res=>{ _mobCacheAt=0; shipSel={ids:null}; uiObsT=0; rec.armed=list=>res({textes:list,ops:R?R.evenements():[],mem0:rec.mem0,mem1:[...lblMem]}); }),
+    frameOps:()=>new Promise(res=>{ _mobCacheAt=0; shipSel={ids:null}; uiObsT=0; rec.armed=list=>res({textes:list,ops:R?R.evenements():[],mem0:rec.mem0,mem1:[...lblMem],lane0:rec.lane0,lane1:[...laneMem],infraStats:{...infraStats}}); }),
   };
 }

@@ -57,10 +57,10 @@ function regrouperIcones(ordre) {
 /**
  * @param {(Etiquette | EtiquetteMonument)[]} etiquettes dans l'ordre de priorité
  * @param {ReturnType<typeof import('./placement.js').creerPlaceur>} placeur
- * @param {{mesurerTexte: (police: string, texte: string) => number, familles: Familles}} options
+ * @param {{mesurerTexte: (police: string, texte: string) => number, familles: Familles, avantNoms?: () => void}} options `avantNoms` : appelée après la réservation des icônes de monuments et avant le placement des noms (la bande des équipements, quand elle passe au-dessus de l'horizon)
  * @returns {{commandes: import('./commandes.js').Commande[], comptes: ComptesEtiquettes}}
  */
-export function composerEtiquettes(etiquettes, placeur, { mesurerTexte, familles }) {
+export function composerEtiquettes(etiquettes, placeur, { mesurerTexte, familles, avantNoms }) {
   /** @type {import('./commandes.js').Commande[]} */
   const commandes = [];
   const comptes = { eligibles: 0, affichees: 0, fantomes: 0, sansPlace: 0, fantomesVus: 0 };
@@ -72,6 +72,7 @@ export function composerEtiquettes(etiquettes, placeur, { mesurerTexte, familles
     const sb = e.icone.boite, g = e.icone.gH;
     placeur.reservations.push(sb ? [sb.x0 - 2, sb.x1 + 2, sb.yTop - 2, sb.yBase + 2, null, e.proprietaire] : [e.x - g / 2 - 2, e.x + g / 2 + 2, e.y - g - 2, e.y + 2, null, e.proprietaire]);
   }
+  if (avantNoms) avantNoms();
   for (const e of ordre) {
     comptes.eligibles++;
     if (e.fantome) comptes.fantomesVus++;

@@ -13,7 +13,7 @@
 /**
  * @typedef {object} CommandeTrait
  * @property {'trait'} type @property {OperationChemin[]} chemin @property {string} couleur @property {number} largeur
- * @property {number[]} tirets @property {'miter'|'round'|'bevel'} jointure @property {'butt'|'round'|'square'} extremite
+ * @property {number[]} tirets @property {'miter'|'round'|'bevel'} jointure @property {'butt'|'round'|'square'} extremite @property {number} [alpha] opacité globale du trait (absente : celle du contexte)
  * @typedef {object} CommandeRemplissage
  * @property {'remplissage'} type @property {OperationChemin[]} chemin @property {string} couleur @property {'nonzero'|'evenodd'} [regle] règle de remplissage (absente : celle par défaut du canvas)
  * @typedef {object} CommandeTexte
@@ -33,10 +33,14 @@ const DEFAUTS = { tirets: /** @type {number[]} */ ([]), jointure: /** @type {'mi
 
 /**
  * @param {OperationChemin[]} chemin @param {string} couleur @param {number} largeur
- * @param {{tirets?: number[], jointure?: 'miter'|'round'|'bevel', extremite?: 'butt'|'round'|'square'}} [style]
+ * @param {{tirets?: number[], jointure?: 'miter'|'round'|'bevel', extremite?: 'butt'|'round'|'square', alpha?: number}} [style]
  * @returns {CommandeTrait}
  */
-export const trait = (chemin, couleur, largeur, style = {}) => ({ type: 'trait', chemin, couleur, largeur, tirets: style.tirets ?? DEFAUTS.tirets, jointure: style.jointure ?? DEFAUTS.jointure, extremite: style.extremite ?? DEFAUTS.extremite });
+export const trait = (chemin, couleur, largeur, style = {}) => {
+  const t = /** @type {CommandeTrait} */ ({ type: 'trait', chemin, couleur, largeur, tirets: style.tirets ?? DEFAUTS.tirets, jointure: style.jointure ?? DEFAUTS.jointure, extremite: style.extremite ?? DEFAUTS.extremite });
+  if (style.alpha !== undefined) t.alpha = style.alpha;
+  return t;
+};
 
 /** @param {OperationChemin[]} chemin @param {string} couleur @param {'nonzero'|'evenodd'} [regle] @returns {CommandeRemplissage} */
 export const remplissage = (chemin, couleur, regle) => (regle ? { type: 'remplissage', chemin, couleur, regle } : { type: 'remplissage', chemin, couleur });
