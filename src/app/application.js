@@ -285,6 +285,8 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
       return Promise.allSettled([chargerLieux(!!quoi.lieux), chargerSommets(!!quoi.terrain), chargerTerrain(!!quoi.terrain), chargerMonuments(!!quoi.monuments), chargerTelecom(!!quoi.telecom), chargerReperes(!!quoi.reperes)]);
     },
     actualiser,
+    /** Silhouette du ciel lue sur l'image (null : aucune) ; datée par l'appelant. @param {any} analyse */
+    definirAnalysePhoto(analyse) { D.analysePhoto = analyse; change('analyse'); },
     /** Données pour `composerScene`. */
     donnees: () => D,
     /** Corrige la hauteur d'œil : relit le relief. @param {number} m */

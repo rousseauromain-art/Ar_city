@@ -57,6 +57,7 @@ const REMONTEE_CIEL_DEG = 0.5;
  * @property {{name: string, kind: string, pop?: number, lat: number, lon: number}[]} cities lieux (ville dense, noms abrégés)
  * @property {{kind?: string, lat: number, lon: number}[]} batiments bâtiments hauts (ville dense)
  * @property {Map<string, number>} [snapPrecedent] calage fin de l'image précédente, par monument (lissé)
+ * @property {boolean} [analyseDejaAppliquee] la silhouette lue de cette analyse a déjà fait avancer le lissage du calage fin : la v1 ne recalcule sa liste qu'à chaque nouvelle analyse (toutes les 3 s), pas à chaque image
  * @typedef {object} ReglagesMonuments
  * @property {number} rayonKm @property {boolean} relief @property {boolean} toutVoir @property {boolean} analyseActive @property {boolean} couche calque « monuments » activé
  */
@@ -159,7 +160,7 @@ function reglePhoto(cs, scene, reglages, avecRelief) {
     const r = verifierSurPhoto(a.cols, c.brg, aTop, angleRelief);
     if (r) {
       if (r.state === 'vis') {
-        c.snapDB = r.snap !== null ? c.snapDB * 0.6 + r.snap * 0.4 : c.snapDB * 0.6;
+        if (!scene.analyseDejaAppliquee) c.snapDB = r.snap !== null ? c.snapDB * 0.6 + r.snap * 0.4 : c.snapDB * 0.6; // un pas de lissage par analyse, comme la v1
         if (c.far && (c.roof || c.occBy) && !c.cap) { c.far = false; c.roof = false; c.occBy = null; } // vu sur la photo : affiché, quoi qu'en disent les règles
       } else if (r.state === 'hid' && !c.far && !(avecRelief && c.hidden)) { c.far = true; c.near = false; c.photoHid = true; c.snapDB = 0; }
     }
