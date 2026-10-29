@@ -10,7 +10,7 @@ import { creerStockage, adaptateurNavigateur, PREFIXE_CACHE } from '../outils/st
 import { lireDrapeaux } from '../outils/drapeaux.js';
 import { chargerEruda } from '../outils/debug.js';
 import { VERSION_V2 } from '../outils/version.js';
-import { lireReglages, ecrireReglages } from '../moteur/reglages.js';
+import { lireReglages, ecrireReglages, reprendreReglagesV1 } from '../moteur/reglages.js';
 import { composerScene } from '../moteur/scene.js';
 import { creerApplication } from '../app/application.js';
 import { analyserPhoto, texteInfoPhoto, lirePositionTexte } from '../entrees/photo.js';
@@ -48,6 +48,7 @@ export function demarrerPage({ mode }) {
   chargerEruda({ recherche: location.search, journal });
 
   const sm = document.querySelector('#start small'); if (sm) sm.textContent += ` · ${VERSION_V2}`;
+  const reglagesRepris = reprendreReglagesV1(stockage, (k) => { try { return localStorage.getItem(k); } catch { return null; } });
   const S = lireReglages(stockage);
   /** @type {null | {img: HTMLImageElement, w: number, h: number, url: string, backup: {headOff: number, pitchOff: number, camFov: number}, photo: import('../entrees/photo.js').ReglagesPhoto}} */
   let photoMode = null;
@@ -304,7 +305,7 @@ export function demarrerPage({ mode }) {
   $('btnDbg').addEventListener('click', () => {
     $('sheet').classList.remove('open');
     const e = app.etat(), d = app.donnees();
-    const lignes = [`version ${VERSION_V2}`, `position ${d.pos ? d.pos.lat.toFixed(5) + ', ' + d.pos.lon.toFixed(5) : '—'}`, `lieux : ${e.lieux} (${echap(e.source)}) — ${e.chargementLieux ? 'chargement en cours depuis ' + Math.round(e.depuisLieuxMs / 1000) + ' s' : 'chargement terminé'} · rayon ${S.radius} km`,
+    const lignes = [`version ${VERSION_V2}`, `réglages d'affichage : ${reglagesRepris ? 'repris de la v1 au premier lancement' : 'propres à la v2'} · ligne de relief ${S.skyline ? 'affichée' : 'éteinte (Réglages › Ligne d\'horizon du relief)'}`, `position ${d.pos ? d.pos.lat.toFixed(5) + ', ' + d.pos.lon.toFixed(5) : '—'}`, `lieux : ${e.lieux} (${echap(e.source)}) — ${e.chargementLieux ? 'chargement en cours depuis ' + Math.round(e.depuisLieuxMs / 1000) + ' s' : 'chargement terminé'} · rayon ${S.radius} km`,
       ...e.sourcesLieux.map((s) => `&nbsp;&nbsp;${echap(s.nom)} : ${echap(s.etat)}${s.n !== undefined ? ' · ' + s.n + ' lieux' : ''}${s.raison ? ' · ' + echap(s.raison.slice(0, 140)) : ''}`),
       `relief : ${S.relief ? echap(e.etatRelief || 'pas encore calculé') : 'désactivé'}`,
       `visibilité d'après la photo : ${(() => {

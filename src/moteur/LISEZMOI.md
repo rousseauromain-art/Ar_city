@@ -5,3 +5,5 @@
 - `statut.js` : message central et bandeau d'état.
 - Les deux modes (photo, direct) ne diffèrent que par la `Vue` et les `donnees` qu'on passe ici.
 - Pas encore portés (étape 10) : symbole du soleil, silhouette lue sur la photo (le moteur sait la tracer si on la lui donne), silhouette des bâtiments (BD TOPO, jamais portée).
+
+- `reglages.js` (10e) : `reprendreReglagesV1` reprend UNE fois, en lecture seule, les réglages d'affichage de la v1 (`vh_settings_v2` : ligne de relief, rayon, calques, POI, etc.), jamais le calage ni la position simulée ; marque `vh2:reglages-v1-repris`.
