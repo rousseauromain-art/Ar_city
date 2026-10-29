@@ -20,6 +20,11 @@ import { avecRoulis, dessiner } from '../rendu/canvas.js';
 import { RAD } from '../noyau/constantes.js';
 import { creerFusion, poseCapteurs, noterCalage, etatFusion, mesuresFusion } from '../entrees/capteurs.js';
 import { creerEntreeDirecte } from '../entrees/direct.js';
+import { lirePixelsRecadres } from '../vision/lire-pixels.js';
+import { calerSurSoleil } from '../calage/soleil.js';
+import { pointer } from '../calage/pointage.js';
+import { positionSoleil } from '../noyau/astro.js';
+import { nomMonument, nomsDeLieux } from '../calques/monuments.js';
 
 /** @param {string} id @returns {any} */
 const $ = (id) => { const e = document.getElementById(id); if (!e) throw new Error(`élément #${id} introuvable`); return e; };
@@ -126,6 +131,56 @@ export function demarrerPage({ mode }) {
   $('btnSky').addEventListener('click', () => { app.recharger({ terrain: true }); note('Relief recalculé'); });
   $('btnFs').addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.().catch(() => {}); });
   $('calib').addEventListener('click', () => { S.headOff = 0; S.pitchOff = 0; sauver(); note('Calage remis à zéro'); });
+  // ---------- calage : sur le soleil (bouton cible) et par pointage (bouton réticule) ----------
+  /** Image dont on lit les pixels : la photo, ou le flux de la caméra une fois prêt. */
+  const imageSource = () => (photoMode ? photoMode.img : video && entree && entree.flux() ? video : null);
+  /** Le soleil à l'instant de la prise de vue (photo) ou maintenant (direct). */
+  const soleilMaintenant = () => { const d = app.donnees(), t = photoMode ? photoMode.photo.utc : Date.now(); return d.pos && t ? positionSoleil(t, d.pos.lat, d.pos.lon) : null; };
+  const enRelatif = (/** @type {number} */ v) => (v >= 0 ? '+' : '') + v.toFixed(1) + '°';
+  /** Applique une correction de cap et d'horizon : la boussole est mise en pause (direct), le calage mémorisé. @param {number} dh @param {number} dp */
+  function appliquerCalage(dh, dp) { S.headOff += dh; S.pitchOff += dp; if (direct) noterCalage(fusion, Date.now()); sauver(); }
+  let calageEnCours = false;
+  /** Cherche le disque du soleil dans l'image SANS rien appliquer (le calage et les tests de parité s'en servent). */
+  function evaluerSoleil() {
+    const src = imageSource(), d = app.donnees();
+    return calerSurSoleil({ pos: d.pos, soleil: soleilMaintenant(), pose: pose(), champDeg: vFov(), ecran: { largeurPx: W, hauteurPx: H }, large: !!(photoMode && photoMode.photo.peuFiable),
+      lirePixels: (cw) => lirePixelsRecadres(src, cw, { largeurPx: W, hauteurPx: H }) });
+  }
+  /** « Caler auto » : pour l'instant le soleil seul (étape 10a) ; le relief et les repères viennent à l'étape 10c. @returns {string} */
+  function calerAuto() {
+    if (calageEnCours) return 'calage deja en cours';
+    const src = imageSource(), d = app.donnees();
+    if (!src) return 'caméra indisponible';
+    if (!d.pos) return 'GPS indisponible';
+    calageEnCours = true;
+    try {
+      const r = evaluerSoleil();
+      if (!r.ok) return `${r.message} · calage sur le relief et les repères : étape 10c`;
+      appliquerCalage(r.dh, r.dp);
+      const m = `calé sur le soleil (${r.soleil.azDeg.toFixed(1)}°, ${r.soleil.elDeg.toFixed(1)}° de haut) : cap ${enRelatif(r.dh)}, horizon ${enRelatif(r.dp)}`;
+      journal.info('calage', m);
+      return m;
+    } finally { calageEnCours = false; }
+  }
+  $('btnAlign').addEventListener('click', () => { const b = $('btnAlign'); b.classList.add('on'); note('Calage en cours…', 20000); setTimeout(() => { note(calerAuto(), 6000); b.classList.remove('on'); }, 30); });
+  /** Mode pointage : le prochain appui bref sur l'image est « voici, à cet endroit, un repère que je reconnais ». */
+  let modePointage = false;
+  const definirModePointage = (/** @type {boolean} */ v) => { modePointage = v; $('btnPoint').classList.toggle('on', v); if (v) note('Touchez un repère connu à l’écran (rocher, île, sommet…)', 8000); };
+  $('btnPoint').addEventListener('click', () => definirModePointage(!modePointage));
+  /** @param {number} x @param {number} y */
+  function evaluerPointage(x, y) {
+    const d = app.donnees(), lieux = nomsDeLieux(/** @type {any} */ (d.lieux));
+    return pointer({ toucher: { x, y }, pose: pose(), champDeg: vFov(), ecran: { largeurPx: W, hauteurPx: H }, liste: /** @type {any} */ ((dernierBilan && dernierBilan.liste) || []), soleil: soleilMaintenant(), avecRelief: S.relief && !!d.terrain,
+      correctionOeilM: S.obsHeight || 0, nomMonument: (c) => nomMonument(c, lieux) });
+  }
+  /** @param {number} x @param {number} y */
+  function pointerSur(x, y) {
+    const r = evaluerPointage(x, y);
+    if (r.aucun) { note(r.note, 4500); return; }
+    appliquerCalage(r.correctionCapDeg, r.correctionHorizonDeg || 0);
+    journal.info('calage', r.note);
+    note(r.note, 7000);
+  }
   const bascule = (/** @type {string} */ id) => $(id).classList.toggle('open');
   $('btnLayers').addEventListener('click', () => { bascule('layers'); $('btnLayers').setAttribute('aria-expanded', String($('layers').classList.contains('open'))); });
   $('btnSet').addEventListener('click', () => $('sheet').classList.add('open')); $('btnClose').addEventListener('click', () => $('sheet').classList.remove('open'));
@@ -237,7 +292,7 @@ export function demarrerPage({ mode }) {
   ov.addEventListener('pointerup', (e) => {
     const etaitPincement = !!pinch; ptrs.delete(e.pointerId);
     if (etaitPincement) { if (ptrs.size < 2) { pinch = null; sauver(); } drag = null; return; }
-    if (drag && !drag.moved && Date.now() - drag.t < 450) { S.headOff = drag.h; S.pitchOff = drag.p; } else { sauver(); if (direct && drag && drag.moved) noterCalage(fusion, Date.now()); } // calage récent : la boussole ne le défait pas
+    if (drag && !drag.moved && Date.now() - drag.t < 450) { S.headOff = drag.h; S.pitchOff = drag.p; if (modePointage) { definirModePointage(false); pointerSur(e.clientX, e.clientY); } } else { sauver(); if (direct && drag && drag.moved) noterCalage(fusion, Date.now()); } // calage récent : la boussole ne le défait pas
     drag = null;
   });
   ov.addEventListener('pointercancel', (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; drag = null; });
@@ -297,7 +352,7 @@ export function demarrerPage({ mode }) {
   redimensionner(); synchroniser(); $('photoBg').hidden = true; $('photoChip').hidden = true;
   if (!direct) { const simu = simulee() ? lirePositionTexte(S.simPos) : null; if (simu) app.definirPosition(simu); }
   journal.info('page', `page ${direct ? 'direct' : 'photo'} ouverte (${VERSION_V2})`);
-  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
+  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, evaluerSoleil, evaluerPointage, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
   requestAnimationFrame(image);
 }
 

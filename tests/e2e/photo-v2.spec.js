@@ -50,13 +50,13 @@ test('une photo sans position ni position simulée est refusée avec une explica
   expect(erreurs).toEqual([]);
 });
 
-test('le bouton œil bascule Essentiel / Tout voir et les commandes de l’étape 10 sont désactivées',async({page})=>{
+test('le bouton œil bascule Essentiel / Tout voir ; les commandes de l’étape 10c et suivantes sont désactivées',async({page})=>{
   const erreurs=await ouvrir(page);
   await page.setInputFiles('#photoFile',{name:'PXL_test.jpg',mimeType:'image/jpeg',buffer:await photoDeTest(page)});
   await expect(page.locator('#photoChip')).toBeVisible();
   await page.click('#btnBeyond'); await expect(page.locator('#eyeLbl')).toHaveText('Tout voir');
   await page.click('#btnBeyond'); await expect(page.locator('#eyeLbl')).toHaveText('Essentiel');
-  for(const id of ['btnAlign','btnPoint','btnAutoAlign','btnLearned','btnBench']) await expect(page.locator('#'+id)).toBeDisabled();
+  for(const id of ['btnAutoAlign','btnLearned','btnBench']) await expect(page.locator('#'+id)).toBeDisabled();
   expect(erreurs).toEqual([]);
 });
 
