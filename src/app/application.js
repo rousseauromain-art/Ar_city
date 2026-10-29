@@ -36,6 +36,11 @@ import { PROCHE_KM } from '../scene/relief.js';
 /** @typedef {import('../moteur/reglages.js').Reglages} Reglages */
 /** @typedef {{lat: number, lon: number}} Point */
 
+/** Caches de la v1 (même origine, mêmes clés), lus en dernier recours et jamais écrits : au premier lancement la v2 retrouve ce que la v1 avait mémorisé. */
+const CACHE_DONNEES_V1 = 'vh-data-v1', CACHE_TERRAIN_V1 = 'vh-terrain-v1';
+/** Mémoires de la v1 gardées dans le stockage local (atlas des lieux, monuments) : copiées une fois si la v2 n'a encore rien. [nom v2, clé v1] */
+const STOCKAGE_V1 = /** @type {[string, string][]} */ ([['atlas', 'vh_atlas_v1'], ['monuments', 'vh_mon_v2'], ['tuilesAnciennes', 'vh_montile_v2']]);
+
 /** Stockage de la v2 vu par les sources de données : `lire(nom, valeurParDefaut)`. @param {ReturnType<typeof import('../outils/stockage.js').creerStockage>} s */
 const stockageSimple = (s) => ({ lire: (/** @type {string} */ nom, /** @type {any} */ defaut) => s.lire(nom, { parDefaut: defaut === undefined ? null : defaut }), ecrire: (/** @type {string} */ nom, /** @type {unknown} */ v) => s.ecrire(nom, v) });
 
@@ -55,9 +60,16 @@ const stockageSimple = (s) => ({ lire: (/** @type {string} */ nom, /** @type {an
  */
 export function creerApplication({ reglages, journal, stockage, relais, urlWorkerMasque, fetchImpl, caches = globalThis.caches, maintenant = Date.now, quandChange = () => {}, visible = () => !globalThis.document || !globalThis.document.hidden }) {
   const st = stockageSimple(stockage);
+  for (const [nomV2, cleV1] of STOCKAGE_V1) { // reprise unique : la v1 n'est ni modifiée ni effacée
+    try {
+      if (st.lire(nomV2, null) !== null) continue;
+      const brut = globalThis.localStorage ? globalThis.localStorage.getItem(cleV1) : null;
+      if (brut) { st.ecrire(nomV2, JSON.parse(brut)); journal.info('app', `mémoire de la v1 reprise : ${nomV2}`); }
+    } catch (e) { journal.avert('app', `mémoire de la v1 illisible : ${cleV1}`, e); }
+  }
   const reseau = creerReseau({ journal, fetchImpl, maintenant, cache: null });
-  const cacheDonnees = creerCacheDonnees('vh2-donnees', { caches, maintenant, journal });
-  const reseauTuiles = creerReseau({ journal, fetchImpl, maintenant, cache: creerCacheOctets('vh2-terrain', { caches, maintenant, journal }) });
+  const cacheDonnees = creerCacheDonnees('vh2-donnees', { caches, maintenant, journal, secours: [CACHE_DONNEES_V1] });
+  const reseauTuiles = creerReseau({ journal, fetchImpl, maintenant, cache: creerCacheOctets('vh2-terrain', { caches, maintenant, journal, secours: [CACHE_TERRAIN_V1] }) });
   const overpass = creerOverpass({ reseau: /** @type {any} */ (reseau), miroirs: MIROIRS_OVERPASS, journal });
   const openfreemap = creerOpenFreeMap({ reseau: /** @type {any} */ (reseau), journal });
   const sourceLieux = creerSourceLieux({ cache: cacheDonnees, overpass, openfreemap, relais: creerSourcesRelais({ reseau: /** @type {any} */ (reseau), relais }), atlas: creerAtlas(st), journal });
@@ -270,6 +282,8 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     corrigerHauteurOeil(m) { reglages().obsHeight = m; return chargerTerrain(true); },
     /** @returns {{version: number, source: string, chargementLieux: boolean, etatRelief: string, monuments: string, telecom: string, reperes: string, messageAir: string, messageSea: string, lieux: number, sommets: number, nbMonuments: number}} */
     etat: () => ({ version, source: E.source, chargementLieux: E.chargementLieux, etatRelief: E.etatRelief, monuments: E.msgMonuments, telecom: E.msgTelecom, reperes: E.msgReperes, messageAir: trafic.msgAir, messageSea: trafic.msgSea, lieux: lieuxBase.length, sommets: sommets.length, nbMonuments: D.monuments.length }),
+    /** Compteurs de la mémoire de l'appareil par genre : { hit, net, stale, fail }. */
+    compteursCache: () => cacheDonnees.compteurs(),
     /** Vrai si un chargement est en cours. */
     occupe: () => Object.values(occupe).some(Boolean),
   };

@@ -17,9 +17,10 @@ export const SECOURS_PAR_DEFAUT_MS = 365 * 86400000;
 
 /**
  * @param {string} nom nom du cache
- * @param {{caches?: CacheStorage, maintenant?: () => number, journal?: {avert: (m: string, msg: string, d?: unknown) => unknown}}} [deps]
+ * @param {{caches?: CacheStorage, maintenant?: () => number, journal?: {avert: (m: string, msg: string, d?: unknown) => unknown}, secours?: string[]}} [deps]
+ *   `secours` : noms de caches LUS en dernier recours (jamais écrits) — la v2 relit ainsi la mémoire de la v1 (`vh-data-v1`, même origine, mêmes clés).
  */
-export function creerCacheDonnees(nom, { caches: stockage = globalThis.caches, maintenant = Date.now, journal } = {}) {
+export function creerCacheDonnees(nom, { caches: stockage = globalThis.caches, maintenant = Date.now, journal, secours = [] } = {}) {
   /** @type {Record<string, CompteursDonnees>} */
   const compteurs = {};
   /** @type {Record<string, number>} */
@@ -31,7 +32,12 @@ export function creerCacheDonnees(nom, { caches: stockage = globalThis.caches, m
   async function lire(cle, ttlMs, binaire) {
     try {
       if (!stockage) return null;
-      const rep = await (await stockage.open(nom)).match(BASE + cle);
+      let rep = await (await stockage.open(nom)).match(BASE + cle);
+      for (const autre of secours) {
+        if (rep) break;
+        if (stockage.has && !(await stockage.has(autre))) continue; // `open` créerait un cache vide dans l'espace de la v1 : on ne le touche que s'il existe
+        rep = await (await stockage.open(autre)).match(BASE + cle);
+      }
       if (!rep) return null;
       const t = +(rep.headers.get('x-t') || 0);
       if (maintenant() - t > ttlMs) return null;

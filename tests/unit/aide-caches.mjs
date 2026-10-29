@@ -3,7 +3,7 @@
 export function fauxCaches() {
   /** @type {Map<string, Map<string, Response>>} */
   const noms = new Map();
-  return { noms, open: async (/** @type {string} */ n) => {
+  return { noms, has: async (/** @type {string} */ n) => noms.has(n), open: async (/** @type {string} */ n) => {
     /** @type {Map<string, Response>} */
     const m = noms.get(n) ?? new Map();
     noms.set(n, m);
