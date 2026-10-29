@@ -34,8 +34,8 @@ const memoCretes = new WeakMap();
 /** Distances de silhouette mémorisées par masque. @type {WeakMap<object, Float32Array>} */
 const memoDistances = new WeakMap();
 
-/** @param {Masque} pm */
-function cretesDe(pm) { let l = memoCretes.get(pm); if (!l) { l = lignesDeCretes(pm); memoCretes.set(pm, l); } return l; }
+/** Crêtes intérieures d'un terrain (calcul lourd, mémorisé par masque). @param {Masque} pm */
+export function cretesDe(pm) { let l = memoCretes.get(pm); if (!l) { l = lignesDeCretes(pm); memoCretes.set(pm, l); } return l; }
 /** @param {Masque} pm */
 function distancesDe(pm) { let d = memoDistances.get(pm); if (!d) { d = distancesSilhouette(pm); memoDistances.set(pm, d); } return d; }
 

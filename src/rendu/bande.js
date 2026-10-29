@@ -34,6 +34,7 @@ import { rectangleTouche } from './reservations.js';
  * @property {'bas' | 'haut'} etage @property {number} hy ordonnée de l'horizon @property {number} basTexteLimite ordonnée en dessous de laquelle aucun nom ne descend
  * @property {number} hautLimite ordonnée au-dessus de laquelle aucun nom ne monte @property {number} debutBas ordonnée du début des lignes sous l'horizon
  * @property {boolean} calquesHautActifs calques Lieux ou Monuments actifs (sinon la bande récupère aussi le haut de l'écran)
+ * @property {'miter' | 'round' | 'bevel'} [jointure] jointure du contexte au moment de la pose (la v1 l'hérite : « round » après la ligne de relief ou les noms, « miter » avant)
  * @property {number} lignesMax @property {Map<string, number>} memoireLignes @property {(police: string, texte: string) => number} mesurerTexte
  * @property {{affichage: string, mono: string}} familles
  */
@@ -91,7 +92,7 @@ const plusProche = (/** @type {ElementBande[]} */ items) => items.reduce((a, t) 
  */
 function poserCouche(L, vue, placeur, o, sortie) {
   const { commandes, zones } = sortie, W = vue.largeurPx, H = vue.hauteurPx, { hy, etage, mesurerTexte, familles, memoireLignes } = o, bas = etage === 'bas';
-  const J = bas ? JOINTURE_BAS : JOINTURE_HAUT;
+  const J = o.jointure || (bas ? JOINTURE_BAS : JOINTURE_HAUT);
   const touche = (/** @type {number} */ x0, /** @type {number} */ x1, /** @type {number} */ y0, /** @type {number} */ y1, /** @type {number} */ m, /** @type {unknown} */ propre) => rectangleTouche(placeur.reservations, x0, x1, y0, y1, m, propre);
   const groupes = former(L, vue), ligne = L.couleur.ligne, tl = L.groupePar === 'icone';
   const poseZone = (/** @type {Groupe} */ g, /** @type {ElementBande} */ near, /** @type {number} */ x, /** @type {{x0: number, x1: number, y0: number, y1: number} | null} */ lab) => {
