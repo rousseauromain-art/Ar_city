@@ -49,7 +49,7 @@ async function ouvrirSceneReelle(browser,sc,opts={}){
   // relief lointain (c.demT) ; en conditions réelles elles sont relues. On le reproduit.
   await app.ev('for(const c of cities.concat(farPeaks,monumentSites)) c.demT=0; applyOcclusion(false); true');
   await attendreStable(app,1500);
-  if(sc.photo) await app.ev('photoMode.utc=Date.UTC(2026,0,1,1,0,0); true'); // heure de nuit : pas de symbole du soleil dans la scène
+  if(sc.photo&&!sc.heureReelle) await app.ev('photoMode.utc=Date.UTC(2026,0,1,1,0,0); true'); // heure de nuit : pas de symbole du soleil dans la scène
   const cap0=await app.ev('S.headOff');
   return {app,page,ctx,pos,erreurs,cap0};
 }

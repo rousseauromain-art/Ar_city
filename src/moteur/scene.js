@@ -17,6 +17,8 @@ import { composerBande, pointeursHorsChamp } from '../rendu/bande.js';
 import { grouperMobiles, reserverIcones, commandesIcones, composerAvions } from '../rendu/mobiles.js';
 import { poserBateaux } from '../rendu/escalier.js';
 import { texte } from '../rendu/commandes.js';
+import { commandesSoleil } from '../rendu/soleil.js';
+import { positionSoleil } from '../noyau/astro.js';
 import { calque as calqueRelief, classerCretes, cretesDe } from '../calques/relief.js';
 import { calque as calquePhoto } from '../calques/photo-silhouette.js';
 import { classerMobiles } from '../calques/avions.js';
@@ -38,6 +40,7 @@ import { messageCentral, texteStatut } from './statut.js';
  * @property {(police: string, texte: string) => number} mesurerTexte @property {{affichage: string, mono: string}} familles
  * @typedef {object} EtatScene
  * @property {boolean} photo mode photo rejouée @property {boolean} capteur boussole disponible @property {string} erreurCamera @property {number} precisionM précision du GPS @property {boolean} chargement lieux en chargement
+ * @property {number | null} [utcMs] instant du soleil : heure de la prise de vue en photo, heure du téléphone en direct ; absent ou null : pas de symbole du soleil
  * @property {string} source source des lieux @property {string} etatRelief « calcul… », « indispo », … @property {string} messageAir @property {string} messageSea
  */
 
@@ -86,7 +89,8 @@ export function composerScene({ vue, reglages: S, donnees: D, memoires: M, ecran
     mesurerTexte, familles, maintenantMs, choix: M.choixBateaux, distances: S.showDist });
   M.choixBateaux = bateaux.choix; M.calageMonuments = c.snapSuivant;
   const h = habille(c.affiches, D.lieux.filter((l) => !l.farPeak).length, c.liste.length);
-  return { scene: [...base, ...(bandeHaut ? bandeHaut.commandes : []), ...noms.commandes, ...(bandeBas ? bandeBas.commandes : []), ...pointeurs, ...commandesIcones(groupes, vue), ...avions.commandes, ...bateaux.commandes],
+  return { scene: [...base, ...(bandeHaut ? bandeHaut.commandes : []), ...noms.commandes, ...(bandeBas ? bandeBas.commandes : []), ...pointeurs, ...commandesIcones(groupes, vue), ...avions.commandes, ...bateaux.commandes,
+      ...commandesSoleil(vue, etat.utcMs ? positionSoleil(etat.utcMs, D.pos.lat, D.pos.lon) : null, { familles, jointure: 'round', extremite: 'butt' })],
     ecran: surimpression(h.message),
     bilan: { affiches: c.affiches, badge: S.beyond ? 0 : c.fantomesEnChamp, statut: h.statut, message: h.message, etage: basse ? 'bas' : 'haut', comptes: noms.comptes, zones: { bande: bande.zones, avions: avions.zones, bateaux: bateaux.zones } } };
 }
