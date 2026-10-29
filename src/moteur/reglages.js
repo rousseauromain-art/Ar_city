@@ -56,3 +56,26 @@ export function reglagesAMemoriser(S, sauvegardePhoto = null) {
 export const lireReglages = (stockage) => fusionnerReglages(stockage.lire('reglages', { parDefaut: null }));
 /** @param {ReturnType<typeof import('../outils/stockage.js').creerStockage>} stockage @param {Reglages} S @param {Partial<Reglages> | null} [sauvegardePhoto] @returns {boolean} */
 export const ecrireReglages = (stockage, S, sauvegardePhoto = null) => stockage.ecrire('reglages', reglagesAMemoriser(S, sauvegardePhoto));
+
+/** Clés d'AFFICHAGE reprises de la v1 : jamais le calage (`headOff`, `pitchOff`, `camFov`), propre à chaque photo ou à chaque appareil, ni la position simulée. */
+export const CLES_REPRISES_V1 = Object.freeze(['skyline', 'ridges', 'relief', 'radius', 'hamlets', 'showDist', 'beyond', 'telecom', 'buildings', 'air', 'sea', 'obsHeight', 'layers', 'poi']);
+/** Clé des réglages de la v1 (lue, jamais écrite). */
+export const CLE_REGLAGES_V1 = 'vh_settings_v2';
+
+/**
+ * Premier lancement de ce correctif : reprend UNE fois les réglages d'affichage de la v1 (lecture seule, même origine), pour que la v2 ressemble à la v1
+ * (ligne de relief, rayon, calques…). Marque `reglages-v1-repris` pour ne le refaire jamais. @param {ReturnType<typeof import('../outils/stockage.js').creerStockage>} stockage
+ * @param {(cle: string) => string | null} lireLocal @returns {boolean} des réglages ont été repris
+ */
+export function reprendreReglagesV1(stockage, lireLocal) {
+  if (stockage.lire('reglages-v1-repris', { parDefaut: false })) return false;
+  stockage.ecrire('reglages-v1-repris', true);
+  let v1;
+  try { v1 = JSON.parse(lireLocal(CLE_REGLAGES_V1) || 'null'); } catch { return false; }
+  if (!v1 || typeof v1 !== 'object') return false;
+  const repris = /** @type {Record<string, any>} */ ({});
+  for (const k of CLES_REPRISES_V1) if (v1[k] !== undefined) repris[k] = v1[k];
+  if (!Object.keys(repris).length) return false;
+  const avant = /** @type {Record<string, any>} */ (stockage.lire('reglages', { parDefaut: null }) || {}); // réglages déjà enregistrés par la v2 : l'affichage de la v1 les remplace, le reste est gardé
+  return stockage.ecrire('reglages', { ...avant, ...repris, layers: { ...avant.layers, ...repris.layers }, poi: { ...avant.poi, ...repris.poi } });
+}
