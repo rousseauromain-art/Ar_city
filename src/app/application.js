@@ -90,7 +90,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
 
   /** Ce qui est chargé, et d'où. */
   const D = /** @type {DonneesScene & {mobiles: any[]}} */ ({ pos: /** @type {any} */ (null), terrain: null, lieux: [], monuments: [], pylones: [], reperes: [], doublonsReperes: [], couchesPerso: [], mobiles: [], analysePhoto: null });
-  const E = { source: '', debutLieux: 0, sourcesLieux: /** @type {import('../donnees/lieux.js').DetailSource[]} */ ([]), chargementLieux: false, etatRelief: '', msgMonuments: '', msgTelecom: '', msgReperes: '', rayonCharge: 0, dernierLieux: /** @type {Point | null} */ (null) };
+  const E = { terrainCentre: /** @type {Point | null} */ (null), source: '', debutLieux: 0, sourcesLieux: /** @type {import('../donnees/lieux.js').DetailSource[]} */ ([]), chargementLieux: false, etatRelief: '', msgMonuments: '', msgTelecom: '', msgReperes: '', rayonCharge: 0, dernierLieux: /** @type {Point | null} */ (null) };
   /** @type {{lieux: Point | null, sommets: Point | null, terrain: Point | null, monuments: Point | null, telecom: Point | null, reperes: Point | null}} */
   const couvert = { lieux: null, sommets: null, terrain: null, monuments: null, telecom: null, reperes: null };
   const occupe = { lieux: false, sommets: false, terrain: false, monuments: false, telecom: false, reperes: false };
@@ -153,7 +153,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     occupe.terrain = true; E.etatRelief = 'calcul…'; change('relief');
     try {
       await calculerTerrainAvecRepli({ pos, source: 'mapterhorn', chargeur: chargeurTuiles, masque, correctionOeilM: S.obsHeight || 0, maintenant,
-        publier: (t) => { if (!encore(pos)) return; D.terrain = { h0: t.h0, pm: t.pm, bands: t.bands }; E.etatRelief = t.refining || t.partial ? 'calcul…' : 'ok'; change('relief'); } });
+        publier: (t) => { if (!encore(pos)) return; D.terrain = { h0: t.h0, pm: t.pm, bands: t.bands }; E.terrainCentre = { ...pos }; E.etatRelief = t.refining || t.partial ? 'calcul…' : 'ok'; change('relief'); } });
       couvert.terrain = { ...pos }; E.etatRelief = 'ok';
     } catch (e) { E.etatRelief = 'indispo'; journal.erreur('app', 'relief', e); }
     occupe.terrain = false; change('relief');
@@ -252,6 +252,16 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   }
 
   return {
+    /** Le relief affiché est-il périmé pour la position courante (absent, ou calculé à plus de 300 m) ? */
+    reliefPerime: () => !D.terrain || !D.pos || !E.terrainCentre || distanceEtCap(D.pos, E.terrainCentre).distKm > PROCHE_KM,
+    /** Avant un calage : relance le relief s'il est périmé et attend sa première publication (au plus `msMax`), comme la v1 (le relief lointain suffit : pas besoin du relief fin). @param {number} [msMax] */
+    async attendreRelief(msMax = 8000) {
+      const perime = () => !D.terrain || !D.pos || !E.terrainCentre || distanceEtCap(D.pos, E.terrainCentre).distKm > PROCHE_KM;
+      if (!perime() || E.etatRelief === 'indispo' || !reglages().relief) return;
+      chargerTerrain(false);
+      const t0 = maintenant();
+      while (perime() && maintenant() - t0 < msMax) await new Promise((ok) => setTimeout(ok, 120));
+    },
     /** Mode de la page : le trafic en direct n'existe qu'en `direct`. @param {'direct' | 'photo'} mode */
     definirMode(mode) { trafic.mode = mode; lancerTrafic(); change('mode'); },
     /** Après un changement des réglages avions / bateaux. */
