@@ -4,7 +4,7 @@
 //  3. TOUT ce que la v1 trace sur le canvas (horizon, réticule, fils, points, noms avec liseré, détails) = les commandes v2 rejouées, mémoire
 //     de placement des noms comprise, en Essentiel et en Tout voir, avec et sans silhouette lue sur la photo ;
 //  4. comptes (nets, fantômes, sans place) et badge « +N » du bouton œil.
-// Seuls les lieux sont gardés dans la v1 (monuments, repères, sommets lointains, télécom, bâtiments retirés) : les deux côtés voient les mêmes éléments.
+// Lieux habités, lieux remarquables (phares, caps, îles, plages…) et sommets lointains sont gardés dans la v1 ; monuments, télécom et bâtiments retirés : les deux côtés voient les mêmes éléments.
 // Ignoré sans le dossier PHOTOS_DIR (CI sans jeton, REFONTE.md §9).
 const {test,expect}=require('@playwright/test');
 const {ouvrirSceneReelle,disponible}=require('../helpers/scenes-reelles.js');
@@ -21,7 +21,7 @@ const REGLAGES={relief:true,skyline:false,hamlets:true,telecom:false,buildings:f
   layers:{places:true,monuments:false,equip:false,urban:false,urbClip:true,urbSmooth:true,urbFill:true},
   poi:{lighthouse:true,cape:true,rock:true,view:true,heritage:true,beach:true}};
 const EXTRAIRE_V1=`(()=>{
-  const L=visibleCities().filter(c=>SETTLE.has(c.kind)), dom=[];
+  const L=visibleCities(), dom=[];
   for(const el of [$('tools'),$('chips'),$('btnSet'),$('shutter'),$('btnBeyond'),$('layers')]){ if(!el) continue; const r=el.getBoundingClientRect(); if(r.width&&r.height) dom.push([r.left,r.right,r.top,r.bottom]); }
   return {list:L.map(c=>({name:c.name,lat:c.lat,lon:c.lon,kind:c.kind,dist:c.dist,brg:c.brg,far:!!c.far,hidden:!!c.hidden,photoHid:!!c.photoHid,aG:c.aG??null,aP:c.aP??null,mask:c.mask??null})),
     stats:{...placeStats}, badge:_eyeBadgeN, ui:uiObstacles().map(r=>r.slice()).concat(dom), safeT, FD, FM, W, H, dpr, P:pose(), fov:vFov(), S:{radius:S.radius,relief:S.relief,beyond:!!S.beyond,photoVis:S.photoVis===true,places:S.layers.places,showDist:S.showDist,camFov:S.camFov,filter:S.filter}, flux:camSrc()};
@@ -50,8 +50,9 @@ for(const sc of SCENES){
     expect(donnees.lieux).toEqual(complete);
 
     // seuls les lieux restent dans la v1
-    await app.ev('cities=cities.filter(c=>SETTLE.has(c.kind)); farPeaks=[]; monumentSites=[]; telecomSites=[]; buildingSites=[]; recompute(); true');
-    const bilan={}; let nPhotoHid=0, nFantomes=0, nNets=0, nAffiches=0;
+    await app.ev('monumentSites=[]; telecomSites=[]; buildingSites=[]; recompute(); true');
+    const strip2='({name:c.name,lat:c.lat,lon:c.lon,kind:c.kind,pop:c.pop,ele:c.ele,farPeak:c.farPeak})';
+    const bilan={}; let nRemarquables=0, nPeaks=0, nPhotoHid=0, nFantomes=0, nNets=0, nAffiches=0;
 
     for(const mode of ['essentiel','tout-voir']) for(const avecPhoto of [false,true]) for(const [dCap,incl] of POSES){
       await app.ev(`setBeyond(${mode==='tout-voir'}); S.headOff=${(cap0+dCap+360)%360}; S.pitchOff=${incl}; true`);
@@ -83,7 +84,7 @@ for(const sc of SCENES){
         rec.arreter();
         return {ops:rec.evenements(),comptes,fantomesEnChamp,fantomesVus:comptes.fantomesVus,mem1:[...memoire],
           liste:classes.map(c=>({name:c.el.name,lat:c.el.lat,lon:c.el.lon,kind:c.el.kind,dist:c.el.dist,brg:c.el.brg,far:c.el.far,hidden:c.el.hidden,photoHid:c.el.photoHid,aG:c.el.aG,aP:c.el.aP,mask:c.el.mask}))};
-      },{e1,mem0:v1.mem0,lieux:await app.ev(`cities.map(c=>${strip})`)});
+      },{e1,mem0:v1.mem0,lieux:await app.ev(`cities.concat(farPeaks).map(c=>${strip2})`)});
 
       const tag=`${mode}${avecPhoto?' +photo':''} cap+${dCap} incl ${incl}`;
       // 2. classement
@@ -97,12 +98,14 @@ for(const sc of SCENES){
       expect(v2.ops.length,`${tag} : nombre d'opérations de dessin`).toBe(v1.ops.length);
       for(let i=0;i<v1.ops.length;i++) expect(v2.ops[i],`${tag} : opération ${i}`).toEqual(v1.ops[i]);
       expect(v2.mem1,`${tag} : mémoire de placement`).toEqual(v1.mem1);
+      nRemarquables+=e1.list.filter(c=>!['city','town','village','hamlet','isolated_dwelling'].includes(c.kind)).length; nPeaks+=e1.list.filter(c=>c.kind==='peak').length;
       nPhotoHid+=e1.list.filter(c=>c.photoHid).length; nFantomes+=e1.list.filter(c=>c.far||c.hidden).length; nNets+=e1.stats.shown; nAffiches+=v1.ops.filter(o=>o.t==='contour').length;
       bilan[tag]={classes:e1.list.length,ops:v1.ops.length,...e1.stats};
     }
-    console.log(sc.id,'photoHid',nPhotoHid,'fantômes',nFantomes,'nets posés',nNets,'noms tracés',nAffiches);
+    console.log(sc.id,'lieux remarquables classés',nRemarquables,'dont sommets',nPeaks,'· photoHid',nPhotoHid,'fantômes',nFantomes,'nets posés',nNets,'noms tracés',nAffiches);
     expect(sc.id==='morgat-plage'?nAffiches:nNets,'des noms doivent être posés').toBeGreaterThan(0); // Morgat regarde la mer : seulement des fantômes
     expect(nAffiches,'des noms doivent être dessinés').toBeGreaterThan(0);
+    expect(nRemarquables,'des lieux remarquables (phares, caps, plages, sommets…) doivent être classés').toBeGreaterThan(0);
     expect(erreurs).toEqual([]);
     await ctx.close();
   });

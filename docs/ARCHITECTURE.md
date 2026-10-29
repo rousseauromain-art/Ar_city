@@ -66,10 +66,12 @@ Sens des dépendances : `ui → rendu → calques → scene, calage, vision → 
 | `src/rendu/{mobiles,escalier}.js` | icônes des mobiles regroupées et réservées avant les étiquettes, noms d'avions (incliné, à plat, « NOM +N »), noms de bateaux à plat en escalier avec choix des plus proches et pastilles « +N » |
 | `src/calques/{avions,bateaux}.js` | classement des avions et des bateaux (champ, horizon, recherche) |
 | `src/rendu/bande.js` | **bande des équipements commune** (équipements urbains, pylônes, repères hauts, couches personnelles) : groupes, icône + pastille du nombre, nom à côté, dessous ou en haut, étage bas ou haut, sites trouvés, pastilles au bord |
+| `src/moteur/` | **moteur de scène** (étape 9a) : `composerScene` assemble tous les calques dans l'ordre de la v1 (horizon, croix, relief, noms, bande, mobiles, ruban de cap, message), réglages et leur mémorisation, bandeau d'état |
+| `src/rendu/{ruban-cap,croix-visee}.js` | ruban de cap (graduations, cardinaux) et croix de visée |
 | `src/rendu/icones.js` | pictogrammes et silhouettes de monuments (listes d'opérations de chemin, sans canvas) |
 | `src/calques/{equipements,reperes,kml}.js` | équipements urbains et pylônes télécom, repères hauts OSM, couches personnelles : classement (portée, plafond, relief, doublons) et couches de bande à poser |
 | `src/calques/monuments.js` | monuments : classement Essentiel / Tout voir avec raison (portée, toits, plafond, masquage entre monuments, relief, photo), icônes et noms à poser |
-| `src/calques/lieux.js` | villes, bourgs, villages, hameaux : classement Essentiel / Tout voir avec raison, puis étiquettes à poser |
+| `src/calques/lieux.js` | villes, bourgs, villages, hameaux, lieux remarquables (phares, caps, îles, plages, sommets lointains) : classement Essentiel / Tout voir avec raison, puis étiquettes à poser |
 | `src/scene/visibilite.js` | verdict « caché par le relief » commun à tous les calques (+ règle des tours OSM) ; les autres raisons viendront avec leurs calques |
 
 Toutes les dépendances (fetch, horloge, stockage, journal) sont **injectées** : les modules se testent sans navigateur.

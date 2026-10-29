@@ -18,6 +18,7 @@ import { commandeGlyphe, commandesSilhouetteMonument } from './icones.js';
  * @property {number} x abscisse de l'ancre @property {number} y ordonnée de l'ancre
  * @property {number} opacite opacité de base (déjà réduite pour un fantôme) @property {string} teinte « r,g,b » @property {boolean} fantome
  * @property {number} decalage décalage horizontal du départ du nom @property {number} elevation hauteur du départ du nom
+ * @property {boolean} [remarquable] lieu remarquable (phare, cap, plage…) : fil et point de la couleur du nom, au lieu du blanc
  */
 /**
  * Étiquette de style « monument » : l'icône (x, y = sommet) est dessinée, avec ou sans nom.
@@ -116,8 +117,9 @@ export function composerEtiquettes(etiquettes, placeur, { mesurerTexte, familles
       const x0 = boiteIcone[3] - boiteIcone[2] > gH + 4 ? e.x : e.x + side * (gH / 2 - 2);
       commandes.push(trait([['M', x0, leadY], ['L', lx, ly]], `rgba(${e.teinte},${0.8 * alpha})`, 1, { tirets: ghost ? [2, 3] : [], jointure: 'round' }));
     } else {
-      commandes.push(trait([['M', e.x, e.y], ['L', lx, ly]], `rgba(255,255,255,${0.85 * alpha})`, 1, { tirets: ghost ? [2, 3] : [], jointure: 'round' }));
-      commandes.push(remplissage([['A', e.x, e.y, ghost ? 1.8 : 2.4]], `rgba(255,255,255,${0.9 * alpha})`));
+      const rem = !!e.remarquable;
+      commandes.push(trait([['M', e.x, e.y], ['L', lx, ly]], rem ? `rgba(224,165,38,${0.8 * alpha})` : `rgba(255,255,255,${0.85 * alpha})`, 1, { tirets: ghost ? [2, 3] : [], jointure: 'round' }));
+      commandes.push(remplissage([['A', e.x, e.y, ghost ? 1.8 : 2.4]], rem ? `rgba(224,165,38,${0.95 * alpha})` : `rgba(255,255,255,${0.9 * alpha})`));
     }
     const align = side > 0 ? 'left' : 'right', enfants = [texte(e.texte, 0, 0, police, `rgba(${e.teinte},${alpha})`, { alignement: align, contour: contour(3.5) })];
     if (e.detail) enfants.push(texte(e.detail, side * (nw + 7), 0, policeDetail, `rgba(224,165,38,${ghost ? 0.5 : 1})`, { alignement: align, contour: contour(3) }));
