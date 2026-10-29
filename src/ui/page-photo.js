@@ -223,7 +223,7 @@ function demarrer() {
     const vue = { largeurPx: W, hauteurPx: H, capDeg: S.headOff, inclinaisonDeg: S.pitchOff, roulisDeg: 0, champDeg: vFov() };
     const r = composerScene({ vue, reglages: S, donnees: d.pos ? d : null, memoires, maintenantMs: Date.now(),
       ecran: { reservations: obstaclesInterface(), safeT, safeB: parseFloat(css.getPropertyValue('--safe-b')) || 0, mesurerTexte, familles },
-      etat: { photo: !!photoMode, capteur: false, erreurCamera: '', precisionM: 0, chargement: e.chargementLieux, source: e.source, etatRelief: e.etatRelief, messageAir: '', messageSea: '' } });
+      etat: { photo: !!photoMode, utcMs: photoMode ? photoMode.photo.utc : null, capteur: false, erreurCamera: '', precisionM: 0, chargement: e.chargementLieux, source: e.source, etatRelief: e.etatRelief, messageAir: '', messageSea: '' } });
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
     ctx.save(); avecRoulis(ctx, vue, () => dessiner(ctx, r.scene)); ctx.restore(); dessiner(ctx, r.ecran);
     dernierBilan = r.bilan;

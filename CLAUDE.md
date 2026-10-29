@@ -14,7 +14,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
 - `villes-horizon.html` (racine) : redirige vers `v1/villes-horizon.html` (anciens liens, raccourci du téléphone).
 - `config.js` (à la racine) : adresse du relais. Il est public et ne contient aucun secret.
 - `index.html` : le lanceur (modes × versions ; v2 « en développement », sans lien).
-- `v2/photo.html` : page v2 « photo rejouée » (même interface que la v1), liée depuis le lanceur ; commandes de l'étape 10 désactivées.
+- `v2/photo.html` : page v2 « photo rejouée » (même interface que la v1), liée depuis le lanceur ; commandes de l'étape 10 désactivées ; symbole du soleil affiché (heure EXIF), calage sur le soleil à l'étape 10.
 - `v2/outils.html` + `src/` : fondations de la v2 (étape 1 de `REFONTE.md`) : journal, état, stockage `vh2:`, drapeaux, rapport, réseau unique, Eruda avec `?debug=1`. Rôle de chaque dossier : `docs/ARCHITECTURE.md`.
 - Pages de diagnostic, dans `debug/` (elles chargent `../config.js`) :
   - `debug/debug-trafic.html` : AIS et avions ;

@@ -12,6 +12,7 @@ const SCENES=[
   {id:'saint-malo-rempart',photo:'PXL_20261025_112230293.jpg',radius:30},
   {id:'turin-san-carlo',photo:'PXL_20261022_104200724.jpg',radius:30},
   {id:'morgat-plage',photo:'PXL_20260824_175454144.jpg',radius:180},
+  {id:'ibiza-coucher-soleil',photo:'PXL_20260927_173517301.jpg',radius:30,heureReelle:true,soleil:true}, // heure réelle de la photo : le soleil est dans l'image
 ];
 const POSES=[[0,0],[37,3],[-80,-2]];
 const REGLAGES={relief:true,skyline:true,hamlets:true,telecom:true,buildings:true,sea:false,air:false,photoVis:false,cross:false,
@@ -76,23 +77,25 @@ for(const sc of SCENES){
       const b1=await app.ev('buildingSites.map(b=>({kind:b.kind,lat:b.lat,lon:b.lon,height_m:b.height_m,named:b.named,id:b.id,ess:b.ess,name:b.name,dup:!!b.dupMon}))'), b2=await p2.evaluate(()=>{ const d=window.__vh2.app.donnees(); return d.reperes.map((b,i)=>({kind:b.kind,lat:b.lat,lon:b.lon,height_m:b.height_m,named:b.named,id:b.id,ess:b.ess,name:b.name,dup:!!d.doublonsReperes[i]})); });
       expect(b2,'repères hauts (ordre, champs, doublons)').toEqual(b1);
       const t1=await app.ev('telecomSites.length'), t2=await p2.evaluate(()=>window.__vh2.app.donnees().pylones.length); expect(t2,'pylônes').toBe(t1); }
-    let ops=0;
+    const sol=sc.soleil?await app.ev('sunNow()'):null, soleilAz=sol?sol.az:0, soleilEl=sol?sol.el:0;
+    let ops=0, soleils=0;
     for(const mode of ['essentiel','tout-voir']) for(const [dCap,incl] of POSES){
-      const cap=(cap0+dCap+360)%360;
-      await app.ev(`setBeyond(${mode==='tout-voir'}); S.headOff=${cap}; S.pitchOff=${incl}; S.photoVis=false; photoSky=null; for(const c of monumentSites) c._snapDB=0; citiesVer++; $('note').style.display='none'; true`);
+      const cap=sc.soleil?(Math.round(soleilAz)+dCap+360)%360:(cap0+dCap+360)%360, inclPose=sc.soleil?Math.round(soleilEl)+incl:incl;
+      await app.ev(`setBeyond(${mode==='tout-voir'}); S.headOff=${cap}; S.pitchOff=${inclPose}; S.photoVis=false; photoSky=null; for(const c of monumentSites) c._snapDB=0; citiesVer++; $('note').style.display='none'; true`);
       await app.ev('for(const c of cities.concat(farPeaks,monumentSites)){ c.demT=0; c._skyT=0; } for(const b of buildingSites) b._gT=0; applyOcclusion(false); _ridgesAt=0; _skyDistAt=0; true');
       await app.ev('lblMem.clear(); laneMem.clear(); true'); // mêmes mémoires de départ des deux côtés : l’historique des images d’avant n’est pas comparé
       for(let i=0;i<2;i++) await app.frame();
       const f1=await page.evaluate(()=>window.__vh.frameOps(false,true));
-      await p2.evaluate(({cap,incl,beyond})=>{ const v=window.__vh2; v.S.headOff=cap; v.S.pitchOff=incl; v.S.beyond=beyond; document.getElementById('note').style.display='none'; v.memoires.placement.clear(); v.memoires.lignes.clear(); for(let i=0;i<2;i++) v.rendreImage(); },{cap,incl,beyond:mode==='tout-voir'});
+      await p2.evaluate(({cap,inclPose,beyond})=>{ const v=window.__vh2; v.S.headOff=cap; v.S.pitchOff=inclPose; v.S.beyond=beyond; document.getElementById('note').style.display='none'; v.memoires.placement.clear(); v.memoires.lignes.clear(); for(let i=0;i<2;i++) v.rendreImage(); },{cap,inclPose,beyond:mode==='tout-voir'});
       const f2=await p2.evaluate(()=>{ const v=window.__vh2, rec=window.__enregistreur(v.ctx); rec.demarrer(); v.rendreImage(); rec.arreter(); return rec.evenements(); });
       const tag=`${mode} cap+${dCap} incl ${incl}`;
       { const k=f1.ops.findIndex((o,i)=>JSON.stringify(o)!==JSON.stringify(f2[i])); if(k>=0||f1.ops.length!==f2.length) console.log('DIFF',tag,k,f1.ops.length,f2.length,'\nV1',JSON.stringify(f1.ops.slice(Math.max(0,k-1),k+2)).slice(0,1500),'\nV2',JSON.stringify(f2.slice(Math.max(0,k-1),k+2)).slice(0,1500)); }
       expect(f2.length,`${tag} : nombre d'opérations`).toBe(f1.ops.length);
       for(let i=0;i<f1.ops.length;i++) expect(f2[i],`${tag} : opération ${i}`).toEqual(f1.ops[i]);
-      ops+=f1.ops.length;
+      ops+=f1.ops.length; soleils+=f1.ops.filter(o=>o.t==='texte'&&/^soleil /.test(o.texte)).length;
     }
-    console.log(sc.id,'opérations comparées',ops);
+    console.log(sc.id,'opérations comparées',ops,'· symboles du soleil',soleils);
+    if(sc.soleil) expect(soleils,'le symbole du soleil doit être dessiné').toBeGreaterThan(0);
     expect(erreurs).toEqual([]);
     await ctx2.close(); await v1.ctx.close();
   });
