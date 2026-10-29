@@ -1,0 +1,181 @@
+/* Style de la page v2 : repris tel quel de la v1 (même interface). */
+:root{
+  --ink:#0E1A2B; --ink2:#182A42; --cream:#F3E9D2; --ochre:#E0A526; --line:rgba(243,233,210,.22);
+  --display:"Barlow Condensed","Roboto Condensed","Avenir Next Condensed","Arial Narrow",sans-serif;
+  --mono:"IBM Plex Mono","SF Mono",Menlo,Consolas,monospace;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px); --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+  /* UX 09/10/2026 : cibles tactiles >= 44 px (Apple HIG / Material 48 dp), bords de securite en paysage (encoche), colonne d'outils sur 1 ou 2 colonnes */
+  --tb:44px; --tg:8px; --tcols:1; --toolsW:var(--tb);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--ink);color:var(--cream);font-family:var(--display);overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+#stage{position:fixed;inset:0;background:#000}
+video,#photoBg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#photoChip{pointer-events:auto;cursor:pointer;color:#FFD23F;border:1px solid rgba(255,210,63,.5);white-space:normal}
+#ov{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+#safe{position:absolute;top:0;left:0;width:1px;height:var(--safe-t);visibility:hidden}
+
+/* status + calibration chips */
+.chips{position:absolute;top:calc(var(--safe-t) + 34px);left:calc(12px + var(--safe-l));max-width:calc(100% - var(--toolsW) - var(--safe-l) - var(--safe-r) - 40px);display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none}
+.chiprow{display:flex;gap:6px;align-items:center}
+#radChip{pointer-events:auto;cursor:pointer;color:var(--ochre);border:1px solid rgba(224,165,38,.45)}
+#radPop{pointer-events:auto;padding:8px 10px;width:230px}#radPop input{width:100%;accent-color:var(--ochre)}
+.chip{padding:5px 9px;border-radius:4px;background:rgba(14,26,43,.72);font:500 12px/1 var(--mono);color:var(--cream);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;backdrop-filter:blur(6px)}
+#calib,#filt{color:var(--ochre);display:none;pointer-events:auto}
+#note{display:none;color:var(--ochre);white-space:normal;line-height:1.35}
+#calib b,#filt b{font-weight:500;text-decoration:underline;margin-left:8px;color:var(--cream)}
+/* bouton replier/deplier : toujours visible, quel que soit l'etat, pour pouvoir revenir en arriere */
+.chiprow{display:flex;align-items:center;gap:6px;pointer-events:none}
+#btnFold{pointer-events:auto;flex:0 0 auto;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.85);backdrop-filter:blur(6px)}
+#btnFold svg{width:15px;height:15px;stroke:var(--ochre);stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
+#btnFold:active{background:rgba(243,233,210,.2)}
+.chips.folded #btnFold svg{transform:rotate(-90deg)}
+/* replie : tout le bandeau (compteur de lieux inclus) disparait, seul le bouton reste */
+.chips.folded #status,.chips.folded #calib,.chips.folded #filt,.chips.folded #note{display:none!important}
+#tools{position:absolute;top:calc(var(--safe-t) + 34px);right:calc(12px + var(--safe-r));display:grid;grid-template-columns:repeat(var(--tcols),var(--tb));gap:var(--tg)}
+#tools button{width:var(--tb);height:var(--tb);display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.72);backdrop-filter:blur(6px)}
+#tools svg{width:19px;height:19px;stroke:var(--cream);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+#tools button:active{background:rgba(243,233,210,.2)}
+#btnLayers.on{background:rgba(224,165,38,.3)}
+/* calques (lots 2 et 5, 28/09/2026) : quoi afficher ; l'oeil regle combien */
+#layers{position:absolute;top:calc(var(--safe-t) + 34px);right:calc(12px + var(--safe-r) + var(--toolsW) + 10px);max-height:calc(100% - var(--safe-t) - 34px - 12px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;width:min(272px,calc(100vw - var(--toolsW) - var(--safe-l) - var(--safe-r) - 84px));background:rgba(14,26,43,.95);border:1px solid var(--line);border-radius:6px;padding:10px 12px 8px;display:none;z-index:6;backdrop-filter:blur(8px)}
+#layers.open{display:block}
+#layers .lyT{font:700 12px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;color:var(--ochre);margin:2px 0 8px}
+#layers label{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
+#layers label svg{width:22px;height:22px;flex:0 0 22px;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#layers .lyN{flex:1;font:600 14px/1.2 var(--display);color:var(--cream)}
+#layers .lyN em{display:block;font:400 11.5px/1.3 var(--mono,monospace);font-style:normal;color:rgba(243,233,210,.6);margin-top:2px}
+#layers input{width:20px;height:20px;accent-color:#E0A526}
+#layers label.lySub{padding:2px 0 8px 32px;border-top:0}
+#layers label.lySub .lyN{font-size:12.5px;font-weight:500}
+#layers .lyBtn{display:block;width:100%;margin:8px 0 6px;padding:10px;border:1px dashed var(--line);border-radius:4px;color:var(--ochre);font:700 12px var(--mono,monospace);letter-spacing:.06em;text-transform:uppercase;text-align:center}
+#layers label.lyUsr svg{fill:currentColor;stroke:none}
+.usrRow{padding:12px 0;border-top:1px solid var(--line)}
+.usrRow input[type=text],.usrRow select{background:rgba(243,233,210,.08);border:1px solid var(--line);border-radius:3px;color:var(--cream);font:500 13px var(--mono,monospace);padding:7px 8px;max-width:100%}
+.usrRow .sw{display:inline-block;width:26px;height:26px;border-radius:50%;border:2px solid transparent;margin:6px 8px 0 0;vertical-align:middle}
+.usrRow .sw.on{border-color:#F3E9D2}
+.usrBtn{display:inline-block;padding:10px 14px;border:1px solid var(--ochre);border-radius:4px;color:var(--ochre);font:700 12px var(--mono,monospace);letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin:4px 8px 4px 0}
+.usrQ{display:flex;align-items:center;gap:8px;margin:10px 0 4px}.usrQ input{flex:1;min-width:0;background:rgba(243,233,210,.08);border:1px solid #FFD23F;border-radius:3px;color:var(--cream);font:700 14px var(--mono,monospace);padding:8px}.usrQ em{font:500 11px var(--mono,monospace);color:#FFD23F;white-space:nowrap}.usrHit{padding:9px 0;border-top:1px solid var(--line);cursor:pointer;font-size:13px}.usrHit b{color:#FFD23F}.usrHit span{opacity:.75}
+.usrDiagBox{margin:8px 0;border:1px solid var(--line);border-radius:4px;padding:8px}.usrDiagBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}.usrDiagBar label{flex:1;display:flex;align-items:center;gap:6px;min-width:150px}.usrDiagBar .usrBtn{margin:0}#usrDiagPre{margin:8px 0;max-height:46vh;overflow:auto;white-space:pre-wrap;word-break:break-word;font:400 11px/1.45 var(--mono);color:var(--cream);-webkit-user-select:text;user-select:text}
+.usrBtn.danger{border-color:#E85A5A;color:#E85A5A}
+#layers .lyH{font:400 11.5px/1.35 var(--mono,monospace);color:rgba(243,233,210,.55);padding-top:8px;border-top:1px solid var(--line)}
+#btnFind.holding{background:rgba(224,165,38,.55);transition:background .15s}
+#btnFind.on,#btnAlign.on,#btnPoint.on{background:rgba(224,165,38,.85)}
+#btnFind.on svg,#btnAlign.on svg,#btnPoint.on svg{stroke:var(--ink)}
+/* bouton oeil : a portee de pouce, a cote du declencheur, avec son etat ecrit et un badge "+N"
+   (nombre de lieux que "Tout voir" ajouterait dans la direction visee) */
+#btnBeyond{position:relative;display:flex;align-items:center;gap:7px;width:100%;max-width:142px;padding-left:8px;padding-right:8px;justify-content:center;white-space:nowrap;letter-spacing:.1em;background:rgba(14,26,43,.55)}
+#btnBeyond svg{width:17px;height:17px;flex:0 0 auto;stroke:var(--cream);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+#btnBeyond.on{background:rgba(224,165,38,.9);color:var(--ink);border-color:transparent}
+#btnBeyond.on svg{stroke:var(--ink)}
+#eyeBadge{position:absolute;top:-10px;right:-10px;min-width:24px;padding:4px 6px;border-radius:12px;background:var(--ochre);color:var(--ink);font:700 11px/1 var(--mono);letter-spacing:0;text-align:center;display:none;box-shadow:0 0 0 2px rgba(14,26,43,.85)}
+.sec{margin-top:6px;padding:14px 0 4px;border-top:1px solid var(--line);font:700 15px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--ochre)}
+.row label em{font:500 11px var(--mono);color:var(--ochre);font-style:normal;margin-left:8px}
+.zbtns{grid-template-columns:1fr auto;gap:10px}
+.zbtns button{padding:11px 14px;border:1px solid var(--line);border-radius:3px;font:700 13px/1 var(--display);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+#btnZoneDL{flex:1;background:rgba(224,165,38,.15);border-color:rgba(224,165,38,.5);color:var(--ochre)}
+#btnZoneDL:disabled{opacity:.6}
+#btnZoneDel{color:#E08787;border-color:rgba(224,135,135,.35);display:none}
+#btnCacheClr{grid-column:1/-1;color:#E08787;border-color:rgba(224,135,135,.35)}
+#btnDbg{grid-column:1/-1;background:rgba(224,165,38,.15);border-color:rgba(224,165,38,.5);color:var(--ochre)}
+#btnDbgRetry,#btnDbgRelay{grid-column:1/-1;background:rgba(224,165,38,.15);border-color:rgba(224,165,38,.5);color:var(--ochre);font:700 12px var(--mono);padding:9px 12px;border-radius:3px;text-transform:uppercase;letter-spacing:.06em}
+
+/* bottom bar */
+#bar{position:absolute;left:0;right:0;bottom:0;pointer-events:none;column-gap:10px;padding:14px max(20px,var(--safe-l)) calc(var(--safe-b) + 16px) max(20px,var(--safe-r));display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:linear-gradient(to top,rgba(14,26,43,.85),rgba(14,26,43,0))}
+.side,#shutter{pointer-events:auto}
+.side{min-height:44px;font:700 14px/1 var(--display);letter-spacing:.14em;text-transform:uppercase;padding:11px 12px;border:1px solid var(--line);border-radius:3px;justify-self:center;color:var(--cream)}
+.side:active{background:rgba(243,233,210,.12)}
+#shutter{width:70px;height:70px;border-radius:50%;border:3px solid var(--cream);padding:4px;justify-self:center}
+#shutter i{display:block;width:100%;height:100%;border-radius:50%;background:var(--cream);transition:transform .1s}
+#shutter:active i{transform:scale(.85)}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
+
+/* paysage / ecran bas (telephone tenu a l'horizontale, barre du navigateur comprise) : tout doit rester atteignable.
+   Cause du bug "plein ecran injoignable" : la barre du bas (100 px de haut, toute la largeur) recouvrait le bas de la colonne d'outils
+   (6 x 40 px + espaces = 280 px) des que l'ecran faisait moins de ~390 px de haut. Maintenant : barre transparente aux touchers hors boutons,
+   outils sur 2 colonnes, declencheur reduit. */
+@media (max-height:460px){
+  :root{--tb:42px; --tg:6px; --tcols:2; --toolsW:calc(2*var(--tb) + var(--tg))}
+  #bar{padding-top:6px;padding-bottom:calc(var(--safe-b) + 8px)}
+  #shutter{width:58px;height:58px}
+  .side{padding:9px 12px}
+}
+@media (max-height:460px) and (max-width:700px){ #tools{--tb:38px} }
+@media (max-width:380px){ #bar{padding-left:max(12px,var(--safe-l));padding-right:max(12px,var(--safe-r));column-gap:6px} .side{letter-spacing:.08em;padding-left:8px;padding-right:8px;font-size:13px} #btnBeyond{min-width:0} }
+
+/* start panel */
+#start{position:absolute;inset:0;background:var(--ink);display:flex;flex-direction:column;justify-content:flex-end;padding:0 26px calc(var(--safe-b) + 32px);z-index:5}
+#start .eyebrow{font:500 12px/1 var(--mono);color:var(--ochre);letter-spacing:.18em;text-transform:uppercase;margin-bottom:14px}
+#start h1{font:700 52px/.95 var(--display);letter-spacing:-.01em;text-transform:uppercase;margin-bottom:18px}
+#start p{font:500 18px/1.35 var(--display);color:rgba(243,233,210,.8);max-width:34ch;margin-bottom:22px}
+#start ul{list-style:none;margin-bottom:28px;border-top:1px solid var(--line)}
+#start li{padding:10px 0;border-bottom:1px solid var(--line);font:500 15px/1.3 var(--display);display:flex;gap:12px}
+#start li span{font:500 11px/1.6 var(--mono);color:var(--ochre);min-width:58px;letter-spacing:.06em}
+#go{background:var(--cream);color:var(--ink);font:700 20px/1 var(--display);letter-spacing:.1em;text-transform:uppercase;padding:18px;border-radius:3px;width:100%}
+#go:active{background:var(--ochre)}
+#start small{display:block;margin-top:14px;font:400 12px/1.4 var(--mono);color:rgba(243,233,210,.5)}
+#rose{position:absolute;top:calc(var(--safe-t) + 24px);right:22px;width:120px;height:120px;opacity:.9}
+/* ecran d'accueil en paysage : deux colonnes (texte | liste + bouton), sans rien rogner */
+@media (max-height:460px){
+  #start{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:32px;align-content:safe center;justify-content:normal;padding:calc(var(--safe-t) + 12px) max(26px,var(--safe-r)) calc(var(--safe-b) + 14px) max(26px,var(--safe-l));overflow-y:auto}
+  #start .eyebrow,#start h1,#start p{grid-column:1} #start ul,#start #go,#start small{grid-column:2}
+  #start ul{grid-row:1/4;margin-bottom:12px} #start #go{grid-row:4} #start small{grid-row:5}
+  #start .eyebrow{margin-bottom:8px;align-self:end} #start h1{font-size:36px;margin-bottom:10px;align-self:start}
+  #start p{font-size:15px;margin-bottom:0} #start li{padding:7px 0;font-size:14px} #go{padding:14px;font-size:18px} #rose{display:none}
+}
+
+/* settings sheet */
+#sheet{position:absolute;left:0;right:0;bottom:0;max-height:calc(100% - 10px);overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--ink);border-top:1px solid var(--line);padding:0 22px calc(var(--safe-b) + 22px);transform:translateY(105%);transition:transform .25s;z-index:4}
+#dbg{position:absolute;inset:0;background:var(--ink);z-index:8;display:none;flex-direction:column}
+#dbg.open{display:flex}
+#dbg h2{position:sticky;top:0;background:var(--ink);padding:calc(var(--safe-t) + 16px) 22px 14px;font:700 22px/1 var(--display);text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+#dbg h2 button{font:500 12px var(--mono);color:var(--ochre);letter-spacing:.1em}
+#dbgBody{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 22px calc(var(--safe-b) + 22px);font:400 12px/1.5 var(--mono)}
+.dbgsec{margin-top:18px;font:700 12px var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--ochre)}
+.dbgline{color:rgba(243,233,210,.9);word-break:break-word}
+.dbgrow{display:grid;grid-template-columns:auto auto 1fr;gap:8px;padding:6px 0;border-top:1px solid var(--line);align-items:baseline}
+.dbgrow span:first-child{color:rgba(243,233,210,.5)}
+.dbgrow b{text-transform:uppercase;letter-spacing:.04em}
+.dbgrow.ok b{color:#8FD3FF}
+.dbgrow.ko b{color:#E08787}
+.dbgrow span:last-child{color:rgba(243,233,210,.8)}
+#sheet.open{transform:none}
+#sheet details.grp{border-top:1px solid var(--line)}
+#sheet details.grp>summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:14px 0}
+#sheet details.grp>summary::-webkit-details-marker{display:none}
+#sheet details.grp>summary b{font:700 15px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--ochre)}
+#sheet details.grp>summary i{font:400 12px/1.3 var(--mono);color:rgba(243,233,210,.6);font-style:normal;grid-column:1}
+#sheet details.grp>summary:after{content:'›';grid-row:1/3;grid-column:2;align-self:center;font:400 22px/1 var(--mono);color:var(--ochre);transition:transform .2s}
+#sheet details.grp[open]>summary:after{transform:rotate(90deg)}
+#sheet details.grp .row{padding-left:10px}
+#sheet .row .hint.help{display:none}
+#sheet .row.showhelp .hint.help{display:block}
+#sheet .qbtn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1px solid rgba(243,233,210,.4);font:600 11px/1 var(--mono);color:rgba(243,233,210,.75);margin-left:6px;vertical-align:middle;background:none;padding:0;cursor:pointer}
+#sheet .row.showhelp .qbtn{background:rgba(224,165,38,.2);border-color:var(--ochre);color:var(--ochre)}
+
+#sheet h2{position:sticky;top:0;background:var(--ink);padding:16px 0 12px;font:700 22px/1 var(--display);text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;align-items:center}
+#sheet h2 button{font:500 12px var(--mono);color:var(--ochre);letter-spacing:.1em}
+.row{display:grid;grid-template-columns:1fr auto;gap:8px 14px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.row label{font:700 16px/1 var(--display);letter-spacing:.04em}
+.row .val{font:500 13px var(--mono);color:var(--ochre)}
+.row input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--ochre)}
+.row input[type=checkbox]{width:22px;height:22px;accent-color:var(--ochre)}
+.row input[type=search]{grid-column:1/-1;width:100%;background:var(--ink2);border:1px solid var(--line);border-radius:3px;color:var(--cream);padding:11px 12px;font:500 15px var(--mono);-webkit-appearance:none}
+.row input[type=search]::placeholder{color:rgba(243,233,210,.4)}
+.row .hint{grid-column:1/-1;font:400 12px/1.4 var(--mono);color:rgba(243,233,210,.55)}
+.fltSugg{display:inline;background:none;border:0;border-bottom:1px dotted var(--ochre);color:var(--ochre);font:inherit;padding:0;cursor:pointer}
+#reset{grid-column:1/-1;justify-self:start;font:500 12px var(--mono);color:var(--cream);border:1px solid var(--line);padding:8px 12px;border-radius:3px;letter-spacing:.06em}
+
+/* photo preview */
+#shot{position:absolute;inset:0;background:var(--ink);display:none;flex-direction:column;z-index:6}
+#shot.open{display:flex}
+#shot img{flex:1;min-height:0;object-fit:contain;background:#000}
+#shot .acts{display:flex;gap:10px;padding:14px 16px calc(var(--safe-b) + 16px)}
+#shot .acts button{flex:1 1 auto;min-width:0;padding:14px 10px;border:1px solid var(--line);border-radius:3px;font:700 15px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#shot .acts .pri{background:var(--cream);color:var(--ink);border-color:var(--cream)}
+@media (prefers-reduced-motion:reduce){#sheet,#flash,#shutter i{transition:none}}
+/* ajouts v2 */
+.etape10{opacity:.45}
+button[disabled].etape10{pointer-events:none}
+.note10{display:block;color:var(--ochre);font-size:12px;margin-top:2px}

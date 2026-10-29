@@ -66,6 +66,10 @@ Sens des dépendances : `ui → rendu → calques → scene, calage, vision → 
 | `src/rendu/{mobiles,escalier}.js` | icônes des mobiles regroupées et réservées avant les étiquettes, noms d'avions (incliné, à plat, « NOM +N »), noms de bateaux à plat en escalier avec choix des plus proches et pastilles « +N » |
 | `src/calques/{avions,bateaux}.js` | classement des avions et des bateaux (champ, horizon, recherche) |
 | `src/rendu/bande.js` | **bande des équipements commune** (équipements urbains, pylônes, repères hauts, couches personnelles) : groupes, icône + pastille du nombre, nom à côté, dessous ou en haut, étage bas ou haut, sites trouvés, pastilles au bord |
+| `src/app/application.js` | **racine de composition** (étape 9b) : assemble réseau, caches, sources de données et relief, décide quand charger (seuils de la v1), publie les données au moteur |
+| `src/entrees/photo.js` | photo rejouée : position, cap (correction du Pixel), champ, heure, d'après l'EXIF |
+| `src/ui/page-photo.js`, `style.css`, `v2/photo.html` | page v2 « photo rejouée », même interface que la v1 |
+| `src/donnees/sommets-lointains.js` | grands sommets jusqu'à 200 km (tuiles OpenFreeMap z7), gardés 60 jours |
 | `src/moteur/` | **moteur de scène** (étape 9a) : `composerScene` assemble tous les calques dans l'ordre de la v1 (horizon, croix, relief, noms, bande, mobiles, ruban de cap, message), réglages et leur mémorisation, bandeau d'état |
 | `src/rendu/{ruban-cap,croix-visee}.js` | ruban de cap (graduations, cardinaux) et croix de visée |
 | `src/rendu/icones.js` | pictogrammes et silhouettes de monuments (listes d'opérations de chemin, sans canvas) |
