@@ -188,3 +188,19 @@ test('« Caler auto » : le soleil d’abord ; sinon le relief ; garde-fous (vil
   const dir = await calerAutomatiquement(decale), pho = await calerAutomatiquement({ ...decale, photo: true });
   assert.match(dir.message, /^le bord lu est [\d.]+° (au-dessus|en dessous) du relief \(toits ou arbres devant\) · repères : /); assert.equal(pho.source, 'relief');
 });
+
+test('« Caler auto » : le relief d\u2019abord (réglage), le soleil ensuite ; par défaut l\u2019ordre de la v1 (j)', async () => {
+  const SOLEIL = { ok: true, dh: -2.3, dp: -1.6, soleil: { azDeg: 267.1, elDeg: 1 }, n: 1 };
+  const base = (profil, o = {}) => ({ ...contexteAuto(profil, { capVrai: 106, siteVrai: 1.2, ...o }), ordre: 'relief-soleil' });
+  // relief lisible ET soleil visible : le relief l'emporte (la v1 prenait le soleil)
+  const r = await calerAutomatiquement(base(collines(2.2), { soleilOk: SOLEIL })), v1 = await calerAutomatiquement({ ...base(collines(2.2), { soleilOk: SOLEIL }), ordre: undefined });
+  assert.equal(r.source, 'relief'); assert.equal(v1.source, 'soleil');
+  // relief plat (mer) : le soleil donne le cap que le relief ne peut pas donner
+  const mer = await calerAutomatiquement(base(() => 0.1, { soleilOk: SOLEIL })); assert.equal(mer.source, 'soleil'); assert.equal(mer.dh, -2.3);
+  // relief incertain, indisponible, ville dense : le soleil avant les repères
+  const faux = await calerAutomatiquement({ ...base(collines(2.2), { soleilOk: SOLEIL }), lireLuminance: () => imageScene((b) => 6 + 9 * Math.sin(b * 0.31), { capVrai: 100, siteVrai: 2 }) }); assert.equal(faux.source, 'soleil');
+  const sans = await calerAutomatiquement({ ...base(collines(2.2), { soleilOk: SOLEIL }), relief: () => null }); assert.equal(sans.source, 'soleil');
+  const dense = await calerAutomatiquement(base(() => 1, { soleilOk: SOLEIL, villeDense: true })); assert.equal(dense.source, 'soleil');
+  // sans soleil visible : comme avant
+  const nuit = await calerAutomatiquement(base(collines(2.2))); assert.equal(nuit.source, 'relief');
+});

@@ -24,7 +24,7 @@ export const COLONNES_MIN = 25, RELIEF_VILLE_DENSE_MIN_DEG = 3;
  * @property {() => Promise<void>} attendreRelief relance le relief s'il est périmé et attend (au plus 8 s)
  * @property {() => ArrayLike<Float32Array> | null} relief masque du relief (`terrain.pm`) ou null @property {() => import('./soleil.js').ResultatSoleil} soleil calage sur le soleil (calage/soleil.js)
  * @property {(largeurPx: number) => import('./horizon.js').Luminance | null} lireLuminance @property {(pose: PoseAuto, focalePx: number) => import('../vision/silhouette-ciel.js').SilhouetteCiel | null} lireSilhouette
- * @property {import('./reperes.js').ElementRepere[]} liste éléments affichés @property {boolean} [permutation] refuser les concordances fortuites de repères (défaut oui ; `false` redonne la v1 (j))
+ * @property {import('./reperes.js').ElementRepere[]} liste éléments affichés @property {'relief-soleil' | 'soleil-relief'} [ordre] ordre des méthodes (défaut `soleil-relief` = la v1 (j) ; `relief-soleil` : le relief d'abord, réglage « Caler auto : le relief avant le soleil ») @property {boolean} [permutation] refuser les concordances fortuites de repères (défaut oui ; `false` redonne la v1 (j))
  */
 /**
  * @typedef {object} ResultatAuto
@@ -45,29 +45,38 @@ export async function calerAutomatiquement(c) {
       if (!L.ok) return { ...rien, message: `${pourquoi} · repères : ${L.msg}` };
       return { message: `calé sur ${L.names.slice(0, 3).join(', ')} : cap ${f(L.corr)}${L.cam !== L.cam0 ? ` · champ ${L.cam}°` : ''}`, applique: true, dh: L.corr, dp: 0, champ: L.cam !== L.cam0 ? L.cam : null, source: /** @type {const} */ ('reperes') };
     };
-    // 1) le soleil, s'il est dans l'image : direction exacte, cap et horizon d'un coup
-    const SA = c.soleil();
-    if (SA.ok) return { message: `calé sur le soleil (${SA.soleil.azDeg.toFixed(1)}°, ${SA.soleil.elDeg.toFixed(1)}° de haut) : cap ${f(SA.dh)}, horizon ${f(SA.dp)}`, applique: true, dh: SA.dh, dp: SA.dp, champ: null, source: 'soleil' };
-    // le relief n'est attendu (au plus 8 s) que s'il sert : la v1 attendait avant même de chercher le soleil, qui n'en dépend pas — même résultat, plus vite
+    // le soleil, s'il est dans l'image : direction exacte, cap et horizon d'un coup
+    const parSoleil = () => {
+      const SA = c.soleil();
+      return SA.ok ? { message: `calé sur le soleil (${SA.soleil.azDeg.toFixed(1)}°, ${SA.soleil.elDeg.toFixed(1)}° de haut) : cap ${f(SA.dh)}, horizon ${f(SA.dp)}`, applique: true, dh: SA.dh, dp: SA.dp, champ: null, source: /** @type {const} */ ('soleil') } : null;
+    };
+    // ordre : par défaut le soleil d'abord (v1 (j) : sa direction est exacte) ; `relief-soleil` (réglage) : le relief d'abord, le soleil ensuite, puis les repères
+    const reliefDabord = c.ordre === 'relief-soleil';
+    if (!reliefDabord) { const so = parSoleil(); if (so) return so; }
+    /** Quand le relief ne suffit pas : le soleil (si le relief passait en premier), puis les repères. */
+    const repli = (/** @type {string} */ pourquoi) => (reliefDabord && parSoleil()) || parRepères(pourquoi);
+    // le relief n'est attendu (au plus 8 s) que s'il sert
     await c.attendreRelief();
     const pm = c.relief();
-    if (!pm) return parRepères('relief indisponible');
+    if (!pm) return repli('relief indisponible');
     // 2) le relief
     const P = c.pose, cam0 = c.camFov, fh = (c.ecran.largeurPx / 2) / Math.tan(c.champAffiche(cam0) / 2 * RAD), tab = tableRelief(pm);
     let lo = 90, hi = -90;
     const half = c.champAffiche(cam0) / 2 + 22;
     for (let b = -half; b <= half; b += 1) { const e = elevationRelief(tab, P.capDeg + b); if (e < lo) lo = e; if (e > hi) hi = e; }
     // ville dense : la limite du ciel est faite des TOITS, pas du relief lointain (Alpes à 1-2° de haut) ; aligner l'un sur l'autre donne un calage faux mais « précis » → repères, ou rien
-    if (c.villeDense && hi - lo < RELIEF_VILLE_DENSE_MIN_DEG) return parRepères('ville dense : la limite du ciel est faite des toits, pas du relief');
+    if (c.villeDense && hi - lo < RELIEF_VILLE_DENSE_MIN_DEG) return repli('ville dense : la limite du ciel est faite des toits, pas du relief');
     const fr = c.lireLuminance(320);
     if (!fr) return { ...rien, message: 'image caméra illisible' };
     const CL = nettoyerPointsHorizon(observerHorizon(fr, P, fh, lo - 4, hi + 4, c.ecran), c.lireSilhouette(P, fh), P, fh, c.ecran), pts = CL.pts;
-    if (pts.length < COLONNES_MIN) return parRepères(`horizon peu visible (${pts.length} colonnes)`);
+    if (pts.length < COLONNES_MIN) return repli(`horizon peu visible (${pts.length} colonnes)`);
     const R = ajusterHorizon(pts, P, cam0, tab, c.ecran, c.champAffiche);
-    if (R.cost > COUT_MAX_DEG) return parRepères(`relief incertain (écart ${R.cost.toFixed(2)}°)`);
+    if (R.cost > COUT_MAX_DEG) return repli(`relief incertain (écart ${R.cost.toFixed(2)}°)`);
     // horizon déplacé de plus de 3° en direct (inclinaison mesurée par le téléphone, juste à ~1°) : le bord lu n'est pas le relief (toits, arbres)
-    if (!c.photo && Math.abs(R.dp) > HORIZON_MAX_DIRECT_DEG) return parRepères(`le bord lu est ${Math.abs(R.dp).toFixed(1)}° ${R.dp < 0 ? 'au-dessus' : 'en dessous'} du relief (toits ou arbres devant)`);
+    if (!c.photo && Math.abs(R.dp) > HORIZON_MAX_DIRECT_DEG) return repli(`le bord lu est ${Math.abs(R.dp).toFixed(1)}° ${R.dp < 0 ? 'au-dessus' : 'en dessous'} du relief (toits ou arbres devant)`);
     if (R.flat) {
+      const so = reliefDabord ? parSoleil() : null; // relief plat (mer) : le soleil, s'il est là, donne le cap que le relief ne peut pas donner
+      if (so) return so;
       const lm = calerSurReperes({ pose: c.pose, camFov: c.camFov, ecran: c.ecran, champAffiche: c.champAffiche, lireSilhouette: c.lireSilhouette, liste: c.liste, permutation: c.permutation !== false, avecRelief: c.avecRelief, correctionOeilM: c.correctionOeilM });
       if (lm.ok) return { message: `horizon ${f(R.dp)} · cap calé sur ${lm.names.slice(0, 3).join(', ')} ${f(lm.corr)}`, applique: true, dh: lm.corr, dp: R.dp, champ: lm.cam !== lm.cam0 ? lm.cam : null, source: 'reperes' };
       return { message: `horizon calé (${f(R.dp)}) · cap inchangé : pas assez de relief visible`, applique: true, dh: R.dh, dp: R.dp, champ: R.cam !== cam0 ? R.cam : null, source: 'relief' };

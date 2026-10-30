@@ -35,3 +35,13 @@ test('relief : le calcul (ligne d’horizon, crêtes, calage) est séparé du ma
   expect(await lire()).toEqual({calcul:true,masquage:true,ligne:true});
   expect(erreurs).toEqual([]);
 });
+
+test('« Caler auto » : le réglage « relief avant le soleil » est décoché par défaut et mémorisé',async({page})=>{
+  await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
+  await page.goto('/v2/photo.html');
+  expect(await page.evaluate(()=>window.__vh2.S.autoRelief)).toBe(false);
+  await page.evaluate(()=>document.getElementById('autoRel').click());
+  expect(await page.evaluate(()=>window.__vh2.S.autoRelief)).toBe(true);
+  await page.reload(); expect(await page.evaluate(()=>window.__vh2.S.autoRelief)).toBe(true);
+  expect(await page.evaluate(()=>document.getElementById('autoRel').checked)).toBe(true);
+});

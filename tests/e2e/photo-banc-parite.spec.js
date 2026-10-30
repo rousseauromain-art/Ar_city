@@ -27,7 +27,7 @@ for(const sc of SCENES){
 
     await app.ev('photoBench()');
     const t1=await app.ev(`document.getElementById('dbgBody').innerText`), r1=await app.ev(`[...document.querySelectorAll('#dbgBody table tr')].slice(1).map(tr=>[...tr.children].map(td=>td.innerText.replace(/\\s+/g,' ').trim()))`);
-    await p2.evaluate(()=>{ window.__vh2.definirPermutation(false); }); // la v1 (j) n'a pas le test de permutation des repères
+    await p2.evaluate(()=>{ window.__vh2.definirPermutation(false); window.__vh2.definirOrdreAuto('soleil-relief'); }); // la v1 (j) n'a ni le test de permutation des repères ni l'ordre relief → soleil
     await p2.evaluate(()=>window.__vh2.lancerBanc());
     const t2=await p2.evaluate(()=>document.getElementById('dbgBody').innerText), r2=await p2.evaluate(()=>[...document.querySelectorAll('#dbgBody table tr')].slice(1).map(tr=>[...tr.children].map(td=>td.innerText.replace(/\s+/g,' ').trim())));
     const resume=r1.map((l,i)=>`${l[0]} → ${l[2].split(' ')[0]}`);
