@@ -27,6 +27,7 @@ import { monumentsPourCalage, reperesPourCalage } from '../calage/reperes.js';
 import { luminance } from '../calage/horizon.js';
 import { villeDense } from '../scene/liste-affichage.js';
 import { pointer } from '../calage/pointage.js';
+import { calerEchelle } from '../calage/echelle.js';
 import { positionSoleil } from '../noyau/astro.js';
 import { ecartAngle } from '../noyau/maths.js';
 import { correctionDepuisGps } from '../scene/hauteur-oeil.js';
@@ -260,6 +261,28 @@ export function demarrerPage({ mode }) {
   let modePointage = false;
   const definirModePointage = (/** @type {boolean} */ v) => { modePointage = v; $('btnPoint').classList.toggle('on', v); if (v) note('Touchez un repère connu à l’écran (rocher, île, sommet…)', 8000); };
   $('btnPoint').addEventListener('click', () => definirModePointage(!modePointage));
+  // ---------- échelle du champ : deux repères touchés ----------
+  /** 0 : éteint ; 1 : premier repère attendu ; 2 : second attendu. @type {0 | 1 | 2} */
+  let etapeEchelle = 0;
+  /** @type {null | {x: number, y: number, relevementDeg: number, nom: string}} */
+  let premierEchelle = null;
+  $('btnScale').addEventListener('click', () => {
+    if (photoMode) { note('Le champ se cale en direct (page « Réalité augmentée ») : une photo a sa propre focale.', 6000); return; }
+    etapeEchelle = 1; premierEchelle = null; $('sheet').classList.remove('open'); note('Touchez un premier repère connu (monument, lieu ou soleil)', 8000);
+  });
+  /** Un toucher bref en mode échelle : identifie le repère, puis calcule au second. @param {number} x @param {number} y @param {ReturnType<typeof evaluerPointage>} [r] repère identifié (les tests le fournissent) */
+  function toucherEchelle(x, y, r = evaluerPointage(x, y)) {
+    if (r.aucun) { note(r.note, 4500); return; }
+    if (etapeEchelle === 1) { premierEchelle = { x, y, relevementDeg: r.relevementDeg, nom: r.nom }; etapeEchelle = 2; note(`Premier repère : « ${r.nom} ». Touchez un second repère, à plus de 10° du premier`, 8000); return; }
+    const p1 = /** @type {NonNullable<typeof premierEchelle>} */ (premierEchelle);
+    etapeEchelle = 0; premierEchelle = null;
+    const e = calerEchelle({ ecran: ecranPx(), roulisDeg: pose().roulisDeg, capDeg: pose().capDeg, champAffiche: (cam) => champAffiche(cam, ecranPx(), fluxImage()), points: [p1, { x, y, relevementDeg: r.relevementDeg }] });
+    if (!e.ok) { note('Champ non calé : ' + e.message, 7000); return; }
+    const ancien = S.camFov; S.camFov = e.camFov; S.headOff += e.correctionCapDeg; if (direct) noterCalage(fusion, Date.now()); sauver(); synchroniser();
+    stockage.ecrire('echelle', { camFov: e.camFov, t: Date.now(), reperes: [p1.nom, r.nom] });
+    journal.info('calage', `échelle du champ : ${ancien}° → ${e.camFov}° (affiché ${e.champAfficheDeg.toFixed(0)}°), cap ${e.correctionCapDeg >= 0 ? '+' : ''}${e.correctionCapDeg.toFixed(1)}°, repères ${p1.nom} / ${r.nom}`);
+    note(`Champ calé : ${ancien}° → ${e.camFov}° (affiché ${e.champAfficheDeg.toFixed(0)}°) · cap ${e.correctionCapDeg >= 0 ? '+' : ''}${e.correctionCapDeg.toFixed(1)}° · avec « ${p1.nom} » et « ${r.nom} »`, 9000);
+  }
   /** @param {number} x @param {number} y */
   function evaluerPointage(x, y) {
     const d = app.donnees(), lieux = nomsDeLieux(/** @type {any} */ (d.lieux));
@@ -348,7 +371,7 @@ export function demarrerPage({ mode }) {
     const e = app.etat(), d = app.donnees();
     const lignes = [`version ${VERSION_V2}`, `réglages d'affichage : ${reglagesRepris ? 'repris de la v1 au premier lancement' : 'propres à la v2'} · ligne de relief ${S.skyline ? 'affichée' : 'éteinte (Réglages › Ligne d\'horizon du relief)'}`, `position ${d.pos ? d.pos.lat.toFixed(5) + ', ' + d.pos.lon.toFixed(5) : '—'}`, `lieux : ${e.lieux} (${echap(e.source)}) — ${e.chargementLieux ? 'chargement en cours depuis ' + Math.round(e.depuisLieuxMs / 1000) + ' s' : 'chargement terminé'} · rayon ${S.radius} km`,
       ...e.sourcesLieux.map((s) => `&nbsp;&nbsp;${echap(s.nom)} : ${echap(s.etat)}${s.n !== undefined ? ' · ' + s.n + ' lieux' : ''}${s.raison ? ' · ' + echap(s.raison.slice(0, 140)) : ''}`),
-      `relief : ${S.calculRelief !== false ? echap(e.etatRelief || 'pas encore calculé') : 'désactivé (Réglages › Calculer le relief)'} · masquage par le relief ${S.relief ? 'actif' : 'éteint'}`,
+      `échelle du champ : ${(() => { const e = stockage.lire('echelle', { parDefaut: null }); return e ? `calée à ${e.camFov}° le ${new Date(e.t).toLocaleDateString('fr-FR')} (${echap((e.reperes || []).join(' / '))})` : `réglage ${S.camFov}° (pas encore calée avec 2 repères)`; })()}`, `relief : ${S.calculRelief !== false ? echap(e.etatRelief || 'pas encore calculé') : 'désactivé (Réglages › Calculer le relief)'} · masquage par le relief ${S.relief ? 'actif' : 'éteint'}`,
       `visibilité d'après la photo : ${(() => {
         const a = analyse.derniere, liste = /** @type {any[]} */ ((dernierBilan && dernierBilan.liste) || []);
         if (S.photoVis !== true) return 'désactivée (Réglages)';
@@ -443,7 +466,7 @@ export function demarrerPage({ mode }) {
   ov.addEventListener('pointerup', (e) => {
     const etaitPincement = !!pinch; ptrs.delete(e.pointerId);
     if (etaitPincement) { if (ptrs.size < 2) { pinch = null; sauver(); } drag = null; return; }
-    if (drag && !drag.moved && Date.now() - drag.t < 450) { S.headOff = drag.h; S.pitchOff = drag.p; if (modePointage) { definirModePointage(false); pointerSur(e.clientX, e.clientY); } } else { sauver(); if (direct && drag && drag.moved) noterCalage(fusion, Date.now()); if (drag && drag.moved && ((direct && fusion.capteur) || photoMode)) consigner('glisser', { h: drag.h, p: drag.p }); } // calage récent : la boussole ne le défait pas
+    if (drag && !drag.moved && Date.now() - drag.t < 450) { S.headOff = drag.h; S.pitchOff = drag.p; if (etapeEchelle) toucherEchelle(e.clientX, e.clientY); else if (modePointage) { definirModePointage(false); pointerSur(e.clientX, e.clientY); } } else { sauver(); if (direct && drag && drag.moved) noterCalage(fusion, Date.now()); if (drag && drag.moved && ((direct && fusion.capteur) || photoMode)) consigner('glisser', { h: drag.h, p: drag.p }); } // calage récent : la boussole ne le défait pas
     drag = null;
   });
   ov.addEventListener('pointercancel', (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; drag = null; });
@@ -505,7 +528,7 @@ export function demarrerPage({ mode }) {
   redimensionner(); synchroniser(); $('photoBg').hidden = true; $('photoChip').hidden = true;
   if (!direct) { const simu = simulee() ? lirePositionTexte(S.simPos) : null; if (simu) app.definirPosition(simu); }
   journal.info('page', `page ${direct ? 'direct' : 'photo'} ouverte (${VERSION_V2})`);
-  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, vFov, analyserCiel, analyse, evaluerSoleil, evaluerAuto, calerAuto, evaluerPointage, synchroOeil, definirPermutation: (/** @type {boolean} */ v) => { permutationReperes = v; }, definirOrdreAuto: (/** @type {'relief-soleil' | 'soleil-relief' | null} */ v) => { ordreAuto = v; }, carnet, consigner, apprisIci, lancerBanc, banc, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
+  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, vFov, analyserCiel, analyse, evaluerSoleil, evaluerAuto, calerAuto, evaluerPointage, toucherEchelle, synchroOeil, definirPermutation: (/** @type {boolean} */ v) => { permutationReperes = v; }, definirOrdreAuto: (/** @type {'relief-soleil' | 'soleil-relief' | null} */ v) => { ordreAuto = v; }, carnet, consigner, apprisIci, lancerBanc, banc, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
   requestAnimationFrame(image);
 }
 

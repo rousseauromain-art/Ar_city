@@ -143,7 +143,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
 3. **Boutons et calage :**
    - (fait à l'étape 11d : un libellé sous chaque icône de la colonne de boutons) ;
    - un calage guidé en un seul bouton (« visez le soleil / la lune / ce repère ») ;
-   - l'échelle (champ de vision) calée une fois par téléphone avec 2 points, puis mémorisée.
+   - (fait à l'étape 11i : l'échelle du champ calée avec 2 repères touchés, en direct ; mémorisée avec les réglages).
 4. **Calage de nuit sur la lune :** position calculée avec la parallaxe, puis tache ronde et brillante près de la position prévue.
 5. **Caler auto :** réglage « le relief avant le soleil » ajouté à l'étape 11c (décoché par défaut). Mesure sur les 4 photos réelles : quand le soleil est visible, le relief seul se trompe jusqu'à 3° (Morgat : −4,3° contre −7,3° pour le soleil, et le champ change à tort) ; le soleil reste donc en premier par défaut. À rediscuter avec Romain.
 6. **Banc d'essai sur `tests/photos` :** cap EXIF comparé au soleil, par téléphone et par orientation, et écart de chaque méthode.
