@@ -12,7 +12,7 @@ import { surOrientation, mesuresFusion } from './capteurs.js';
  *   video: HTMLVideoElement,
  *   fusion: import('./capteurs.js').Fusion,
  *   journal: {info: (m: string, msg: string, d?: unknown) => unknown, avert: (m: string, msg: string, d?: unknown) => unknown},
- *   surPosition: (p: {lat: number, lon: number, precisionM: number}) => void,
+ *   surPosition: (p: {lat: number, lon: number, precisionM: number, altitudeM: number | null, precisionAltM: number | null}) => void,
  *   surRetourBoussole?: (mesures: ReturnType<typeof mesuresFusion>) => void,
  *   positionSimulee?: () => boolean,
  *   maintenant?: () => number,
@@ -23,6 +23,8 @@ export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRet
   /** @type {MediaStream | null} */
   let flux = null;
   let demarre = false, enCours = false, erreurCamera = '', gpsErreur = '', precisionM = 0;
+  /** @type {{altitudeM: number | null, precisionAltM: number | null}} */
+  let altitudeGps = { altitudeM: null, precisionAltM: null };
   /** @type {[number, number, number] | null} */
   let derniereGps = null;
   const doc = fenetre.document;
@@ -77,8 +79,9 @@ export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRet
       if (navigator.geolocation) {
         navigator.geolocation.watchPosition((p) => {
           derniereGps = [p.coords.latitude, p.coords.longitude, p.coords.accuracy]; precisionM = p.coords.accuracy;
+          altitudeGps = { altitudeM: p.coords.altitude, precisionAltM: p.coords.altitudeAccuracy };
           if (positionSimulee()) return;
-          surPosition({ lat: p.coords.latitude, lon: p.coords.longitude, precisionM: p.coords.accuracy });
+          surPosition({ lat: p.coords.latitude, lon: p.coords.longitude, precisionM: p.coords.accuracy, ...altitudeGps });
         }, (err) => { erreurCamera = erreurCamera || ''; journal.avert('direct', 'GPS refusé : ' + err.message); gpsErreur = 'GPS refusé : ' + err.message; }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
       } else gpsErreur = 'GPS indisponible';
       doc.addEventListener('visibilitychange', () => { if (!demarre) return; if (doc.hidden) arreterCamera(); else if (!cameraVivante()) demarrerCamera(); });
@@ -88,7 +91,7 @@ export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRet
     arreter: arreterCamera,
     /** Dernière position GPS brute (pour revenir de la position simulée). */
     derniereGps: () => derniereGps,
-    etat: () => ({ demarre, cameraOk: cameraVivante(), erreurCamera, gpsErreur, precisionM }),
+    etat: () => ({ demarre, cameraOk: cameraVivante(), erreurCamera, gpsErreur, precisionM, ...altitudeGps }),
     /** Dimensions de l'image de la caméra, ou null tant qu'elle n'est pas prête. @returns {{largeurPx: number, hauteurPx: number} | null} */
     flux: () => (video.videoWidth ? { largeurPx: video.videoWidth, hauteurPx: video.videoHeight } : null),
   };

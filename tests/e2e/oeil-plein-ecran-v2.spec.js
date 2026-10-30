@@ -51,3 +51,20 @@ test('la page en direct n’a plus de ligne « Rejouer une photo » (la page pho
   await expect(page.locator('#eyeChip')).toBeHidden();
   expect(erreurs).toEqual([]);
 });
+
+test('hauteur d’œil : « Réestimer » remet la correction à zéro ; « Altitude GPS » (direct) amène l’œil à l’altitude du téléphone',async({page})=>{
+  const erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
+  await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
+  await page.goto('/v2/ar.html');
+  const r=await page.evaluate(()=>{ const v=window.__vh2, $=id=>document.getElementById(id), od=v.app.donnees, oe=v.entree.etat;
+    v.app.donnees=()=>({...od(),terrain:{h0:14.6,solM:13,origine:'relief fin : test',pm:null,bands:[]}});
+    v.entree.etat=()=>({...oe(),altitudeM:45,precisionAltM:8});
+    v.synchroOeil(); const a={gpsVisible:!$('eyeGps').hidden,detail:$('eyePopT').textContent};
+    $('eyeGps').click(); a.corr=v.S.obsHeight;
+    v.synchroOeil(); a.apres=$('eyeChip').textContent;
+    v.entree.etat=()=>({...oe(),altitudeM:45,precisionAltM:80}); v.synchroOeil(); a.gpsImprecis=$('eyeGps').hidden;
+    $('eyeRe').click(); a.reset=v.S.obsHeight;
+    v.app.donnees=od; v.entree.etat=oe; return a; });
+  expect(r).toEqual({gpsVisible:true,detail:'Sol estimé 13 m (relief fin : test) · correction 0 m → œil à 15 m · altitude GPS 45 m (±8)',corr:30,apres:'œil +30 m',gpsImprecis:true,reset:0});
+  expect(erreurs).toEqual([]);
+});
