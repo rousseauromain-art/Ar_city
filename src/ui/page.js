@@ -29,6 +29,7 @@ import { villeDense } from '../scene/liste-affichage.js';
 import { pointer } from '../calage/pointage.js';
 import { positionSoleil } from '../noyau/astro.js';
 import { ecartAngle } from '../noyau/maths.js';
+import { correctionDepuisGps } from '../scene/hauteur-oeil.js';
 import { creerCarnet } from '../app/carnet.js';
 import { creerMesure, ecartAppris, resumeCarnet, sourceAuto } from '../calage/carnet.js';
 import { executerBanc, pourquoiIgnore, texteSynthese } from '../calage/banc.js';
@@ -142,14 +143,24 @@ export function demarrerPage({ mode }) {
   let minuteurPopOeil = 0; const refermerPopOeil = () => { clearTimeout(minuteurPopOeil); minuteurPopOeil = window.setTimeout(() => { $('eyePop').hidden = true; }, 6000); };
   $('eyeChip').addEventListener('click', () => { const p = $('eyePop'); p.hidden = !p.hidden; if (!p.hidden) refermerPopOeil(); });
   $('eyeQ').addEventListener('input', (/** @type {any} */ e) => { regleOeil(+e.target.value); refermerPopOeil(); });
+  // Réestimer : correction remise à zéro, sol relu dans le relief ; Altitude GPS (direct) : la correction qui amène l'œil à l'altitude GPS du téléphone, si elle est assez précise
+  $('eyeRe').addEventListener('click', () => { regleOeil(0); app.recharger({ terrain: true }); note('Hauteur d’œil réestimée d’après le relief', 4000); refermerPopOeil(); });
+  $('eyeGps').addEventListener('click', () => {
+    const t = /** @type {any} */ (app.donnees().terrain), g = entree ? entree.etat() : null, c = t && g ? correctionDepuisGps(g.altitudeM, g.precisionAltM, t.solM) : null;
+    if (c === null) { note('Altitude GPS absente ou trop imprécise', 4000); return; }
+    regleOeil(c); note(`Hauteur d’œil recalée sur l’altitude GPS (${Math.round(/** @type {number} */ (g && g.altitudeM))} m) : correction ${fmtOeil(c)}`, 5000); refermerPopOeil();
+  });
   let derniereOeil = '';
   /** Met à jour la puce « œil », son détail et la ligne du réglage d'après le relief calculé ; sans relief, la puce disparaît. */
   function synchroOeil() {
-    const t = /** @type {any} */ (app.donnees().terrain), vue = S.calculRelief !== false && t && t.solM !== undefined ? `${t.solM}|${t.origine}|${t.h0}|${S.obsHeight}` : '';
+    const t = /** @type {any} */ (app.donnees().terrain), gps = entree ? entree.etat() : null, gpsM = gps && gps.altitudeM !== null && gps.altitudeM !== undefined ? Math.round(gps.altitudeM) : null;
+    const vue = S.calculRelief !== false && t && t.solM !== undefined ? `${t.solM}|${t.origine}|${t.h0}|${S.obsHeight}|${gpsM}|${gps && gps.precisionAltM}` : '';
     if (vue === derniereOeil) return; derniereOeil = vue;
     const chip = $('eyeChip');
     if (!vue) { chip.hidden = true; $('eyePop').hidden = true; $('obsHInfo').textContent = 'Sol estimé : calcul du relief en attente.'; return; }
-    const detail = `Sol estimé ${Math.round(t.solM)} m (${t.origine}) · correction ${fmtOeil(S.obsHeight)} → œil à ${Math.round(t.h0)} m`;
+    const gpsOk = correctionDepuisGps(gps && gps.altitudeM, gps && gps.precisionAltM, t.solM) !== null;
+    $('eyeGps').hidden = !gpsOk;
+    const detail = `Sol estimé ${Math.round(t.solM)} m (${t.origine}) · correction ${fmtOeil(S.obsHeight)} → œil à ${Math.round(t.h0)} m${gpsM !== null ? ` · altitude GPS ${gpsM} m${gps && gps.precisionAltM ? ` (±${Math.round(gps.precisionAltM)})` : ''}${gpsOk ? '' : ' (trop imprécise)'}` : ''}`;
     chip.hidden = false; chip.textContent = `œil ${fmtOeil(S.obsHeight)}`; $('eyePopT').textContent = detail; $('eyeQ').value = String(S.obsHeight); $('obsHInfo').textContent = detail;
   }
   $('floorN').addEventListener('change', (/** @type {any} */ e) => { const m = Math.round((+e.target.value || 0) * 3.2); S.obsHeight = Math.min(250, m); synchroniser(); sauver(); app.corrigerHauteurOeil(S.obsHeight); });
