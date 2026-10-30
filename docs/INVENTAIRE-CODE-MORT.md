@@ -27,7 +27,7 @@ Fonctions pures dont le test unitaire est la seule utilisation (`lireReponse`, `
 - **`reliefV1`** : réglage défini, mémorisé et jamais lu par le code (tolérances d'origine du relief). Mort.
 - **Poignées de test `window.__vh2`** jamais utilisées par un test : `ouvrirPhoto`, `quitterPhoto`, `calerAuto` (utilisée par le banc mais pas en test direct), `evaluerLune`, `consigner`, `apprisIci`, `banc`, `obstacles`. À réduire.
 
-## F. Tests dormants
+## F. Tests dormants (supprimés au nettoyage 3 : le dossier `tests/a-reprendre/` n'existe plus)
 `tests/a-reprendre/` : 5 fichiers (`calage-reperes.v1`, `export-cache`, `hauteur-oeil-puce`, `lieux-horizon-bas`, `photo-plein-ecran`) qui visent la v1 d'avant la refonte. Trois sont repris dans la v2 sous d'autres noms (permutation, puce œil, plein écran) ; `export-cache` vise une fonction de la v1 (la v2 a `debug/debug-cache.html`) ; `lieux-horizon-bas` est lié à une règle **non reprise** (repli à plat, cause probable de régression : décision à prendre). À supprimer ou à trancher.
 
 ## G. Ce que l'analyse ne voit pas

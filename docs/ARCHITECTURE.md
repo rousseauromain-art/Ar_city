@@ -13,7 +13,6 @@ src/                  modules ES natifs de la v2 (sans outil de construction)
 tests/unit            node:test sur les modules purs
 tests/e2e             Playwright : parcours critiques, sur la v1 figée et sur v2/outils.html
 tests/caracterisation harnais : rejoue des scènes de référence dans la v1 et écrit un dump par calque
-tests/a-reprendre     tests des apports des 26–27/10 absents de la v1 (non lancés)
 ```
 
 ## Flux de données (cible)
