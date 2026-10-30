@@ -139,7 +139,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
    - tests et GitHub Actions (socle en place, voir « Tests ») ;
    - puis découpe en modules (sans outil de construction) ;
    - puis suppression du code mort : ancien placement des bateaux, moteur de relief v1, ancien mode Wikidata, etc.
-2. **Hauteur d'œil à l'écran :** puce « œil » reprise dans la v2 (étape 11a). Fait à l'étape 11e : bouton « Réestimer » et « Altitude GPS » (direct) dans la fenêtre de la puce.
+2. **Hauteur d'œil à l'écran :** puce « œil » reprise dans la v2 (étape 11a). Fait à l'étape 11e : bouton « Réestimer » et « Altitude GPS » (direct) dans la fenêtre de la puce. Recalage automatique en direct (30/10) : quand l'altitude GPS est précise (±30 m), cohérente avec le sol (< 100 m) et que l'écart dépasse 3 m, la correction s'applique seule (au plus toutes les 30 s ; puce « œil GPS +x m ») ; un réglage à la main la fige jusqu'à un déplacement de 3 km ; case « Hauteur d'œil d'après l'altitude GPS » (réglage `oeilGps`). La v1 ne lisait jamais l'altitude GPS.
 3. **Boutons et calage :**
    - (fait à l'étape 11d : un libellé sous chaque icône de la colonne de boutons) ;
    - un calage guidé en un seul bouton (« visez le soleil / la lune / ce repère ») ;

@@ -58,6 +58,7 @@ test('hauteur d’œil : « Réestimer » remet la correction à zéro ; « Alti
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
   await page.goto('/v2/ar.html');
   const r=await page.evaluate(()=>{ const v=window.__vh2, $=id=>document.getElementById(id), od=v.app.donnees, oe=v.entree.etat;
+    v.S.oeilGps=false; // le recalage automatique a son propre test
     v.app.donnees=()=>({...od(),terrain:{h0:14.6,solM:13,origine:'relief fin : test',pm:null,bands:[]}});
     v.entree.etat=()=>({...oe(),altitudeM:45,precisionAltM:8});
     v.synchroOeil(); const a={gpsVisible:!$('eyeGps').hidden,detail:$('eyePopT').textContent};
@@ -67,6 +68,24 @@ test('hauteur d’œil : « Réestimer » remet la correction à zéro ; « Alti
     $('eyeRe').click(); a.reset=v.S.obsHeight;
     v.app.donnees=od; v.entree.etat=oe; return a; });
   expect(r).toEqual({gpsVisible:true,detail:'Sol estimé 13 m (relief fin : test) · correction 0 m → œil à 15 m · altitude GPS 45 m (±8)',corr:30,apres:'œil +30 m',gpsImprecis:true,reset:0});
+  expect(erreurs).toEqual([]);
+});
+
+test('hauteur d’œil automatique (direct) : l’altitude GPS précise recale seule ; un réglage à la main la fige ; imprécise ou incohérente, rien',async({page})=>{
+  const erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
+  await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
+  await page.goto('/v2/ar.html');
+  const r=await page.evaluate(()=>{ const v=window.__vh2, $=id=>document.getElementById(id), od=v.app.donnees, oe=v.entree.etat, a={};
+    v.app.donnees=()=>({...od(),terrain:{h0:14.6,solM:13,origine:'relief fin : test',pm:null,bands:[]}});
+    const gps=(altitudeM,precisionAltM)=>{ v.entree.etat=()=>({...oe(),altitudeM,precisionAltM}); };
+    gps(45,80); v.synchroOeil(); a.imprecis=v.S.obsHeight;
+    gps(400,8); v.synchroOeil(); a.incoherent=v.S.obsHeight;
+    gps(45,8); v.synchroOeil(); a.auto=v.S.obsHeight; a.puce=$('eyeChip').textContent;
+    $('eyeQ').value='5'; $('eyeQ').dispatchEvent(new Event('input',{bubbles:true})); a.main=v.S.obsHeight;
+    gps(60,8); v.synchroOeil(); a.fige=v.S.obsHeight;
+    v.app.donnees=od; v.entree.etat=oe; return a; });
+  expect(r).toEqual({imprecis:0,incoherent:0,auto:30,puce:'œil GPS +30 m',main:5,fige:5});
+  await page.evaluate(()=>{ window.__vh2.S.oeilGps=false; });
   expect(erreurs).toEqual([]);
 });
 
