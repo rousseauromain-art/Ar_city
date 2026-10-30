@@ -135,7 +135,7 @@ export function demarrerPage({ mode }) {
   const oeil = installerOeil(c);
   const vis = installerVisibilitePhoto(c);
   const calage = installerCalage(c);
-  $('floorN').addEventListener('change', (/** @type {any} */ e) => { const m = Math.round((+e.target.value || 0) * 3.2); S.obsHeight = Math.min(250, m); synchroniser(); sauver(); app.corrigerHauteurOeil(S.obsHeight); });
+  $('floorN').addEventListener('change', (/** @type {any} */ e) => oeil.regleOeil(Math.min(250, Math.round((+e.target.value || 0) * 3.2))));
   $('flt').addEventListener('input', (/** @type {any} */ e) => { S.filter = e.target.value; });
   $('simPos').addEventListener('change', (/** @type {any} */ e) => { S.simPos = e.target.value; sauver(); });
   $('reset').addEventListener('click', () => { S.headOff = 0; S.pitchOff = 0; sauver(); note('Calage remis à zéro'); });
@@ -151,6 +151,7 @@ export function demarrerPage({ mode }) {
   for (const id of ['btnZoneDL', 'btnZoneDel']) { const b = $(id); b.disabled = true; b.classList.add('etape10'); }
   $('phv').checked = S.photoVis === true;
   $('phv').addEventListener('change', (/** @type {any} */ e) => { S.photoVis = e.target.checked; app.definirAnalysePhoto(null); vis.analyse.derniere = null; sauver(); });
+  $('oeilGps').checked = S.oeilGps !== false; $('oeilGps').disabled = !direct; $('oeilGps').addEventListener('change', (/** @type {any} */ e) => { S.oeilGps = e.target.checked; oeil.reprendreAuto(); sauver(); });
   $('autoRel').checked = S.autoRelief === true; $('autoRel').addEventListener('change', (/** @type {any} */ e) => { S.autoRelief = e.target.checked; sauver(); });
   $('gyr').disabled = !direct; $('gyr').checked = S.gyro !== false;
   $('gyr').addEventListener('change', (/** @type {any} */ e) => { S.gyro = e.target.checked; sauver(); });
