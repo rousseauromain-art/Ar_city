@@ -7,7 +7,7 @@ Ces tests vérifient des apports des 26 et 27/10/2026 qui ne sont **pas** dans l
 | Fichier | Apport vérifié | Commit d'origine |
 |---|---|---|
 | `hauteur-oeil-puce.spec.js` | puce « œil » (correction, détail au toucher) ; repères rangés avec les calques | `04274ed`, `17a0bbd` |
-| `calage-reperes.spec.js` | calage sur repères : test de permutation contre les coïncidences | `1c29728` |
+| `calage-reperes.v1.spec.js` | calage sur repères : test de permutation (repris à l'étape 11b : voir `tests/unit/calage-permutation.test.mjs`) | `1c29728` |
 | `export-cache.spec.js` | export du cache ; traits bleus seulement en debug (**comportement non voulu : ne pas reprendre ce point**) | `1c29728`, `8ec9a99`, `052d217` |
 | `photo-plein-ecran.spec.js` | photo rejouée en plein écran : vue épurée | `052d217` |
 | `lieux-horizon-bas.spec.js` | repli à plat pour tous les lieux sans place (**cause probable de régression : à ne reprendre qu'après décision**) | `30ad8a7` |

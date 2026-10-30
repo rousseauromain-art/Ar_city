@@ -109,9 +109,9 @@ function compareReperes(nom, { monuments, pointes, camFov = 71.5, capDeg = 0, in
   assert.deepEqual(pointesPhoto(ps), fabrique.photoPeaks(ps), `${nom} : pointes`);
   const l1 = fabrique.landmarksForCal(ps), l2 = reperesPourCalage(ps, monuments, ECRAN, { avecRelief: relief });
   assert.deepEqual(l2.map((o) => [o.c.name, o.aTop]), l1.map((o) => [o.c.name, o.aTop]), `${nom} : repères fiables`);
-  const r1 = fabrique.landmarkFit(ps), r2 = ajusterSurReperes(ps, l2, { ecran: ECRAN, camFov, champAffiche: vFovFor, inclinaisonCouranteDeg: inclinaison });
+  const r1 = fabrique.landmarkFit(ps), r2 = ajusterSurReperes(ps, l2, { ecran: ECRAN, camFov, champAffiche: vFovFor, inclinaisonCouranteDeg: inclinaison, permutation: false });
   assert.deepEqual(r2, r1, `${nom} : appariement`);
-  const a1 = fabrique.landmarkAlign(), a2 = calerSurReperes({ pose, camFov, ecran: ECRAN, champAffiche: vFovFor, lireSilhouette: (po) => silhouette(pointes, { cap: po.capDeg }), liste: monuments, avecRelief: relief });
+  const a1 = fabrique.landmarkAlign(), a2 = calerSurReperes({ pose, camFov, ecran: ECRAN, champAffiche: vFovFor, lireSilhouette: (po) => silhouette(pointes, { cap: po.capDeg }), liste: monuments, avecRelief: relief, permutation: false });
   assert.equal(a2.ok, a1.ok, `${nom} : calage multi-passes ok`);
   if (a1.ok) { assert.ok(Math.abs(a2.corr - a1.corr) < 1e-9, `${nom} : correction ${a1.corr} / ${a2.corr}`); assert.deepEqual(a2.names, a1.names); assert.equal(a2.cam, a1.cam); assert.equal(a2.cam0, a1.cam0); }
   else assert.equal(a2.msg, a1.msg, `${nom} : refus`);
@@ -163,7 +163,7 @@ test('luminance : 0,299 R + 0,587 G + 0,114 B', () => {
 // ---------- orchestration : soleil → relief → repères ----------
 function contexteAuto(profil, { capVrai, siteVrai, champVrai = 70, photo = true, villeDense = false, soleilOk = null, pm = reliefDe(profil), liste = [], silhouette = { ok: true, skyFrac: 0.8, cols: [] }, pose = { capDeg: 100, inclinaisonDeg: 2, roulisDeg: 0 } }) {
   const lum = imageScene(profil, { capVrai, siteVrai, champ: champVrai });
-  return { pos: { lat: 48, lon: -2 }, pose, camFov: 70, ecran: ECRAN, champAffiche: vFovFor, photo, villeDense, avecRelief: true, attendreRelief: async () => {}, relief: () => pm,
+  return { pos: { lat: 48, lon: -2 }, pose, camFov: 70, ecran: ECRAN, champAffiche: vFovFor, photo, villeDense, permutation: false, avecRelief: true, attendreRelief: async () => {}, relief: () => pm,
     soleil: () => soleilOk || { ok: false, message: 'soleil hors du champ' }, lireLuminance: () => lum, lireSilhouette: () => silhouette, liste };
 }
 test('« Caler auto » : le soleil d’abord ; sinon le relief ; garde-fous (ville dense, horizon incertain, direct, relief absent) → repères avec le motif', async () => {
