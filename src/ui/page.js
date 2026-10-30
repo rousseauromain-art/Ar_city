@@ -109,7 +109,7 @@ export function demarrerPage({ mode }) {
     ['lyBld', (s) => s.buildings, (s, v) => { s.buildings = v; }, 'reperes'], ['lySea', (s) => s.sea, (s, v) => { s.sea = v; }], ['lyAir', (s) => s.air, (s, v) => { s.air = v; }],
     ['air', (s) => s.air, (s, v) => { s.air = v; }], ['sea', (s) => s.sea, (s, v) => { s.sea = v; }], ['tel', (s) => s.telecom, (s, v) => { s.telecom = v; }, 'telecom'], ['bld', (s) => s.buildings, (s, v) => { s.buildings = v; }, 'reperes'],
     ['dst', (s) => s.showDist, (s, v) => { s.showDist = v; }], ['vil', (s) => s.hamlets, (s, v) => { s.hamlets = v; }, 'lieux'], ['rdg', (s) => s.ridges !== false, (s, v) => { s.ridges = v; }],
-    ['sky', (s) => s.skyline, (s, v) => { s.skyline = v; }], ['crs', (s) => s.cross, (s, v) => { s.cross = v; }], ['rel', (s) => s.relief, (s, v) => { s.relief = v; if (v) s.calculRelief = true; }, 'terrain'], ['relc', (s) => s.calculRelief !== false, (s, v) => { s.calculRelief = v; if (!v) s.relief = false; }, 'terrain'],
+    ['sky', (s) => s.skyline, (s, v) => { s.skyline = v; }], ['crs', (s) => s.cross, (s, v) => { s.cross = v; }], ['lun', (s) => s.lune !== false, (s, v) => { s.lune = v; }], ['rel', (s) => s.relief, (s, v) => { s.relief = v; if (v) s.calculRelief = true; }, 'terrain'], ['relc', (s) => s.calculRelief !== false, (s, v) => { s.calculRelief = v; if (!v) s.relief = false; }, 'terrain'],
     ['simOn', (s) => s.simOn, (s, v) => { s.simOn = v; }],
   ];
   function synchroniser() {

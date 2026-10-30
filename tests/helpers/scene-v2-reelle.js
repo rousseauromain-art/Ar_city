@@ -29,7 +29,7 @@ async function ouvrirV2Reelle(browser,sc,v1,{reglages,nuit=true}){
   await page.addInitScript({path:path.join(__dirname,'enregistreur.js')});
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
   await page.addInitScript(reseauCoupe);
-  await page.addInitScript(s=>{ try{ localStorage.setItem('vh2:reglages',JSON.stringify({v:1,d:s})); }catch(e){} },{...reglages,radius:sc.radius,headOff:0,pitchOff:0});
+  await page.addInitScript(s=>{ try{ localStorage.setItem('vh2:reglages',JSON.stringify({v:1,d:s})); }catch(e){} },{...reglages,lune:false,radius:sc.radius,headOff:0,pitchOff:0});
   await page.goto('/v2/photo.html');
   const urls=reliefUrls(v1.pos).tout, exp=readExports(fichiersExport());
   await seedCaches(page,{entries:exp.entries.filter(e=>e.c==='dc'||urls.has(e.k))},{noms:{t:'vh2-terrain',dc:'vh2-donnees'}});
