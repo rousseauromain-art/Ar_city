@@ -5,7 +5,7 @@
 // Ignoré sans le dossier PHOTOS_DIR (CI sans jeton).
 const {test,expect}=require('@playwright/test');
 const path=require('path'), fs=require('fs');
-const {ouvrirSceneReelle,disponible,PHOTOS_DIR}=require('../helpers/scenes-reelles.js');
+const {ouvrirSceneReelle,ignorerSiAbsent,PHOTOS_DIR}=require('../helpers/scenes-reelles.js');
 const {seedCaches,readExports}=require('../helpers/cache.js');
 const {reliefUrls}=require('../helpers/relief-urls.js');
 
@@ -33,7 +33,7 @@ const EMPREINTE='(r=>{ if(!r) return null; let s=0,t=0; for(let i=0;i<r.d.length
 
 for(const sc of SCENES){
   test(`calage sur le soleil et pointage v2 = v1 sur la scène réelle ${sc.id}`,async({browser})=>{
-    test.skip(!disponible(sc),'dépôt privé Ar_city-photos absent');
+    ignorerSiAbsent(test,sc);
     test.setTimeout(900000);
     const v1=await ouvrirSceneReelle(browser,sc,{reglages:REGLAGES}), {app,page}=v1;
     await app.waitFor('!monBusy&&!towerBusy&&!telecomBusy&&!buildingsBusy',120000);

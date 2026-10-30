@@ -12,6 +12,16 @@ const exportsCache=()=>memo||(memo=readExports(fichiersExport()));
 /** Les caches et la photo de la scène sont-ils disponibles ? */
 const disponible=sc=>fichiersExport().length>0&&(!sc.photo||fs.existsSync(path.join(PHOTOS_DIR,sc.photo)));
 
+/**
+ * Ignore le test si la scène n'est pas disponible (dépôt privé absent : poste local, sans jeton). Avec PARITE_OBLIGATOIRE=1 (CI), l'absence est une ERREUR : un test de parité ne doit jamais être sauté en silence.
+ * @param {any} test le `test` de Playwright @param {any} sc la scène
+ */
+function ignorerSiAbsent(test,sc){
+  if(disponible(sc)) return;
+  if(process.env.PARITE_OBLIGATOIRE==='1') throw new Error(`parité obligatoire : scène réelle absente (PHOTOS_DIR=${PHOTOS_DIR}, photo ${sc.photo||'—'})`);
+  test.skip(true,'dépôt privé Ar_city-photos absent');
+}
+
 // attend que les chargements (lieux, relief, monuments...) soient finis ET que les compteurs ne bougent plus
 async function attendreStable(app,minMs=3000){
   const signature='[cities.length,monumentSites.length,telecomSites.length,buildingSites.length,farPeaks.length,citiesVer,terrain?terrain.at:0,loading,terrainBusy,monBusy,telecomBusy,buildingsBusy].join("|")';
@@ -53,4 +63,4 @@ async function ouvrirSceneReelle(browser,sc,opts={}){
   const cap0=await app.ev('S.headOff');
   return {app,page,ctx,pos,erreurs,cap0};
 }
-module.exports={PHOTOS_DIR,ouvrirSceneReelle,disponible,attendreStable};
+module.exports={PHOTOS_DIR,ouvrirSceneReelle,disponible,ignorerSiAbsent,attendreStable};

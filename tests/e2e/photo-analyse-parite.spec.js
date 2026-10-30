@@ -4,7 +4,7 @@
 //  3. trame complète de la page (traits bleus pointillés de Tout voir, noms vus / cachés d'après la photo, règle de la photo) identique, Essentiel et Tout voir, 3 poses.
 // Les analyses sont déclenchées à la main des deux côtés à la même pose, puis la trame est lue aussitôt (l'analyse reste fraîche 6 s). Ignoré sans PHOTOS_DIR.
 const {test,expect}=require('@playwright/test');
-const {ouvrirSceneReelle,disponible}=require('../helpers/scenes-reelles.js');
+const {ouvrirSceneReelle,ignorerSiAbsent}=require('../helpers/scenes-reelles.js');
 const {ouvrirV2Reelle}=require('../helpers/scene-v2-reelle.js');
 
 test.describe.configure({retries:1});
@@ -21,7 +21,7 @@ const EMPREINTE='(r=>{ if(!r) return null; let s=0,t=0; for(let i=0;i<r.d.length
 
 for(const sc of SCENES){
   test(`visibilité d'après la photo v2 = v1 sur la scène réelle ${sc.id}`,async({browser})=>{
-    test.skip(!disponible(sc),'dépôt privé Ar_city-photos absent');
+    ignorerSiAbsent(test,sc);
     test.setTimeout(900000);
     const v1=await ouvrirSceneReelle(browser,sc,{reglages:REGLAGES}), {app,page,cap0}=v1;
     await app.waitFor('!monBusy&&!towerBusy&&!telecomBusy&&!buildingsBusy',120000);

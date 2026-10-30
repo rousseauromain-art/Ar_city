@@ -2,7 +2,9 @@ name: Tests
 
 on:
   push:
+    paths-ignore: ['**.md']
   pull_request:
+    paths-ignore: ['**.md']
 
 jobs:
   qualite:
@@ -21,22 +23,41 @@ jobs:
       - run: npm run test:unit
 
   e2e:
+    name: E2E (dont la parité avec la v1 sur les scènes réelles)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    env:
+      # Les tests de parité rejouent les photos et caches du dépôt privé Ar_city-photos : sans lui, ils échouent (jamais « ignorés »).
+      PHOTOS_DIR: ${{ github.workspace }}/ar_city-photos
+      PARITE_OBLIGATOIRE: '1'
+      PLAYWRIGHT_JSON_OUTPUT_NAME: rapport-playwright.json
     steps:
       - uses: actions/checkout@v5
+      - name: Dépôt privé des photos (jeton en lecture seule, secret PHOTOS_TOKEN)
+        env:
+          PHOTOS_TOKEN: ${{ secrets.PHOTOS_TOKEN }}
+        run: |
+          if [ -z "$PHOTOS_TOKEN" ]; then echo "::error::Secret PHOTOS_TOKEN absent : les tests de parité ne peuvent pas tourner (Settings › Secrets and variables › Actions)."; exit 1; fi
+      - uses: actions/checkout@v5
+        with:
+          repository: rousseauromain-art/Ar_city-photos
+          token: ${{ secrets.PHOTOS_TOKEN }}
+          path: ar_city-photos
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+      - run: npx playwright test --reporter=list,html,json
+      - name: Aucun test ignoré (un test de parité sauté serait un faux vert)
+        run: node tests/helpers/verifier-sauts.mjs rapport-playwright.json
       - uses: actions/upload-artifact@v5
         if: failure()
         with:
           name: rapport-playwright
           path: |
             playwright-report/
+            rapport-playwright.json
             test-results/
           retention-days: 14

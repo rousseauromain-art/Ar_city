@@ -2,7 +2,7 @@
 // (sites en gras, cartouches jaunes, pastilles au bord pour les sites hors écran), calques Lieux allumé ou éteint (la bande récupère alors le haut de l'écran), six poses.
 // La v2 doit reproduire les sites affichés (ordre, distances) et TOUT ce que la v1 trace. Ignoré sans le dossier PHOTOS_DIR.
 const {test,expect}=require('@playwright/test');
-const {ouvrirSceneReelle,disponible}=require('../helpers/scenes-reelles.js');
+const {ouvrirSceneReelle,ignorerSiAbsent}=require('../helpers/scenes-reelles.js');
 
 const SC={id:'saint-malo-rempart',photo:'PXL_20261025_112230293.jpg',radius:30};
 const POSES=[[0,0],[37,3],[-80,-2],[150,6],[200,-4],[20,28]];
@@ -26,7 +26,7 @@ function points(pos,graine){
 }
 
 test(`couches personnelles v2 = v1 (bande et pastilles hors champ) sur la scène réelle ${SC.id}`,async({browser})=>{
-  test.skip(!disponible(SC),'dépôt privé Ar_city-photos absent');
+  ignorerSiAbsent(test,SC);
   test.setTimeout(900000);
   const {app,page,ctx,erreurs,cap0,pos}=await ouvrirSceneReelle(browser,SC,{reglages:REGLAGES});
   await app.waitFor('!monBusy&&!towerBusy',120000);

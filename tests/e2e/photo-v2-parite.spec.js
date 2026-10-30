@@ -3,7 +3,7 @@
 // ruban de cap et bandeau compris — en Essentiel et en Tout voir, pour trois poses. Ignoré sans le dépôt privé Ar_city-photos (PHOTOS_DIR).
 const {test,expect}=require('@playwright/test');
 const path=require('path');
-const {ouvrirSceneReelle,disponible,PHOTOS_DIR}=require('../helpers/scenes-reelles.js');
+const {ouvrirSceneReelle,ignorerSiAbsent,PHOTOS_DIR}=require('../helpers/scenes-reelles.js');
 const {seedCaches,readExports}=require('../helpers/cache.js');
 const {reliefUrls}=require('../helpers/relief-urls.js');
 const fs=require('fs');
@@ -38,7 +38,7 @@ function reseauCoupe(){
 
 for(const sc of SCENES){
   test(`page photo v2 = v1 de bout en bout sur la scène réelle ${sc.id}`,async({browser})=>{
-    test.skip(!disponible(sc),'dépôt privé Ar_city-photos absent');
+    ignorerSiAbsent(test,sc);
     test.setTimeout(1500000);
     const v1=await ouvrirSceneReelle(browser,sc,{reglages:REGLAGES});
     const {app,page,cap0}=v1;

@@ -3,7 +3,7 @@
 // trait et chaque texte de la trame, en Essentiel et en Tout voir, pour cinq poses, avec et sans la croix de visée, avec relief et ligne de relief allumés ou non.
 // Pas dans cette trame (étape 10) : symbole du soleil, silhouette lue sur la photo. Ignoré sans PHOTOS_DIR.
 const {test,expect}=require('@playwright/test');
-const {ouvrirSceneReelle,disponible}=require('../helpers/scenes-reelles.js');
+const {ouvrirSceneReelle,ignorerSiAbsent}=require('../helpers/scenes-reelles.js');
 
 const SCENES=[
   {id:'saint-malo-rempart',photo:'PXL_20261025_112230293.jpg',radius:30},
@@ -28,7 +28,7 @@ const EXTRAIRE_V1=`(()=>{
 
 for(const sc of SCENES){
   test(`trame complète v2 = v1 sur la scène réelle ${sc.id}`,async({browser})=>{
-    test.skip(!disponible(sc),'dépôt privé Ar_city-photos absent');
+    ignorerSiAbsent(test,sc);
     test.setTimeout(1200000);
     const {app,page,ctx,erreurs,cap0}=await ouvrirSceneReelle(browser,sc,{reglages:REGLAGES});
     await app.waitFor('!monBusy&&!towerBusy&&!telecomBusy&&!buildingsBusy',120000);

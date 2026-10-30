@@ -7,7 +7,7 @@
 //  3. la mémoire de placement des noms et celle des lignes de la bande, les comptes (nommés / icône seule) et l'étage choisi.
 // Ignoré sans le dossier PHOTOS_DIR (CI sans jeton, REFONTE.md §9).
 const {test,expect}=require('@playwright/test');
-const {ouvrirSceneReelle,disponible}=require('../helpers/scenes-reelles.js');
+const {ouvrirSceneReelle,ignorerSiAbsent}=require('../helpers/scenes-reelles.js');
 
 const SCENES=[
   {id:'saint-malo-rempart',photo:'PXL_20261025_112230293.jpg',radius:30},
@@ -41,7 +41,7 @@ const EXTRAIRE_V1=`(()=>{
 
 for(const sc of SCENES){
   test(`bande des équipements v2 = v1 sur la scène réelle ${sc.id}`,async({browser})=>{
-    test.skip(!disponible(sc),'dépôt privé Ar_city-photos absent');
+    ignorerSiAbsent(test,sc);
     test.setTimeout(1200000);
     const {app,page,ctx,erreurs,cap0}=await ouvrirSceneReelle(browser,sc,{reglages:REGLAGES});
     await app.waitFor('!monBusy&&!towerBusy&&!telecomBusy&&!buildingsBusy',120000);

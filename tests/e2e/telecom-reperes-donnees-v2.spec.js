@@ -4,7 +4,7 @@
 //  2. les repères hauts (tours, clochers, châteaux d'eau, cheminées, mâts, immeubles hauts) avec leurs noms fabriqués et le drapeau `ess`.
 // Ignoré sans le dossier PHOTOS_DIR (CI sans jeton, REFONTE.md §9).
 const {test,expect}=require('@playwright/test');
-const {ouvrirSceneReelle,disponible}=require('../helpers/scenes-reelles.js');
+const {ouvrirSceneReelle,ignorerSiAbsent}=require('../helpers/scenes-reelles.js');
 
 const SCENES=[
   {id:'saint-malo-rempart',photo:'PXL_20261025_112230293.jpg',radius:30},
@@ -20,7 +20,7 @@ const CHAMPS_REPERE=['name','lat','lon','kind','height_m','named','id','ess'];
 
 for(const sc of SCENES){
   test(`données de pylônes et de repères hauts v2 = v1 sur la scène réelle ${sc.id}`,async({browser})=>{
-    test.skip(!disponible(sc),'dépôt privé Ar_city-photos absent');
+    ignorerSiAbsent(test,sc);
     test.setTimeout(600000);
     const {app,page,ctx,erreurs}=await ouvrirSceneReelle(browser,sc,{reglages:REGLAGES});
     await app.waitFor('!telecomBusy&&!buildingsBusy',120000);
