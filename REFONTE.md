@@ -19,7 +19,7 @@
 | Apport des 26–27/10 | Commit d'origine |
 |---|---|
 | Puce « œil » (correction de hauteur, détail au toucher) — **reprise à l'étape 11a** | `04274ed`, `17a0bbd` |
-| Calage sur repères : test de permutation contre les coïncidences | `1c29728` |
+| Calage sur repères : test de permutation contre les coïncidences — **repris à l'étape 11b** | `1c29728` |
 | Export du cache, en paquets de 20 Mo | `1c29728`, `8ec9a99`, `052d217` |
 | Photo rejouée en plein écran : vue épurée — **reprise à l'étape 11a** | `052d217` |
 | Repères (phares, plages…) rangés avec les calques | `17a0bbd` |

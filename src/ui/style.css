@@ -25,6 +25,7 @@ body.clean .chips{display:none!important} /* photo en plein écran : vue épuré
 #radPop,#eyePop{pointer-events:auto;padding:8px 10px;width:230px}#radPop input,#eyePop input{width:100%;accent-color:var(--ochre)}
 #eyeChip{pointer-events:auto;cursor:pointer;color:var(--ochre);border:1px solid rgba(224,165,38,.45)}
 #eyePop{white-space:normal;line-height:1.35}
+#eyePop .eyeBtns{display:flex;gap:6px;margin-top:6px}#eyePop .eyeBtns button{flex:1;padding:6px 4px;border:1px solid rgba(224,165,38,.45);border-radius:4px;color:var(--ochre);font:500 11px var(--mono);background:rgba(14,26,43,.5)}
 .chip{padding:5px 9px;border-radius:4px;background:rgba(14,26,43,.72);font:500 12px/1 var(--mono);color:var(--cream);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;backdrop-filter:blur(6px)}
 #calib,#filt{color:var(--ochre);display:none;pointer-events:auto}
 #note{display:none;color:var(--ochre);white-space:normal;line-height:1.35}

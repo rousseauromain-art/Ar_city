@@ -125,7 +125,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
   - **Autres :** caches (vivant, `dcFetch`, tuiles), trames AIS au format Blob, KMZ/KML, boutons et calques.
 
 ## Faits établis sur le terrain
-- **Calage sur photos (26/10/2026) :** Ibiza, direction EXIF + 90° = 267° contre soleil calculé 267,1° (le recalage sur le soleil donne −2,3° de cap). Saint-Malo : la direction EXIF est fausse d'environ 14° (le recalage sur les repères, −14,4°, remet le fort du Petit Bé à sa place). Turin : le recalage (−19,4°, champ 71,5° → 58,5°) dégradait un cap EXIF juste ; cause : concordances fortuites de repères en ville dense (corrigé par un test de permutation dans `landmarkFit`). Le champ affiché à Turin (58,5°) n'est pas reproduit sans les données de Turin : voir l'export du cache.
+- **Calage sur photos (26/10/2026) :** Ibiza, direction EXIF + 90° = 267° contre soleil calculé 267,1° (le recalage sur le soleil donne −2,3° de cap). Saint-Malo : la direction EXIF est fausse d'environ 14° (le recalage sur les repères, −14,4°, remet le fort du Petit Bé à sa place). Turin : le recalage (−19,4°, champ 71,5° → 58,5°) dégradait un cap EXIF juste ; cause : concordances fortuites de repères en ville dense (corrigé par un test de permutation dans `landmarkFit`, repris dans la v2 à l'étape 11b : Turin n'est plus recalé à tort). Le champ affiché à Turin (58,5°) n'est pas reproduit sans les données de Turin : voir l'export du cache.
 - **Pixel :** la direction EXIF est décalée de +90° en paysage (vérifié sur 3 photos).
 - **Boussole :** 30 à 40° d'erreur près du métal (port de Saint-Malo).
 - **Horizon :** les pieds des passants donnent un indice d'horizon.
@@ -139,7 +139,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
    - tests et GitHub Actions (socle en place, voir « Tests ») ;
    - puis découpe en modules (sans outil de construction) ;
    - puis suppression du code mort : ancien placement des bateaux, moteur de relief v1, ancien mode Wikidata, etc.
-2. **Hauteur d'œil à l'écran :** puce « œil » reprise dans la v2 (étape 11a). Reste : un bouton « Réestimer » ; l'altitude GPS comme deuxième source.
+2. **Hauteur d'œil à l'écran :** puce « œil » reprise dans la v2 (étape 11a). Fait à l'étape 11e : bouton « Réestimer » et « Altitude GPS » (direct) dans la fenêtre de la puce.
 3. **Boutons et calage :**
    - (fait à l'étape 11d : un libellé sous chaque icône de la colonne de boutons) ;
    - un calage guidé en un seul bouton (« visez le soleil / la lune / ce repère ») ;

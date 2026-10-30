@@ -29,6 +29,7 @@ import { villeDense } from '../scene/liste-affichage.js';
 import { pointer } from '../calage/pointage.js';
 import { positionSoleil } from '../noyau/astro.js';
 import { ecartAngle } from '../noyau/maths.js';
+import { correctionDepuisGps } from '../scene/hauteur-oeil.js';
 import { creerCarnet } from '../app/carnet.js';
 import { creerMesure, ecartAppris, resumeCarnet, sourceAuto } from '../calage/carnet.js';
 import { executerBanc, pourquoiIgnore, texteSynthese } from '../calage/banc.js';
@@ -142,14 +143,24 @@ export function demarrerPage({ mode }) {
   let minuteurPopOeil = 0; const refermerPopOeil = () => { clearTimeout(minuteurPopOeil); minuteurPopOeil = window.setTimeout(() => { $('eyePop').hidden = true; }, 6000); };
   $('eyeChip').addEventListener('click', () => { const p = $('eyePop'); p.hidden = !p.hidden; if (!p.hidden) refermerPopOeil(); });
   $('eyeQ').addEventListener('input', (/** @type {any} */ e) => { regleOeil(+e.target.value); refermerPopOeil(); });
+  // Réestimer : correction remise à zéro, sol relu dans le relief ; Altitude GPS (direct) : la correction qui amène l'œil à l'altitude GPS du téléphone, si elle est assez précise
+  $('eyeRe').addEventListener('click', () => { regleOeil(0); app.recharger({ terrain: true }); note('Hauteur d’œil réestimée d’après le relief', 4000); refermerPopOeil(); });
+  $('eyeGps').addEventListener('click', () => {
+    const t = /** @type {any} */ (app.donnees().terrain), g = entree ? entree.etat() : null, c = t && g ? correctionDepuisGps(g.altitudeM, g.precisionAltM, t.solM) : null;
+    if (c === null) { note('Altitude GPS absente ou trop imprécise', 4000); return; }
+    regleOeil(c); note(`Hauteur d’œil recalée sur l’altitude GPS (${Math.round(/** @type {number} */ (g && g.altitudeM))} m) : correction ${fmtOeil(c)}`, 5000); refermerPopOeil();
+  });
   let derniereOeil = '';
   /** Met à jour la puce « œil », son détail et la ligne du réglage d'après le relief calculé ; sans relief, la puce disparaît. */
   function synchroOeil() {
-    const t = /** @type {any} */ (app.donnees().terrain), vue = S.calculRelief !== false && t && t.solM !== undefined ? `${t.solM}|${t.origine}|${t.h0}|${S.obsHeight}` : '';
+    const t = /** @type {any} */ (app.donnees().terrain), gps = entree ? entree.etat() : null, gpsM = gps && gps.altitudeM !== null && gps.altitudeM !== undefined ? Math.round(gps.altitudeM) : null;
+    const vue = S.calculRelief !== false && t && t.solM !== undefined ? `${t.solM}|${t.origine}|${t.h0}|${S.obsHeight}|${gpsM}|${gps && gps.precisionAltM}` : '';
     if (vue === derniereOeil) return; derniereOeil = vue;
     const chip = $('eyeChip');
     if (!vue) { chip.hidden = true; $('eyePop').hidden = true; $('obsHInfo').textContent = 'Sol estimé : calcul du relief en attente.'; return; }
-    const detail = `Sol estimé ${Math.round(t.solM)} m (${t.origine}) · correction ${fmtOeil(S.obsHeight)} → œil à ${Math.round(t.h0)} m`;
+    const gpsOk = correctionDepuisGps(gps && gps.altitudeM, gps && gps.precisionAltM, t.solM) !== null;
+    $('eyeGps').hidden = !gpsOk;
+    const detail = `Sol estimé ${Math.round(t.solM)} m (${t.origine}) · correction ${fmtOeil(S.obsHeight)} → œil à ${Math.round(t.h0)} m${gpsM !== null ? ` · altitude GPS ${gpsM} m${gps && gps.precisionAltM ? ` (±${Math.round(gps.precisionAltM)})` : ''}${gpsOk ? '' : ' (trop imprécise)'}` : ''}`;
     chip.hidden = false; chip.textContent = `œil ${fmtOeil(S.obsHeight)}`; $('eyePopT').textContent = detail; $('eyeQ').value = String(S.obsHeight); $('obsHInfo').textContent = detail;
   }
   $('floorN').addEventListener('change', (/** @type {any} */ e) => { const m = Math.round((+e.target.value || 0) * 3.2); S.obsHeight = Math.min(250, m); synchroniser(); sauver(); app.corrigerHauteurOeil(S.obsHeight); });
@@ -205,9 +216,11 @@ export function demarrerPage({ mode }) {
   /** Dimensions de l'écran pour les lectures d'image. */
   const ecranPx = () => ({ largeurPx: W, hauteurPx: H });
   /** « Caler auto » SANS rien appliquer : soleil, puis relief, puis repères (calage/auto.js). Sert au calage et aux tests de parité. @returns {Promise<import('../calage/auto.js').ResultatAuto>} */
-  function evaluerAuto() {
+  /** Test de permutation des repères (défaut oui) ; les tests de parité avec la v1 (j), qui n'en a pas, l'éteignent. */
+  let permutationReperes = true;
+  function evaluerAuto(/** @type {{permutation?: boolean}} */ opts = {}) {
     const src = imageSource(), d = app.donnees();
-    return calerAutomatiquement({ pos: d.pos, pose: pose(), camFov: S.camFov, ecran: ecranPx(), champAffiche: (cam) => champAffiche(cam, ecranPx(), fluxImage()), photo: !!photoMode,
+    return calerAutomatiquement({ pos: d.pos, pose: pose(), camFov: S.camFov, ecran: ecranPx(), champAffiche: (cam) => champAffiche(cam, ecranPx(), fluxImage()), photo: !!photoMode, permutation: opts.permutation ?? permutationReperes,
       villeDense: villeDense({ pos: d.pos, cities: /** @type {any} */ (d.lieux), monuments: /** @type {any} */ (d.monuments), batiments: /** @type {any} */ (d.reperes) }), avecRelief: S.relief && !!d.terrain, correctionOeilM: S.obsHeight || 0,
       attendreRelief: () => app.attendreRelief(8000), relief: () => { const t = app.donnees().terrain; return t ? t.pm : null; }, soleil: () => evaluerSoleil(),
       lireLuminance: (cw) => { const px = lirePixelsRecadres(src, cw, ecranPx()); return px ? luminance(px) : null; },
@@ -486,7 +499,7 @@ export function demarrerPage({ mode }) {
   redimensionner(); synchroniser(); $('photoBg').hidden = true; $('photoChip').hidden = true;
   if (!direct) { const simu = simulee() ? lirePositionTexte(S.simPos) : null; if (simu) app.definirPosition(simu); }
   journal.info('page', `page ${direct ? 'direct' : 'photo'} ouverte (${VERSION_V2})`);
-  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, vFov, analyserCiel, analyse, evaluerSoleil, evaluerAuto, calerAuto, evaluerPointage, synchroOeil, carnet, consigner, apprisIci, lancerBanc, banc, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
+  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, vFov, analyserCiel, analyse, evaluerSoleil, evaluerAuto, calerAuto, evaluerPointage, synchroOeil, definirPermutation: (/** @type {boolean} */ v) => { permutationReperes = v; }, carnet, consigner, apprisIci, lancerBanc, banc, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
   requestAnimationFrame(image);
 }
 
