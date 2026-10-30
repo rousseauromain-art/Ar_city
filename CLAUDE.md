@@ -130,7 +130,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
 - **Boussole :** 30 à 40° d'erreur près du métal (port de Saint-Malo).
 - **Horizon :** les pieds des passants donnent un indice d'horizon.
 - **Photos de test :** les pièces jointes du chat perdent leurs EXIF. Déposer les originaux dans `tests/photos/<lieu>/`, avec un LISEZMOI : téléphone, ce qu'on voit, cap réel s'il est connu.
-- **Wikidata :** beaucoup de monuments de Saint-Malo n'ont pas de hauteur.
+- **Wikidata :** beaucoup de monuments de Saint-Malo n'ont pas de hauteur. Repli pour les lieux (étape 11l) : quand Overpass est en échec, les lieux viennent aussi de Wikidata.
 
 ## À faire (point du 25/10/2026)
 0. **Refonte :** étapes 0 à 8 faites, étape 9 terminée et étape 10 terminée (10a soleil + pointage, 10b analyse de la photo, 10c « Caler auto » (relief, repères), 10d carnet de calage, écart appris et banc d'essai ; à valider sur le terrain) ; étape 11 (évolutions) à lancer, voir la liste ci-dessous et `REFONTE.md` §9 ; pour mémoire 9a moteur de scène `src/moteur/` fait, 9b page photo `v2/photo.html` + `src/app/` + `src/ui/` + `src/entrees/photo.js` faite, 9c page direct `v2/ar.html` + `src/entrees/capteurs.js` et `direct.js` faite : étape 9 terminée, à valider sur le terrain) (v1 figée, lanceur, fondations v2, harnais, `src/noyau/`, `src/donnees/`, `src/scene/`, `src/rendu/`, calques `relief`, `photo-silhouette`, `lieux`, `monuments`, `equipements` (urbains et pylônes), `reperes` (repères hauts OSM), `kml`, `avions`, `bateaux` ; bande commune `rendu/bande.js` ; données du trafic en direct) ; la suite est dans `REFONTE.md` §9.

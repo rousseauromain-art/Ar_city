@@ -7,6 +7,7 @@
  * Dépend de : donnees/*, scene/terrain.js, scene/masque-worker.js, noyau/geo.js.
  */
 import { creerReseau } from '../donnees/reseau.js';
+import { creerWikidataLieux } from '../donnees/wikidata-lieux.js';
 import { creerCacheDonnees } from '../donnees/cache-donnees.js';
 import { creerCacheOctets } from '../donnees/cache-api.js';
 import { creerOverpass, MIROIRS_OVERPASS } from '../donnees/overpass.js';
@@ -74,7 +75,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   const overpass = creerOverpass({ reseau: /** @type {any} */ (reseau), miroirs: MIROIRS_OVERPASS, journal });
   const openfreemap = creerOpenFreeMap({ reseau: /** @type {any} */ (reseau), journal });
   const atlas = creerAtlas(st);
-  const sourceLieux = creerSourceLieux({ cache: cacheDonnees, overpass, openfreemap, relais: creerSourcesRelais({ reseau: /** @type {any} */ (reseau), relais }), atlas, journal });
+  const sourceLieux = creerSourceLieux({ cache: cacheDonnees, overpass, openfreemap, wikidata: creerWikidataLieux({ reseau: /** @type {any} */ (reseau) }), relais: creerSourcesRelais({ reseau: /** @type {any} */ (reseau), relais }), atlas, journal });
   const sourceSommets = creerSourceSommets({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, openfreemap });
   const sourceMonuments = creerSourceMonuments({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, stockage: st, relais, maintenant, journal });
   const osm = creerSourceOsm({ cache: cacheDonnees, overpass });

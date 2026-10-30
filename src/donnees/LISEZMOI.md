@@ -10,3 +10,4 @@
 - `kml.js`, `kml-diagnostic.js`, `couches-perso.js` : couches personnelles KMZ/KML lues en local, diagnostic sans valeurs, mémoire `vh2-couches-perso` (étape 7a).
 Les bâtiments BD TOPO (calque Silhouette, éteint par défaut) restent à reprendre ; le calque `monuments` reçoit pylônes et repères en paramètres.
 - `trafic.js`, `avions.js`, `navires.js`, `memoire-direct.js` : avions et navires en direct, extrapolation, quota OpenSky, mémoire en direct (étape 8a). `reseau.requeter({brut:true})` renvoie aussi `entetes.get(nom)`.
+- `wikidata-lieux.js` (11l) : repli pour les LIEUX (villes, villages, hameaux, îles, caps) quand tous les miroirs Overpass sont en échec : une requête SPARQL (service « around ») directe vers Wikidata ; ses lieux se fusionnent avec ceux des autres sources et le diagnostic affiche son état.
