@@ -23,7 +23,7 @@ import { listeIntegree } from './lieux-integres.js';
 
 /** Durée de vie de la mémoire des lieux : 7 jours. */
 export const MEMOIRE_LIEUX_MS = 7 * 86400000;
-const SOURCES_VIVANTES = new Set(['OSM', 'OpenFreeMap', 'Geoapify', 'GeoNames']);
+const SOURCES_VIVANTES = new Set(['OSM', 'OpenFreeMap', 'Geoapify', 'GeoNames', 'Wikidata']);
 /** Une source est « vivante » si elle vient du réseau ou de la mémoire d'une source vivante (pas de l'atlas ni de la liste intégrée). @param {string} s */
 export const sourceVivante = (s) => !!s && s.split('+').every((t) => SOURCES_VIVANTES.has(t));
 
@@ -34,10 +34,11 @@ export const sourceVivante = (s) => !!s && s.split('+').every((t) => SOURCES_VIV
  *   openfreemap: ReturnType<typeof import('./openfreemap.js').creerOpenFreeMap>,
  *   relais: ReturnType<typeof import('./relais-lieux.js').creerSourcesRelais>,
  *   atlas: ReturnType<typeof import('./atlas.js').creerAtlas>,
+ *   wikidata?: ReturnType<typeof import('./wikidata-lieux.js').creerWikidataLieux>,
  *   journal?: {info: (m: string, msg: string, d?: unknown) => unknown, avert: (m: string, msg: string, d?: unknown) => unknown},
  * }} deps
  */
-export function creerSourceLieux({ cache, overpass, openfreemap, relais, atlas, journal }) {
+export function creerSourceLieux({ cache, overpass, openfreemap, relais, atlas, wikidata, journal }) {
   return {
     /**
      * `quandPartiel` : appelée à chaque source réglée avec la fusion de ce qui est déjà arrivé, pour afficher les lieux sans attendre la plus lente (les miroirs Overpass peuvent
@@ -72,6 +73,16 @@ export function creerSourceLieux({ cache, overpass, openfreemap, relais, atlas, 
         (v) => { arrives[i] = v.donnees; details[i] = { nom: noms[i], etat: v.source === 'reseau' ? 'réseau' : v.source === 'cache' ? 'mémoire' : 'mémoire périmée', n: v.donnees.length }; annoncer(); return v; },
         (e) => { details[i] = { nom: noms[i], etat: 'échec', raison: e instanceof Error ? e.message : String(e) }; annoncer(); throw e; }));
       const regles = await Promise.allSettled(suivies);
+      // Repli Wikidata : seulement quand OpenStreetMap (Overpass) est en échec. Les lieux déjà arrivés restent affichés pendant ce temps ; ceux de Wikidata s'y ajoutent à la fin.
+      if (wikidata && regles[0].status === 'rejected') {
+        noms.push('Wikidata'); details.push({ nom: 'Wikidata', etat: 'en cours' });
+        const j = noms.length - 1;
+        try {
+          const v = await cf('wd', () => wikidata.charger(pc, rQ, hameaux));
+          arrives[j] = v.donnees; details[j] = { nom: 'Wikidata', etat: v.source === 'reseau' ? 'réseau' : v.source === 'cache' ? 'mémoire' : 'mémoire périmée', n: v.donnees.length };
+          regles.push({ status: 'fulfilled', value: v }); annoncer();
+        } catch (e) { details[j] = { nom: 'Wikidata', etat: 'échec', raison: e instanceof Error ? e.message : String(e) }; regles.push({ status: 'rejected', reason: e }); }
+      }
       regles.forEach((res, i) => {
         if (!journal) return;
         if (res.status === 'fulfilled') journal.info('lieux', `${noms[i]} : ${res.value.donnees.length} lieux${res.value.source === 'reseau' ? '' : ` (${res.value.source})`}`);
