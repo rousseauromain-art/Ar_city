@@ -71,10 +71,10 @@ export function reperesPourCalage(ps, liste, ecran, { avecRelief, correctionOeil
 
 /**
  * Appariement pointes ↔ repères (v1 : `landmarkFit`). `inclinaisonCouranteDeg` : l'inclinaison de la pose au moment de l'appel (v1 : `pose().pitch`).
- * @param {SilhouetteLue} ps @param {{c: ElementRepere, aTop: number}[]} lms @param {{ecran: {largeurPx: number}, camFov: number, champAffiche: (cam: number) => number, inclinaisonCouranteDeg: number}} e
+ * @param {SilhouetteLue} ps @param {{c: ElementRepere, aTop: number}[]} lms @param {{ecran: {largeurPx: number}, camFov: number, champAffiche: (cam: number) => number, inclinaisonCouranteDeg: number, permutation?: boolean}} e `permutation` (défaut oui) : refuse les concordances fortuites (apport du 26/10, absent de la v1 (j) : `false` redonne la v1)
  * @returns {{ok: true, corr: number, cam: number, names: string[]} | {ok: false, msg: string}}
  */
-export function ajusterSurReperes(ps, lms, { ecran, camFov, champAffiche, inclinaisonCouranteDeg }) {
+export function ajusterSurReperes(ps, lms, { ecran, camFov, champAffiche, inclinaisonCouranteDeg, permutation = true }) {
   const peaks = pointesPhoto(ps);
   if (!lms.length) return { ok: false, msg: 'aucun repère fiable (tour, clocher, dôme de hauteur connue) dans le champ' };
   if (!peaks.length) return { ok: false, msg: 'aucune pointe nette sur la photo' };
@@ -91,7 +91,22 @@ export function ajusterSurReperes(ps, lms, { ecran, camFov, champAffiche, inclin
     const score = names.size * 10 - sup.reduce((s, o) => s + Math.abs(ecartAngle(o.corr - h.corr)), 0);
     if (!best || score > best.score) best = { h, sup, n: names.size, score };
   }
-  let ok = !!best && (best.n >= 2 || (best.n === 1 && best.h.uniq && best.h.p.prom >= 2)), supSel = ok && best ? best.sup : null;
+  // CONCORDANCES FORTUITES (Turin, 26/10/2026 : cap −19,4° et champ 71,5° → 58,5° sur une photo dont la direction était juste) : avec beaucoup de repères et de pointes, quelques paires concordent par hasard presque toujours.
+  // Test de permutation : on décale chaque repère d'un écart aléatoire (graine fixe) dans la fenêtre de recherche, ce qui détruit toute concordance d'ensemble en gardant le même nombre d'hypothèses, et l'on compte
+  // combien de fois le hasard rassemble autant de repères que le meilleur cap. Le cap n'est accepté que si cela arrive dans moins de 5 % des tirages ; un repère seul ne vaut que s'il y a au plus 3 repères dans le champ.
+  /** Fréquence à laquelle le hasard rassemble au moins `nBest` repères sur un même cap (`corrOf` : correction proposée par chaque hypothèse). @param {(h: typeof hyps[number]) => number} corrOf @param {number} nBest */
+  const chanceOf = (corrOf, nBest) => {
+    let seed = 12345; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647, RUNS = 100, cs = hyps.map(corrOf); let hit = 0;
+    for (let r = 0; r < RUNS; r++) {
+      const off = new Map(); for (const L of lms) off.set(L, (rnd() * 2 - 1) * FENETRE_APPARIEMENT_DEG);
+      const v = hyps.map((h, i) => cs[i] + /** @type {number} */ (off.get(h.L))); let mx = 0;
+      for (let i = 0; i < v.length && mx < nBest; i++) { const nm = new Set(); for (let k = 0; k < v.length; k++) if (Math.abs(ecartAngle(v[k] - v[i])) < ACCORD_DEG) nm.add(hyps[k].L); if (nm.size > mx) mx = nm.size; }
+      if (mx >= nBest) hit++;
+    }
+    return hit / RUNS;
+  };
+  const chance = permutation && best && best.n >= 2 ? chanceOf((h) => h.corr, best.n) : 1;
+  let ok = !!best && (permutation ? ((best.n >= 2 && chance < 0.05) || (best.n === 1 && best.h.uniq && best.h.p.prom >= 2 && lms.length <= 3)) : (best.n >= 2 || (best.n === 1 && best.h.uniq && best.h.p.prom >= 2))), supSel = ok && best ? best.sup : null;
   const fhOf = (/** @type {number} */ cam) => (ecran.largeurPx / 2) / Math.tan(champAffiche(cam) / 2 * RAD), impl = (/** @type {typeof hyps[number]} */ o, /** @type {number} */ cam) => ecartAngle(/** @type {number} */ (o.L.c.brg) - Math.atan(Math.tan(o.p.dd * RAD) * ps.fh / fhOf(cam)) / RAD);
   if (!ok && hyps.length >= 2) { // zoom faux : les écarts ne concordent qu'après correction du champ
     /** @type {{r: number, cam: number, a: typeof hyps[number], b: typeof hyps[number]} | null} */
@@ -101,14 +116,14 @@ export function ajusterSurReperes(ps, lms, { ecran, camFov, champAffiche, inclin
       if (a.L === b.L || Math.abs(a.p.dd - b.p.dd) < 8) continue;
       for (let cam = Math.max(20, camFov - 12); cam <= Math.min(110, camFov + 12); cam += 0.5) { const r = Math.abs(ecartAngle(impl(a, cam) - impl(b, cam))); if (!bp || r < bp.r) bp = { r, cam, a, b }; }
     }
-    if (bp && bp.r < 0.2) { const m = impl(bp.a, bp.cam), cam = bp.cam; supSel = hyps.filter((o) => Math.abs(ecartAngle(impl(o, cam) - m)) < ACCORD_DEG); ok = new Set(supSel.map((o) => o.L)).size >= 2; }
+    if (bp && bp.r < 0.2) { const m = impl(bp.a, bp.cam), cam = bp.cam; supSel = hyps.filter((o) => Math.abs(ecartAngle(impl(o, cam) - m)) < ACCORD_DEG); const nz = new Set(supSel.map((o) => o.L)).size; ok = permutation ? nz >= 6 && chanceOf((o) => ecartAngle(impl(o, cam)), nz) < 0.02 : nz >= 2; } // champ déduit : au moins 6 repères et moins de 2 % de chance (2 repères + zoom libre concordent toujours)
   }
   if (!ok || !supSel) return { ok: false, msg: `${lms.length} repère(s), ${peaks.length} pointe(s) : pas de concordance sûre` };
   const sup = supSel.filter((o, i, a) => a.findIndex((q) => q.L === o.L) === i);
   let corr = sup.reduce((s, o) => s + o.corr, 0) / sup.length, cam = camFov;
   if (sup.length >= 2) {
     const dds = sup.map((o) => o.p.dd), span = Math.max(...dds) - Math.min(...dds);
-    if (span >= 10) {
+    if (span >= 10 && (!permutation || sup.length >= 4)) { // le champ n'est ajusté qu'avec au moins 4 repères : 2 inconnues (cap, champ), avec 2 ou 3 repères l'ajustement serait exact par construction
       const xs = sup.map((o) => Math.tan(o.p.dd * RAD) * ps.fh);
       /** @type {{r: number, m: number, cam: number} | null} */
       let bc = null;
@@ -127,10 +142,10 @@ export function ajusterSurReperes(ps, lms, { ecran, camFov, champAffiche, inclin
  * (null : image illisible), et la correction est RENVOYÉE (l'appelant l'applique).
  * @param {{pose: {capDeg: number, inclinaisonDeg: number, roulisDeg: number}, camFov: number, ecran: {largeurPx: number, hauteurPx: number}, champAffiche: (cam: number) => number,
  *   lireSilhouette: (pose: {capDeg: number, inclinaisonDeg: number, roulisDeg: number}, focalePx: number) => {ok: boolean, cols: {brg: number, a: number, top?: boolean}[]} | null,
- *   liste: ElementRepere[], avecRelief: boolean, correctionOeilM?: number}} e
+ *   liste: ElementRepere[], avecRelief: boolean, correctionOeilM?: number, permutation?: boolean}} e
  * @returns {{ok: true, corr: number, names: string[], cam: number, cam0: number} | {ok: false, msg: string}}
  */
-export function calerSurReperes({ pose, camFov, ecran, champAffiche, lireSilhouette, liste, avecRelief, correctionOeilM = 0 }) {
+export function calerSurReperes({ pose, camFov, ecran, champAffiche, lireSilhouette, liste, avecRelief, correctionOeilM = 0, permutation = true }) {
   let total = 0, cam = camFov;
   const cam0 = camFov;
   /** @type {{names: string[]} | null} */
@@ -140,7 +155,7 @@ export function calerSurReperes({ pose, camFov, ecran, champAffiche, lireSilhoue
     if (!sk) return { ok: false, msg: 'image caméra illisible' };
     if (!sk.ok) return { ok: false, msg: "ciel peu lisible sur l'image (intérieur, contre-jour, nuit ?)" };
     const ps = { cols: sk.cols, heading: P.capDeg, pitch: P.inclinaisonDeg, fh };
-    const r = ajusterSurReperes(ps, reperesPourCalage(ps, liste, ecran, { avecRelief, correctionOeilM }), { ecran, camFov: cam, champAffiche, inclinaisonCouranteDeg: P.inclinaisonDeg });
+    const r = ajusterSurReperes(ps, reperesPourCalage(ps, liste, ecran, { avecRelief, correctionOeilM }), { ecran, camFov: cam, champAffiche, inclinaisonCouranteDeg: P.inclinaisonDeg, permutation });
     if (!r.ok) return k && last ? { ok: true, corr: total, names: last.names, cam, cam0 } : r;
     if (Math.abs(total + r.corr) > CORRECTION_MAX_DEG) return { ok: false, msg: `concordance trouvée (${r.names.slice(0, 2).join(', ')}) mais à ${(total + r.corr).toFixed(0)}° de la boussole : refusée (limite ±${CORRECTION_MAX_DEG}°)` };
     total += r.corr; last = r;

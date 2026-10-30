@@ -24,7 +24,7 @@ export const COLONNES_MIN = 25, RELIEF_VILLE_DENSE_MIN_DEG = 3;
  * @property {() => Promise<void>} attendreRelief relance le relief s'il est périmé et attend (au plus 8 s)
  * @property {() => ArrayLike<Float32Array> | null} relief masque du relief (`terrain.pm`) ou null @property {() => import('./soleil.js').ResultatSoleil} soleil calage sur le soleil (calage/soleil.js)
  * @property {(largeurPx: number) => import('./horizon.js').Luminance | null} lireLuminance @property {(pose: PoseAuto, focalePx: number) => import('../vision/silhouette-ciel.js').SilhouetteCiel | null} lireSilhouette
- * @property {import('./reperes.js').ElementRepere[]} liste éléments affichés
+ * @property {import('./reperes.js').ElementRepere[]} liste éléments affichés @property {boolean} [permutation] refuser les concordances fortuites de repères (défaut oui ; `false` redonne la v1 (j))
  */
 /**
  * @typedef {object} ResultatAuto
@@ -41,7 +41,7 @@ export async function calerAutomatiquement(c) {
   if (!c.pos) return { ...rien, message: 'GPS indisponible' };
   try {
     const parRepères = (/** @type {string} */ pourquoi) => {
-      const L = calerSurReperes({ pose: c.pose, camFov: c.camFov, ecran: c.ecran, champAffiche: c.champAffiche, lireSilhouette: c.lireSilhouette, liste: c.liste, avecRelief: c.avecRelief, correctionOeilM: c.correctionOeilM });
+      const L = calerSurReperes({ pose: c.pose, camFov: c.camFov, ecran: c.ecran, champAffiche: c.champAffiche, lireSilhouette: c.lireSilhouette, liste: c.liste, permutation: c.permutation !== false, avecRelief: c.avecRelief, correctionOeilM: c.correctionOeilM });
       if (!L.ok) return { ...rien, message: `${pourquoi} · repères : ${L.msg}` };
       return { message: `calé sur ${L.names.slice(0, 3).join(', ')} : cap ${f(L.corr)}${L.cam !== L.cam0 ? ` · champ ${L.cam}°` : ''}`, applique: true, dh: L.corr, dp: 0, champ: L.cam !== L.cam0 ? L.cam : null, source: /** @type {const} */ ('reperes') };
     };
@@ -68,7 +68,7 @@ export async function calerAutomatiquement(c) {
     // horizon déplacé de plus de 3° en direct (inclinaison mesurée par le téléphone, juste à ~1°) : le bord lu n'est pas le relief (toits, arbres)
     if (!c.photo && Math.abs(R.dp) > HORIZON_MAX_DIRECT_DEG) return parRepères(`le bord lu est ${Math.abs(R.dp).toFixed(1)}° ${R.dp < 0 ? 'au-dessus' : 'en dessous'} du relief (toits ou arbres devant)`);
     if (R.flat) {
-      const lm = calerSurReperes({ pose: c.pose, camFov: c.camFov, ecran: c.ecran, champAffiche: c.champAffiche, lireSilhouette: c.lireSilhouette, liste: c.liste, avecRelief: c.avecRelief, correctionOeilM: c.correctionOeilM });
+      const lm = calerSurReperes({ pose: c.pose, camFov: c.camFov, ecran: c.ecran, champAffiche: c.champAffiche, lireSilhouette: c.lireSilhouette, liste: c.liste, permutation: c.permutation !== false, avecRelief: c.avecRelief, correctionOeilM: c.correctionOeilM });
       if (lm.ok) return { message: `horizon ${f(R.dp)} · cap calé sur ${lm.names.slice(0, 3).join(', ')} ${f(lm.corr)}`, applique: true, dh: lm.corr, dp: R.dp, champ: lm.cam !== lm.cam0 ? lm.cam : null, source: 'reperes' };
       return { message: `horizon calé (${f(R.dp)}) · cap inchangé : pas assez de relief visible`, applique: true, dh: R.dh, dp: R.dp, champ: R.cam !== cam0 ? R.cam : null, source: 'relief' };
     }

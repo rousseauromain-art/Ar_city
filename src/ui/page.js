@@ -205,9 +205,11 @@ export function demarrerPage({ mode }) {
   /** Dimensions de l'écran pour les lectures d'image. */
   const ecranPx = () => ({ largeurPx: W, hauteurPx: H });
   /** « Caler auto » SANS rien appliquer : soleil, puis relief, puis repères (calage/auto.js). Sert au calage et aux tests de parité. @returns {Promise<import('../calage/auto.js').ResultatAuto>} */
-  function evaluerAuto() {
+  /** Test de permutation des repères (défaut oui) ; les tests de parité avec la v1 (j), qui n'en a pas, l'éteignent. */
+  let permutationReperes = true;
+  function evaluerAuto(/** @type {{permutation?: boolean}} */ opts = {}) {
     const src = imageSource(), d = app.donnees();
-    return calerAutomatiquement({ pos: d.pos, pose: pose(), camFov: S.camFov, ecran: ecranPx(), champAffiche: (cam) => champAffiche(cam, ecranPx(), fluxImage()), photo: !!photoMode,
+    return calerAutomatiquement({ pos: d.pos, pose: pose(), camFov: S.camFov, ecran: ecranPx(), champAffiche: (cam) => champAffiche(cam, ecranPx(), fluxImage()), photo: !!photoMode, permutation: opts.permutation ?? permutationReperes,
       villeDense: villeDense({ pos: d.pos, cities: /** @type {any} */ (d.lieux), monuments: /** @type {any} */ (d.monuments), batiments: /** @type {any} */ (d.reperes) }), avecRelief: S.relief && !!d.terrain, correctionOeilM: S.obsHeight || 0,
       attendreRelief: () => app.attendreRelief(8000), relief: () => { const t = app.donnees().terrain; return t ? t.pm : null; }, soleil: () => evaluerSoleil(),
       lireLuminance: (cw) => { const px = lirePixelsRecadres(src, cw, ecranPx()); return px ? luminance(px) : null; },
@@ -486,7 +488,7 @@ export function demarrerPage({ mode }) {
   redimensionner(); synchroniser(); $('photoBg').hidden = true; $('photoChip').hidden = true;
   if (!direct) { const simu = simulee() ? lirePositionTexte(S.simPos) : null; if (simu) app.definirPosition(simu); }
   journal.info('page', `page ${direct ? 'direct' : 'photo'} ouverte (${VERSION_V2})`);
-  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, vFov, analyserCiel, analyse, evaluerSoleil, evaluerAuto, calerAuto, evaluerPointage, synchroOeil, carnet, consigner, apprisIci, lancerBanc, banc, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
+  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, vFov, analyserCiel, analyse, evaluerSoleil, evaluerAuto, calerAuto, evaluerPointage, synchroOeil, definirPermutation: (/** @type {boolean} */ v) => { permutationReperes = v; }, carnet, consigner, apprisIci, lancerBanc, banc, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
   requestAnimationFrame(image);
 }
 
