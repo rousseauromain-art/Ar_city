@@ -13,7 +13,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
 - `v1/villes-horizon.html` : l'application, version `2026-10-25 (j)` FIGÉE (une seule page, environ 5 200 lignes ; seul changement : `../config.js`). Adresse : https://rousseauromain-art.github.io/Ar_city/v1/villes-horizon.html
 - `villes-horizon.html` (racine) : redirige vers `v1/villes-horizon.html` (anciens liens, raccourci du téléphone).
 - `config.js` (à la racine) : adresse du relais. Il est public et ne contient aucun secret.
-- `index.html` : le lanceur (modes × versions ; v2 « en développement », sans lien).
+- `index.html` : le lanceur : la version 2 en premier (Réalité augmentée, Photo rejouée), puis les outils de diagnostic, puis la version 1 figée tout en bas.
 - `v2/photo.html` : page v2 « photo rejouée » (même interface que la v1), liée depuis le lanceur ; calage sur le soleil (bouton cible) et pointage au doigt (réticule) actifs depuis l'étape 10a ; « Visibilité d'après la photo » active depuis l'étape 10b ; « Caler auto » complet (soleil, relief, repères) actif depuis l'étape 10c ; carnet de calage, « Reprendre l'écart appris » (direct) et banc d'essai (photo) actifs depuis l'étape 10d ; symbole du soleil affiché (heure EXIF).
 - `v2/ar.html` : page v2 en direct (caméra, GPS, boussole/gyroscope, trafic), même interface que la v1, liée depuis le lanceur.
 - `v2/outils.html` + `src/` : fondations de la v2 (étape 1 de `REFONTE.md`) : journal, état, stockage `vh2:`, drapeaux, rapport, réseau unique, Eruda avec `?debug=1`. Rôle de chaque dossier : `docs/ARCHITECTURE.md`.
