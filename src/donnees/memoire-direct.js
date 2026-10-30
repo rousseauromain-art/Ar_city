@@ -7,7 +7,7 @@
  */
 
 /** Taille d'une case (degrés) et durée de validité par genre (ms). */
-export const CASE_DIRECT_DEG = 0.1;
+const CASE_DIRECT_DEG = 0.1;
 export const VALIDITE_DIRECT_MS = Object.freeze({ air: 2 * 60000, sea: 60 * 60000 });
 
 /** @typedef {'air' | 'sea'} GenreDirect */

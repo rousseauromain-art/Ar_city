@@ -10,13 +10,13 @@ import { ecartAngle } from '../noyau/maths.js';
 /** @typedef {{vis: boolean, state: 'vis' | 'hid' | 'unk', snap: number | null, sky: number}} VerdictPhoto */
 
 /** Tolérance (°) : le sommet compte comme visible s'il dépasse la silhouette lue à ce point près. */
-export const PHOTO_TOL_DEG = 0.5;
+const PHOTO_TOL_DEG = 0.5;
 /** Demi-fenêtre (°) autour de l'élément où l'on lit la silhouette. */
-export const PHOTO_FENETRE_DEG = 0.7;
+const PHOTO_FENETRE_DEG = 0.7;
 /** Demi-fenêtre (°) où l'on cherche une pointe sur laquelle se caler. */
-export const PHOTO_CALAGE_DEG = 1.2;
+const PHOTO_CALAGE_DEG = 1.2;
 /** Une silhouette qui dépasse le relief calculé de plus de ce nombre de degrés est formée par un objet PROCHE (bâtiment, arbre, mur). */
-export const PHOTO_ECART_OBJET_DEG = 0.5;
+const PHOTO_ECART_OBJET_DEG = 0.5;
 
 /**
  * 'vis' : le sommet dépasse la silhouette lue. 'hid' : il est sous une silhouette formée par un objet PROCHE. 'unk' : il est sous une silhouette

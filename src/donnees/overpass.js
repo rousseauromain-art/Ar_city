@@ -19,7 +19,7 @@ export const MIROIRS_OVERPASS = Object.freeze([
   'https://overpass.kumi.systems/api/interpreter',
 ]);
 /** Délai avant de solliciter le miroir suivant (ms). */
-export const ECART_MIROIRS_MS = 5000;
+const ECART_MIROIRS_MS = 5000;
 
 /** Type d'un élément OSM d'après ses étiquettes (v1 : `kindOf`). @param {Record<string, string>} t */
 export function typeDepuisEtiquettes(t) {

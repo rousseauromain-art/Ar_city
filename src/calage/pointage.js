@@ -9,9 +9,9 @@ import { RAD } from '../noyau/constantes.js';
 import { ecartAngle } from '../noyau/maths.js';
 
 /** Écart de relèvement maximal (°) entre le point touché et un candidat. */
-export const FENETRE_POINTAGE_DEG = 12;
+const FENETRE_POINTAGE_DEG = 12;
 /** Un monument plus proche que cela (km) n'est pas assez précis pour corriger l'horizon. */
-export const DIST_MIN_HORIZON_KM = 0.15;
+const DIST_MIN_HORIZON_KM = 0.15;
 
 /**
  * @typedef {object} ElementPointe

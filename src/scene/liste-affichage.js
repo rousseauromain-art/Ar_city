@@ -12,7 +12,7 @@ import { RAD } from '../noyau/constantes.js';
 /** Priorité d'affichage par type : plus petit = posé d'abord (v1 : `RANK`). */
 export const PRIORITE = Object.freeze(/** @type {Record<string, number>} */ ({ monument: -1, city: 0, town: 1, lighthouse: 1, island: 1, cape: 2, peak: 2, village: 2, view: 3, rock: 3, heritage: 3, beach: 4, hamlet: 4, isolated_dwelling: 4, poi: 3 }));
 /** Homonymes à moins de cette distance (km) : un seul est gardé (OSM décrit parfois un même lieu par plusieurs objets). */
-export const DOUBLON_KM = 2;
+const DOUBLON_KM = 2;
 /** Hauteur supposée (m) de la canopée en ville dense : un monument plus bas est caché par les toits. */
 export const HAUTEUR_TOITS_M = 20;
 

@@ -11,13 +11,13 @@ import { distanceEtCap } from '../noyau/geo.js';
 /** Mesures gardées sur l'appareil. */
 export const CARNET_MAX = 500;
 /** Plusieurs glissers en moins de 20 s ne font qu'une mesure (la dernière remplace la précédente). */
-export const FUSION_GLISSER_MS = 20000;
+const FUSION_GLISSER_MS = 20000;
 /** Écart appris : mesures à moins de 1 km, de moins de 30 jours ; sinon la direction brute à ±30°. */
 export const RAYON_APPRIS_KM = 1, VALIDITE_APPRIS_MS = 30 * 86400000, SECTEUR_APPRIS_DEG = 30, SECTEURS_MIN = 2;
 /** Mesures envoyées par requête au relais. */
 export const LOT_ENVOI = 100;
 /** En dessous, le calage n'a « rien changé » et rien n'est consigné (cap, horizon). */
-export const BOUGE_MIN_DEG = 0.2;
+const BOUGE_MIN_DEG = 0.2;
 
 /**
  * @typedef {object} Mesure

@@ -13,7 +13,7 @@ import { masqueDans, NB_RELEVEMENTS, PAS_RELEVEMENT_DEG } from '../scene/relief.
 /** Relief minimal dans le champ (°) pour que le CHAMP de la caméra soit cherché, et sous lequel l'horizon est « plat » (cap et champ indéterminés). */
 export const RELIEF_MIN_CHAMP_DEG = 1.5, RELIEF_PLAT_DEG = 0.25;
 /** Le champ n'est retenu que s'il améliore le coût d'au moins 15 %. */
-export const GAIN_CHAMP = 0.85;
+const GAIN_CHAMP = 0.85;
 
 /** @typedef {{L: Float32Array, cw: number, ch: number}} Luminance */
 /** @typedef {{x: number, y: number, s: number}} PointHorizon */

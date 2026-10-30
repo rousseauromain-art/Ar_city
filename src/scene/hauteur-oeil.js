@@ -106,7 +106,7 @@ export function correctionDepuisGps(altitudeGpsM, precisionAltM, solM) {
   return Math.max(-30, Math.min(250, Math.round(altitudeGpsM - solM - HAUTEUR_YEUX_M)));
 }
 /** Au-delà, l'altitude GPS est jugée trop imprécise pour corriger la hauteur d'œil. */
-export const PRECISION_ALT_MAX_M = 30;
+const PRECISION_ALT_MAX_M = 30;
 
 /**
  * Altitude de l'œil : sol + 1,6 m + correction manuelle, jamais sous 1 m (v1 : `h0`).

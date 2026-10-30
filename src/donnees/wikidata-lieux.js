@@ -8,7 +8,7 @@
 /** @typedef {import('./overpass.js').Lieu} Lieu */
 /** @typedef {import('./overpass.js').ReseauRequeter} ReseauRequeter */
 
-export const POINT_SPARQL = 'https://query.wikidata.org/sparql';
+const POINT_SPARQL = 'https://query.wikidata.org/sparql';
 /** Rayon maximal demandé à Wikidata (km) et nombre maximal de lieux : au-delà, le service met trop longtemps à répondre. */
 export const RAYON_MAX_KM = 120, LIMITE = 700;
 /** Classes Wikidata → type de lieu de l'application. */

@@ -16,7 +16,7 @@ import { HAUTEUR_DEFAUT, ICONE_REPERE } from '../donnees/reperes-hauts.js';
 /** @typedef {{el: RepereCalcule, etat: 'net' | 'absent', raison: string | null}} RepereClasse */
 /** @typedef {import('../rendu/bande.js').CoucheBande} CoucheBande */
 
-export const COULEUR_REPERES = Object.freeze({ ligne: 'rgba(169,139,255,.85)', texte: '#A98BFF', icone: '#A98BFF' });
+const COULEUR_REPERES = Object.freeze({ ligne: 'rgba(169,139,255,.85)', texte: '#A98BFF', icone: '#A98BFF' });
 
 /**
  * @param {Repere[]} reperes @param {{pos: {lat: number, lon: number}}} scene

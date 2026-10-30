@@ -9,7 +9,7 @@
  * @typedef {object} Reglages
  * @property {boolean} cross croix de visée @property {boolean} gyro fusion boussole/gyroscope @property {boolean} photoVis analyse de la photo (étape 10)
  * @property {boolean} simOn position simulée @property {string} simPos « lat, lon » simulé @property {number} radius rayon des lieux (km) @property {number} camFov champ de la caméra (côté large, °)
- * @property {boolean} hamlets hameaux @property {boolean} lune afficher le symbole de la lune @property {boolean} relief tenir compte du relief pour cacher ce qui est derrière (masquage) @property {boolean} autoRelief « Caler auto » : le relief avant le soleil (défaut non : le soleil visible est exact) @property {boolean} calculRelief calculer le relief (ligne d'horizon, crêtes, calage) : indépendant du masquage @property {boolean} reliefV1 tolérances d'origine @property {number} obsHeight correction de la hauteur d'œil (m)
+ * @property {boolean} hamlets hameaux @property {boolean} lune afficher le symbole de la lune @property {boolean} relief tenir compte du relief pour cacher ce qui est derrière (masquage) @property {boolean} autoRelief « Caler auto » : le relief avant le soleil (défaut non : le soleil visible est exact) @property {boolean} calculRelief calculer le relief (ligne d'horizon, crêtes, calage) : indépendant du masquage @property {number} obsHeight correction de la hauteur d'œil (m)
  * @property {boolean} showDist distances affichées @property {string} filter recherche par nom (jamais mémorisée) @property {number} headOff décalage de cap (°) @property {number} pitchOff décalage d'horizon (°)
  * @property {boolean} air @property {boolean} sea @property {number} airMax @property {number} seaMax avions et bateaux, portées (km)
  * @property {boolean} skyline ligne d'horizon du relief @property {boolean} ridges crêtes intérieures @property {boolean} beyond bouton œil (Tout voir)
@@ -19,13 +19,13 @@
  */
 
 /** @returns {Reglages} réglages par défaut (v1 l. 440). */
-export const reglagesParDefaut = () => ({ cross: false, gyro: true, photoVis: false, simOn: false, simPos: '', radius: 60, camFov: 67, hamlets: false, lune: true, relief: true, calculRelief: true, autoRelief: false, reliefV1: false, obsHeight: 0, showDist: true, filter: '',
+export const reglagesParDefaut = () => ({ cross: false, gyro: true, photoVis: false, simOn: false, simPos: '', radius: 60, camFov: 67, hamlets: false, lune: true, relief: true, calculRelief: true, autoRelief: false, obsHeight: 0, showDist: true, filter: '',
   headOff: 0, pitchOff: 0, air: false, sea: false, airMax: 120, seaMax: 40, skyline: true, ridges: true, beyond: false, telecom: false, telecomMax: 8, buildings: false, buildingsMax: 12, chipsFold: false,
   layers: { places: true, monuments: true, equip: true, urban: false, urbClip: true, urbSmooth: true, urbFill: true },
   poi: { lighthouse: true, cape: true, rock: true, view: false, heritage: false, beach: false } });
 
 /** Clés mémorisées (liste blanche) ; `layers` et `poi` sont fusionnés clé par clé. */
-export const CLES_MEMORISEES = Object.freeze(['cross', 'gyro', 'photoVis', 'simOn', 'simPos', 'radius', 'camFov', 'hamlets', 'lune', 'relief', 'calculRelief', 'autoRelief', 'reliefV1', 'obsHeight', 'showDist', 'headOff', 'pitchOff', 'air', 'sea', 'airMax', 'seaMax',
+export const CLES_MEMORISEES = Object.freeze(['cross', 'gyro', 'photoVis', 'simOn', 'simPos', 'radius', 'camFov', 'hamlets', 'lune', 'relief', 'calculRelief', 'autoRelief', 'obsHeight', 'showDist', 'headOff', 'pitchOff', 'air', 'sea', 'airMax', 'seaMax',
   'skyline', 'ridges', 'beyond', 'telecom', 'telecomMax', 'buildings', 'buildingsMax', 'chipsFold']);
 
 /**
@@ -60,7 +60,7 @@ export const ecrireReglages = (stockage, S, sauvegardePhoto = null) => stockage.
 /** Clés d'AFFICHAGE reprises de la v1 : jamais le calage (`headOff`, `pitchOff`, `camFov`), propre à chaque photo ou à chaque appareil, ni la position simulée. */
 export const CLES_REPRISES_V1 = Object.freeze(['skyline', 'ridges', 'relief', 'radius', 'hamlets', 'showDist', 'beyond', 'telecom', 'buildings', 'air', 'sea', 'obsHeight', 'layers', 'poi']);
 /** Clé des réglages de la v1 (lue, jamais écrite). */
-export const CLE_REGLAGES_V1 = 'vh_settings_v2';
+const CLE_REGLAGES_V1 = 'vh_settings_v2';
 
 /**
  * Premier lancement de ce correctif : reprend UNE fois les réglages d'affichage de la v1 (lecture seule, même origine), pour que la v2 ressemble à la v1

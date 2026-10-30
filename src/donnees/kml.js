@@ -26,8 +26,6 @@ import { distanceEtCap } from '../noyau/geo.js';
 export const COULEURS_PERSO = Object.freeze(['#FF8A3D', '#A98BFF', '#4FD1C5', '#FF6FB5', '#9BE564', '#FFD23F']);
 /** Sites affichés au plus par couche, hors sites trouvés par la recherche (60 au plus). Points conservés au plus par fichier. Taille maximale d'un fichier. */
 export const PERSO_AFFICHES = 300, PERSO_TROUVES = 60, PERSO_POINTS_MAX = 60000, PERSO_OCTETS_MAX = 40e6;
-/** Distances proposées (km) pour l'éloignement maximal d'une couche. */
-export const PERSO_DISTANCES_KM = Object.freeze([2, 5, 10, 20, 50, 100, 200]);
 /** Nombre de caractères de la valeur d'un champ qui précèdent le nom. */
 const PREFIXE_CAR = 10;
 
@@ -85,7 +83,7 @@ export async function lireFichierKml(buf, taille = buf.byteLength) {
 }
 
 /** Description KML (souvent du HTML) → texte, liens http(s) et lignes « champ | valeur ». @param {unknown} html @param {AnalyseurDom} [dom] */
-export function texteKml(html, dom = domNavigateur) {
+function texteKml(html, dom = domNavigateur) {
   const h = String(html || '').replace(/<br\s*\/?>|<\/p>|<\/div>|<\/tr>/gi, '\n'), d = dom.html(h), links = /** @type {string[]} */ ([]);
   for (const a of d.querySelectorAll('a[href]')) { const u = /** @type {string} */ (a.getAttribute('href')); if (/^https?:\/\//i.test(u) && !links.includes(u)) links.push(u); }
   for (const u of ((d.body.textContent || '').match(/https?:\/\/[^\s<>"']+/g) || [])) if (!links.includes(u)) links.push(u);

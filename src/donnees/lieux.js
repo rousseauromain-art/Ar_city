@@ -22,7 +22,7 @@ import { listeIntegree } from './lieux-integres.js';
  */
 
 /** Durée de vie de la mémoire des lieux : 7 jours. */
-export const MEMOIRE_LIEUX_MS = 7 * 86400000;
+const MEMOIRE_LIEUX_MS = 7 * 86400000;
 const SOURCES_VIVANTES = new Set(['OSM', 'OpenFreeMap', 'Geoapify', 'GeoNames', 'Wikidata']);
 /** Une source est « vivante » si elle vient du réseau ou de la mémoire d'une source vivante (pas de l'atlas ni de la liste intégrée). @param {string} s */
 export const sourceVivante = (s) => !!s && s.split('+').every((t) => SOURCES_VIVANTES.has(t));

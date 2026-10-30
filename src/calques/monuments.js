@@ -29,20 +29,20 @@ import { cleSilhouette, SILHOUETTES, SILHOUETTES_DISTINCTES, SILHOUETTE_MIN_PX }
 /** @typedef {{el: MonumentCalcule, etat: 'net' | 'transparent' | 'absent', raison: string | null}} MonumentClasse */
 
 /** Angle apparent minimal (°) pour qu'un monument soit visible d'ici ; seuil abaissé pour un monument très célèbre (jamais supprimé). */
-export const ANGLE_MIN_DEG = 0.12;
-export const ANGLE_MIN_CELEBRE_DEG = 0.05;
+const ANGLE_MIN_DEG = 0.12;
+const ANGLE_MIN_CELEBRE_DEG = 0.05;
 /** Noms nets au plus (les plus célèbres seulement, le reste en transparence). */
 export const NOMS_NETS_MAX = 40;
 /** Les N monuments les plus proches (≤ 1,5 km) sont toujours nets et ne comptent pas dans le plafond. */
 export const PROCHES_TOUJOURS_NETS = 15;
-export const PROCHES_RAYON_KM = 1.5;
+const PROCHES_RAYON_KM = 1.5;
 /** Ville dense : un monument plus bas que les toits (20 m + 5) à plus de 400 m n'est pas visible. */
-export const TOITS_DISTANCE_KM = 0.4;
+const TOITS_DISTANCE_KM = 0.4;
 /** Statues OSM : de près seulement (800 m, 300 m en ville dense). */
-export const STATUE_PORTEE_KM = 0.8;
-export const STATUE_PORTEE_DENSE_KM = 0.3;
+const STATUE_PORTEE_KM = 0.8;
+const STATUE_PORTEE_DENSE_KM = 0.3;
 /** Marge angulaire (°) de la fenêtre de masquage entre monuments. */
-export const MASQUAGE_MARGE_DEG = 0.2;
+const MASQUAGE_MARGE_DEG = 0.2;
 /** Largeur typique (m) par type : fenêtre de masquage. */
 export const LARGEUR_TYPE_M = Object.freeze(/** @type {Record<string, number>} */ ({ tour: 12, clocher: 10, dome: 35, chateau: 60, musee: 40, mairie: 40, maison: 15, colonne: 4, arc: 25, edifice: 40, stade: 150, scene: 40, gare: 60, pont: 0, eau: 0, parc: 0, place: 0 }));
 /** Plafond de la hauteur d'un monument à l'écran : 30 % de l'écran, 240 px. */
@@ -214,7 +214,7 @@ export function anglesMonument(c, vue, terrain, avecRelief) {
 }
 
 /** Silhouette à taille réelle si le monument est assez grand à l'écran (sol → sommet), sinon null (icône). @param {MonumentCalcule} c @param {number} x @param {number} yTop @param {number} aGnd @param {VueRendu} vue */
-export function boiteSilhouette(c, x, yTop, aGnd, vue) {
+function boiteSilhouette(c, x, yTop, aGnd, vue) {
   const yBase = borner(yDepuisSite(vue, aGnd), -vue.hauteurPx, 2 * vue.hauteurPx), Hpx = yBase - yTop;
   if (!(Hpx >= SILHOUETTE_MIN_PX) || Hpx > 3 * vue.hauteurPx) return null;
   const cle = cleSilhouette(c);

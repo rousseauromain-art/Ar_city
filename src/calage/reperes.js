@@ -15,7 +15,7 @@ import { distanceEtCap } from '../noyau/geo.js';
 /** Prominence minimale d'une pointe (°), fenêtre d'appariement en cap (°), tolérance en hauteur (°), accord entre repères (°). v1 : `AC_PROM`, `AC_WIN`, `AC_VTOL`, `AC_AGREE`. */
 export const PROMINENCE_MIN_DEG = 0.8, FENETRE_APPARIEMENT_DEG = 8, TOLERANCE_HAUTEUR_DEG = 1.5, ACCORD_DEG = 0.4;
 /** Correction cumulée maximale (°) acceptée sur le cap (v1 : `LM_MAX`). */
-export const CORRECTION_MAX_DEG = 20;
+const CORRECTION_MAX_DEG = 20;
 
 /** @typedef {{cols: {brg: number, a: number, top?: boolean}[], heading: number, pitch: number, fh: number}} SilhouetteLue colonnes lues, cap et site de la pose, focale (px d'écran) */
 /** @typedef {{dd: number, brg: number, a: number, prom: number, w: number}} Pointe */

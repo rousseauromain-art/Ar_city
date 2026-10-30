@@ -8,7 +8,7 @@ import { creerCouche } from './kml.js';
 
 /** @typedef {import('./kml.js').CouchePerso} CouchePerso */
 
-export const NOM_CACHE_COUCHES = 'vh2-couches-perso';
+const NOM_CACHE_COUCHES = 'vh2-couches-perso';
 const BASE = 'https://vh.user/';
 
 /** @param {{caches?: CacheStorage, journal?: {avert: (m: string, msg: string, d?: unknown) => unknown}}} [deps] */

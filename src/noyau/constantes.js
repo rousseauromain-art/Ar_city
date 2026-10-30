@@ -11,10 +11,10 @@ export const RAD = Math.PI / 180;
 export const RAYON_TERRE_KM = 6371;
 
 /** Rayon moyen de la Terre, en m. */
-export const RAYON_TERRE_M = RAYON_TERRE_KM * 1000;
+const RAYON_TERRE_M = RAYON_TERRE_KM * 1000;
 
 /** Coefficient de réfraction : le rayon terrestre « effectif » est 1,13 fois le vrai (v1 : `REFF`). */
-export const COEF_REFRACTION = 1.13;
+const COEF_REFRACTION = 1.13;
 
 /** Rayon terrestre effectif en m, pour la courbure et la réfraction (v1 : `REFF`). */
 export const RAYON_EFFECTIF_M = RAYON_TERRE_M * COEF_REFRACTION;

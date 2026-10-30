@@ -1,5 +1,7 @@
 # Inventaire du code jamais appelé (30/10/2026)
 
+> **Nettoyage 1 fait le 30/10 (A, B, `reliefV1`)** : 3 morts supprimés, 62 `export` inutiles retirés (13 déclarations multiples gardées exportées car un de leurs noms est utilisé ailleurs), réglage `reliefV1` supprimé, `MS_EN_NOEUD` supprimé. Reste : D (boutons « zone » gardés sur décision de Romain), E (poignées de test), F (tests dormants), G (couverture).
+
 Rapport seulement : **rien n'est supprimé**. Il sert de base au nettoyage (voir le plan D du fichier de plan). Méthode : pour chaque `export` de `src/`, recherche des usages dans les autres modules de `src/`, dans leur propre fichier, puis dans `tests/`, `v2/`, `index.html` et `debug/`. Aucun fichier de `src/` n'est orphelin : tous sont importés ou chargés.
 
 Chiffres : 463 exports examinés.

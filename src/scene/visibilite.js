@@ -23,9 +23,9 @@ export const HAUTEUR_TYPE_M = Object.freeze(/** @type {Record<string, number>} *
 /** Hauteur par défaut, en m. */
 export const HAUTEUR_DEFAUT_M = 12;
 /** Tolérances angulaires (°) : lieux ordinaires et sommets/caps (relief fin ~1 m ⇒ assouplies par rapport aux 0,02°/0,12° du moteur 30 m). */
-export const TOLERANCES = Object.freeze({ lieu: 0.18, sommet: 0.28 });
+const TOLERANCES = Object.freeze({ lieu: 0.18, sommet: 0.28 });
 /** Une tour OSM n'est nette que si son sommet dépasse la crête d'au moins ce nombre de degrés (v1 : `TOWER_CLEAR`). */
-export const TOUR_DEGAGEE_DEG = 0.15;
+const TOUR_DEGAGEE_DEG = 0.15;
 
 /**
  * Angles d'un élément et verdict de visibilité (v1 : `assessPlace`).

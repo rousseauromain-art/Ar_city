@@ -117,7 +117,7 @@ const kmCourt = (/** @type {number} */ d) => (d < 10 ? d.toFixed(1) : String(Mat
  * @param {CreteClassee[]} classes @param {VueRendu} vue @param {{distances: boolean, mesurerTexte: (police: string, texte: string) => number}} options
  * @returns {Commande[]}
  */
-export function commandesCretes(classes, vue, { distances, mesurerTexte }) {
+function commandesCretes(classes, vue, { distances, mesurerTexte }) {
   const W = vue.largeurPx, hf = demiChampDeg(vue), rond = { jointure: /** @type {'round'} */ ('round'), extremite: /** @type {'round'} */ ('round') };
   /** @type {Commande[]} */
   const out = [];

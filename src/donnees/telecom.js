@@ -18,10 +18,10 @@ import { baseRelais } from './relais-lieux.js';
  */
 
 /** Mémoire d'une réponse ANFR : 7 jours, par case de 0,05° (~5 km). */
-export const TEL_MEMOIRE_MS = 7 * 86400000;
+const TEL_MEMOIRE_MS = 7 * 86400000;
 export const TEL_CASE_DEG = 0.05;
 /** Les tours-monuments exigent au moins ce rayon (km) quand le calque Monuments est actif. */
-export const TEL_MONUMENTS_KM = 12;
+const TEL_MONUMENTS_KM = 12;
 /** Recul entre deux essais après un échec : 30 s, ×1,5 à chaque échec, plafonné à 5 min. */
 export const RECUL_INITIAL_MS = 30000, RECUL_MAX_MS = 300000;
 

@@ -12,12 +12,12 @@ import { distanceEtCap } from '../noyau/geo.js';
 
 /** Hauteur supposée (m) d'un repère sans hauteur connue. */
 export const HAUTEUR_DEFAUT = Object.freeze(/** @type {Record<string, number>} */ ({ tour: 30, clocher: 40, tour_telecom: 40, chateau_eau: 30, cheminee: 40, mat: 30, immeuble: 30 }));
-export const LIBELLE_REPERE = Object.freeze(/** @type {Record<string, string>} */ ({ tour: 'Tour', clocher: 'Clocher', tour_telecom: 'Tour', chateau_eau: "Château d'eau", cheminee: 'Cheminée', mat: 'Mât', immeuble: 'Immeuble' }));
+const LIBELLE_REPERE = Object.freeze(/** @type {Record<string, string>} */ ({ tour: 'Tour', clocher: 'Clocher', tour_telecom: 'Tour', chateau_eau: "Château d'eau", cheminee: 'Cheminée', mat: 'Mât', immeuble: 'Immeuble' }));
 /** Icône d'un repère dans la bande des équipements. */
 export const ICONE_REPERE = Object.freeze(/** @type {Record<string, string>} */ ({ tour: 'mat', tour_telecom: 'pylone', clocher: 'clocher', chateau_eau: 'chateau_eau', cheminee: 'colonne', mat: 'mat', immeuble: 'toit' }));
 /** Mémoire des immeubles hauts : 3 jours (6 h si la liste est partielle). Rayon de la requête lourde : 5 km au plus. */
-export const MEMOIRE_IMMEUBLES_MS = 3 * 864e5;
-export const IMMEUBLES_KM_MAX = 5;
+const MEMOIRE_IMMEUBLES_MS = 3 * 864e5;
+const IMMEUBLES_KM_MAX = 5;
 
 /** Type d'un objet OSM (v1 : `kindOfBuilding`). @param {Record<string, string | undefined>} t @returns {TypeRepere} */
 export function typeRepere(t) {
