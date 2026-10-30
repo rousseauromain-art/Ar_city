@@ -38,6 +38,13 @@ jobs:
           PHOTOS_TOKEN: ${{ secrets.PHOTOS_TOKEN }}
         run: |
           if [ -z "$PHOTOS_TOKEN" ]; then echo "::error::Secret PHOTOS_TOKEN absent : les tests de parité ne peuvent pas tourner (Settings › Secrets and variables › Actions)."; exit 1; fi
+          code=$(curl -sS -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $PHOTOS_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/rousseauromain-art/Ar_city-photos)
+          case "$code" in
+            200) echo "Accès à Ar_city-photos : ok" ;;
+            401) echo "::error::Jeton PHOTOS_TOKEN invalide ou expiré (401) : le régénérer et mettre à jour le secret."; exit 1 ;;
+            404) echo "::error::Le jeton n'a pas accès à Ar_city-photos (404) : vérifier Resource owner = rousseauromain-art, Repository access = Only select repositories › Ar_city-photos, Permissions › Contents = Read-only."; exit 1 ;;
+            *) echo "::error::Réponse inattendue de GitHub ($code) en vérifiant l'accès à Ar_city-photos."; exit 1 ;;
+          esac
       - uses: actions/checkout@v5
         with:
           repository: rousseauromain-art/Ar_city-photos
