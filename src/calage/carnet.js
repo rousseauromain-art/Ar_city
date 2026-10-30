@@ -116,5 +116,5 @@ export function resumeCarnet(carnet, { appareil, modele, appris }) {
   };
 }
 
-/** La source d'un calage automatique d'après le résultat de calage/auto.js (la v1 la devinait par expression régulière sur le message). @param {'soleil' | 'relief' | 'reperes' | 'aucune'} source */
-export const sourceAuto = (source) => (source === 'soleil' ? 'auto soleil' : source === 'reperes' ? 'auto repères' : 'auto relief');
+/** La source d'un calage automatique d'après le résultat de calage/auto.js (la v1 la devinait par expression régulière sur le message). @param {'soleil' | 'lune' | 'relief' | 'reperes' | 'aucune'} source */
+export const sourceAuto = (source) => (source === 'soleil' ? 'auto soleil' : source === 'lune' ? 'auto lune' : source === 'reperes' ? 'auto repères' : 'auto relief');

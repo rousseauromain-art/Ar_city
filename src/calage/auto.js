@@ -24,12 +24,12 @@ export const COLONNES_MIN = 25, RELIEF_VILLE_DENSE_MIN_DEG = 3;
  * @property {() => Promise<void>} attendreRelief relance le relief s'il est périmé et attend (au plus 8 s)
  * @property {() => ArrayLike<Float32Array> | null} relief masque du relief (`terrain.pm`) ou null @property {() => import('./soleil.js').ResultatSoleil} soleil calage sur le soleil (calage/soleil.js)
  * @property {(largeurPx: number) => import('./horizon.js').Luminance | null} lireLuminance @property {(pose: PoseAuto, focalePx: number) => import('../vision/silhouette-ciel.js').SilhouetteCiel | null} lireSilhouette
- * @property {import('./reperes.js').ElementRepere[]} liste éléments affichés @property {'relief-soleil' | 'soleil-relief'} [ordre] ordre des méthodes (défaut `soleil-relief` = la v1 (j) ; `relief-soleil` : le relief d'abord, réglage « Caler auto : le relief avant le soleil ») @property {boolean} [permutation] refuser les concordances fortuites de repères (défaut oui ; `false` redonne la v1 (j))
+ * @property {import('./reperes.js').ElementRepere[]} liste éléments affichés @property {'relief-soleil' | 'soleil-relief'} [ordre] ordre des méthodes (défaut `soleil-relief` = la v1 (j) ; `relief-soleil` : le relief d'abord, réglage « Caler auto : le relief avant le soleil ») @property {() => import('./soleil.js').ResultatSoleil} [lune] calage sur la lune (de nuit, quand le soleil est couché) @property {boolean} [permutation] refuser les concordances fortuites de repères (défaut oui ; `false` redonne la v1 (j))
  */
 /**
  * @typedef {object} ResultatAuto
  * @property {string} message texte pour la note @property {boolean} applique des corrections sont à appliquer @property {number} dh correction de cap (°) @property {number} dp correction d'horizon (°)
- * @property {number | null} champ nouveau champ du capteur (°), ou null @property {'soleil' | 'relief' | 'reperes' | 'aucune'} source
+ * @property {number | null} champ nouveau champ du capteur (°), ou null @property {'soleil' | 'lune' | 'relief' | 'reperes' | 'aucune'} source
  */
 
 const f = (/** @type {number} */ v) => (v >= 0 ? '+' : '') + v.toFixed(1) + '°';
@@ -48,7 +48,13 @@ export async function calerAutomatiquement(c) {
     // le soleil, s'il est dans l'image : direction exacte, cap et horizon d'un coup
     const parSoleil = () => {
       const SA = c.soleil();
-      return SA.ok ? { message: `calé sur le soleil (${SA.soleil.azDeg.toFixed(1)}°, ${SA.soleil.elDeg.toFixed(1)}° de haut) : cap ${f(SA.dh)}, horizon ${f(SA.dp)}`, applique: true, dh: SA.dh, dp: SA.dp, champ: null, source: /** @type {const} */ ('soleil') } : null;
+      if (SA.ok) return { message: `calé sur le soleil (${SA.soleil.azDeg.toFixed(1)}°, ${SA.soleil.elDeg.toFixed(1)}° de haut) : cap ${f(SA.dh)}, horizon ${f(SA.dp)}`, applique: true, dh: SA.dh, dp: SA.dp, champ: null, source: /** @type {const} */ ('soleil') };
+      // de nuit (soleil couché), la lune est un repère du même genre : tache ronde et brillante près de sa position calculée
+      if (c.lune && SA.message === 'soleil couché') {
+        const LA = c.lune();
+        if (LA.ok) return { message: `calé sur la lune (${LA.soleil.azDeg.toFixed(1)}°, ${LA.soleil.elDeg.toFixed(1)}° de haut) : cap ${f(LA.dh)}, horizon ${f(LA.dp)}`, applique: true, dh: LA.dh, dp: LA.dp, champ: null, source: /** @type {const} */ ('lune') };
+      }
+      return null;
     };
     // ordre : par défaut le soleil d'abord (v1 (j) : sa direction est exacte) ; `relief-soleil` (réglage) : le relief d'abord, le soleil ensuite, puis les repères
     const reliefDabord = c.ordre === 'relief-soleil';
