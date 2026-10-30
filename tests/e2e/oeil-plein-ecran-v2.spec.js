@@ -18,7 +18,8 @@ test.use({viewport:{width:915,height:412}});
 
 test('puce « œil » : absente sans relief, puis la correction ; le toucher ouvre le détail et le curseur corrige',async({page})=>{
   const erreurs=await ouvrirPhoto(page);
-  await expect(page.locator('#eyeChip')).toBeHidden();
+  await expect(page.locator('#eyeChip')).toBeVisible(); await expect(page.locator('#eyeChip')).toHaveText('œil ?'); // sans relief : la puce est là et l'explique
+  await expect(page.locator('#eyePopT')).toContainText('Sol inconnu');
   // un relief simulé (le vrai arrive des tuiles : parité sur les scènes réelles) : sol 13 m, œil 14,6 m. Tout dans le même instant : la boucle d'affichage reprendrait le vrai (absent) relief.
   const r=await page.evaluate(()=>{ const v=window.__vh2, orig=v.app.donnees, $=id=>document.getElementById(id); v.app.donnees=()=>({...orig(),terrain:{h0:14.6,solM:13,origine:'relief fin : test',pm:null,bands:[]}});
     v.synchroOeil(); const a={visible:!$('eyeChip').hidden,texte:$('eyeChip').textContent};
@@ -48,7 +49,7 @@ test('la page en direct n’a plus de ligne « Rejouer une photo » (la page pho
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
   await page.goto('/v2/ar.html');
   await expect(page.locator('#btnPhoto')).toHaveCount(0); await expect(page.locator('#photoFile')).toHaveCount(0); await expect(page.locator('#btnBench')).toHaveCount(0);
-  await expect(page.locator('#eyeChip')).toBeHidden();
+  await expect(page.locator('#eyeChip')).toBeVisible();
   expect(erreurs).toEqual([]);
 });
 
