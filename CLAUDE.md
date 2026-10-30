@@ -145,7 +145,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
    - un calage guidé en un seul bouton (« visez le soleil / la lune / ce repère ») ;
    - l'échelle (champ de vision) calée une fois par téléphone avec 2 points, puis mémorisée.
 4. **Calage de nuit sur la lune :** position calculée avec la parallaxe, puis tache ronde et brillante près de la position prévue.
-5. **Caler auto :** remettre le relief (l'algorithme d'origine) en premier, le soleil en second.
+5. **Caler auto :** réglage « le relief avant le soleil » ajouté à l'étape 11c (décoché par défaut). Mesure sur les 4 photos réelles : quand le soleil est visible, le relief seul se trompe jusqu'à 3° (Morgat : −4,3° contre −7,3° pour le soleil, et le champ change à tort) ; le soleil reste donc en premier par défaut. À rediscuter avec Romain.
 6. **Banc d'essai sur `tests/photos` :** cap EXIF comparé au soleil, par téléphone et par orientation, et écart de chaque méthode.
 7. **IA de profondeur :** à réévaluer avec le banc d'essai. Le résultat de Saint-Malo n'est pas concluant : 2 points seulement, sur une scène simple.
 8. **Rejouer une photo :** lire l'altitude EXIF comme indice de hauteur d'œil.
