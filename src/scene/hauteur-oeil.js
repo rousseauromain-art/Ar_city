@@ -95,6 +95,20 @@ export function estimerSol(bands, c) {
 }
 
 /**
+ * Deuxième source de la hauteur d'œil : l'altitude GPS du téléphone (direct seulement). Correction (m) à appliquer au sol estimé pour que l'œil soit à l'altitude GPS, bornée comme le curseur (−30 à +250 m).
+ * `null` si l'altitude est absente ou trop imprécise (le GPS se trompe souvent de 10 à 30 m en altitude).
+ * @param {number | null | undefined} altitudeGpsM @param {number | null | undefined} precisionAltM @param {number} solM sol estimé sous les pieds
+ * @returns {number | null}
+ */
+export function correctionDepuisGps(altitudeGpsM, precisionAltM, solM) {
+  if (altitudeGpsM === null || altitudeGpsM === undefined || !Number.isFinite(altitudeGpsM) || Number.isNaN(solM)) return null;
+  if (precisionAltM !== null && precisionAltM !== undefined && precisionAltM > PRECISION_ALT_MAX_M) return null;
+  return Math.max(-30, Math.min(250, Math.round(altitudeGpsM - solM - HAUTEUR_YEUX_M)));
+}
+/** Au-delà, l'altitude GPS est jugée trop imprécise pour corriger la hauteur d'œil. */
+export const PRECISION_ALT_MAX_M = 30;
+
+/**
  * Altitude de l'œil : sol + 1,6 m + correction manuelle, jamais sous 1 m (v1 : `h0`).
  * @param {number} solM sol sous les pieds (NaN → 0) @param {number} [correctionM] correction manuelle (balcon +, sol surestimé -)
  */
