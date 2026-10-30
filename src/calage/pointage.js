@@ -31,7 +31,7 @@ export const DIST_MIN_HORIZON_KM = 0.15;
  *   correctionOeilM?: number,
  *   nomMonument: (c: ElementPointe) => string,
  * }} e
- * @returns {{aucun: true, note: string} | {aucun: false, source: 'soleil' | 'repere' | 'lieu', cible: ElementPointe | null, nom: string, distKm: number, hauteurConnueM: number | null,
+ * @returns {{aucun: true, note: string} | {aucun: false, source: 'soleil' | 'repere' | 'lieu', relevementDeg: number, cible: ElementPointe | null, nom: string, distKm: number, hauteurConnueM: number | null,
  *   correctionCapDeg: number, correctionHorizonDeg: number | null, texte: string, note: string}}
  */
 export function pointer({ toucher, pose, champDeg, ecran, liste, soleil, avecRelief, correctionOeilM = 0, nomMonument }) {
@@ -59,7 +59,7 @@ export function pointer({ toucher, pose, champDeg, ecran, liste, soleil, avecRel
   if (estSoleil && soleil) {
     const corr = ecartAngle(soleil.azDeg - capToucheDeg), dp = soleil.elDeg - siteToucheDeg;
     const texte = `cap ${signe(corr)}${corr.toFixed(1)}° · horizon ${signe(dp)}${dp.toFixed(1)}° (soleil à ${soleil.azDeg.toFixed(1)}° / ${soleil.elDeg.toFixed(1)}°)`;
-    return { aucun: false, source: 'soleil', cible: null, nom: 'soleil', distKm: 150e6, hauteurConnueM: null, correctionCapDeg: corr, correctionHorizonDeg: dp, texte, note: `calé sur le soleil · ${texte}` };
+    return { aucun: false, source: 'soleil', relevementDeg: soleil.azDeg, cible: null, nom: 'soleil', distKm: 150e6, hauteurConnueM: null, correctionCapDeg: corr, correctionHorizonDeg: dp, texte, note: `calé sur le soleil · ${texte}` };
   }
   const b = /** @type {ElementPointe} */ (meilleur), dist = /** @type {number} */ (b.dist), corr = ecartAngle(/** @type {number} */ (b.brg) - capToucheDeg);
   const mon = b.kind === 'monument' && b.cat !== 'equip', hauteur = b.htWd || b.htOsm || null, connue = mon && !!hauteur && dist >= DIST_MIN_HORIZON_KM;
@@ -69,5 +69,5 @@ export function pointer({ toucher, pose, champDeg, ecran, liste, soleil, avecRel
   if (connue) { dp = sommet(b) - siteToucheDeg; texte += ` · horizon ${signe(dp)}${dp.toFixed(1)}° (sommet à ${Math.round(/** @type {number} */ (hauteur))} m)`; }
   else if (mon) { const hImp = oeilM + Math.tan(siteToucheDeg * RAD) * dist * 1000; if (hImp > 3 && hImp < 400) texte += ` · hauteur inconnue : le point touché implique ≈ ${Math.round(hImp)} m (si l'horizon est juste)`; }
   const nom = mon ? nomMonument(b) : b.name;
-  return { aucun: false, source: mon ? 'repere' : 'lieu', cible: b, nom, distKm: dist, hauteurConnueM: connue ? /** @type {number} */ (hauteur) : null, correctionCapDeg: corr, correctionHorizonDeg: dp, texte, note: `calé sur « ${nom} » (${dist.toFixed(1)} km) · ${texte}` };
+  return { aucun: false, source: mon ? 'repere' : 'lieu', relevementDeg: /** @type {number} */ (b.brg), cible: b, nom, distKm: dist, hauteurConnueM: connue ? /** @type {number} */ (hauteur) : null, correctionCapDeg: corr, correctionHorizonDeg: dp, texte, note: `calé sur « ${nom} » (${dist.toFixed(1)} km) · ${texte}` };
 }

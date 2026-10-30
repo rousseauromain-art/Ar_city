@@ -8,3 +8,4 @@
 - `carnet.js` (10d) : PUR. Une MESURE par calage (cap brut contre cap juste, lieu, appareil, soleil, capteurs ou photo), fusion des glissers en moins de 20 s, 500 dernières, écart appris (< 1 km et < 30 jours, sinon la direction à ±30°), résumé pour le diagnostic. Corps de `calRecord`, `calLearned`, `calHtml` de la v1.
 - `banc.js` (10d) : PUR et asynchrone. Banc d'essai (photo rejouée) : dix départs décalés, « Caler auto » à chaque fois, verdict réussi / refusé / faux, référence rétablie ; `pourquoiIgnore` donne la raison pour laquelle un monument n'est pas un repère. Rien n'est appliqué ni consigné par le module : la page s'en charge.
 Tout est pur (aucun DOM) ; `ui/page.js` applique les corrections (`S.headOff`, `S.pitchOff`, pause de la boussole en direct).
+- `echelle.js` (11i) : PUR. Champ de vision et cap réel déduits de deux repères touchés dont on connaît les relèvements (au moins 10° d'écart) ; refus clairs (trop proches, ordre inversé, champ impossible).

@@ -134,3 +134,26 @@ test('capteurs branchés dès le chargement (comme la v1) ; le diagnostic donne 
   expect(erreurs).toEqual([]);
   await ctx.close();
 });
+
+test('échelle du champ : deux repères touchés règlent le champ et le cap, mémorisés',async({browser})=>{
+  const {ctx,page,erreurs}=await ouvrirDirect(browser);
+  await page.click('#go');
+  await expect.poll(()=>page.evaluate(()=>!!window.__vh2.app.donnees().pos),{timeout:15000}).toBe(true);
+  await orienter(page,210);
+  const res=await page.evaluate(async()=>{
+    const v=window.__vh2, W=innerWidth, H=innerHeight, RAD=Math.PI/180;
+    document.getElementById('btnScale').click();
+    // la caméra réelle voit 80° de large et vise 214° ; l'appli croit 210° et un autre champ
+    const fhVrai=(W/2)/Math.tan(80/2*RAD), x=rel=>W/2+fhVrai*Math.tan(((rel-214+540)%360-180)*RAD), r1=196, r2=236;
+    const avant={fov:v.vFov(), cap:v.pose().capDeg};
+    v.toucherEchelle(x(r1),H/2,{aucun:false,relevementDeg:r1,nom:'repère A'});
+    v.toucherEchelle(x(r2),H/2,{aucun:false,relevementDeg:r2,nom:'repère B'});
+    return {avant,apres:{fov:v.vFov(), headOff:v.S.headOff, cam:v.S.camFov}, note:document.getElementById('note').textContent, mem:JSON.parse(localStorage.getItem('vh2:echelle')).d};
+  });
+  expect(Math.abs(res.apres.fov-80)).toBeLessThan(1.2);              // le champ affiché est celui de la caméra réelle
+  expect(res.apres.headOff).toBeCloseTo(4,0);                         // 214° réels contre 210° affichés
+  expect(res.note).toContain('Champ calé'); expect(res.mem.reperes).toEqual(['repère A','repère B']);
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('vh2:reglages')).d.camFov)).toBe(res.apres.cam); // mémorisé avec les réglages
+  expect(erreurs).toEqual([]);
+  await ctx.close();
+});
