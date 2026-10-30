@@ -102,7 +102,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
 - **Commandes (CI à chaque envoi et pull request) :** `npm run lint` (ESLint sur `src/` et `tests/unit/`), `npm run types` (`tsc --noEmit`, JSDoc strict), `npm run test:unit` (`node:test`, `tests/unit/*.test.mjs`), `npm run test:e2e` (Playwright), `npm test` (tout) ; `npm run dump:v1` (harnais ci-dessous, local).
 - **Harnais de caractérisation (`tests/caracterisation/`) :** `npm run dump:v1` rejoue les scènes de `scenes.mjs` dans la v1 figée (vrai code, caches de `Ar_city-photos` rejoués) et écrit un JSON par scène et par mode (Essentiel / Tout voir) : par calque et par élément, `etat` (net / transparent / absent), `raison`, `rendu` (dessiné / hors champ / sans place), position et opacité. Dumps dans `Ar_city-photos/dumps/` (privé). Voir `tests/caracterisation/LISEZMOI.md`.
 - **Visent la v1 (j), lancés :** chargement et syntaxe de `v1/`, redirection racine, lanceur, pages de diagnostic, bloc WDCLASS identique, noms de lieux sans chevauchement, rempart de Saint-Malo (avec contrôle), port dense.
-- **`tests/a-reprendre/` (non lancés) :** tests des apports des 26–27/10 absents de la v1 ; voir `tests/a-reprendre/LISEZMOI.md`.
+- **Apports des 26–27/10 :** tous repris dans la v2 ou écartés (le dossier `tests/a-reprendre/` est supprimé depuis le nettoyage 3 ; la règle du « repli à plat » des lieux sans place n'est volontairement pas reprise : cause probable de régression).
 - **Contexte :** les 47 séries précédentes, écrites hors du dépôt, sont perdues.
 - **À couvrir en priorité :**
   - **Relief :**
