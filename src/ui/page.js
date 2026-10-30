@@ -28,7 +28,7 @@ import { luminance } from '../calage/horizon.js';
 import { villeDense } from '../scene/liste-affichage.js';
 import { pointer } from '../calage/pointage.js';
 import { calerEchelle } from '../calage/echelle.js';
-import { positionSoleil } from '../noyau/astro.js';
+import { positionSoleil, positionLune } from '../noyau/astro.js';
 import { ecartAngle } from '../noyau/maths.js';
 import { correctionDepuisGps } from '../scene/hauteur-oeil.js';
 import { creerCarnet } from '../app/carnet.js';
@@ -213,6 +213,14 @@ export function demarrerPage({ mode }) {
   }
   /** Écart appris pour cet appareil, ici (calage/carnet.js). */
   const apprisIci = () => { const d = app.donnees(), po = pose(); return ecartAppris(carnet.lire().mesures, { pos: d.pos, capDeg: po.capDeg, headOff: S.headOff, appareil: carnet.appareil, maintenantMs: Date.now() }); };
+  /** La lune à l'instant de la prise de vue (photo) ou maintenant (direct). */
+  const luneMaintenant = () => { const d = app.donnees(), t = photoMode ? photoMode.photo.utc : Date.now(); return d.pos && t ? positionLune(t, d.pos.lat, d.pos.lon) : null; };
+  /** Cherche la lune dans l'image SANS rien appliquer (de nuit : même détection que le soleil, autour de sa position calculée). */
+  function evaluerLune() {
+    const src = imageSource(), d = app.donnees();
+    return calerSurSoleil({ pos: d.pos, soleil: luneMaintenant(), astre: 'lune', pose: pose(), champDeg: vFov(), ecran: { largeurPx: W, hauteurPx: H }, large: !!(photoMode && photoMode.photo.peuFiable),
+      lirePixels: (cw) => lirePixelsRecadres(src, cw, { largeurPx: W, hauteurPx: H }) });
+  }
   /** Cherche le disque du soleil dans l'image SANS rien appliquer (le calage et les tests de parité s'en servent). */
   function evaluerSoleil() {
     const src = imageSource(), d = app.donnees();
@@ -228,7 +236,7 @@ export function demarrerPage({ mode }) {
     const src = imageSource(), d = app.donnees();
     return calerAutomatiquement({ pos: d.pos, pose: pose(), camFov: S.camFov, ecran: ecranPx(), champAffiche: (cam) => champAffiche(cam, ecranPx(), fluxImage()), photo: !!photoMode, permutation: opts.permutation ?? permutationReperes, ordre: opts.ordre ?? ordreAuto ?? (S.autoRelief ? 'relief-soleil' : 'soleil-relief'),
       villeDense: villeDense({ pos: d.pos, cities: /** @type {any} */ (d.lieux), monuments: /** @type {any} */ (d.monuments), batiments: /** @type {any} */ (d.reperes) }), avecRelief: S.relief && !!d.terrain, correctionOeilM: S.obsHeight || 0,
-      attendreRelief: () => app.attendreRelief(8000), relief: () => { const t = app.donnees().terrain; return t ? t.pm : null; }, soleil: () => evaluerSoleil(),
+      attendreRelief: () => app.attendreRelief(8000), relief: () => { const t = app.donnees().terrain; return t ? t.pm : null; }, soleil: () => evaluerSoleil(), lune: () => evaluerLune(),
       lireLuminance: (cw) => { const px = lirePixelsRecadres(src, cw, ecranPx()); return px ? luminance(px) : null; },
       lireSilhouette: (po, fh) => { const px = lirePixelsRecadres(src, LARGEUR_ANALYSE_PX, ecranPx()); return px ? observerCiel(px, { ecran: ecranPx(), pose: po, focalePx: fh }) : null; },
       liste: d.pos ? monumentsPourCalage({ monuments: d.monuments, elements: (dernierBilan && dernierBilan.monuments) || [], pos: d.pos, terrain: d.terrain }) : [] }); // la v1 cherche ses repères dans tout `monumentSites`, pas dans la liste affichée
@@ -528,7 +536,7 @@ export function demarrerPage({ mode }) {
   redimensionner(); synchroniser(); $('photoBg').hidden = true; $('photoChip').hidden = true;
   if (!direct) { const simu = simulee() ? lirePositionTexte(S.simPos) : null; if (simu) app.definirPosition(simu); }
   journal.info('page', `page ${direct ? 'direct' : 'photo'} ouverte (${VERSION_V2})`);
-  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, vFov, analyserCiel, analyse, evaluerSoleil, evaluerAuto, calerAuto, evaluerPointage, toucherEchelle, synchroOeil, definirPermutation: (/** @type {boolean} */ v) => { permutationReperes = v; }, definirOrdreAuto: (/** @type {'relief-soleil' | 'soleil-relief' | null} */ v) => { ordreAuto = v; }, carnet, consigner, apprisIci, lancerBanc, banc, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
+  /** @type {any} */ (window).__vh2 = { S, app, ouvrirPhoto, quitterPhoto, memoires, photo: () => photoMode, vFov, analyserCiel, analyse, evaluerSoleil, evaluerAuto, calerAuto, evaluerPointage, evaluerLune, toucherEchelle, synchroOeil, definirPermutation: (/** @type {boolean} */ v) => { permutationReperes = v; }, definirOrdreAuto: (/** @type {'relief-soleil' | 'soleil-relief' | null} */ v) => { ordreAuto = v; }, carnet, consigner, apprisIci, lancerBanc, banc, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => dernierBilan, ctx, obstacles: obstaclesInterface };
   requestAnimationFrame(image);
 }
 
