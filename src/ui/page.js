@@ -154,14 +154,19 @@ export function demarrerPage({ mode }) {
   /** Met à jour la puce « œil », son détail et la ligne du réglage d'après le relief calculé ; sans relief, la puce disparaît. */
   function synchroOeil() {
     const t = /** @type {any} */ (app.donnees().terrain), gps = entree ? entree.etat() : null, gpsM = gps && gps.altitudeM !== null && gps.altitudeM !== undefined ? Math.round(gps.altitudeM) : null;
-    const vue = S.calculRelief !== false && t && t.solM !== undefined ? `${t.solM}|${t.origine}|${t.h0}|${S.obsHeight}|${gpsM}|${gps && gps.precisionAltM}` : '';
+    const sansRelief = S.calculRelief === false || !t || t.solM === undefined, etatRelief = app.etat().etatRelief;
+    const vue = sansRelief ? `sans|${S.calculRelief === false}|${etatRelief}|${S.obsHeight}` : `${t.solM}|${t.origine}|${t.h0}|${S.obsHeight}|${gpsM}|${gps && gps.precisionAltM}`;
     if (vue === derniereOeil) return; derniereOeil = vue;
-    const chip = $('eyeChip');
-    if (!vue) { chip.hidden = true; $('eyePop').hidden = true; $('obsHInfo').textContent = 'Sol estimé : calcul du relief en attente.'; return; }
+    const chip = $('eyeChip'); chip.hidden = false; // la puce est toujours là : sans relief elle l'explique, le curseur reste utilisable (la correction s'appliquera dès que le relief sera calculé)
+    if (sansRelief) {
+      const raisonOeil = S.calculRelief === false ? 'relief désactivé (Réglages › Calculer le relief)' : etatRelief === 'indispo' ? 'relief indisponible (réseau ?)' : 'relief en cours de calcul';
+      const texte = `Sol inconnu : ${raisonOeil} · correction ${fmtOeil(S.obsHeight)} (appliquée dès que le relief est calculé)`;
+      chip.textContent = `œil ${S.obsHeight ? fmtOeil(S.obsHeight) : '?'}`; $('eyePopT').textContent = texte; $('eyeQ').value = String(S.obsHeight); $('eyeGps').hidden = true; $('obsHInfo').textContent = texte; return;
+    }
     const gpsOk = correctionDepuisGps(gps && gps.altitudeM, gps && gps.precisionAltM, t.solM) !== null;
     $('eyeGps').hidden = !gpsOk;
     const detail = `Sol estimé ${Math.round(t.solM)} m (${t.origine}) · correction ${fmtOeil(S.obsHeight)} → œil à ${Math.round(t.h0)} m${gpsM !== null ? ` · altitude GPS ${gpsM} m${gps && gps.precisionAltM ? ` (±${Math.round(gps.precisionAltM)})` : ''}${gpsOk ? '' : ' (trop imprécise)'}` : ''}`;
-    chip.hidden = false; chip.textContent = `œil ${fmtOeil(S.obsHeight)}`; $('eyePopT').textContent = detail; $('eyeQ').value = String(S.obsHeight); $('obsHInfo').textContent = detail;
+    chip.textContent = `œil ${fmtOeil(S.obsHeight)}`; $('eyePopT').textContent = detail; $('eyeQ').value = String(S.obsHeight); $('obsHInfo').textContent = detail;
   }
   $('floorN').addEventListener('change', (/** @type {any} */ e) => { const m = Math.round((+e.target.value || 0) * 3.2); S.obsHeight = Math.min(250, m); synchroniser(); sauver(); app.corrigerHauteurOeil(S.obsHeight); });
   $('flt').addEventListener('input', (/** @type {any} */ e) => { S.filter = e.target.value; });
