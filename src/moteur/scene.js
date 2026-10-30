@@ -18,7 +18,8 @@ import { grouperMobiles, reserverIcones, commandesIcones, composerAvions } from 
 import { poserBateaux } from '../rendu/escalier.js';
 import { texte } from '../rendu/commandes.js';
 import { commandesSoleil } from '../rendu/soleil.js';
-import { positionSoleil } from '../noyau/astro.js';
+import { commandesLune } from '../rendu/lune.js';
+import { positionSoleil, positionLune, phaseLune } from '../noyau/astro.js';
 import { calque as calqueRelief, classerCretes, cretesDe } from '../calques/relief.js';
 import { calque as calquePhoto } from '../calques/photo-silhouette.js';
 import { classerMobiles } from '../calques/avions.js';
@@ -90,7 +91,8 @@ export function composerScene({ vue, reglages: S, donnees: D, memoires: M, ecran
   M.choixBateaux = bateaux.choix; M.calageMonuments = c.snapSuivant; M.analyseT = D.analysePhoto ? D.analysePhoto.t : null;
   const h = habille(c.affiches, D.lieux.filter((l) => !l.farPeak).length, c.liste.length);
   return { scene: [...base, ...(bandeHaut ? bandeHaut.commandes : []), ...noms.commandes, ...(bandeBas ? bandeBas.commandes : []), ...pointeurs, ...commandesIcones(groupes, vue), ...avions.commandes, ...bateaux.commandes,
-      ...commandesSoleil(vue, etat.utcMs ? positionSoleil(etat.utcMs, D.pos.lat, D.pos.lon) : null, { familles, jointure: 'round', extremite: 'butt' })],
+      ...commandesSoleil(vue, etat.utcMs ? positionSoleil(etat.utcMs, D.pos.lat, D.pos.lon) : null, { familles, jointure: 'round', extremite: 'butt' }),
+      ...(S.lune !== false && etat.utcMs ? commandesLune(vue, positionLune(etat.utcMs, D.pos.lat, D.pos.lon), phaseLune(etat.utcMs), { familles, jointure: 'round', extremite: 'butt' }) : [])],
     ecran: surimpression(h.message),
     bilan: { liste: c.liste, monuments: c.monumentsTous, affiches: c.affiches, badge: S.beyond ? 0 : c.fantomesEnChamp, statut: h.statut, message: h.message, etage: basse ? 'bas' : 'haut', comptes: noms.comptes, zones: { bande: bande.zones, avions: avions.zones, bateaux: bateaux.zones } } };
 }

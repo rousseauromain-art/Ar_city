@@ -69,3 +69,15 @@ test('hauteur d’œil : « Réestimer » remet la correction à zéro ; « Alti
   expect(r).toEqual({gpsVisible:true,detail:'Sol estimé 13 m (relief fin : test) · correction 0 m → œil à 15 m · altitude GPS 45 m (±8)',corr:30,apres:'œil +30 m',gpsImprecis:true,reset:0});
   expect(erreurs).toEqual([]);
 });
+
+test('la lune est dessinée à sa position calculée (disque et « lune az° · site° · % »), et la case la masque',async({page})=>{
+  await page.addInitScript({path:require('path').join(__dirname,'../helpers/enregistreur.js')});
+  const erreurs=await ouvrirPhoto(page);
+  const lire=()=>page.evaluate(async()=>{ const v=window.__vh2, {positionLune}=await import('/src/noyau/astro.js'), t=Date.parse('2026-10-29T21:00:00Z'), p=v.app.donnees().pos, l=positionLune(t,p.lat,p.lon);
+    v.photo().photo.utc=t; v.S.headOff=l.azDeg; v.S.pitchOff=l.elDeg; v.rendreImage(); const rec=window.__enregistreur(v.ctx); rec.demarrer(); v.rendreImage(); rec.arreter();
+    return {attendu:`lune ${l.azDeg.toFixed(1)}° · ${l.elDeg.toFixed(1)}°`, textes:rec.evenements().map(e=>JSON.stringify(e)).filter(s=>/lune /.test(s)).length}; });
+  const avec=await lire(); expect(avec.textes,'texte « lune … » dessiné').toBeGreaterThan(0);
+  await page.evaluate(()=>document.getElementById('lun').click());
+  const sans=await lire(); expect(sans.textes,'case décochée : plus de lune').toBe(0);
+  expect(erreurs).toEqual([]);
+});

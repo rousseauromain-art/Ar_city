@@ -46,3 +46,15 @@ export function positionLune(tMs, latDeg, lonDeg) {
   const refraction = el > -1.5 ? 1.02 / Math.tan((el + 10.3 / (el + 5.11)) * RAD) / 60 : 0;
   return { azDeg: (az + 360) % 360, elDeg: el + refraction };
 }
+
+/**
+ * Fraction éclairée du disque lunaire (0 nouvelle lune, 1 pleine lune) d'après l'élongation lune − soleil en longitude écliptique (précision de l'ordre du pour cent).
+ * @param {number} tMs instant en ms depuis 1970 (UTC)
+ * @returns {number}
+ */
+export function phaseLune(tMs) {
+  const d = tMs / 86400000 + 2440587.5 - 2451545.0, T = d / 36525, s = (/** @type {number} */ a) => Math.sin(a * RAD);
+  const lonLune = 218.32 + 481267.881 * T + 6.29 * s(135.0 + 477198.87 * T) - 1.27 * s(259.3 - 413335.36 * T) + 0.66 * s(235.7 + 890534.22 * T) + 0.21 * s(269.9 + 954397.74 * T) - 0.19 * s(357.5 + 35999.05 * T) - 0.11 * s(186.5 + 966404.03 * T);
+  const g = 357.529 + 0.98560028 * d, lonSoleil = 280.459 + 0.98564736 * d + 1.915 * s(g) + 0.020 * s(2 * g);
+  return (1 - Math.cos((lonLune - lonSoleil) * RAD)) / 2;
+}
