@@ -23,16 +23,16 @@ test('l\'ancienne adresse /villes-horizon.html redirige vers la v1 (requête et 
   await page.waitForURL(/\/v1\/villes-horizon\.html\?x=1#h$/);
 });
 
-test('lanceur : modes de la v1, v2 en développement (page photo en test), outils de diagnostic (dont l\'export du cache)',async({page})=>{
+test('lanceur : la v2 en premier, les outils de diagnostic, la v1 figée tout en bas',async({page})=>{
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
   await page.goto('/index.html');
-  const ar=page.getByRole('link',{name:/^Réalité augmentée(?! — v2)/}), ph=page.getByRole('link',{name:/Analyse d'une photo/});
-  await expect(ar).toHaveAttribute('href','v1/villes-horizon.html');
-  await expect(ph).toHaveAttribute('href','v1/villes-horizon.html');
+  await expect(page.locator('#v2ar')).toHaveAttribute('href','v2/ar.html'); await expect(page.locator('#v2photo')).toHaveAttribute('href','v2/photo.html');
+  await expect(page.locator('#ar')).toHaveAttribute('href','v1/villes-horizon.html'); await expect(page.locator('#photo')).toHaveAttribute('href','v1/villes-horizon.html');
   await expect(page.locator('#photoNote')).toContainText('Rejouer une photo');
-  const v2=page.locator('#v2'); await expect(v2).toContainText('v2'); await expect(v2).toContainText('en développement');
-  await expect(page.getByRole('link',{name:/Photo rejouée — v2/})).toHaveAttribute('href','v2/photo.html'); // la page direct n'existe pas encore
-  await expect(page.getByRole('link',{name:/Réalité augmentée — v2/})).toHaveAttribute('href','v2/ar.html');
+  await expect(page.getByText('en développement')).toHaveCount(0);
+  // ordre vertical : v2, puis outils de diagnostic, puis v1 tout en bas
+  const y=async(sel)=>(await page.locator(sel).boundingBox()).y, yOutils=(await page.getByRole('link',{name:/Trafic/}).boundingBox()).y;
+  expect(await y('#v2ar')).toBeLessThan(await y('#v2photo')); expect(await y('#v2photo')).toBeLessThan(yOutils); expect(yOutils).toBeLessThan(await y('#ar')); expect(await y('#ar')).toBeLessThan(await y('#photo'));
   for(const [nom,href] of [[/Trafic/,'debug/debug-trafic.html'],[/Profondeur/,'debug/debug-profondeur.html'],[/Lieux et monuments/,'debug/debug-lieux.html'],[/Export du cache/,'debug/debug-cache.html'],[/Outils v2/,'v2/outils.html']])
     await expect(page.getByRole('link',{name:nom})).toHaveAttribute('href',href);
   for(const l of await page.getByRole('link').all()){ const b=await l.boundingBox(); expect(b.height,'zone de toucher >= 44 px').toBeGreaterThanOrEqual(44); }
