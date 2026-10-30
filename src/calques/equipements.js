@@ -25,11 +25,11 @@ import { operateurs } from '../donnees/telecom.js';
 
 /** Équipements affichés au plus (les plus connus), portée par défaut et portée par type (km). */
 export const EQUIP_AFFICHES_MAX = 25;
-export const EQUIP_PORTEE_KM = 6;
-export const EQUIP_PORTEE_TYPE = Object.freeze(/** @type {Record<string, number>} */ ({ stade: 8, pont: 8, edifice: 5, gare: 5, scene: 5, eau: 6, parc: 5, place: 4 }));
+const EQUIP_PORTEE_KM = 6;
+const EQUIP_PORTEE_TYPE = Object.freeze(/** @type {Record<string, number>} */ ({ stade: 8, pont: 8, edifice: 5, gare: 5, scene: 5, eau: 6, parc: 5, place: 4 }));
 /** Couleurs de la bande : équipements urbains (bleu), pylônes (rouge). */
-export const COULEUR_EQUIPEMENTS = Object.freeze({ ligne: 'rgba(120,205,232,.85)', texte: '#78CDE8', icone: '#78CDE8' });
-export const COULEUR_PYLONES = Object.freeze({ ligne: 'rgba(232,90,90,.85)', texte: '#E85A5A', icone: '#E85A5A' });
+const COULEUR_EQUIPEMENTS = Object.freeze({ ligne: 'rgba(120,205,232,.85)', texte: '#78CDE8', icone: '#78CDE8' });
+const COULEUR_PYLONES = Object.freeze({ ligne: 'rgba(232,90,90,.85)', texte: '#E85A5A', icone: '#E85A5A' });
 /** Pluriel d'un groupe d'équipements (par type d'icône). */
 export const PLURIELS_EQUIPEMENTS = Object.freeze(/** @type {Record<string, string>} */ ({ stade: 'stades', gare: 'gares et stations', eau: 'cours d’eau', parc: 'parcs', place: 'places', scene: 'salles', pont: 'ponts', edifice: 'édifices' }));
 

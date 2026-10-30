@@ -11,7 +11,7 @@ import { masqueRelevement, NB_RELEVEMENTS, DISTANCES_KM } from './relief.js';
 /** @typedef {(bands: Bande[], c: {lat: number, lon: number}, oeilM: number) => Promise<Masque>} CalculMasque */
 
 /** Temps de calcul continu au plus, en ms, avant de rendre la main à l'affichage (règle 9 : une image en moins de 8 ms). */
-export const BUDGET_MS = 8;
+const BUDGET_MS = 8;
 
 /**
  * Calcul sur le fil appelant. `cede` (défaut : un tour de boucle d'événements) laisse l'affichage respirer entre deux tranches.

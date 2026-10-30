@@ -14,7 +14,7 @@ import { lireTuileOsm } from './monuments-osm.js';
 /** @typedef {{i: number, j: number, s: number, w: number, n: number, e: number, d: number}} TuileOsm */
 
 /** Mémoire des tuiles : 14 jours. Délai par miroir pour une tuile proche (rapide) et lointaine. */
-export const MEMOIRE_TUILES_OSM_MS = 14 * 86400000;
+const MEMOIRE_TUILES_OSM_MS = 14 * 86400000;
 const DELAI_PROCHE_MS = 9000, DELAI_LOINTAIN_MS = 12000;
 /** Tailles de grille [latitude, longitude] en degrés. */
 export const GRILLE_PROCHE = Object.freeze([0.1, 0.14]);

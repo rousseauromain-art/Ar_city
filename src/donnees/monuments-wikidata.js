@@ -31,10 +31,10 @@ export const MON_KEEP = 150;
 export const MON_MINOR_H = 12;
 /** Les monuments à moins de 2 km les plus proches sont toujours gardés (au plus 80). */
 export const MON_NEAR_KEEP = 80;
-export const MON_NEAR_KEEP_KM = 2;
+const MON_NEAR_KEEP_KM = 2;
 /** Équipements : au plus 300, à moins de 12 km. */
 export const EQUIP_KEEP = 300;
-export const EQUIP_RADIUS_KM = 12;
+const EQUIP_RADIUS_KM = 12;
 /** Hauteur supposée par type (m). */
 export const MON_DEF_H = Object.freeze(/** @type {Record<string, number>} */ ({ tour: 60, dome: 40, clocher: 45, arc: 25, colonne: 25, chateau: 20, musee: 18, stade: 25, gare: 10, eau: 0, parc: 0, place: 0, scene: 18, pont: 8, edifice: 18, mairie: 25, maison: 12 }));
 

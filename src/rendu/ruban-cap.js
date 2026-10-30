@@ -6,7 +6,7 @@
 import { trait, remplissage, texte } from './commandes.js';
 
 /** Hauteur du bandeau sous la zone de sécurité (px). */
-export const HAUTEUR_RUBAN_PX = 24;
+const HAUTEUR_RUBAN_PX = 24;
 const CARDINAUX = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
 
 /** @param {import('./projection.js').VueRendu} vue @param {{safeT: number, familles: {affichage: string, mono: string}}} o @returns {import('./commandes.js').Commande[]} */

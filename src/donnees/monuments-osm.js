@@ -14,12 +14,12 @@ import { MON_LOW_LINKS, MON_DEF_H } from './monuments-wikidata.js';
 /** @typedef {{type: string, id: number, lat: number, lon: number, tags: Record<string, string>}} ObjetOsm */
 
 /** Hauteur supposée (m) par sous-type de statue ou de monument commémoratif. */
-export const STATUE_H = Object.freeze(/** @type {Record<string, number>} */ ({ statue: 8, bust: 4, sculpture: 6, obelisk: 15, column: 15, monument: 10 }));
+const STATUE_H = Object.freeze(/** @type {Record<string, number>} */ ({ statue: 8, bust: 4, sculpture: 6, obelisk: 15, column: 15, monument: 10 }));
 /** Hauteur minimale (m) d'une tour ou d'un clocher reconnu(e) comme monument, et d'un immeuble de grande hauteur. */
-export const TALL_MIN_H = 40;
-export const TALL_BLD_MIN_H = 60;
+const TALL_MIN_H = 40;
+const TALL_BLD_MIN_H = 60;
 /** Une tour OSM à moins de 120 m d'un monument Wikidata lui donne sa hauteur au lieu d'être doublée. */
-export const TALL_MERGE_KM = 0.12;
+const TALL_MERGE_KM = 0.12;
 /** Étiquettes OSM conservées sur une tour. */
 export const TW_TAGS = ['name', 'name:fr', 'official_name', 'alt_name', 'operator', 'owner', 'brand', 'height', 'wikidata', 'wikipedia', 'website', 'contact:website', 'ref', 'tower:type', 'man_made', 'description'];
 /** Étiquettes conservées sur un objet des tuiles (tours + statues). */

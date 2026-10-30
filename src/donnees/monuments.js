@@ -21,11 +21,11 @@ import { SECOURS_PAR_DEFAUT_MS } from './cache-donnees.js';
 /** @typedef {{key: string, lat: number, lon: number, d: number, rk?: number}} TuileWikidata */
 
 /** Tuile Wikidata (degrés), mémoire 30 jours. */
-export const WD_TUILE_DEG = 0.1;
-export const WD_MEMOIRE_MS = 30 * 86400000;
+const WD_TUILE_DEG = 0.1;
+const WD_MEMOIRE_MS = 30 * 86400000;
 /** Anciennes tuiles du relais (degrés), mémoire 30 jours. */
-export const ANCIENNE_TUILE_DEG = 0.2;
-export const ANCIENNE_MEMOIRE_MS = 30 * 86400000;
+const ANCIENNE_TUILE_DEG = 0.2;
+const ANCIENNE_MEMOIRE_MS = 30 * 86400000;
 /** Au plus près de cette distance (km), les tuiles /wdtile ; au-delà, les anciennes tuiles. */
 export const PROCHE_KM = 15;
 

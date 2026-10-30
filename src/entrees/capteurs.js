@@ -16,7 +16,7 @@ export const GYRO_SAUT_DEG = 40, GYRO_SAUT_MS = 2000;
 /** Lissage de chaque nouvelle mesure, nombre et largeur des secteurs de direction, vitesse maximale de rattrapage du gyroscope (°/s), demi-durée d'oubli d'un secteur (ms). */
 export const LISSAGE = 0.18, NB_SECTEURS = 12, LARGEUR_SECTEUR_DEG = 30, RATTRAPAGE_DEG_S = 0.5, OUBLI_SECTEUR_MS = 600000;
 /** Âge maximal (ms) de la dernière mesure du gyroscope pour qu'on s'y fie. */
-export const FRAICHEUR_GYRO_MS = 1500;
+const FRAICHEUR_GYRO_MS = 1500;
 
 /** @typedef {[number, number, number]} Vec3 */
 /**
@@ -60,7 +60,7 @@ export function axesCamera(alpha, beta, gamma, angleEcran) {
 }
 
 /** Cap (°, 0 à 360) d'un vecteur. @param {Vec3} v */
-export const capDe = (v) => (Math.atan2(v[0], v[1]) / RAD + 360) % 360;
+const capDe = (v) => (Math.atan2(v[0], v[1]) / RAD + 360) % 360;
 
 /** @param {Vec3 | null} p @param {Vec3} n @returns {Vec3} */
 const lisser = (p, n) => (p ? /** @type {Vec3} */ (p.map((q, i) => q + (n[i] - q) * LISSAGE)) : n);

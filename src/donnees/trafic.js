@@ -17,11 +17,11 @@ import { distanceEtCap } from '../noyau/geo.js';
 
 /** Mobiles gardés (les plus proches), côté maximal de la boîte (le relais refuse au-delà de 3,5°), extrapolation plafonnée à 10 min. */
 export const MOBILES_MAX = 60;
-export const COTE_BOITE_MAX_DEG = 1.7;
-export const EXTRAPOLATION_MAX_S = 600;
+const COTE_BOITE_MAX_DEG = 1.7;
+const EXTRAPOLATION_MAX_S = 600;
 /** Un navire de moins de 0,26 m/s (0,5 nœud) est considéré à l'arrêt : rond au lieu d'une flèche. */
 export const NAVIRE_ARRET_MS = 0.26;
-export const NOEUD_EN_MS = 0.5144, MS_EN_NOEUD = 1.944;
+const NOEUD_EN_MS = 0.5144;
 
 /** Boîte autour de la position, de `km` de demi-côté (v1 : `bbox`). @param {{lat: number, lon: number}} pos @param {number} km */
 export function boiteDeRecherche(pos, km) {

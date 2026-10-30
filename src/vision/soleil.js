@@ -11,7 +11,7 @@ import { ecartAngle } from '../noyau/maths.js';
 /** Le soleil n'est cherché que s'il doit être dans l'image à ± cette marge près (erreur de cap tolérée), en degrés (v1 : `SUN_WIN`). */
 export const MARGE_SOLEIL_DEG = 25;
 /** Seuils sur le bleu : le cœur blanc du disque résiste, le halo jaune-orange tombe. */
-export const SEUILS_BLEU = Object.freeze([150, 185, 215, 240]);
+const SEUILS_BLEU = Object.freeze([150, 185, 215, 240]);
 /** Rouge et vert minimaux d'un pixel « blanc ». */
 export const ROUGE_MIN = 245, VERT_MIN = 232;
 

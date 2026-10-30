@@ -116,7 +116,7 @@ export function masqueRelevement(bands, c, oeilM, indice, brut) {
 }
 
 /** Dernier indice k tel que DISTANCES_KM[k] < distKm, -1 si aucun. @param {number} distKm */
-export function indiceDistance(distKm) {
+function indiceDistance(distKm) {
   if (DISTANCES_KM[0] >= distKm) return -1;
   let lo = 0, hi = DISTANCES_KM.length - 1;
   while (lo < hi) { const m = (lo + hi + 1) >> 1; if (DISTANCES_KM[m] < distKm) lo = m; else hi = m - 1; }
