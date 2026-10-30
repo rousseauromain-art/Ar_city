@@ -113,3 +113,13 @@ test('visibilité d’après la photo : la case lit la silhouette du ciel (ciel 
   expect(await page.evaluate(()=>window.__vh2.app.donnees().analysePhoto)).toBeNull();
   expect(erreurs).toEqual([]);
 });
+
+test('un libellé sous chaque icône de la colonne de boutons (photo et direct)',async({page})=>{
+  await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
+  for(const url of ['/v2/photo.html','/v2/ar.html']){
+    await page.goto(url);
+    const libelles=await page.evaluate(()=>[...document.querySelectorAll('#tools button')].map(b=>{ const l=b.querySelector('.lbl'), r=b.getBoundingClientRect(); return [l?l.textContent:'',Math.round(r.width)===Math.round(r.height)]; }));
+    expect(libelles.map(x=>x[0]),url).toEqual(['Calques','Cherch.','Caler','Pointer','Relire','Écran']);
+    expect(libelles.every(x=>x[1]),'les boutons restent carrés').toBe(true);
+  }
+});

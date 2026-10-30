@@ -39,8 +39,9 @@ body.clean .chips{display:none!important} /* photo en plein écran : vue épuré
 /* replie : tout le bandeau (compteur de lieux inclus) disparait, seul le bouton reste */
 .chips.folded #status,.chips.folded #eyePop,.chips.folded #calib,.chips.folded #filt,.chips.folded #note{display:none!important}
 #tools{position:absolute;top:calc(var(--safe-t) + 34px);right:calc(12px + var(--safe-r));display:grid;grid-template-columns:repeat(var(--tcols),var(--tb));gap:var(--tg)}
-#tools button{width:var(--tb);height:var(--tb);display:flex;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.72);backdrop-filter:blur(6px)}
+#tools button{width:var(--tb);height:var(--tb);display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.72);backdrop-filter:blur(6px)}
 #tools svg{width:19px;height:19px;stroke:var(--cream);stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+#tools .lbl{font:600 8px/1 var(--display);letter-spacing:.01em;text-transform:uppercase;color:var(--cream);opacity:.85;pointer-events:none}
 #tools button:active{background:rgba(243,233,210,.2)}
 #btnLayers.on{background:rgba(224,165,38,.3)}
 /* calques (lots 2 et 5, 28/09/2026) : quoi afficher ; l'oeil regle combien */

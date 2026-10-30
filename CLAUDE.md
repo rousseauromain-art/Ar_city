@@ -141,7 +141,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
    - puis suppression du code mort : ancien placement des bateaux, moteur de relief v1, ancien mode Wikidata, etc.
 2. **Hauteur d'œil à l'écran :** puce « œil » reprise dans la v2 (étape 11a). Fait à l'étape 11e : bouton « Réestimer » et « Altitude GPS » (direct) dans la fenêtre de la puce.
 3. **Boutons et calage :**
-   - un libellé sous chaque icône de la colonne de boutons ;
+   - (fait à l'étape 11d : un libellé sous chaque icône de la colonne de boutons) ;
    - un calage guidé en un seul bouton (« visez le soleil / la lune / ce repère ») ;
    - l'échelle (champ de vision) calée une fois par téléphone avec 2 points, puis mémorisée.
 4. **Calage de nuit sur la lune :** position calculée avec la parallaxe, puis tache ronde et brillante près de la position prévue.
