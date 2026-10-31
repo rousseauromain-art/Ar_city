@@ -3,7 +3,7 @@
   "private": true,
   "description": "Tests automatiques de Villes à l'horizon (la page est servie telle quelle, sans outil de construction)",
   "scripts": {
-    "lint": "eslint src tests/unit tests/integration",
+    "lint": "eslint src tests/unit tests/integration --max-warnings=91",
     "types": "tsc --noEmit -p tsconfig.json",
     "test:unit": "node --test \"tests/unit/*.test.mjs\"",
     "test:e2e": "playwright test",
