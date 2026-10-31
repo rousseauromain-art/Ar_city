@@ -27,29 +27,42 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      # Les tests de parité rejouent les photos et caches du dépôt privé Ar_city-photos : sans lui, ils échouent (jamais « ignorés »).
       PHOTOS_DIR: ${{ github.workspace }}/ar_city-photos
-      PARITE_OBLIGATOIRE: '1'
       PLAYWRIGHT_JSON_OUTPUT_NAME: rapport-playwright.json
     steps:
       - uses: actions/checkout@v5
-      - name: Dépôt privé des photos (jeton en lecture seule, secret PHOTOS_TOKEN)
+      # Les tests de parité rejouent les photos et caches du dépôt privé Ar_city-photos (jeton en lecture seule, secret PHOTOS_TOKEN).
+      # Jeton absent ou sans accès : MODE DÉGRADÉ (les tests privés sont ignorés, avertissement en tête de la CI). Interrupteur : variable de dépôt PARITE_OBLIGATOIRE = 1 → la CI échoue au lieu de dégrader.
+      - name: Accès au dépôt privé des photos
+        id: acces
         env:
           PHOTOS_TOKEN: ${{ secrets.PHOTOS_TOKEN }}
+          STRICT: ${{ vars.PARITE_OBLIGATOIRE }}
         run: |
-          if [ -z "$PHOTOS_TOKEN" ]; then echo "::error::Secret PHOTOS_TOKEN absent : les tests de parité ne peuvent pas tourner (Settings › Secrets and variables › Actions)."; exit 1; fi
-          code=$(curl -sS -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $PHOTOS_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/rousseauromain-art/Ar_city-photos)
+          if [ -z "$PHOTOS_TOKEN" ]; then code=absent; else
+            code=$(curl -sS -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $PHOTOS_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/rousseauromain-art/Ar_city-photos)
+          fi
           case "$code" in
-            200) echo "Accès à Ar_city-photos : ok" ;;
-            401) echo "::error::Jeton PHOTOS_TOKEN invalide ou expiré (401) : le régénérer et mettre à jour le secret."; exit 1 ;;
-            404) echo "::error::Le jeton n'a pas accès à Ar_city-photos (404) : vérifier Resource owner = rousseauromain-art, Repository access = Only select repositories › Ar_city-photos, Permissions › Contents = Read-only."; exit 1 ;;
-            *) echo "::error::Réponse inattendue de GitHub ($code) en vérifiant l'accès à Ar_city-photos."; exit 1 ;;
+            200) echo "ok=true" >> "$GITHUB_OUTPUT"; echo "Accès à Ar_city-photos : ok"; exit 0 ;;
+            absent) msg="Secret PHOTOS_TOKEN absent." ;;
+            401) msg="Jeton PHOTOS_TOKEN invalide ou expiré (401) : le régénérer et mettre à jour le secret." ;;
+            404) msg="Le jeton n'a pas accès à Ar_city-photos (404) : vérifier Resource owner = rousseauromain-art, Repository access = Only select repositories › Ar_city-photos, Permissions › Contents = Read-only." ;;
+            *) msg="Réponse inattendue de GitHub ($code) en vérifiant l'accès à Ar_city-photos." ;;
           esac
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+          if [ "$STRICT" = "1" ]; then echo "::error::$msg (parité obligatoire : variable PARITE_OBLIGATOIRE = 1)"; exit 1; fi
+          echo "::warning title=PARITÉ NON VÉRIFIÉE::$msg Les tests de parité avec la v1 sont ignorés dans cette exécution."
+          echo "### ⚠️ Parité avec la v1 NON vérifiée" >> "$GITHUB_STEP_SUMMARY"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v5
+        if: steps.acces.outputs.ok == 'true'
         with:
           repository: rousseauromain-art/Ar_city-photos
           token: ${{ secrets.PHOTOS_TOKEN }}
           path: ar_city-photos
+      - name: Parité obligatoire (scènes réelles présentes, aucun test de parité ignoré)
+        if: steps.acces.outputs.ok == 'true'
+        run: echo "PARITE_OBLIGATOIRE=1" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -58,6 +71,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test --reporter=list,html,json
       - name: Aucun test ignoré (un test de parité sauté serait un faux vert)
+        if: steps.acces.outputs.ok == 'true'
         run: node tests/helpers/verifier-sauts.mjs rapport-playwright.json
       - uses: actions/upload-artifact@v5
         if: failure()
