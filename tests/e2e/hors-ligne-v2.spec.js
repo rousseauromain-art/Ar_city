@@ -18,7 +18,7 @@ test('hors ligne : télécharger la zone remplit l’atlas, supprimer le vide',a
   expect(await page.evaluate(()=>window.__vh2.app.infoZone().lieux)).toBe(2);
   await expect(page.locator('#zoneInfo')).toContainText('2 lieux enregistrés');
   expect(await page.evaluate(()=>window.__vh2.app.infoZone().zones)).toBeGreaterThanOrEqual(1);
-  await expect(page.locator('#btnZoneDel')).toHaveCSS('display','inline-block'); // dans un groupe replié des réglages : visible seulement une fois le groupe ouvert
+  expect(await page.evaluate(()=>document.getElementById('btnZoneDel').style.display)).not.toBe('none'); // dans un groupe replié des réglages : visible seulement une fois le groupe ouvert (« block » une fois mis en grille : on teste le style posé par la page)
   await page.evaluate(()=>document.getElementById('btnZoneDel').click());
   expect(await page.evaluate(()=>window.__vh2.app.infoZone().lieux)).toBe(0);
   await expect(page.locator('#zoneInfo')).toContainText('Aucune zone téléchargée');
