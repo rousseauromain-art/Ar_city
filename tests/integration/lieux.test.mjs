@@ -7,7 +7,7 @@ import { classerLieux, preparerLieux, PORTEE_KM } from '../../src/calques/lieux.
 import { PRIORITE, assemblerListe, dedoublonner } from '../../src/scene/liste-affichage.js';
 import { angleSilhouette } from '../../src/scene/cretes.js';
 import { distanceEtCap, pointAuCap } from '../../src/noyau/geo.js';
-import { alea, terrainSynthetique } from './aide-relief.mjs';
+import { alea, terrainSynthetique } from '../unit/aide-relief.mjs';
 
 const src = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url), 'utf8');
 /** @param {string} debut @param {string} fin Extrait de `debut` jusqu'à `fin` EXCLU. */

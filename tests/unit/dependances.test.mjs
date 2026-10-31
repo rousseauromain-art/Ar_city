@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Sens des dépendances : aucun dossier de src/ n'importe un dossier que docs/dependances.json ne lui permet pas (ex. : plus aucun calque → calque, calage → calques, noyau → rien).
 import test from 'node:test';
 import assert from 'node:assert/strict';
