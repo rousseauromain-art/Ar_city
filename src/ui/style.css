@@ -121,7 +121,7 @@ body.clean .chips{display:none!important} /* photo en plein écran : vue épuré
 #go{background:var(--cream);color:var(--ink);font:700 20px/1 var(--display);letter-spacing:.1em;text-transform:uppercase;padding:18px;border-radius:3px;width:100%}
 #go:active{background:var(--ochre)}
 #start small{display:block;margin-top:14px;font:400 12px/1.4 var(--mono);color:rgba(243,233,210,.5)}
-#rose{position:absolute;top:calc(var(--safe-t) + 24px);right:22px;width:120px;height:120px;opacity:.9}
+#rose{pointer-events:none;position:absolute;top:calc(var(--safe-t) + 24px);right:22px;width:120px;height:120px;opacity:.9}
 /* ecran d'accueil en paysage : deux colonnes (texte | liste + bouton), sans rien rogner */
 @media (max-height:460px){
   #start{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:32px;align-content:safe center;justify-content:normal;padding:calc(var(--safe-t) + 12px) max(26px,var(--safe-r)) calc(var(--safe-b) + 14px) max(26px,var(--safe-l));overflow-y:auto}

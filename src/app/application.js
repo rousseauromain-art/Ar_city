@@ -33,6 +33,9 @@ import { creerMemoireDirect } from '../donnees/memoire-direct.js';
 import { listerMobiles } from '../donnees/trafic.js';
 import { distanceEtCap } from '../noyau/geo.js';
 import { PROCHE_KM } from '../scene/relief.js';
+import { memeEndroit, estBruitGps } from './position.js';
+import { clausesLieux, requeteOverpass } from '../donnees/overpass.js';
+import { CATEGORIES_REPERES } from '../donnees/categories-reperes.js';
 
 /** @typedef {import('../moteur/classement.js').DonneesScene} DonneesScene */
 /** @typedef {import('../moteur/reglages.js').Reglages} Reglages */
@@ -95,7 +98,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   /** @type {{lieux: Point | null, sommets: Point | null, terrain: Point | null, monuments: Point | null, telecom: Point | null, reperes: Point | null}} */
   const couvert = { lieux: null, sommets: null, terrain: null, monuments: null, telecom: null, reperes: null };
   const occupe = { lieux: false, sommets: false, terrain: false, monuments: false, telecom: false, reperes: false };
-  const recul = { telecom: { t: /** @type {number | null} */ (null), ms: RECUL_INITIAL_MS }, monuments: { t: /** @type {number | null} */ (null), ms: 30000 }, reperes: { t: /** @type {number | null} */ (null), ms: 30000 } };
+  const recul = { telecom: { t: /** @type {number | null} */ (null), ms: RECUL_INITIAL_MS }, monuments: { t: /** @type {number | null} */ (null), ms: 30000 }, reperes: { t: /** @type {number | null} */ (null), ms: 30000 }, terrain: { t: /** @type {number | null} */ (null), ms: 30000 } };
   let lieuxBase = /** @type {import('../donnees/overpass.js').Lieu[]} */ ([]), sommets = /** @type {import('../donnees/overpass.js').Lieu[]} */ ([]), baseWikidata = /** @type {any[]} */ ([]), tuilesOsm = /** @type {any[]} */ ([]), batiments = /** @type {any[]} */ ([]);
   /** Trafic en direct : avions, navires, pause de quota, messages. Jamais chargé en photo rejouée. */
   const trafic = { mode: /** @type {'direct' | 'photo'} */ ('photo'), avions: /** @type {import('../donnees/trafic.js').Avion[]} */ ([]), navires: /** @type {Map<string, import('../donnees/trafic.js').Navire>} */ (new Map()), pauseAir: 0,
@@ -108,7 +111,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   const change = (/** @type {string} */ quoi) => { version++; quandChange(quoi); };
   /** Les lieux de la v1 (`cities`) d'abord, puis les sommets lointains (`farPeaks`) : l'ordre compte pour les égalités de tri. */
   const publierLieux = () => { D.lieux = sommets.length ? lieuxBase.concat(sommets) : lieuxBase; };
-  const encore = (/** @type {Point} */ ici) => !!D.pos && D.pos.lat === ici.lat && D.pos.lon === ici.lon; // la position n'a pas changé pendant le chargement
+  const encore = (/** @type {Point} */ ici) => memeEndroit(D.pos, ici); // l'observateur est resté au même endroit (à 300 m près) pendant le chargement : le bruit du GPS ne jette rien
 
   /** Monuments finaux : base Wikidata + tours, bâtiments hauts et statues OSM. Les doublons repères/monuments sont recalculés avec. */
   function recomposerMonuments() {
@@ -155,12 +158,13 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     }
     if (!pos || occupe.terrain) return;
     if (!force && couvert.terrain && distanceEtCap(pos, couvert.terrain).distKm < PROCHE_KM) return;
+    if (!force && recul.terrain.t !== null && maintenant() - recul.terrain.t < recul.terrain.ms) return; // échec récent : recul progressif, pas de nouvel essai à chaque fix
     occupe.terrain = true; E.etatRelief = 'calcul…'; change('relief');
     try {
       await calculerTerrainAvecRepli({ pos, source: 'mapterhorn', chargeur: chargeurTuiles, masque, correctionOeilM: S.obsHeight || 0, maintenant,
         publier: (t) => { if (!encore(pos)) return; D.terrain = { h0: t.h0, pm: t.pm, bands: t.bands, solM: t.solM, origine: t.origine }; E.terrainCentre = { ...pos }; E.etatRelief = t.refining || t.partial ? 'calcul…' : 'ok'; change('relief'); } });
-      couvert.terrain = { ...pos }; E.etatRelief = 'ok';
-    } catch (e) { E.etatRelief = 'indispo'; journal.erreur('app', 'relief', e); }
+      couvert.terrain = { ...pos }; E.etatRelief = 'ok'; recul.terrain.t = null; recul.terrain.ms = 30000;
+    } catch (e) { E.etatRelief = 'indispo'; recul.terrain.t = maintenant(); recul.terrain.ms = reculSuivant(recul.terrain.ms); journal.erreur('app', 'relief', e); }
     occupe.terrain = false; change('relief');
   }
 
@@ -251,7 +255,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   /** Après un saut de position : tous les chargements sont relancés toutes les 3 s pendant 1 min (chacun s'ignore s'il couvre déjà le lieu) et les reculs sont oubliés. */
   function rattraper() {
     clearInterval(trafic.minuteurRattrapage);
-    recul.telecom.t = recul.monuments.t = recul.reperes.t = null;
+    recul.telecom.t = recul.monuments.t = recul.reperes.t = recul.terrain.t = null;
     let n = 0;
     trafic.minuteurRattrapage = setInterval(() => { if (++n > 20 || !D.pos) { clearInterval(trafic.minuteurRattrapage); return; } actualiser(false); }, 3000);
   }
@@ -285,6 +289,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     },
     /** Nouvelle position (GPS, photo, simulation) : les chargements dont le seuil de déplacement est dépassé repartent. @param {Point} pos @param {{force?: boolean}} [o] */
     definirPosition(pos, { force = false } = {}) {
+      if (!force && estBruitGps(D.pos, pos)) return Promise.resolve([]); // un fix GPS à moins de 10 m n'est que du bruit : rien ne change, rien ne se relance
       const saut = D.pos ? distanceEtCap(D.pos, pos).distKm : Infinity;
       D.pos = { lat: pos.lat, lon: pos.lon };
       if (saut > 2) { D.terrain = null; sommets = []; publierLieux(); D.monuments = []; D.pylones = []; D.reperes = []; D.doublonsReperes = []; baseWikidata = []; tuilesOsm = []; batiments = []; Object.assign(couvert, { lieux: null, sommets: null, terrain: null, monuments: null, telecom: null, reperes: null }); }
@@ -295,6 +300,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     },
     /** Après un changement de réglage (rayon, calques, relief…) : relance ce qui est nécessaire. @param {{lieux?: boolean, terrain?: boolean, monuments?: boolean, telecom?: boolean, reperes?: boolean}} [quoi] */
     recharger(quoi = {}) {
+      if (quoi.terrain) recul.terrain.t = null; // demande explicite : on oublie le recul
       if (quoi.terrain) { couvert.terrain = null; couvert.sommets = null; }
       if (quoi.monuments) couvert.monuments = null;
       if (quoi.telecom) couvert.telecom = null;
@@ -302,6 +308,31 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
       return Promise.allSettled([chargerLieux(!!quoi.lieux), chargerSommets(!!quoi.terrain), chargerTerrain(!!quoi.terrain), chargerMonuments(!!quoi.monuments), chargerTelecom(!!quoi.telecom), chargerReperes(!!quoi.reperes)]);
     },
     actualiser,
+    /**
+     * Mode hors ligne : télécharge les lieux (villes, villages, hameaux et toutes les catégories de repères) dans un rayon de `rayonKm` autour de la position, les ajoute à l'atlas local (cumulatif, rien n'est écrasé)
+     * et met en cache le relief d'ici (tuiles à durée illimitée). Comme la v1 (`downloadZone`). Lève une erreur si la position est inconnue, si Overpass ne répond pas ou si la réponse est vide.
+     * @param {{rayonKm?: number}} [o] @returns {Promise<{recus: number, nouveaux: number, total: number}>}
+     */
+    async telechargerZone({ rayonKm = 150 } = {}) {
+      const pos = D.pos;
+      if (!pos) throw new Error('position inconnue');
+      const tout = Object.fromEntries(Object.keys(CATEGORIES_REPERES).map((k) => [k, true]));
+      const lieux = await overpass.interroger(requeteOverpass(clausesLieux(pos, rayonKm * 1000, true, tout, (km) => km * 1000), 50), 60000);
+      if (!lieux.length) throw new Error('réponse vide');
+      const nouveaux = atlas.absorber(lieux, pos, rayonKm);
+      journal.info('app', `zone hors ligne : ${lieux.length} lieux reçus, ${nouveaux} nouveaux, ${atlas.nombre()} au total`);
+      chargerTerrain(true); // les tuiles de relief d'ici restent sur l'appareil
+      change('atlas');
+      return { recus: lieux.length, nouveaux, total: atlas.nombre() };
+    },
+    /** Ce qui est gardé pour le hors ligne. @returns {{lieux: number, zones: number, derniere: number | null}} */
+    infoZone: () => { const z = atlas.zones(); return { lieux: atlas.nombre(), zones: z.length, derniere: z.length ? z[z.length - 1].saved : null }; },
+    /** Efface l'atlas ; si les lieux affichés en viennent, retour à la liste intégrée. */
+    supprimerZone() {
+      atlas.effacer();
+      if (E.source.startsWith('atlas local')) { lieuxBase = listeIntegree(); E.source = 'liste intégrée'; publierLieux(); }
+      change('atlas');
+    },
     /** Silhouette du ciel lue sur l'image (null : aucune) ; datée par l'appelant. @param {any} analyse */
     definirAnalysePhoto(analyse) { D.analysePhoto = analyse; change('analyse'); },
     /** Données pour `composerScene`. */

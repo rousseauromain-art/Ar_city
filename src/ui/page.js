@@ -140,7 +140,15 @@ export function demarrerPage({ mode }) {
   $('simPos').addEventListener('change', (/** @type {any} */ e) => { S.simPos = e.target.value; sauver(); });
   $('reset').addEventListener('click', () => { S.headOff = 0; S.pitchOff = 0; sauver(); note('Calage remis à zéro'); });
   $('btnReload').addEventListener('click', () => { memoires.placement.clear(); app.recharger({ lieux: true, terrain: true, monuments: true, telecom: true, reperes: true }); note('Rechargement des lieux et du relief…'); });
-  $('btnSky').addEventListener('click', () => { app.recharger({ terrain: true }); note('Relief recalculé'); });
+  $('btnSky').addEventListener('click', async () => {
+    if (S.calculRelief === false) { note('Relief désactivé (Réglages › Calculer le relief)', 5000); return; }
+    if (!app.donnees().pos) { note('Relief : en attente de la position (GPS)', 5000); return; }
+    if (app.etat().etatRelief === 'calcul…') { note('Relief : calcul déjà en cours', 4000); return; }
+    note('Relief : calcul…', 60000);
+    await app.recharger({ terrain: true });
+    const e = app.etat().etatRelief;
+    note(e === 'ok' ? 'Relief recalculé' : e === 'indispo' ? 'Relief indisponible (réseau ?) : nouvel essai automatique' : `Relief : ${e}`, 5000);
+  });
   $('btnFs').addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.().catch(() => {}); });
   $('calib').addEventListener('click', () => { S.headOff = 0; S.pitchOff = 0; sauver(); note('Calage remis à zéro'); });
   // ---------- calage : sur le soleil (bouton cible) et par pointage (bouton réticule) ----------
@@ -148,7 +156,22 @@ export function demarrerPage({ mode }) {
   $('btnLayers').addEventListener('click', () => { bascule('layers'); $('btnLayers').setAttribute('aria-expanded', String($('layers').classList.contains('open'))); });
   $('btnSet').addEventListener('click', () => $('sheet').classList.add('open')); $('btnClose').addEventListener('click', () => $('sheet').classList.remove('open'));
   $('btnFind').addEventListener('click', () => { $('sheet').classList.add('open'); setTimeout(() => $('flt').focus(), 300); });
-  for (const id of ['btnZoneDL', 'btnZoneDel']) { const b = $(id); b.disabled = true; b.classList.add('etape10'); }
+  // ---------- hors ligne : télécharger la zone (lieux + relief d'ici), supprimer ----------
+  const majZone = () => {
+    const z = app.infoZone(), del = $('btnZoneDel');
+    $('zoneInfo').textContent = z.lieux ? `${z.lieux} lieux enregistrés sur ${z.zones} zone(s) téléchargée(s), dernière le ${z.derniere ? new Date(z.derniere).toLocaleDateString('fr-FR') : '—'}. Chaque téléchargement s'ajoute aux précédents, rien n'est écrasé.` : 'Aucune zone téléchargée : en cas de panne réseau, seule une petite liste de grandes villes reste disponible.';
+    del.style.display = z.lieux ? 'inline-block' : 'none';
+  };
+  $('btnZoneDL').addEventListener('click', async () => {
+    const b = $('btnZoneDL'), titre = 'Télécharger cette zone (150 km)';
+    if (!app.donnees().pos) { note('Zone hors ligne : en attente de la position', 5000); return; }
+    b.disabled = true; b.textContent = 'Téléchargement… (30 à 60 s)';
+    try { const r = await app.telechargerZone({ rayonKm: 150 }); b.textContent = `+${r.nouveaux} nouveaux (${r.total} au total)`; note('Zone téléchargée : lieux et relief gardés pour le hors ligne', 6000); }
+    catch (e) { b.textContent = 'Échec : réessayer dans une minute'; journal.avert('app', 'téléchargement de la zone', e); }
+    majZone(); setTimeout(() => { b.disabled = false; b.textContent = titre; }, 3000);
+  });
+  $('btnZoneDel').addEventListener('click', () => { if (!confirm('Supprimer les lieux téléchargés pour le hors ligne ?')) return; app.supprimerZone(); majZone(); note('Zone supprimée', 4000); });
+  $('btnSet').addEventListener('click', majZone); majZone();
   $('phv').checked = S.photoVis === true;
   $('phv').addEventListener('change', (/** @type {any} */ e) => { S.photoVis = e.target.checked; app.definirAnalysePhoto(null); vis.analyse.derniere = null; sauver(); });
   $('oeilGps').checked = S.oeilGps !== false; $('oeilGps').disabled = !direct; $('oeilGps').addEventListener('change', (/** @type {any} */ e) => { S.oeilGps = e.target.checked; oeil.reprendreAuto(); sauver(); });
