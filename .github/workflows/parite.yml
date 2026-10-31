@@ -1,0 +1,105 @@
+name: Parité avec la v1
+
+# Rejoue les scènes réelles (photos et caches du dépôt privé Ar_city-photos) dans la v1 figée et dans la v2, et compare les trames.
+# Trop lourd pour chaque envoi : lancement manuel (Actions › Parité avec la v1 › Run workflow, au choix sur la branche à tester) et chaque nuit sur main.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 2 * * *'
+
+jobs:
+  acces:
+    name: Accès au dépôt privé des photos
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Vérifier le jeton PHOTOS_TOKEN
+        env:
+          PHOTOS_TOKEN: ${{ secrets.PHOTOS_TOKEN }}
+        run: |
+          if [ -z "$PHOTOS_TOKEN" ]; then code=absent; else
+            code=$(curl -sS -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $PHOTOS_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/rousseauromain-art/Ar_city-photos)
+          fi
+          [ "$code" = "200" ] && { echo "Accès à Ar_city-photos : ok"; exit 0; }
+          case "$code" in
+            absent) cause="le secret PHOTOS_TOKEN n'est pas défini dans le dépôt" ;;
+            401) cause="le jeton PHOTOS_TOKEN est invalide ou expiré (401)" ;;
+            404) cause="le jeton PHOTOS_TOKEN ne voit pas le dépôt privé Ar_city-photos (404)" ;;
+            *) cause="réponse inattendue de GitHub (code $code)" ;;
+          esac
+          {
+            echo "## ❌ Parité impossible : accès à Ar_city-photos refusé"
+            echo ""
+            echo "**Cause :** $cause."
+            echo ""
+            echo "**Marche à suivre (depuis le téléphone, Chrome en « Version pour ordinateur ») :**"
+            echo "1. github.com › photo de profil › Settings › Developer settings › Personal access tokens › Fine-grained tokens › Generate new token (ou ouvrir \`ci-photos\` pour le corriger)."
+            echo "2. Resource owner : \`rousseauromain-art\`. Repository access : **Only select repositories › Ar_city-photos**. Permissions › Repository permissions › **Contents : Read-only**."
+            echo "3. Generate token, copier le jeton (affiché une seule fois)."
+            echo "4. Dépôt Ar_city › Settings › Secrets and variables › Actions › New repository secret (ou Update) : nom exact \`PHOTOS_TOKEN\`, coller le jeton."
+            echo "5. Actions › Parité avec la v1 › Run workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::Accès à Ar_city-photos impossible : $cause. Marche à suivre dans le résumé de l'exécution."
+          exit 1
+
+  parite:
+    name: Parité (partie ${{ matrix.shard }}/4)
+    needs: acces
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      PHOTOS_DIR: ${{ github.workspace }}/ar_city-photos
+      PARITE_OBLIGATOIRE: '1'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: rousseauromain-art/Ar_city-photos
+          token: ${{ secrets.PHOTOS_TOKEN }}
+          path: ar_city-photos
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Tests de parité (partie ${{ matrix.shard }}/4)
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: rapport-parite-${{ matrix.shard }}.json
+        run: npx playwright test $(grep -l ignorerSiAbsent tests/e2e/*.js) --shard=${{ matrix.shard }}/4 --reporter=list,json
+      - name: Aucun test ignoré (un test de parité sauté serait un faux vert)
+        if: always()
+        run: node tests/helpers/verifier-sauts.mjs rapport-parite-${{ matrix.shard }}.json
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: rapport-parite-${{ matrix.shard }}
+          path: rapport-parite-${{ matrix.shard }}.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  resume:
+    name: Résumé de la parité
+    needs: [acces, parite]
+    if: always() && needs.acces.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: rapport-parite-*
+          path: rapports
+          merge-multiple: true
+      - name: Résumé (scènes testées, écarts)
+        env:
+          BRANCHE: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+        run: node tests/helpers/resumer-parite.mjs rapports 4 >> "$GITHUB_STEP_SUMMARY"
