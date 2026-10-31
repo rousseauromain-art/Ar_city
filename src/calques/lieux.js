@@ -5,21 +5,20 @@
  * Essentiel : seulement les lieux visibles d'ici (ni cachés par le relief, ni au-delà de la portée de leur catégorie, ni cachés sur la photo).
  * Tout voir : en plus, en transparence, les autres — posés APRÈS les visibles, donc passer en Tout voir ne fait jamais disparaître un nom net.
  * Entrées : lieux (donnees/lieux.js), position, relief, analyse de la photo, vue. Sorties : éléments classés, étiquettes. Fonctions pures.
- * Reprend `visibleCities` (partie lieux) et la boucle des lieux de `draw()` de la v1. Dépend de : noyau, scene, rendu/projection.js.
+ * Reprend `visibleCities` (partie lieux) et la boucle des lieux de `draw()` de la v1. Dépend de : noyau, scene, noyau/projection.js.
  */
 import { distanceEtCap } from '../noyau/geo.js';
 import { normaliser } from '../noyau/texte.js';
 import { HAUTEUR_TYPE_M, HAUTEUR_DEFAUT_M, verdictRelief } from '../scene/visibilite.js';
 import { angleSilhouette } from '../scene/cretes.js';
 import { verifierSurPhoto } from '../scene/regle-photo.js';
-import { ANALYSE_VALIDE_MS } from './photo-silhouette.js';
-import { RELIEF_MAX_KM } from '../scene/relief.js';
-import { abscisseSiVisible, yDepuisSite } from '../rendu/projection.js';
+import { RELIEF_MAX_KM, ANALYSE_VALIDE_MS } from '../noyau/constantes.js';
+import { abscisseSiVisible, yDepuisSite } from '../noyau/projection.js';
 import { borner } from '../noyau/maths.js';
 import { RAD, HAUTEUR_YEUX_M } from '../noyau/constantes.js';
 
 /** @typedef {import('../donnees/overpass.js').Lieu} Lieu */
-/** @typedef {import('../rendu/projection.js').VueRendu} VueRendu */
+/** @typedef {import('../noyau/projection.js').VueRendu} VueRendu */
 /** @typedef {import('./photo-silhouette.js').AnalysePhoto} AnalysePhoto */
 /** @typedef {Lieu & {farPeak?: boolean, dist: number, brg: number, far: boolean, hidden: boolean, photoHid: boolean, aG: number | null, aP: number | null, mask: number | null}} LieuCalcule */
 /** @typedef {{el: LieuCalcule, etat: 'net' | 'transparent' | 'absent', raison: string | null}} LieuClasse */

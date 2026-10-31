@@ -7,7 +7,7 @@
  */
 import { RAD } from '../noyau/constantes.js';
 import { ecartAngle } from '../noyau/maths.js';
-import { trait, remplissage, texte, groupe } from './commandes.js';
+import { trait, remplissage, texte, groupe } from '../noyau/commandes.js';
 import { ANGLE_NOM_RAD } from './placement.js';
 import { kmCourt } from './bande.js';
 import { NAVIRE_ARRET_MS, categorieNavire } from '../donnees/trafic.js';
@@ -39,9 +39,9 @@ export function reserverIcones(groupes, reservations) {
   for (const g of groupes) for (const it of g.items) reservations.push([it.x - 9, it.x + 9, it.y - 9, it.y + 9, null, g]);
 }
 
-/** Icônes : flèche d'avion, pentagone de navire (pivoté au cap), rond de navire à l'arrêt. @param {GroupeMobiles[]} groupes @param {import('./projection.js').VueRendu} vue @param {{jointure?: 'miter' | 'round' | 'bevel'}} [o] */
+/** Icônes : flèche d'avion, pentagone de navire (pivoté au cap), rond de navire à l'arrêt. @param {GroupeMobiles[]} groupes @param {import('../noyau/projection.js').VueRendu} vue @param {{jointure?: 'miter' | 'round' | 'bevel'}} [o] */
 export function commandesIcones(groupes, vue, { jointure = J } = {}) {
-  /** @type {import('./commandes.js').Commande[]} */
+  /** @type {import('../noyau/commandes.js').Commande[]} */
   const commandes = [];
   const style = { jointure, extremite: E };
   for (const g of groupes) {
@@ -49,11 +49,11 @@ export function commandesIcones(groupes, vue, { jointure = J } = {}) {
     for (const { m, x, y } of g.items) {
       const col = air ? COULEUR_AVION : categorieNavire(m.type).col;
       if (!air && m.vel < NAVIRE_ARRET_MS) {
-        const cercle = /** @type {import('./commandes.js').OperationChemin[]} */ ([['A', x, y, 4.5]]);
+        const cercle = /** @type {import('../noyau/commandes.js').OperationChemin[]} */ ([['A', x, y, 4.5]]);
         commandes.push(trait(cercle, 'rgba(14,26,43,.85)', 2, style), remplissage(cercle, col));
         continue;
       }
-      /** @type {import('./commandes.js').OperationChemin[]} */
+      /** @type {import('../noyau/commandes.js').OperationChemin[]} */
       const forme = air ? [['M', 0, -8], ['L', 6, 7], ['L', 0, 4], ['L', -6, 7], ['Z']] : [['M', 0, -7], ['L', 4.5, 2], ['L', 3, 6], ['L', -3, 6], ['L', -4.5, 2], ['Z']];
       commandes.push(groupe(x, y, ecartAngle(m.trk - vue.capDeg) * RAD, [trait(forme, 'rgba(14,26,43,.85)', 2.5, style), remplissage(forme, col)]));
     }
@@ -68,7 +68,7 @@ export function commandesIcones(groupes, vue, { jointure = J } = {}) {
  */
 export function composerAvions(groupes, placeur, { mesurerTexte, familles, distances, jointure = J }) {
   const W = placeur.largeurPx, size = 13;
-  /** @type {import('./commandes.js').Commande[]} */
+  /** @type {import('../noyau/commandes.js').Commande[]} */
   const commandes = [];
   /** @type {{avion: import('../donnees/trafic.js').Mobile, avions: import('../donnees/trafic.js').Mobile[], icone: number[], poly: number[][] | null}[]} */
   const zones = [];

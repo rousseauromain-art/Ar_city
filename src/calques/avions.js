@@ -12,7 +12,7 @@ import { positionnerMobile } from '../scene/mobiles.js';
 
 /**
  * @param {Mobile[]} mobiles liste complète (avions ET bateaux), triée par distance : `ordre` garde le rang d'origine pour fusionner avec les bateaux
- * @param {import('../rendu/projection.js').VueRendu} vue @param {{oeilM: number}} scene @param {{couche: boolean, filtre?: string}} reglages
+ * @param {import('../noyau/projection.js').VueRendu} vue @param {{oeilM: number}} scene @param {{couche: boolean, filtre?: string}} reglages
  * @param {'plane' | 'ship'} [genre]
  * @returns {MobileClasse[]}
  */

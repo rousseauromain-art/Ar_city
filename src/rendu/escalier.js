@@ -8,7 +8,7 @@
  * Entrées : bateaux à l'écran, vue, réservations déjà posées, choix précédent. Sorties : commandes, zones de toucher, nouveau choix. Dépend de : rendu/{commandes,reservations,projection}.js.
  */
 import { ecartAngle } from '../noyau/maths.js';
-import { trait, remplissage, texte } from './commandes.js';
+import { trait, remplissage, texte } from '../noyau/commandes.js';
 import { polygonesSeChevauchent } from './reservations.js';
 import { kmCourt } from './bande.js';
 
@@ -21,14 +21,14 @@ const J = /** @type {const} */ ('round'), E = /** @type {const} */ ('butt');
 
 /**
  * @param {{
- *   bateaux: BateauEcran[], vue: import('./projection.js').VueRendu, reservations: import('./reservations.js').Reservation[], estIcone: (r: import('./reservations.js').Reservation) => boolean,
+ *   bateaux: BateauEcran[], vue: import('../noyau/projection.js').VueRendu, reservations: import('./reservations.js').Reservation[], estIcone: (r: import('./reservations.js').Reservation) => boolean,
  *   mesurerTexte: (police: string, texte: string) => number, familles: {affichage: string, mono: string}, maintenantMs: number, choix: ChoixBateaux, distances: boolean,
  *   jointure?: 'miter' | 'round' | 'bevel'
  * }} e `reservations` est MODIFIÉ (noms, fils et pastilles posés). `choix` : choix de l'image précédente ({ids: null} : aucun).
  */
 export function poserBateaux({ bateaux, vue, reservations: placed, estIcone: isIcon, mesurerTexte, familles, maintenantMs, choix, distances, jointure = J }) {
   const W = vue.largeurPx, H = vue.hauteurPx, size = TAILLE, step = PAS, bot = H - 8, mid = W / 2;
-  /** @type {import('./commandes.js').Commande[]} */
+  /** @type {import('../noyau/commandes.js').Commande[]} */
   const commandes = [];
   /** @type {{bateau: BateauEcran, bateaux: BateauEcran[], icone: number[], poly: number[][] | null}[]} */
   const zones = [];
@@ -132,7 +132,7 @@ export function poserBateaux({ bateaux, vue, reservations: placed, estIcone: isI
     const hi = Math.min(...ys), bx = (c.x0 + c.x1) / 2, txt = '+' + (n > 99 ? '99' : n), r = Math.max(7.5, mesurerTexte(`700 9px ${familles.mono}`, txt) / 2 + 4);
     let by = hi - 15;
     for (const dy of [0, -12, -24]) if (!placed.some((q) => !isIcon(q) && hitR(bx - r - 1, bx + r + 1, hi - 15 + dy - r - 1, hi - 15 + dy + r + 1, q))) { by = hi - 15 + dy; break; } // au-dessus des icônes, sans masquer un nom
-    const cercle = /** @type {import('./commandes.js').OperationChemin[]} */ ([['A', bx, by, r]]);
+    const cercle = /** @type {import('../noyau/commandes.js').OperationChemin[]} */ ([['A', bx, by, r]]);
     commandes.push(remplissage(cercle, 'rgba(14,26,43,.92)'), trait(cercle, COULEUR, 1.3, { jointure, extremite: E }), texte(txt, bx, by + 3.2, `700 9px ${familles.mono}`, '#F3E9D2', { alignement: 'center' }));
     placed.push([bx - r, bx + r, by - r, by + r]);
     zones.push({ bateau: its[0], bateaux: its, icone: [Math.min(bx - r, ...xs) - 9, Math.max(bx + r, ...xs) + 9, by - r, Math.max(...ys) + 9], poly: null });

@@ -6,23 +6,23 @@
  * toits, au-delà du plafond de noms nets, cachés par un monument devant, par le relief ou sur la photo) — posés APRÈS les visibles.
  * Entrées : monuments (donnees/monuments-*.js), position, relief, analyse de la photo, vue. Sorties : éléments classés, étiquettes de style « monument ».
  * Fonctions pures. Reprend la partie monuments de `visibleCities` et de la boucle de `draw()` de la v1. Les équipements urbains (cat « equip ») : étape 7.
- * Dépend de : noyau, scene, rendu/projection.js, rendu/icones.js.
+ * Dépend de : noyau, scene, noyau/projection.js, noyau/icones.js.
  */
 import { distanceEtCap } from '../noyau/geo.js';
 import { normaliser } from '../noyau/texte.js';
-import { RAD, HAUTEUR_YEUX_M } from '../noyau/constantes.js';
+import { RAD, HAUTEUR_YEUX_M, LARGEUR_TYPE_M, ANALYSE_VALIDE_MS } from '../noyau/constantes.js';
+import { cleMonument } from '../scene/cles.js';
 import { ecartAngle, borner } from '../noyau/maths.js';
 import { verdictRelief } from '../scene/visibilite.js';
 import { angleSilhouette } from '../scene/cretes.js';
 import { verifierSurPhoto } from '../scene/regle-photo.js';
 import { villeDense, comparateurAffichage, HAUTEUR_TOITS_M } from '../scene/liste-affichage.js';
-import { ANALYSE_VALIDE_MS } from './photo-silhouette.js';
 import { MON_STAR_LINKS } from '../donnees/monuments-wikidata.js';
-import { abscisseSiVisible, yDepuisSite, focalePx } from '../rendu/projection.js';
-import { cleSilhouette, SILHOUETTES, SILHOUETTES_DISTINCTES, SILHOUETTE_MIN_PX } from '../rendu/icones.js';
+import { abscisseSiVisible, yDepuisSite, focalePx } from '../noyau/projection.js';
+import { cleSilhouette, SILHOUETTES, SILHOUETTES_DISTINCTES, SILHOUETTE_MIN_PX } from '../noyau/icones.js';
 
 /** @typedef {import('../donnees/monuments-wikidata.js').Monument} Monument */
-/** @typedef {import('../rendu/projection.js').VueRendu} VueRendu */
+/** @typedef {import('../noyau/projection.js').VueRendu} VueRendu */
 /** @typedef {import('./photo-silhouette.js').AnalysePhoto} AnalysePhoto */
 /** @typedef {Monument & {dist: number, brg: number, angH: number, far: boolean, roof: boolean, cap: boolean, near: boolean, occBy: string | null, photoHid: boolean, snapDB: number, rang: number | null,
  *   hidden: boolean, low: boolean, aG: number | null, aP: number | null, mask: number | null}} MonumentCalcule */
@@ -43,8 +43,6 @@ const STATUE_PORTEE_KM = 0.8;
 const STATUE_PORTEE_DENSE_KM = 0.3;
 /** Marge angulaire (°) de la fenêtre de masquage entre monuments. */
 const MASQUAGE_MARGE_DEG = 0.2;
-/** Largeur typique (m) par type : fenêtre de masquage. */
-export const LARGEUR_TYPE_M = Object.freeze(/** @type {Record<string, number>} */ ({ tour: 12, clocher: 10, dome: 35, chateau: 60, musee: 40, mairie: 40, maison: 15, colonne: 4, arc: 25, edifice: 40, stade: 150, scene: 40, gare: 60, pont: 0, eau: 0, parc: 0, place: 0 }));
 /** Plafond de la hauteur d'un monument à l'écran : 30 % de l'écran, 240 px. */
 const TAILLE_MAX_ECRAN = 0.3, TAILLE_MAX_PX = 240;
 /** On monte un monument sur la silhouette finale si elle est à moins de 0,5° au-dessus du relief devant lui. */
@@ -62,8 +60,6 @@ const REMONTEE_CIEL_DEG = 0.5;
  * @property {number} rayonKm @property {boolean} relief @property {boolean} toutVoir @property {boolean} analyseActive @property {boolean} couche calque « monuments » activé
  */
 
-/** Clé stable d'un monument (pour le lissage du calage d'une image à l'autre). @param {{name: string, lat: number, lon: number}} m */
-export const cleMonument = (m) => `${m.name}|${m.lat}|${m.lon}`;
 
 /**
  * Classe les monuments (hors équipements). Le résultat suit l'ordre d'affichage (notoriété × hauteur apparente, puis distance) ; `etat` et `raison` suivent

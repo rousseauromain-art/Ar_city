@@ -2,7 +2,7 @@
 /**
  * Pictogrammes et silhouettes de monuments, en listes d'opérations de dessin (jamais sur le canvas). Silhouettes à taille réelle (Tour Eiffel, Arc de
  * Triomphe, Notre-Dame, Montparnasse et gabarits par type) quand le monument est assez grand à l'écran, sinon pictogramme posé sur sa base. Tous
- * génériques, dessinés maison. Entrées : type, position, hauteur en pixels. Sorties : commandes (rendu/commandes.js). Fonctions pures (v1 : `GLYPH`,
+ * génériques, dessinés maison. Entrées : type, position, hauteur en pixels. Sorties : commandes (noyau/commandes.js). Fonctions pures (v1 : `GLYPH`,
  * `SPR`, `monSpriteKey`, `drawSprite`, `drawGlyph`, `infraIconLook`).
  */
 import { remplissage, trait, glyphe } from './commandes.js';

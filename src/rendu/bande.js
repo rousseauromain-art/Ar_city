@@ -9,9 +9,9 @@
  */
 import { RAD } from '../noyau/constantes.js';
 import { borner, ecartAngle } from '../noyau/maths.js';
-import { trait, remplissage, texte } from './commandes.js';
-import { commandeGlyphe } from './icones.js';
-import { focalePx, yDepuisSite, xDepuisEcart } from './projection.js';
+import { trait, remplissage, texte } from '../noyau/commandes.js';
+import { commandeGlyphe } from '../noyau/icones.js';
+import { focalePx, yDepuisSite, xDepuisEcart } from '../noyau/projection.js';
 import { rectangleTouche } from './reservations.js';
 
 /**
@@ -40,8 +40,6 @@ import { rectangleTouche } from './reservations.js';
  */
 
 const RANGEE_PX = 15, PAS_LIGNE_PX = 20, TAILLE_PX = 13, ECART_GROUPE_PX = 28, ETENDUE_GROUPE_PX = 64, ECART_ICONE_PX = 22, ETENDUE_ICONE_PX = 44;
-/** Pluriel d'un groupe de repères ou de pylônes (par nom du premier). */
-export const PLURIELS_INFRA = Object.freeze(/** @type {Record<string, string>} */ ({ Tour: 'tours', Clocher: 'clochers', "Château d'eau": "châteaux d'eau", Cheminée: 'cheminées', Mât: 'mâts', Immeuble: 'immeubles', Pylône: 'pylônes', 'Toit-terrasse': 'toits-terrasses', Antenne: 'antennes' }));
 /** Jointure du contexte quand la bande est posée : 'round' après les noms (étage bas), encore celle par défaut avant eux (étage haut) ; extrémité toujours par défaut. */
 const JOINTURE_BAS = /** @type {const} */ ('round'), JOINTURE_HAUT = /** @type {const} */ ('miter'), E = /** @type {const} */ ('butt');
 
@@ -59,7 +57,7 @@ export const kmCourt = (d) => (d < 10 ? d.toFixed(1) : String(Math.round(d)));
  * @property {number} x @property {number} h @property {number} row @property {number} base
  */
 
-/** Regroupe les éléments visibles d'une couche : même type et peu d'écart sur l'écran. @param {CoucheBande} L @param {import('./projection.js').VueRendu} vue @returns {Groupe[]} */
+/** Regroupe les éléments visibles d'une couche : même type et peu d'écart sur l'écran. @param {CoucheBande} L @param {import('../noyau/projection.js').VueRendu} vue @returns {Groupe[]} */
 function former(L, vue) {
   const vis = [], W = vue.largeurPx;
   for (const t of L.elements) {
@@ -87,8 +85,8 @@ const plusProche = (/** @type {ElementBande[]} */ items) => items.reduce((a, t) 
 
 /**
  * Pose une couche. `placeur.reservations` est MODIFIÉ (icônes sous l'horizon, noms posés).
- * @param {CoucheBande} L @param {import('./projection.js').VueRendu} vue @param {ReturnType<typeof import('./placement.js').creerPlaceur>} placeur @param {OptionsBande} o
- * @param {{commandes: import('./commandes.js').Commande[], zones: ZoneBande[], nommes: number, iconeSeule: number}} sortie
+ * @param {CoucheBande} L @param {import('../noyau/projection.js').VueRendu} vue @param {ReturnType<typeof import('./placement.js').creerPlaceur>} placeur @param {OptionsBande} o
+ * @param {{commandes: import('../noyau/commandes.js').Commande[], zones: ZoneBande[], nommes: number, iconeSeule: number}} sortie
  */
 function poserCouche(L, vue, placeur, o, sortie) {
   const { commandes, zones } = sortie, W = vue.largeurPx, H = vue.hauteurPx, { hy, etage, mesurerTexte, familles, memoireLignes } = o, bas = etage === 'bas';
@@ -127,12 +125,12 @@ function poserCouche(L, vue, placeur, o, sortie) {
       placeur.reservations.push([x - g.h / 2 - 3, x + g.h / 2 + 3, g.base - g.h - 3, g.base + 3, null, g]);
     }
     if (g.hl) { // site trouvé : halo jaune
-      const cercle = /** @type {import('./commandes.js').OperationChemin[]} */ ([['A', x, g.base - h / 2, h * 0.78]]);
+      const cercle = /** @type {import('../noyau/commandes.js').OperationChemin[]} */ ([['A', x, g.base - h / 2, h * 0.78]]);
       commandes.push(remplissage(cercle, 'rgba(255,210,63,.22)'), trait(cercle, '#FFD23F', 2.5, { jointure: J, extremite: E }));
     }
     commandes.push(commandeGlyphe(near.icone || 'antenne', x, g.base, n > 1 ? h + 3 : h, L.couleur.icone, g.hl ? 1 : lk.a));
     if (n > 1) {
-      const txt = n > 99 ? '99+' : String(n), bx = x + h * 0.45 + 4, by = g.base - h - 6, cercle = /** @type {import('./commandes.js').OperationChemin[]} */ ([['A', bx, by, 7.5]]);
+      const txt = n > 99 ? '99+' : String(n), bx = x + h * 0.45 + 4, by = g.base - h - 6, cercle = /** @type {import('../noyau/commandes.js').OperationChemin[]} */ ([['A', bx, by, 7.5]]);
       commandes.push(remplissage(cercle, 'rgba(14,26,43,.92)'), trait(cercle, L.couleur.icone, 1.5, { jointure: J, extremite: E }), texte(txt, bx, by + 3.2, `700 ${txt.length > 2 ? 7 : 9}px ${familles.mono}`, '#F3E9D2', { alignement: 'center' }));
     }
   }
@@ -195,7 +193,7 @@ function poserCouche(L, vue, placeur, o, sortie) {
     commandes.push(texte(libelle, tx, ly, police, g.hl ? '#FFF3C4' : L.couleur.texte, { contour: contour(3.5) }), texte(dtxt, tx + nw + 7, ly, policeDetail, ligne, { contour: contour(3) }));
     let ox = tx + nw + 7 + dw + 6;
     for (const p of ops) { // pastille d'opérateur : cercle couleur de la marque + initiale
-      const cercle = /** @type {import('./commandes.js').OperationChemin[]} */ ([['A', ox + 5, ly - 4, 5.5]]);
+      const cercle = /** @type {import('../noyau/commandes.js').OperationChemin[]} */ ([['A', ox + 5, ly - 4, 5.5]]);
       commandes.push(remplissage(cercle, p.col), trait(cercle, 'rgba(14,26,43,.9)', 1, { jointure: J, extremite: E }), texte(p.k, ox + 5, ly - 1.2, `700 8px ${familles.mono}`, '#fff', { alignement: 'center' }));
       ox += 13;
     }
@@ -211,22 +209,22 @@ function poserCouche(L, vue, placeur, o, sortie) {
 
 /**
  * Bande complète : toutes les couches, dans l'ordre reçu (les équipements urbains d'abord, puis pylônes, repères, couches personnelles).
- * @param {CoucheBande[]} couches @param {import('./projection.js').VueRendu} vue @param {ReturnType<typeof import('./placement.js').creerPlaceur>} placeur @param {OptionsBande} o
- * @returns {{commandes: import('./commandes.js').Commande[], zones: ZoneBande[], stats: {nommes: number, iconeSeule: number, etage: 'bas' | 'haut'}}}
+ * @param {CoucheBande[]} couches @param {import('../noyau/projection.js').VueRendu} vue @param {ReturnType<typeof import('./placement.js').creerPlaceur>} placeur @param {OptionsBande} o
+ * @returns {{commandes: import('../noyau/commandes.js').Commande[], zones: ZoneBande[], stats: {nommes: number, iconeSeule: number, etage: 'bas' | 'haut'}}}
  */
 export function composerBande(couches, vue, placeur, o) {
-  const sortie = { commandes: /** @type {import('./commandes.js').Commande[]} */ ([]), zones: /** @type {ZoneBande[]} */ ([]), nommes: 0, iconeSeule: 0 };
+  const sortie = { commandes: /** @type {import('../noyau/commandes.js').Commande[]} */ ([]), zones: /** @type {ZoneBande[]} */ ([]), nommes: 0, iconeSeule: 0 };
   for (const L of couches) poserCouche(L, vue, placeur, o, sortie);
   return { commandes: sortie.commandes, zones: sortie.zones, stats: { nommes: sortie.nommes, iconeSeule: sortie.iconeSeule, etage: o.etage } };
 }
 
 /**
  * Sites trouvés par la recherche mais hors de l'écran : une pastille au bord, du côté où tourner (nom, distance), trois au plus (v1 : `drawHlPointers`).
- * @param {ElementBande[]} trouves éléments `hl` des couches actives (distance connue) @param {import('./projection.js').VueRendu} vue
+ * @param {ElementBande[]} trouves éléments `hl` des couches actives (distance connue) @param {import('../noyau/projection.js').VueRendu} vue
  * @param {ReturnType<typeof import('./placement.js').creerPlaceur>} placeur @param {{hy: number, mesurerTexte: (police: string, texte: string) => number, familles: {affichage: string, mono: string}}} o
  */
 export function pointeursHorsChamp(trouves, vue, placeur, { hy, mesurerTexte, familles }) {
-  /** @type {import('./commandes.js').Commande[]} */
+  /** @type {import('../noyau/commandes.js').Commande[]} */
   const commandes = [];
   const W = vue.largeurPx, fh = focalePx(vue), tries = trouves.slice().sort((a, b) => a.dist - b.dist);
   let k = 0;

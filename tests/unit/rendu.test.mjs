@@ -2,13 +2,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { champAffiche, focalePx, xDepuisRelevement, yDepuisSite, ordonneeHorizon, ecartDepuisX, demiChampDeg } from '../../src/rendu/projection.js';
+import { champAffiche, focalePx, xDepuisRelevement, yDepuisSite, ordonneeHorizon, ecartDepuisX, demiChampDeg } from '../../src/noyau/projection.js';
 import { polygonesSeChevauchent, rectangleTouche, reservationsInterface } from '../../src/rendu/reservations.js';
-import { trait, remplissage, texte, courbeParLesMilieux } from '../../src/rendu/commandes.js';
+import { trait, remplissage, texte, courbeParLesMilieux } from '../../src/noyau/commandes.js';
 import { dessiner, avecRoulis } from '../../src/rendu/canvas.js';
 import { commandesHorizon } from '../../src/rendu/repere-horizon.js';
 import { commandesSilhouette, calque as relief } from '../../src/calques/relief.js';
-import { silhouetteVisible, commandesSilhouettePhoto, calque as photo, ANALYSE_VALIDE_MS } from '../../src/calques/photo-silhouette.js';
+import { ANALYSE_VALIDE_MS } from '../../src/noyau/constantes.js';
+import { silhouetteVisible, commandesSilhouettePhoto, calque as photo } from '../../src/calques/photo-silhouette.js';
 import { alea } from './aide-relief.mjs';
 
 const src = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url), 'utf8');

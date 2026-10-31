@@ -4,8 +4,8 @@
  * Une seule définition pour tous les calques (aucune formule de projection recopiée ailleurs). Fonctions pures.
  * Entrées : cap, inclinaison, champ affiché, taille de l'écran (px). Sorties : x, y en pixels. Dépend de : noyau/constantes.js, noyau/maths.js.
  */
-import { RAD } from '../noyau/constantes.js';
-import { ecartAngle, borner } from '../noyau/maths.js';
+import { RAD } from './constantes.js';
+import { ecartAngle, borner } from './maths.js';
 
 /**
  * Vue de rendu : tout ce qu'il faut pour placer un point à l'écran.

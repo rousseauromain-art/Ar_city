@@ -1,11 +1,11 @@
 // @ts-check
 /**
  * PÉRIPHÉRIE : exécute des commandes de dessin sur un contexte 2D. Seul module de la v2 qui appelle `ctx.*` pour dessiner.
- * Entrées : contexte canvas, commandes (rendu/commandes.js). Sortie : aucune (effet de bord sur le canvas).
+ * Entrées : contexte canvas, commandes (noyau/commandes.js). Sortie : aucune (effet de bord sur le canvas).
  */
 
-/** @typedef {import('./commandes.js').Commande} Commande */
-/** @typedef {import('./commandes.js').OperationChemin} OperationChemin */
+/** @typedef {import('../noyau/commandes.js').Commande} Commande */
+/** @typedef {import('../noyau/commandes.js').OperationChemin} OperationChemin */
 
 /** Applique des opérations de chemin à un contexte ou à un Path2D. @param {CanvasRenderingContext2D | Path2D} cible @param {OperationChemin[]} chemin */
 function appliquer(cible, chemin) {

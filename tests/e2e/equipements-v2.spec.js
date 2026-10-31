@@ -66,7 +66,7 @@ for(const sc of SCENES){
       const v1=await page.evaluate(()=>window.__vh.frameOps());
       const e1=await app.ev(EXTRAIRE_V1);
       const v2=await page.evaluate(async({e1,mem0,lane0,cfg,monuments,lieux,batiments,sites,reperes,doublons})=>{
-        const pr=await import('/src/rendu/projection.js'), cv=await import('/src/rendu/canvas.js'), hz=await import('/src/rendu/repere-horizon.js'),
+        const pr=await import('/src/noyau/projection.js'), cv=await import('/src/rendu/canvas.js'), hz=await import('/src/rendu/repere-horizon.js'),
           pl=await import('/src/rendu/placement.js'), et=await import('/src/rendu/etiquettes.js'), bd=await import('/src/rendu/bande.js'), ly=await import('/src/calques/lieux.js'),
           mo=await import('/src/calques/monuments.js'), eq=await import('/src/calques/equipements.js'), rp=await import('/src/calques/reperes.js'), la=await import('/src/scene/liste-affichage.js');
         const ev=s=>window.__vh.ev(s), T=ev('terrain'), S=e1.S, pos=ev('pos');

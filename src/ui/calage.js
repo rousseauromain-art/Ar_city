@@ -16,9 +16,9 @@ import { gyroActif, noterCalage } from '../entrees/capteurs.js';
 import { positionLune, positionSoleil } from '../noyau/astro.js';
 import { RAD } from '../noyau/constantes.js';
 import { ecartAngle } from '../noyau/maths.js';
-import { champAffiche } from '../rendu/projection.js';
+import { champAffiche } from '../noyau/projection.js';
 import { villeDense } from '../scene/liste-affichage.js';
-import { lirePixelsRecadres } from '../vision/lire-pixels.js';
+import { lirePixelsRecadres } from '../entrees/lire-pixels.js';
 import { LARGEUR_ANALYSE_PX, observerCiel } from '../vision/silhouette-ciel.js';
 import { echap, signe } from './html.js';
 

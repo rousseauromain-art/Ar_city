@@ -6,7 +6,7 @@
  */
 import { ecartAngle } from '../noyau/maths.js';
 import { RAD } from '../noyau/constantes.js';
-import { LARGEUR_TYPE_M } from '../calques/monuments.js';
+import { LARGEUR_TYPE_M } from '../noyau/constantes.js';
 
 /** Départs de la v1 : [décalage de cap (°), décalage de champ (°)]. */
 export const DEPARTS = Object.freeze(/** @type {[number, number][]} */ ([[-12, 0], [-8, 0], [-4, 0], [4, 0], [8, 0], [12, 0], [0, -6], [0, 6], [-6, -6], [6, 6]]));

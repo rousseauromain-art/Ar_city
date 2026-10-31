@@ -1,14 +1,14 @@
 // @ts-check
 /**
  * Repères communs de la scène : ligne d'horizon pointillée et réticule au centre de la ligne d'horizon. Fonction pure.
- * Entrée : vue de rendu. Sortie : commandes de dessin (rendu/commandes.js). Dépend de : projection.js, commandes.js.
+ * Entrée : vue de rendu. Sortie : commandes de dessin (noyau/commandes.js). Dépend de : projection.js, commandes.js.
  */
-import { trait } from './commandes.js';
-import { ordonneeHorizon } from './projection.js';
+import { trait } from '../noyau/commandes.js';
+import { ordonneeHorizon } from '../noyau/projection.js';
 
-/** @typedef {import('./projection.js').VueRendu} VueRendu */
+/** @typedef {import('../noyau/projection.js').VueRendu} VueRendu */
 
-/** @param {VueRendu} vue @returns {import('./commandes.js').Commande[]} */
+/** @param {VueRendu} vue @returns {import('../noyau/commandes.js').Commande[]} */
 export function commandesHorizon(vue) {
   const W = vue.largeurPx, hy = ordonneeHorizon(vue);
   return [

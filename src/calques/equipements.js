@@ -13,7 +13,7 @@ import { RAD } from '../noyau/constantes.js';
 import { normaliser } from '../noyau/texte.js';
 import { verdictRelief } from '../scene/visibilite.js';
 import { villeDense, comparateurAffichage } from '../scene/liste-affichage.js';
-import { PLURIELS_INFRA } from '../rendu/bande.js';
+import { PLURIELS_INFRA } from '../noyau/constantes.js';
 import { operateurs } from '../donnees/telecom.js';
 
 /** @typedef {import('../donnees/monuments-wikidata.js').Monument} Monument */

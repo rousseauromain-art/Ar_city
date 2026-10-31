@@ -1,18 +1,18 @@
 // @ts-check
 /**
  * Calque « relief » : silhouette du relief (trait gradué par la distance) et crêtes intérieures, avec la distance de chaque plan.
- * Entrées : terrain calculé (masque `pm`), vue de rendu, réglages. Sortie : commandes de dessin (rendu/commandes.js). Aucun accès au canvas.
+ * Entrées : terrain calculé (masque `pm`), vue de rendu, réglages. Sortie : commandes de dessin (noyau/commandes.js). Aucun accès au canvas.
  * Règles d'affichage : Essentiel = crêtes principales (vrai décrochement de plan) ; Tout voir = toutes les crêtes (v1 : bloc « crêtes intérieures »).
- * Dépend de : scene/cretes.js, rendu/projection.js, rendu/commandes.js, noyau.
+ * Dépend de : scene/cretes.js, noyau/projection.js, noyau/commandes.js, noyau.
  */
 import { CRETE_DIST_MIN_KM, CRETE_DENIVELE_ESSENTIEL_M, CRETE_DENIVELE_TOUT_M } from '../noyau/constantes.js';
 import { PAS_RELEVEMENT_DEG } from '../scene/relief.js';
 import { lignesDeCretes, angleSilhouette, distancesSilhouette, distanceSilhouette } from '../scene/cretes.js';
-import { ecartDepuisX, xDepuisEcart, yDepuisSite, demiChampDeg } from '../rendu/projection.js';
-import { trait, remplissage, texte, courbeParLesMilieux } from '../rendu/commandes.js';
+import { ecartDepuisX, xDepuisEcart, yDepuisSite, demiChampDeg } from '../noyau/projection.js';
+import { trait, remplissage, texte, courbeParLesMilieux } from '../noyau/commandes.js';
 
-/** @typedef {import('../rendu/projection.js').VueRendu} VueRendu */
-/** @typedef {import('../rendu/commandes.js').Commande} Commande */
+/** @typedef {import('../noyau/projection.js').VueRendu} VueRendu */
+/** @typedef {import('../noyau/commandes.js').Commande} Commande */
 /** @typedef {import('../scene/cretes.js').LigneCrete} LigneCrete */
 /** @typedef {import('../scene/masque.js').Masque} Masque */
 /** @typedef {{etat: 'net' | 'transparent' | 'absent', raison: string | null, el: LigneCrete}} CreteClassee */

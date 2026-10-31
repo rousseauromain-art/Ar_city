@@ -1,0 +1,16 @@
+{
+  "_commentaire": "Sens des dépendances de src/ (REFONTE.md §6) : pour chaque dossier, les dossiers qu'il a le droit d'importer. Lu par tests/unit/dependances.test.mjs (et par les règles ESLint no-restricted-imports). Un dossier absent de la liste d'un autre est interdit : ajouter une arête ici est une décision d'architecture, à justifier dans la pull request.",
+  "noyau": [],
+  "outils": [],
+  "donnees": ["noyau"],
+  "entrees": ["noyau"],
+  "vision": ["noyau"],
+  "scene": ["noyau"],
+  "calques": ["noyau", "scene", "donnees"],
+  "calage": ["noyau", "scene", "vision"],
+  "rendu": ["noyau", "donnees"],
+  "moteur": ["noyau", "scene", "calques", "rendu"],
+  "app": ["noyau", "donnees", "scene", "calage", "moteur", "outils"],
+  "workers": ["noyau", "scene"],
+  "ui": ["noyau", "outils", "donnees", "entrees", "vision", "scene", "calques", "calage", "rendu", "moteur", "app"]
+}

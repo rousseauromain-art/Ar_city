@@ -27,7 +27,7 @@ import { normaliser } from '../noyau/texte.js';
  */
 
 /**
- * @param {{S: Reglages, D: DonneesScene, vue: import('../rendu/projection.js').VueRendu, maintenantMs: number, snapPrecedent?: Map<string, number>, analyseAppliqueeT?: number | null}} e `analyseAppliqueeT` : instant de l'analyse dont le lissage du calage fin a déjà avancé
+ * @param {{S: Reglages, D: DonneesScene, vue: import('../noyau/projection.js').VueRendu, maintenantMs: number, snapPrecedent?: Map<string, number>, analyseAppliqueeT?: number | null}} e `analyseAppliqueeT` : instant de l'analyse dont le lissage du calage fin a déjà avancé
  */
 export function classerScene({ S, D, vue, maintenantMs, snapPrecedent, analyseAppliqueeT = null }) {
   const { pos, terrain } = D, avecRelief = S.relief && !!terrain, analyseActive = S.photoVis === true;

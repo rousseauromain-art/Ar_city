@@ -53,7 +53,7 @@ test(`affichage des avions et des bateaux v2 = v1 sur la scène réelle ${SC.id}
     const v1=await page.evaluate(g=>window.__vh.frameOps(g),garder);
     const e1=await app.ev(EXTRAIRE_V1);
     const v2=await page.evaluate(async({e1,mem0,sel0,cfg,monuments,lieux})=>{
-      const pr=await import('/src/rendu/projection.js'), cv=await import('/src/rendu/canvas.js'), hz=await import('/src/rendu/repere-horizon.js'), pl=await import('/src/rendu/placement.js'),
+      const pr=await import('/src/noyau/projection.js'), cv=await import('/src/rendu/canvas.js'), hz=await import('/src/rendu/repere-horizon.js'), pl=await import('/src/rendu/placement.js'),
         et=await import('/src/rendu/etiquettes.js'), mb=await import('/src/rendu/mobiles.js'), es=await import('/src/rendu/escalier.js'), ly=await import('/src/calques/lieux.js'),
         mo=await import('/src/calques/monuments.js'), av=await import('/src/calques/avions.js'), ba=await import('/src/calques/bateaux.js'), la=await import('/src/scene/liste-affichage.js');
       const ev=s=>window.__vh.ev(s), T=ev('terrain'), S=e1.S, pos=ev('pos');
