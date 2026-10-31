@@ -8,7 +8,8 @@
  */
 import { RAD } from '../noyau/constantes.js';
 import { ecartAngle } from '../noyau/maths.js';
-import { LARGEUR_TYPE_M, cleMonument } from '../calques/monuments.js';
+import { LARGEUR_TYPE_M } from '../noyau/constantes.js';
+import { cleMonument } from '../scene/cles.js';
 import { verdictRelief } from '../scene/visibilite.js';
 import { distanceEtCap } from '../noyau/geo.js';
 

@@ -6,7 +6,7 @@
  */
 import { decoderTuileMVT, pointsDeFeature, etiquettesDeFeature, localVersLonLat, tuilesDeBoite } from './mvt.js';
 import { distanceEtCap } from '../noyau/geo.js';
-import { RELIEF_MAX_KM } from '../scene/relief.js';
+import { RELIEF_MAX_KM } from '../noyau/constantes.js';
 
 /** @typedef {import('./overpass.js').Lieu} Lieu */
 

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { villeDense, hauteurApparenteDeg, scoreMonument, comparateurAffichage, assemblerListe, dedoublonner, ordonnerEtiquettes, PRIORITE } from '../../src/scene/liste-affichage.js';
 import { classerMonuments, preparerMonuments, nomMonument, nomsDeLieux, hauteurIcone, NOMS_NETS_MAX, PROCHES_TOUJOURS_NETS } from '../../src/calques/monuments.js';
-import { cleSilhouette, cheminsGlyphe, commandeGlyphe, commandesSilhouetteMonument, SILHOUETTES, SILHOUETTES_DISTINCTES, HAUTEUR_GLYPHE } from '../../src/rendu/icones.js';
+import { cleSilhouette, cheminsGlyphe, commandeGlyphe, commandesSilhouetteMonument, SILHOUETTES, SILHOUETTES_DISTINCTES, HAUTEUR_GLYPHE } from '../../src/noyau/icones.js';
 import { composerEtiquettes } from '../../src/rendu/etiquettes.js';
 import { creerPlaceur } from '../../src/rendu/placement.js';
 import { dessiner } from '../../src/rendu/canvas.js';

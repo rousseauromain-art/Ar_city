@@ -55,7 +55,7 @@ for(const sc of SCENES){
       for(let i=0;i<2;i++) await app.frame();
       const v1=(await page.evaluate(()=>window.__vh.frameOps())).ops;
       const v2=await page.evaluate(async()=>{
-        const proj=await import('/src/rendu/projection.js'), cv=await import('/src/rendu/canvas.js'), hz=await import('/src/rendu/repere-horizon.js'),
+        const proj=await import('/src/noyau/projection.js'), cv=await import('/src/rendu/canvas.js'), hz=await import('/src/rendu/repere-horizon.js'),
           rl=await import('/src/calques/relief.js'), ph=await import('/src/calques/photo-silhouette.js');
         const ev=s=>window.__vh.ev(s), P=ev('pose()'), W=ev('W'), H=ev('H'), dpr=ev('dpr'), T=ev('terrain'), S=ev('S'), analyse=ev('photoSky');
         const flux=ev('camSrc()'), vue={largeurPx:W,hauteurPx:H,capDeg:P.heading,inclinaisonDeg:P.pitch,roulisDeg:P.roll,

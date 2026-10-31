@@ -31,7 +31,7 @@ for(const sc of SCENES){
 
     // 1. pixels
     const e1=await app.ev(`${EMPREINTE}(grabFrameRGB(240))`);
-    const e2=await p2.evaluate(async(src)=>{ const m=await import('/src/vision/lire-pixels.js'); return eval(src)(m.lirePixelsRecadres(document.getElementById('photoBg'),240,{largeurPx:innerWidth,hauteurPx:innerHeight})); },EMPREINTE);
+    const e2=await p2.evaluate(async(src)=>{ const m=await import('/src/entrees/lire-pixels.js'); return eval(src)(m.lirePixelsRecadres(document.getElementById('photoBg'),240,{largeurPx:innerWidth,hauteurPx:innerHeight})); },EMPREINTE);
     expect(e2,'pixels réduits (240 px) identiques à la v1').toEqual(e1);
 
     let colonnes=0, lus=0, ops=0, traitsBleus=0, vus=0;

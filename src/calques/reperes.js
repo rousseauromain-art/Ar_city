@@ -8,7 +8,7 @@
 import { distanceEtCap } from '../noyau/geo.js';
 import { RAD, RAYON_EFFECTIF_M } from '../noyau/constantes.js';
 import { altitudeEn } from '../scene/relief.js';
-import { PLURIELS_INFRA } from '../rendu/bande.js';
+import { PLURIELS_INFRA } from '../noyau/constantes.js';
 import { HAUTEUR_DEFAUT, ICONE_REPERE } from '../donnees/reperes-hauts.js';
 
 /** @typedef {import('../donnees/reperes-hauts.js').Repere} Repere */

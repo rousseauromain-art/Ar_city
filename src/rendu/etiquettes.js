@@ -4,11 +4,11 @@
  * puis converti en commandes de dessin. Deux styles : « lieu » (point sur le sol, fil, nom incliné) et « monument » (silhouette à taille réelle ou
  * pictogramme, regroupement « +N » des icônes qui se touchent, nom incliné à côté de l'icône, repli sur un nom à plat). Les icônes de monuments sont
  * réservées AVANT tous les noms. Aucun calque ne place ni ne dessine ses noms lui-même. Reprend la boucle des noms de `draw()` de la v1.
- * Dépend de : rendu/commandes.js, rendu/placement.js, rendu/icones.js.
+ * Dépend de : noyau/commandes.js, rendu/placement.js, noyau/icones.js.
  */
-import { trait, remplissage, texte, groupe } from './commandes.js';
+import { trait, remplissage, texte, groupe } from '../noyau/commandes.js';
 import { ANGLE_NOM_RAD } from './placement.js';
-import { commandeGlyphe, commandesSilhouetteMonument } from './icones.js';
+import { commandeGlyphe, commandesSilhouetteMonument } from '../noyau/icones.js';
 
 /**
  * Étiquette à poser (style « lieu » : point sur le sol, fil, nom incliné).
@@ -73,10 +73,10 @@ function regrouperIcones(ordre) {
  * @param {(Etiquette | EtiquetteMonument)[]} etiquettes dans l'ordre de priorité
  * @param {ReturnType<typeof import('./placement.js').creerPlaceur>} placeur
  * @param {{mesurerTexte: (police: string, texte: string) => number, familles: Familles, avantNoms?: () => void}} options `avantNoms` : appelée après la réservation des icônes de monuments et avant le placement des noms (la bande des équipements, quand elle passe au-dessus de l'horizon)
- * @returns {{commandes: import('./commandes.js').Commande[], comptes: ComptesEtiquettes, zones: ZoneEtiquette[]}}
+ * @returns {{commandes: import('../noyau/commandes.js').Commande[], comptes: ComptesEtiquettes, zones: ZoneEtiquette[]}}
  */
 export function composerEtiquettes(etiquettes, placeur, { mesurerTexte, familles, avantNoms }) {
-  /** @type {import('./commandes.js').Commande[]} */
+  /** @type {import('../noyau/commandes.js').Commande[]} */
   const commandes = [];
   const comptes = { eligibles: 0, affichees: 0, fantomes: 0, sansPlace: 0, fantomesVus: 0 };
   /** Zones de toucher : un nom posé (polygone, incliné comme lui) ou l'icône d'un monument (rectangle). Format des zones d'avions et de bateaux. @type {ZoneEtiquette[]} */

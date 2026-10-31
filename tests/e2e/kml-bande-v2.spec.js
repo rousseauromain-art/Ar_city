@@ -48,7 +48,7 @@ test(`couches personnelles v2 = v1 (bande et pastilles hors champ) sur la scène
       return {list,shown:userLayers.map(L=>L.shown.map(it=>[it.name,it.lab,it.dist,it.brg,it.hl])),ui:uiObstacles().map(r=>r.slice()).concat(dom),safeT,FD,FM,W,H,dpr,P:pose(),fov:vFov(),flux:camSrc(),stats:{...placeStats},
         safeB:parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-b'))||0,S:{radius:S.radius,relief:S.relief,beyond:!!S.beyond,places:S.layers.places,showDist:S.showDist,camFov:S.camFov,filter:S.filter}}; })()`);
     const v2=await page.evaluate(async({e1,mem0,lane0,couches,lieux,q,places})=>{
-      const pr=await import('/src/rendu/projection.js'), cv=await import('/src/rendu/canvas.js'), hz=await import('/src/rendu/repere-horizon.js'), pl=await import('/src/rendu/placement.js'),
+      const pr=await import('/src/noyau/projection.js'), cv=await import('/src/rendu/canvas.js'), hz=await import('/src/rendu/repere-horizon.js'), pl=await import('/src/rendu/placement.js'),
         et=await import('/src/rendu/etiquettes.js'), bd=await import('/src/rendu/bande.js'), ly=await import('/src/calques/lieux.js'), km=await import('/src/calques/kml.js'), dk=await import('/src/donnees/kml.js'), la=await import('/src/scene/liste-affichage.js');
       const ev=s=>window.__vh.ev(s), T=ev('terrain'), S=e1.S, pos=ev('pos');
       const bands=T.bands.map(b=>({z:b.z,max:b.max,ts:b.ts,shift:b.shift,garantie:b.guaranteed,tx0:b.tx0,ty0:b.ty0,nx:b.nx,ny:b.ny,tiles:b.tiles,altIdx:b.altIdx}));

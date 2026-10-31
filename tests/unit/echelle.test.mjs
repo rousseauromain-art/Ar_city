@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calerEchelle } from '../../src/calage/echelle.js';
-import { champAffiche } from '../../src/rendu/projection.js';
+import { champAffiche } from '../../src/noyau/projection.js';
 
 const RAD = Math.PI / 180, ECRAN = { largeurPx: 915, hauteurPx: 412 }, ch = (cam) => champAffiche(cam, ECRAN, { largeurPx: 4000, hauteurPx: 3000 });
 /** Position écran d'un relèvement vu par une caméra de champ `camFov` visant `capReel`. */

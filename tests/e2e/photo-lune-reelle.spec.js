@@ -19,7 +19,7 @@ for(const ph of PHOTOS) test(`« Caler auto » de nuit sur la lune : ${ph.nom}`,
   const r=await page.evaluate(async()=>{
     const v=window.__vh2, avant=v.evaluerLune(), msg=await v.calerAuto();
     // le symbole de la lune, après calage, doit tomber sur le disque brillant : on lit la luminance de l'image à cet endroit (et dans un voisinage de 6 px)
-    const {positionLune}=await import('/src/noyau/astro.js'), {lirePixelsRecadres}=await import('/src/vision/lire-pixels.js'), p=v.photo().photo, l=positionLune(p.utc,p.pos.lat,p.pos.lon);
+    const {positionLune}=await import('/src/noyau/astro.js'), {lirePixelsRecadres}=await import('/src/entrees/lire-pixels.js'), p=v.photo().photo, l=positionLune(p.utc,p.pos.lat,p.pos.lon);
     const W=innerWidth, H=innerHeight, RAD=Math.PI/180, fh=(W/2)/Math.tan(v.vFov()/2*RAD), po=v.pose();
     const x=W/2+fh*Math.tan(((l.azDeg-po.capDeg+540)%360-180)*RAD), y=H/2+fh*Math.tan((po.inclinaisonDeg-l.elDeg)*RAD);
     const px=lirePixelsRecadres(v.photo().img,480,{largeurPx:W,hauteurPx:H}), cx=Math.round(x*480/W), cy=Math.round(y*480/W); let mx=0;

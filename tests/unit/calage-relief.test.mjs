@@ -5,9 +5,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { tableRelief, observerHorizon, ajusterHorizon, nettoyerPointsHorizon, luminance } from '../../src/calage/horizon.js';
 import { pointesPhoto, reperesPourCalage, ajusterSurReperes, calerSurReperes } from '../../src/calage/reperes.js';
-import { champAffiche } from '../../src/rendu/projection.js';
+import { champAffiche } from '../../src/noyau/projection.js';
 import { DISTANCES_KM } from '../../src/scene/relief.js';
-import { LARGEUR_TYPE_M } from '../../src/calques/monuments.js';
+import { LARGEUR_TYPE_M } from '../../src/noyau/constantes.js';
 import { calerAutomatiquement } from '../../src/calage/auto.js';
 
 const src = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url), 'utf8');

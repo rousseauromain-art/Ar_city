@@ -40,3 +40,13 @@ export const CRETE_ECART_SILHOUETTE_DEG = 0.15;
 /** Dénivelé caché derrière la crête (m) : seuil Essentiel (vrai décrochement) et seuil Tout voir. */
 export const CRETE_DENIVELE_ESSENTIEL_M = 40;
 export const CRETE_DENIVELE_TOUT_M = 15;
+
+// ---- constantes partagées entre dossiers (le sens des dépendances interdit qu'un calque ou le calage les importe d'un autre calque) ----
+/** Pluriel d'un groupe de repères ou de pylônes (par nom du premier). */
+export const PLURIELS_INFRA = Object.freeze(/** @type {Record<string, string>} */ ({ Tour: 'tours', Clocher: 'clochers', "Château d'eau": "châteaux d'eau", Cheminée: 'cheminées', Mât: 'mâts', Immeuble: 'immeubles', Pylône: 'pylônes', 'Toit-terrasse': 'toits-terrasses', Antenne: 'antennes' }));
+/** Largeur type (m) d'un monument selon son type : sert à juger s'il est « étroit » (repères de calage) et à dessiner sa silhouette. */
+export const LARGEUR_TYPE_M = Object.freeze(/** @type {Record<string, number>} */ ({ tour: 12, clocher: 10, dome: 35, chateau: 60, musee: 40, mairie: 40, maison: 15, colonne: 4, arc: 25, edifice: 40, stade: 150, scene: 40, gare: 60, pont: 0, eau: 0, parc: 0, place: 0 }));
+/** Une analyse reste valable ce temps (ms), v1 : `PHOTO_FRESH`. */
+export const ANALYSE_VALIDE_MS = 6000;
+/** Portée maximale du relief, en km (v1 : `RELIEF_MAX_KM`). */
+export const RELIEF_MAX_KM = 200;

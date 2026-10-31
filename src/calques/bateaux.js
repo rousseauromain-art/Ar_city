@@ -11,7 +11,7 @@ import { positionnerMobile } from '../scene/mobiles.js';
 /** @typedef {{el: MobileEcran, etat: 'net' | 'absent', raison: string | null}} MobileClasse */
 
 /**
- * @param {Mobile[]} mobiles liste complète (avions ET bateaux), triée par distance @param {import('../rendu/projection.js').VueRendu} vue
+ * @param {Mobile[]} mobiles liste complète (avions ET bateaux), triée par distance @param {import('../noyau/projection.js').VueRendu} vue
  * @param {{oeilM: number}} scene @param {{couche: boolean, filtre?: string}} reglages
  * @returns {MobileClasse[]}
  */

@@ -3,19 +3,19 @@
  * Visibilité d'un mobile (avion ou bateau) depuis l'observateur : règle COMMUNE aux calques avions et bateaux. Dans le champ (au plus 80°, ou 80 % du champ, du cap ; à 40 px
  * de l'écran), au-dessus de l'horizon que la rotondité de la Terre laisse voir. Hauteur utile : l'altitude barométrique pour un avion, 12 m de superstructure pour un navire.
  * Sortie : position à l'écran de l'icône (ordonnée bornée à [-60, H+60]) et raison d'une absence. Fonction pure (v1 : début du bloc « mobiles » de `draw()`).
- * Dépend de : noyau/constantes.js, rendu/projection.js.
+ * Dépend de : noyau/constantes.js, noyau/projection.js.
  */
 import { RAD, RAYON_EFFECTIF_M } from '../noyau/constantes.js';
 import { ecartAngle, borner } from '../noyau/maths.js';
 import { normaliser } from '../noyau/texte.js';
-import { xDepuisEcart, yDepuisSite } from '../rendu/projection.js';
+import { xDepuisEcart, yDepuisSite } from '../noyau/projection.js';
 
 /** Hauteur supposée (m) de la superstructure d'un navire. */
 export const HAUTEUR_NAVIRE_M = 12;
 
 /**
  * @param {{kind: 'plane' | 'ship', name: string, dist: number, brg: number, alt: number}} m
- * @param {import('../rendu/projection.js').VueRendu} vue @param {number} oeilM altitude de l'œil (sol + 1,6 m + correction)
+ * @param {import('../noyau/projection.js').VueRendu} vue @param {number} oeilM altitude de l'œil (sol + 1,6 m + correction)
  * @param {string} [filtre] réglage « chercher » (nom normalisé)
  * @returns {{etat: 'net' | 'absent', raison: string | null, x: number, y: number}}
  */
