@@ -56,9 +56,9 @@ export function installerCalage(c) {
   /** En roulant (plus de 3 m/s, soit 11 km/h) la carrosserie fausse la boussole de 30° ou plus : le soleil n'est plus cherché dans une fenêtre autour de sa direction calculée mais dans toute l'image (mode « large »). */
   const enVehicule = () => !!entree && (entree.etat().vitesseMs ?? 0) > VITESSE_VEHICULE_MS;
   /** Cherche le disque du soleil dans l'image SANS rien appliquer (le calage et les tests de parité s'en servent). */
-  function evaluerSoleil() {
+  function evaluerSoleil(/** @type {boolean} */ forcerLarge = false) {
     const src = imageSource(), d = app.donnees();
-    return calerSurSoleil({ pos: d.pos, soleil: soleilMaintenant(), pose: pose(), champDeg: vFov(), ecran: { largeurPx: ps.W, hauteurPx: ps.H }, large: !!(ps.photoMode && ps.photoMode.photo.peuFiable) || enVehicule(),
+    return calerSurSoleil({ pos: d.pos, soleil: soleilMaintenant(), pose: pose(), champDeg: vFov(), ecran: { largeurPx: ps.W, hauteurPx: ps.H }, large: !!(ps.photoMode && ps.photoMode.photo.peuFiable) || enVehicule() || forcerLarge,
       lirePixels: (cw) => lirePixelsRecadres(src, cw, { largeurPx: ps.W, hauteurPx: ps.H }) });
   }
   /** « Caler auto » SANS rien appliquer : soleil, puis relief, puis repères (calage/auto.js). Sert au calage et aux tests de parité. @returns {Promise<import('../calage/auto.js').ResultatAuto>} */
@@ -125,8 +125,10 @@ export function installerCalage(c) {
   }
   /** @param {number} x @param {number} y */
   function evaluerPointage(x, y) {
-    const d = app.donnees(), lieux = nomsDeLieux(/** @type {any} */ (d.lieux));
-    return pointer({ toucher: { x, y }, pose: pose(), champDeg: vFov(), ecran: { largeurPx: ps.W, hauteurPx: ps.H }, liste: /** @type {any} */ ((ps.dernierBilan && ps.dernierBilan.liste) || []), soleil: soleilMaintenant(), avecRelief: S.relief && !!d.terrain,
+    const d = app.donnees(), lieux = nomsDeLieux(/** @type {any} */ (d.lieux)), so = soleilMaintenant();
+    // le disque du soleil vu dans l'image (cherché partout) : en voiture, la boussole se trompe de plus de 12° et le soleil calculé n'est pas là où on le voit
+    const sa = so && imageSource() ? evaluerSoleil(true) : null, soleilVu = sa && sa.ok ? { azDeg: sa.soleil.azDeg - sa.dh, elDeg: sa.soleil.elDeg - sa.dp } : null;
+    return pointer({ toucher: { x, y }, pose: pose(), champDeg: vFov(), ecran: { largeurPx: ps.W, hauteurPx: ps.H }, liste: /** @type {any} */ ((ps.dernierBilan && ps.dernierBilan.liste) || []), soleil: so, soleilVu, avecRelief: S.relief && !!d.terrain,
       correctionOeilM: S.obsHeight || 0, nomMonument: (c) => nomMonument(c, lieux) });
   }
   /** @param {number} x @param {number} y */
