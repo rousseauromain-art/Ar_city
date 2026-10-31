@@ -25,6 +25,7 @@ import { installerCalage } from './calage.js';
 import { installerDiagnostic } from './diagnostic.js';
 import { installerPhoto } from './photo.js';
 import { installerGestes } from './gestes.js';
+import { installerFiches } from './fiches.js';
 import { installerDeclencheur } from './declencheur.js';
 import { creerCarnet } from '../app/carnet.js';
 
@@ -187,7 +188,8 @@ export function demarrerPage({ mode }) {
   $('verInfo').textContent = VERSION_V2;
   installerDiagnostic(c, { analyse: vis.analyse, calage });
   installerPhoto(c, calage);
-  const gestes = installerGestes(c, calage);
+  const fiches = installerFiches(c);
+  const gestes = installerGestes(c, calage, fiches);
   installerDeclencheur(c);
 
   // ---------- boucle d'affichage : 30 images/s au plus ----------
