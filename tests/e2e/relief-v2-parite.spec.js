@@ -8,7 +8,7 @@ const {openApp}=require('../helpers/app.js');
 const {readExports,seedCaches}=require('../helpers/cache.js');
 const {reliefUrls}=require('../helpers/relief-urls.js');
 
-const PHOTOS_DIR=process.env.PHOTOS_DIR||'/home/user/ar_city-photos';
+const {PHOTOS_DIR,ignorerSiAbsent}=require('../helpers/scenes-reelles.js');
 const fichiers=fs.existsSync(PHOTOS_DIR)?fs.readdirSync(PHOTOS_DIR).filter(f=>/^villes-horizon-.*\.json$/.test(f)).map(f=>path.join(PHOTOS_DIR,f)):[];
 const SCENES=[
   {id:'saint-malo-rempart',photo:'PXL_20261025_112230293.jpg',radius:30,heure:'2026-10-25T11:22:30Z'},
@@ -19,7 +19,7 @@ const exports_=()=>exportsCache||(exportsCache=readExports(fichiers));
 
 for(const sc of SCENES){
   test(`relief v2 = v1 sur la scène réelle ${sc.id}`,async({browser})=>{
-    test.skip(!fichiers.length||!fs.existsSync(path.join(PHOTOS_DIR,sc.photo)),'dépôt privé Ar_city-photos absent');
+    ignorerSiAbsent(test,sc);
     test.setTimeout(420000);
     const {lireExif}=await import('../../src/noyau/exif.js');
     const b=fs.readFileSync(path.join(PHOTOS_DIR,sc.photo)), ex=lireExif(b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength));

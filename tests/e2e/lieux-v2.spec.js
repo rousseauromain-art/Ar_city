@@ -7,7 +7,7 @@
 // Lieux habités, lieux remarquables (phares, caps, îles, plages…) et sommets lointains sont gardés dans la v1 ; monuments, télécom et bâtiments retirés : les deux côtés voient les mêmes éléments.
 // Ignoré sans le dossier PHOTOS_DIR (CI sans jeton, REFONTE.md §9).
 const {test,expect}=require('@playwright/test');
-const {ouvrirSceneReelle,disponible}=require('../helpers/scenes-reelles.js');
+const {ouvrirSceneReelle,ignorerSiAbsent}=require('../helpers/scenes-reelles.js');
 
 const SCENES=[
   {id:'saint-malo-rempart',photo:'PXL_20261025_112230293.jpg',radius:30},
@@ -29,7 +29,7 @@ const EXTRAIRE_V1=`(()=>{
 
 for(const sc of SCENES){
   test(`calque lieux v2 = v1 sur la scène réelle ${sc.id}`,async({browser})=>{
-    test.skip(!disponible(sc),'dépôt privé Ar_city-photos absent');
+    ignorerSiAbsent(test,sc);
     test.setTimeout(600000);
     const {app,page,ctx,erreurs,cap0}=await ouvrirSceneReelle(browser,sc,{reglages:REGLAGES});
 

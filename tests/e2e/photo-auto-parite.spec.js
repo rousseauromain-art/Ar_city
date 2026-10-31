@@ -6,7 +6,7 @@
 //     de la v2 donnent le même message, le même cap, le même horizon et le même champ.
 // Ignoré sans le dossier PHOTOS_DIR (CI sans jeton).
 const {test,expect}=require('@playwright/test');
-const {ouvrirSceneReelle,disponible}=require('../helpers/scenes-reelles.js');
+const {ouvrirSceneReelle,ignorerSiAbsent}=require('../helpers/scenes-reelles.js');
 const {ouvrirV2Reelle}=require('../helpers/scene-v2-reelle.js');
 
 test.describe.configure({retries:1});
@@ -22,7 +22,7 @@ const REGLAGES={relief:true,skyline:false,hamlets:true,telecom:true,buildings:tr
 
 for(const sc of SCENES){
   test(`« Caler auto » v2 = v1 sur la scène réelle ${sc.id}`,async({browser})=>{
-    test.skip(!disponible({...sc,photo:sc.photo}),'dépôt privé Ar_city-photos absent');
+    ignorerSiAbsent(test,{...sc,photo:sc.photo});
     test.setTimeout(1500000);
     const v1=await ouvrirSceneReelle(browser,{...sc,heureReelle:true},{reglages:REGLAGES}), {app,page,cap0}=v1;
     await app.waitFor('!monBusy&&!towerBusy&&!telecomBusy&&!buildingsBusy',120000);

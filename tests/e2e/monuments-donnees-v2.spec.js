@@ -6,7 +6,7 @@
 //  4. les bâtiments déjà dessinés comme monuments (dupMon).
 // Ignoré sans le dossier PHOTOS_DIR (CI sans jeton, REFONTE.md §9).
 const {test,expect}=require('@playwright/test');
-const {ouvrirSceneReelle,disponible}=require('../helpers/scenes-reelles.js');
+const {ouvrirSceneReelle,ignorerSiAbsent}=require('../helpers/scenes-reelles.js');
 
 const SCENES=[
   {id:'saint-malo-rempart',photo:'PXL_20261025_112230293.jpg',radius:30},
@@ -24,7 +24,7 @@ const PROJ=`(m=>{ const o={}; for(const k of ${JSON.stringify(CHAMPS)}) if(m[k]!
 
 for(const sc of SCENES){
   test(`données de monuments v2 = v1 sur la scène réelle ${sc.id}`,async({browser})=>{
-    test.skip(!disponible(sc),'dépôt privé Ar_city-photos absent');
+    ignorerSiAbsent(test,sc);
     test.setTimeout(600000);
     const {app,page,ctx,erreurs}=await ouvrirSceneReelle(browser,sc,{reglages:REGLAGES});
     await app.waitFor('!monBusy&&!towerBusy',120000);

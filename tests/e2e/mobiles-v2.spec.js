@@ -4,7 +4,7 @@
 // « NOM +N », pastilles « +N » des bateaux sans place, textes de vitesse et de distance, mémoire de placement, choix des bateaux nommés — frais, puis gardé 0,4 s.
 // Ignoré sans le dossier PHOTOS_DIR (CI sans jeton, REFONTE.md §9).
 const {test,expect}=require('@playwright/test');
-const {ouvrirSceneReelle,disponible}=require('../helpers/scenes-reelles.js');
+const {ouvrirSceneReelle,ignorerSiAbsent}=require('../helpers/scenes-reelles.js');
 const {offset}=require('../helpers/app');
 
 const SC={id:'saint-malo-quai',pos:{lat:48.6440,lon:-2.0230},capDeg:330,radius:30,ecran:{width:915,height:412}};
@@ -38,7 +38,7 @@ function trafic(pos,cap,now){
 }
 
 test(`affichage des avions et des bateaux v2 = v1 sur la scène réelle ${SC.id}`,async({browser})=>{
-  test.skip(!disponible(SC),'dépôt privé Ar_city-photos absent');
+  ignorerSiAbsent(test,SC);
   test.setTimeout(1200000);
   const {app,page,ctx,erreurs,cap0}=await ouvrirSceneReelle(browser,SC,{reglages:REGLAGES});
   await app.waitFor('!monBusy&&!towerBusy',120000);
