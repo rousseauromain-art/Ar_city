@@ -140,7 +140,15 @@ export function demarrerPage({ mode }) {
   $('simPos').addEventListener('change', (/** @type {any} */ e) => { S.simPos = e.target.value; sauver(); });
   $('reset').addEventListener('click', () => { S.headOff = 0; S.pitchOff = 0; sauver(); note('Calage remis à zéro'); });
   $('btnReload').addEventListener('click', () => { memoires.placement.clear(); app.recharger({ lieux: true, terrain: true, monuments: true, telecom: true, reperes: true }); note('Rechargement des lieux et du relief…'); });
-  $('btnSky').addEventListener('click', () => { app.recharger({ terrain: true }); note('Relief recalculé'); });
+  $('btnSky').addEventListener('click', async () => {
+    if (S.calculRelief === false) { note('Relief désactivé (Réglages › Calculer le relief)', 5000); return; }
+    if (!app.donnees().pos) { note('Relief : en attente de la position (GPS)', 5000); return; }
+    if (app.etat().etatRelief === 'calcul…') { note('Relief : calcul déjà en cours', 4000); return; }
+    note('Relief : calcul…', 60000);
+    await app.recharger({ terrain: true });
+    const e = app.etat().etatRelief;
+    note(e === 'ok' ? 'Relief recalculé' : e === 'indispo' ? 'Relief indisponible (réseau ?) : nouvel essai automatique' : `Relief : ${e}`, 5000);
+  });
   $('btnFs').addEventListener('click', () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.().catch(() => {}); });
   $('calib').addEventListener('click', () => { S.headOff = 0; S.pitchOff = 0; sauver(); note('Calage remis à zéro'); });
   // ---------- calage : sur le soleil (bouton cible) et par pointage (bouton réticule) ----------
