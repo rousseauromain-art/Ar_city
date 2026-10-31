@@ -6,8 +6,8 @@
 import { noterCalage } from '../entrees/capteurs.js';
 import { RAD } from '../noyau/constantes.js';
 
-/** @param {import('./contexte.js').Contexte} c @param {ReturnType<typeof import('./calage.js').installerCalage>} calage */
-export function installerGestes(c, calage) {
+/** @param {import('./contexte.js').Contexte} c @param {ReturnType<typeof import('./calage.js').installerCalage>} calage @param {ReturnType<typeof import('./fiches.js').installerFiches>} fiches */
+export function installerGestes(c, calage, fiches) {
   const { S, fusion, ov, direct, note, sauver, synchroniser, vFov, ps } = c;
   // ---------- glisser (cap, horizon) et pincer (champ) ----------
   /** @type {null | {x: number, y: number, h: number, p: number, moved: boolean, t: number}} */
@@ -36,7 +36,7 @@ export function installerGestes(c, calage) {
   ov.addEventListener('pointerup', (e) => {
     const etaitPincement = !!pinch; ptrs.delete(e.pointerId);
     if (etaitPincement) { if (ptrs.size < 2) { pinch = null; sauver(); } drag = null; return; }
-    if (drag && !drag.moved && Date.now() - drag.t < 450) { S.headOff = drag.h; S.pitchOff = drag.p; if (calage.echelleActive()) calage.toucherEchelle(e.clientX, e.clientY); else if (calage.pointageActif()) { calage.definirModePointage(false); calage.pointerSur(e.clientX, e.clientY); } } else { sauver(); if (direct && drag && drag.moved) noterCalage(fusion, Date.now()); if (drag && drag.moved && ((direct && fusion.capteur) || ps.photoMode)) calage.consigner('glisser', { h: drag.h, p: drag.p }); } // calage récent : la boussole ne le défait pas
+    if (drag && !drag.moved && Date.now() - drag.t < 450) { S.headOff = drag.h; S.pitchOff = drag.p; if (calage.echelleActive()) calage.toucherEchelle(e.clientX, e.clientY); else if (calage.pointageActif()) { calage.definirModePointage(false); calage.pointerSur(e.clientX, e.clientY); } else { const r = ov.getBoundingClientRect(); fiches.ouvrirEn(e.clientX - r.left, e.clientY - r.top); } } else { sauver(); if (direct && drag && drag.moved) noterCalage(fusion, Date.now()); if (drag && drag.moved && ((direct && fusion.capteur) || ps.photoMode)) calage.consigner('glisser', { h: drag.h, p: drag.p }); } // calage récent : la boussole ne le défait pas
     drag = null;
   });
   ov.addEventListener('pointercancel', (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; drag = null; });

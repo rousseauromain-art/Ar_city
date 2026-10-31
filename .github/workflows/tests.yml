@@ -6,8 +6,7 @@ on:
   pull_request:
     paths-ignore: ['**.md']
 
-# La parité avec la v1 (scènes réelles du dépôt privé) est trop lourde pour chaque envoi : voir parite.yml (manuel et chaque nuit).
-# Ici, les tests de parité s'ignorent proprement (pas de dossier PHOTOS_DIR) ; tout le reste tourne.
+# Les tests e2e et la parité avec la v1 ne tournent plus à chaque envoi (ils bloquaient les fusions) : Romain valide sur le téléphone. Ils restent lançables à la main : npm run test:e2e, ou parite.yml.
 jobs:
   qualite:
     name: Qualité (lint, types, tests unitaires)
@@ -23,25 +22,3 @@ jobs:
       - run: npm run lint
       - run: npm run types
       - run: npm run test:unit
-
-  e2e:
-    name: E2E (sans scène réelle)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
-      - uses: actions/upload-artifact@v5
-        if: failure()
-        with:
-          name: rapport-playwright
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 14

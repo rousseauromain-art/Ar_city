@@ -32,6 +32,20 @@ import { commandeGlyphe, commandesSilhouetteMonument } from './icones.js';
  * @property {number} sansPlace faute de place pour le nom @property {number} fantomesVus fantômes dans le champ, comptés dans la boucle (après regroupement)
  */
 
+/**
+ * Zone de toucher d'un nom ou d'une icône de monument : `element` est l'objet d'origine (lieu, monument), `icone` un rectangle [x0, x1, y0, y1] ou `poly` des sommets [x, y].
+ * @typedef {{element: unknown, icone: number[] | null, poly: number[][] | null}} ZoneEtiquette
+ */
+
+/**
+ * Rectangle du texte d'un nom incliné : ancre (ax, ay), rotation `angle` (rad, comme `groupe`), `largeur` signée (le nom part vers la droite ou la gauche), `haut` au-dessus et `bas` sous la ligne de base.
+ * @param {number} ax @param {number} ay @param {number} angle @param {number} largeur @param {number} haut @param {number} bas @returns {number[][]}
+ */
+export function rectangleIncline(ax, ay, angle, largeur, haut, bas) {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  return [[0, -haut], [largeur, -haut], [largeur, bas], [0, bas]].map(([x, y]) => [ax + x * c - y * s, ay + x * s + y * c]);
+}
+
 /** Plus petite part de l'icône qui doit se chevaucher pour être regroupée derrière une plus connue. */
 const CHEVAUCHEMENT_REGROUPEMENT = 0.45;
 
@@ -59,12 +73,14 @@ function regrouperIcones(ordre) {
  * @param {(Etiquette | EtiquetteMonument)[]} etiquettes dans l'ordre de priorité
  * @param {ReturnType<typeof import('./placement.js').creerPlaceur>} placeur
  * @param {{mesurerTexte: (police: string, texte: string) => number, familles: Familles, avantNoms?: () => void}} options `avantNoms` : appelée après la réservation des icônes de monuments et avant le placement des noms (la bande des équipements, quand elle passe au-dessus de l'horizon)
- * @returns {{commandes: import('./commandes.js').Commande[], comptes: ComptesEtiquettes}}
+ * @returns {{commandes: import('./commandes.js').Commande[], comptes: ComptesEtiquettes, zones: ZoneEtiquette[]}}
  */
 export function composerEtiquettes(etiquettes, placeur, { mesurerTexte, familles, avantNoms }) {
   /** @type {import('./commandes.js').Commande[]} */
   const commandes = [];
   const comptes = { eligibles: 0, affichees: 0, fantomes: 0, sansPlace: 0, fantomesVus: 0 };
+  /** Zones de toucher : un nom posé (polygone, incliné comme lui) ou l'icône d'un monument (rectangle). Format des zones d'avions et de bateaux. @type {ZoneEtiquette[]} */
+  const zones = [];
   const { retirees, plus } = regrouperIcones(etiquettes);
   const ordre = etiquettes.filter((e) => !retirees.has(e));
   // les icônes des monuments sont réservées AVANT tout le reste : aucun nom ne peut passer dessus
@@ -102,12 +118,14 @@ export function composerEtiquettes(etiquettes, placeur, { mesurerTexte, familles
             texte('+' + (n > 99 ? '99' : n), bx, by + 2.9, `700 8px ${familles.mono}`, '#F3E9D2', { alignement: 'center' }));
         }
       }
+      zones.push({ element: e.proprietaire, icone: [boiteIcone[0] - 4, boiteIcone[1] + 4, boiteIcone[2] - 4, boiteIcone[3] + 4], poly: null });
       if (!ps && !plat) continue;
     }
     const contour = (/** @type {number} */ largeur) => ({ couleur: `rgba(14,26,43,${ghost ? 0.6 : 0.9})`, largeur, jointure: /** @type {'round'} */ ('round') });
     if (plat) {
       const ex = plat.side > 0 ? plat.x - 2 : plat.x + plat.w + 2, ey = plat.y - e.taille * 0.35; // bord du nom le plus proche de l'icône
       if (Math.hypot(ex - e.x, ey - (e.y - gH)) > 6) commandes.push(trait([['M', e.x, boiteIcone[2] - 1], ['L', ex, ey]], `rgba(${e.teinte},${0.8 * alpha})`, 1, { jointure: 'round' }));
+      zones.push({ element: e.proprietaire, icone: null, poly: [[plat.x - 2, plat.y - e.taille - 2], [plat.x + largeurTotale + 2, plat.y - e.taille - 2], [plat.x + largeurTotale + 2, plat.y + 4], [plat.x - 2, plat.y + 4]] });
       commandes.push(texte(e.texte, plat.x, plat.y, police, `rgba(${e.teinte},${alpha})`, { alignement: 'left', contour: contour(3.5) }));
       if (e.detail) commandes.push(texte(e.detail, plat.x + nw + 7, plat.y, policeDetail, `rgba(224,165,38,${ghost ? 0.5 : 1})`, { alignement: 'left', contour: contour(3) }));
       continue;
@@ -124,6 +142,7 @@ export function composerEtiquettes(etiquettes, placeur, { mesurerTexte, familles
     const align = side > 0 ? 'left' : 'right', enfants = [texte(e.texte, 0, 0, police, `rgba(${e.teinte},${alpha})`, { alignement: align, contour: contour(3.5) })];
     if (e.detail) enfants.push(texte(e.detail, side * (nw + 7), 0, policeDetail, `rgba(224,165,38,${ghost ? 0.5 : 1})`, { alignement: align, contour: contour(3) }));
     commandes.push(groupe(lx, ly, -side * ANGLE_NOM_RAD, enfants));
+    zones.push({ element: e.proprietaire, icone: null, poly: rectangleIncline(lx, ly, -side * ANGLE_NOM_RAD, side * (largeurTotale + 2), e.taille + 2, 4) });
   }
-  return { commandes, comptes };
+  return { commandes, comptes, zones };
 }

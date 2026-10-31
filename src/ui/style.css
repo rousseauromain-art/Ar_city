@@ -185,3 +185,12 @@ body.clean .chips{display:none!important} /* photo en plein écran : vue épuré
 .etape10{opacity:.45}
 button[disabled].etape10{pointer-events:none}
 .note10{display:block;color:var(--ochre);font-size:12px;margin-top:2px}
+/* fiche au toucher : carte en bas de l'écran, au-dessus de la barre des boutons */
+#fiche{position:absolute;left:12px;right:calc(12px + var(--toolsW,60px) + 8px);bottom:112px;max-height:46%;overflow-y:auto;z-index:7;padding:12px 40px 12px 14px;border-radius:6px;background:rgba(14,26,43,.94);border:1px solid rgba(224,165,38,.45);color:var(--cream);font:500 13px/1.4 var(--mono);pointer-events:auto}
+#fiche[hidden]{display:none}
+#fiche .ficheT{font:700 17px/1.2 var(--display);letter-spacing:.02em;margin-bottom:2px}
+#fiche .ficheS{color:var(--ochre);margin-bottom:8px;text-transform:uppercase;font-size:11px;letter-spacing:.06em}
+#fiche .ficheL{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-top:1px solid rgba(243,233,210,.12)}#fiche .ficheL span{opacity:.7}
+#fiche .ficheG{margin-top:6px;opacity:.8;font-size:12px}
+#fiche .ficheLiens{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}#fiche .ficheLiens a{color:var(--ochre);border:1px solid rgba(224,165,38,.45);border-radius:4px;padding:8px 10px;text-decoration:none;min-height:20px}
+#ficheClose{position:absolute;top:4px;right:4px;width:36px;height:36px;border:0;background:none;color:var(--cream);font:400 24px/1 var(--mono)}
