@@ -1,11 +1,9 @@
 name: Parité avec la v1
 
 # Rejoue les scènes réelles (photos et caches du dépôt privé Ar_city-photos) dans la v1 figée et dans la v2, et compare les trames.
-# Trop lourd pour chaque envoi : lancement manuel (Actions › Parité avec la v1 › Run workflow, au choix sur la branche à tester) et chaque nuit sur main.
+# Lancement manuel seulement (Actions › Parité avec la v1 › Run workflow, au choix sur la branche à tester) : plus de lancement de nuit.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '17 2 * * *'
 
 jobs:
   acces:
