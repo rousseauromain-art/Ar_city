@@ -96,14 +96,15 @@ export function estimerSol(bands, c) {
 
 /**
  * Deuxième source de la hauteur d'œil : l'altitude GPS du téléphone (direct seulement). Correction (m) à appliquer au sol estimé pour que l'œil soit à l'altitude GPS, bornée comme le curseur (−30 à +250 m).
+ * Android donne l'altitude au-dessus de l'ellipsoïde WGS84, pas du niveau de la mer : `ondulationM` (noyau/geoide.js, 49 m en Bretagne) est retranchée ; 0 quand l'altitude est déjà au niveau de la mer (iOS).
  * `null` si l'altitude est absente ou trop imprécise (le GPS se trompe souvent de 10 à 30 m en altitude).
- * @param {number | null | undefined} altitudeGpsM @param {number | null | undefined} precisionAltM @param {number} solM sol estimé sous les pieds
+ * @param {number | null | undefined} altitudeGpsM @param {number | null | undefined} precisionAltM @param {number} solM sol estimé sous les pieds @param {number} [ondulationM]
  * @returns {number | null}
  */
-export function correctionDepuisGps(altitudeGpsM, precisionAltM, solM) {
+export function correctionDepuisGps(altitudeGpsM, precisionAltM, solM, ondulationM = 0) {
   if (altitudeGpsM === null || altitudeGpsM === undefined || !Number.isFinite(altitudeGpsM) || Number.isNaN(solM)) return null;
   if (precisionAltM !== null && precisionAltM !== undefined && precisionAltM > PRECISION_ALT_MAX_M) return null;
-  return Math.max(-30, Math.min(250, Math.round(altitudeGpsM - solM - HAUTEUR_YEUX_M)));
+  return Math.max(-30, Math.min(250, Math.round(altitudeGpsM - ondulationM - solM - HAUTEUR_YEUX_M)));
 }
 /** Au-delà, l'altitude GPS est jugée trop imprécise pour corriger la hauteur d'œil. */
 const PRECISION_ALT_MAX_M = 30;
@@ -113,13 +114,13 @@ export const OEIL_AUTO_ECART_MIN_M = 3, OEIL_AUTO_DELAI_MS = 30000, OEIL_AUTO_EC
 /**
  * Faut-il recaler tout seul la hauteur d'œil sur l'altitude GPS ? Renvoie la nouvelle correction (m) ou `null` (rien à faire).
  * Rien si : l'utilisateur a réglé à la main, le dernier recalage est trop récent, l'altitude est absente / imprécise / incohérente avec le sol, ou le gain est sous 3 m.
- * @param {{altitudeM: number | null | undefined, precisionAltM: number | null | undefined, solM: number, obsHeight: number, derniereMs: number, maintenantMs: number, manuel: boolean}} e
+ * @param {{altitudeM: number | null | undefined, precisionAltM: number | null | undefined, solM: number, obsHeight: number, derniereMs: number, maintenantMs: number, manuel: boolean, ondulationM?: number}} e
  * @returns {number | null}
  */
-export function decisionOeilAuto({ altitudeM, precisionAltM, solM, obsHeight, derniereMs, maintenantMs, manuel }) {
+export function decisionOeilAuto({ altitudeM, precisionAltM, solM, obsHeight, derniereMs, maintenantMs, manuel, ondulationM = 0 }) {
   if (manuel || maintenantMs - derniereMs < OEIL_AUTO_DELAI_MS) return null;
-  const c = correctionDepuisGps(altitudeM, precisionAltM, solM);
-  if (c === null || Math.abs(/** @type {number} */ (altitudeM) - solM) > OEIL_AUTO_ECART_MAX_M) return null;
+  const c = correctionDepuisGps(altitudeM, precisionAltM, solM, ondulationM);
+  if (c === null || Math.abs(/** @type {number} */ (altitudeM) - ondulationM - solM) > OEIL_AUTO_ECART_MAX_M) return null;
   return Math.abs(c - obsHeight) >= OEIL_AUTO_ECART_MIN_M ? c : null;
 }
 

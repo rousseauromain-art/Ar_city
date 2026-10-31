@@ -28,3 +28,12 @@ test('recalage automatique : précision, cohérence, hystérésis, délai et ré
   assert.equal(decisionOeilAuto({ ...base, derniereMs: 80000 }), null, 'dernier recalage il y a moins de 30 s');
   assert.equal(decisionOeilAuto({ ...base, manuel: true }), null, 'réglé à la main');
 });
+
+test('Android : l\'altitude GPS est au-dessus de l\'ellipsoïde, on retranche le géoïde (49 m en Bretagne : plus de +48 m fantôme)', () => {
+  // voiture à Saint-Malo : sol 9 m, altitude GPS (ellipsoïde) 59 m → 10 m au-dessus du niveau de la mer
+  assert.equal(correctionDepuisGps(59, 8, 9), 48, 'sans correction du géoïde : 48 m de trop');
+  assert.equal(correctionDepuisGps(59, 8, 9, 49.2), -1, 'avec le géoïde : œil à peu près au sol');
+  const base = { altitudeM: 59, precisionAltM: 8, solM: 9, obsHeight: 48, derniereMs: 0, maintenantMs: 100000, manuel: false, ondulationM: 49.2 };
+  assert.equal(decisionOeilAuto(base), -1, 'une correction de +48 m déjà appliquée est ramenée à son vrai niveau');
+  assert.equal(decisionOeilAuto({ ...base, ondulationM: 0, obsHeight: 48 }), null, 'sans géoïde (iOS) : inchangé');
+});
