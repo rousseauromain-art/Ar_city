@@ -7,9 +7,10 @@
     "types": "tsc --noEmit -p tsconfig.json",
     "test:unit": "node --test \"tests/unit/*.test.mjs\"",
     "test:e2e": "playwright test",
-    "test": "npm run lint && npm run types && npm run test:unit && npm run test:e2e",
+    "test": "npm run lint && npm run types && npm run test:unit && npm run test:integration && npm run test:e2e",
     "dump:v1": "node tests/caracterisation/dump-v1.mjs",
-    "serve": "node tests/helpers/server.js"
+    "serve": "node tests/helpers/server.js",
+    "test:integration": "node --test \"tests/integration/*.test.mjs\""
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

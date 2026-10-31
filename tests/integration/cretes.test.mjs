@@ -6,7 +6,7 @@ import { creerBandes, BANDES_HR, NB_RELEVEMENTS } from '../../src/scene/relief.j
 import { calculerMasque } from '../../src/scene/masque.js';
 import { lignesDeCretes, pointsDeCretes, distancesSilhouette, distanceSilhouette, angleSilhouette } from '../../src/scene/cretes.js';
 import { classerCretes } from '../../src/calques/relief.js';
-import { tuile, alea } from './aide-relief.mjs';
+import { tuile, alea } from '../unit/aide-relief.mjs';
 
 const src = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url), 'utf8');
 const coeur = src.slice(src.indexOf('/*TERRAIN-CORE-START*/'), src.indexOf('/*TERRAIN-CORE-END*/'));

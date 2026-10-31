@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { creerBandes, BANDES_HR, BANDES_AWS, altitudeEn, masqueRelevement, masqueDans, causeMasque, pixelGlobal, DISTANCES_KM, NB_RELEVEMENTS } from '../../src/scene/relief.js';
 import { solFin, solLocal, estimerSol, altitudeOeil } from '../../src/scene/hauteur-oeil.js';
-import { alea, tuile } from './aide-relief.mjs';
+import { alea, tuile } from '../unit/aide-relief.mjs';
 import { evaluerElement, verdictRelief } from '../../src/scene/visibilite.js';
 
 const src = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url), 'utf8');

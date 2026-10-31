@@ -9,7 +9,7 @@ import { composerEtiquettes } from '../../src/rendu/etiquettes.js';
 import { creerPlaceur } from '../../src/rendu/placement.js';
 import { dessiner } from '../../src/rendu/canvas.js';
 import { pointAuCap } from '../../src/noyau/geo.js';
-import { alea, terrainSynthetique } from './aide-relief.mjs';
+import { alea, terrainSynthetique } from '../unit/aide-relief.mjs';
 
 const src = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url), 'utf8');
 /** @param {string} debut @param {string} fin Extrait de `debut` jusqu'à `fin` EXCLU. */

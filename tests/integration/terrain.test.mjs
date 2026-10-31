@@ -5,7 +5,7 @@ import { ErreurReseau } from '../../src/donnees/reseau.js';
 import { calculerTerrain, calculerTerrainAvecRepli } from '../../src/scene/terrain.js';
 import { calculerMasque } from '../../src/scene/masque.js';
 import { NB_RELEVEMENTS, DISTANCES_KM } from '../../src/scene/relief.js';
-import { tuile } from './aide-relief.mjs';
+import { tuile } from '../unit/aide-relief.mjs';
 
 const POS = { lat: 48.6459, lon: -2.0281 };
 const octets = (/** @type {number} */ n) => new Uint8Array([n]);
