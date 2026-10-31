@@ -22,6 +22,9 @@ import { lirePixelsRecadres } from '../vision/lire-pixels.js';
 import { LARGEUR_ANALYSE_PX, observerCiel } from '../vision/silhouette-ciel.js';
 import { echap, signe } from './html.js';
 
+/** Vitesse (m/s) au-delà de laquelle on est jugé en véhicule. */
+const VITESSE_VEHICULE_MS = 3;
+
 /** @param {import('./contexte.js').Contexte} c */
 export function installerCalage(c) {
   const { S, app, journal, stockage, carnet, fusion, entree, direct, $, $f, note, sauver, synchroniser, pose, vFov, fluxImage, ecranPx, imageSource, dessinerImage, ps } = c;
@@ -50,10 +53,12 @@ export function installerCalage(c) {
     return calerSurSoleil({ pos: d.pos, soleil: luneMaintenant(), astre: 'lune', pose: pose(), champDeg: vFov(), ecran: { largeurPx: ps.W, hauteurPx: ps.H }, large: !!(ps.photoMode && ps.photoMode.photo.peuFiable),
       lirePixels: (cw) => lirePixelsRecadres(src, cw, { largeurPx: ps.W, hauteurPx: ps.H }) });
   }
+  /** En roulant (plus de 3 m/s, soit 11 km/h) la carrosserie fausse la boussole de 30° ou plus : le soleil n'est plus cherché dans une fenêtre autour de sa direction calculée mais dans toute l'image (mode « large »). */
+  const enVehicule = () => !!entree && (entree.etat().vitesseMs ?? 0) > VITESSE_VEHICULE_MS;
   /** Cherche le disque du soleil dans l'image SANS rien appliquer (le calage et les tests de parité s'en servent). */
   function evaluerSoleil() {
     const src = imageSource(), d = app.donnees();
-    return calerSurSoleil({ pos: d.pos, soleil: soleilMaintenant(), pose: pose(), champDeg: vFov(), ecran: { largeurPx: ps.W, hauteurPx: ps.H }, large: !!(ps.photoMode && ps.photoMode.photo.peuFiable),
+    return calerSurSoleil({ pos: d.pos, soleil: soleilMaintenant(), pose: pose(), champDeg: vFov(), ecran: { largeurPx: ps.W, hauteurPx: ps.H }, large: !!(ps.photoMode && ps.photoMode.photo.peuFiable) || enVehicule(),
       lirePixels: (cw) => lirePixelsRecadres(src, cw, { largeurPx: ps.W, hauteurPx: ps.H }) });
   }
   /** « Caler auto » SANS rien appliquer : soleil, puis relief, puis repères (calage/auto.js). Sert au calage et aux tests de parité. @returns {Promise<import('../calage/auto.js').ResultatAuto>} */

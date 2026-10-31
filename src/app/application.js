@@ -34,6 +34,8 @@ import { listerMobiles } from '../donnees/trafic.js';
 import { distanceEtCap } from '../noyau/geo.js';
 import { PROCHE_KM } from '../scene/relief.js';
 import { memeEndroit, estBruitGps } from './position.js';
+import { clausesLieux, requeteOverpass } from '../donnees/overpass.js';
+import { CATEGORIES_REPERES } from '../donnees/categories-reperes.js';
 
 /** @typedef {import('../moteur/classement.js').DonneesScene} DonneesScene */
 /** @typedef {import('../moteur/reglages.js').Reglages} Reglages */
@@ -306,6 +308,31 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
       return Promise.allSettled([chargerLieux(!!quoi.lieux), chargerSommets(!!quoi.terrain), chargerTerrain(!!quoi.terrain), chargerMonuments(!!quoi.monuments), chargerTelecom(!!quoi.telecom), chargerReperes(!!quoi.reperes)]);
     },
     actualiser,
+    /**
+     * Mode hors ligne : télécharge les lieux (villes, villages, hameaux et toutes les catégories de repères) dans un rayon de `rayonKm` autour de la position, les ajoute à l'atlas local (cumulatif, rien n'est écrasé)
+     * et met en cache le relief d'ici (tuiles à durée illimitée). Comme la v1 (`downloadZone`). Lève une erreur si la position est inconnue, si Overpass ne répond pas ou si la réponse est vide.
+     * @param {{rayonKm?: number}} [o] @returns {Promise<{recus: number, nouveaux: number, total: number}>}
+     */
+    async telechargerZone({ rayonKm = 150 } = {}) {
+      const pos = D.pos;
+      if (!pos) throw new Error('position inconnue');
+      const tout = Object.fromEntries(Object.keys(CATEGORIES_REPERES).map((k) => [k, true]));
+      const lieux = await overpass.interroger(requeteOverpass(clausesLieux(pos, rayonKm * 1000, true, tout, (km) => km * 1000), 50), 60000);
+      if (!lieux.length) throw new Error('réponse vide');
+      const nouveaux = atlas.absorber(lieux, pos, rayonKm);
+      journal.info('app', `zone hors ligne : ${lieux.length} lieux reçus, ${nouveaux} nouveaux, ${atlas.nombre()} au total`);
+      chargerTerrain(true); // les tuiles de relief d'ici restent sur l'appareil
+      change('atlas');
+      return { recus: lieux.length, nouveaux, total: atlas.nombre() };
+    },
+    /** Ce qui est gardé pour le hors ligne. @returns {{lieux: number, zones: number, derniere: number | null}} */
+    infoZone: () => { const z = atlas.zones(); return { lieux: atlas.nombre(), zones: z.length, derniere: z.length ? z[z.length - 1].saved : null }; },
+    /** Efface l'atlas ; si les lieux affichés en viennent, retour à la liste intégrée. */
+    supprimerZone() {
+      atlas.effacer();
+      if (E.source.startsWith('atlas local')) { lieuxBase = listeIntegree(); E.source = 'liste intégrée'; publierLieux(); }
+      change('atlas');
+    },
     /** Silhouette du ciel lue sur l'image (null : aucune) ; datée par l'appelant. @param {any} analyse */
     definirAnalysePhoto(analyse) { D.analysePhoto = analyse; change('analyse'); },
     /** Données pour `composerScene`. */
