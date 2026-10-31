@@ -13,7 +13,7 @@ import { VERSION_V2 } from '../outils/version.js';
 import { lireReglages, ecrireReglages, reprendreReglagesV1 } from '../moteur/reglages.js';
 import { composerScene } from '../moteur/scene.js';
 import { creerApplication } from '../app/application.js';
-import { champAffiche } from '../rendu/projection.js';
+import { champAffiche } from '../noyau/projection.js';
 import { avecRoulis, dessiner } from '../rendu/canvas.js';
 import { creerFusion, poseCapteurs, mesuresFusion } from '../entrees/capteurs.js';
 import { creerEntreeDirecte } from '../entrees/direct.js';

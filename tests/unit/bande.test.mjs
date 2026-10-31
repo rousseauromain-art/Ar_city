@@ -4,7 +4,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { aspectIcone, kmCourt, composerBande, pointeursHorsChamp, PLURIELS_INFRA } from '../../src/rendu/bande.js';
+import { aspectIcone, kmCourt, composerBande, pointeursHorsChamp } from '../../src/rendu/bande.js';
+import { PLURIELS_INFRA } from '../../src/noyau/constantes.js';
 import { creerPlaceur } from '../../src/rendu/placement.js';
 import { rectangleTouche } from '../../src/rendu/reservations.js';
 import { classerEquipements, preparerEquipements, nomEquipement, classerPylones, preparerPylones, EQUIP_AFFICHES_MAX, PLURIELS_EQUIPEMENTS } from '../../src/calques/equipements.js';

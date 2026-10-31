@@ -4,15 +4,15 @@
  * On voit tout de suite si le cap est juste, de jour comme de nuit. Absent sous l'horizon (−1°), hors du champ et hors de l'écran. Le pourcentage est la fraction éclairée du disque.
  * Entrées : vue, position de la lune, fraction éclairée. Sortie : commandes de dessin. Dépend de : projection.js, commandes.js.
  */
-import { trait, remplissage, texte } from './commandes.js';
-import { focalePx } from './projection.js';
+import { trait, remplissage, texte } from '../noyau/commandes.js';
+import { focalePx } from '../noyau/projection.js';
 import { RAD } from '../noyau/constantes.js';
 import { ecartAngle } from '../noyau/maths.js';
 
 /**
- * @param {import('./projection.js').VueRendu} vue @param {{azDeg: number, elDeg: number} | null} lune @param {number} fractionEclairee 0 à 1
+ * @param {import('../noyau/projection.js').VueRendu} vue @param {{azDeg: number, elDeg: number} | null} lune @param {number} fractionEclairee 0 à 1
  * @param {{familles: {mono: string}, jointure?: 'miter' | 'round' | 'bevel', extremite?: 'butt' | 'round' | 'square'}} o
- * @returns {import('./commandes.js').Commande[]}
+ * @returns {import('../noyau/commandes.js').Commande[]}
  */
 export function commandesLune(vue, lune, fractionEclairee, { familles, jointure, extremite }) {
   if (!lune || lune.elDeg <= -1) return [];
@@ -20,7 +20,7 @@ export function commandesLune(vue, lune, fractionEclairee, { familles, jointure,
   if (Math.abs(dB) >= Math.min(80, vue.champDeg * 0.8)) return [];
   const fh = focalePx(vue), x = vue.largeurPx / 2 + fh * Math.tan(dB * RAD), y = vue.hauteurPx / 2 + fh * Math.tan((vue.inclinaisonDeg - lune.elDeg) * RAD);
   if (!(x > -30 && x < vue.largeurPx + 30 && y > -30 && y < vue.hauteurPx + 30)) return [];
-  /** @type {import('./commandes.js').OperationChemin[]} */
+  /** @type {import('../noyau/commandes.js').OperationChemin[]} */
   const disque = [['A', x, y, 9]];
   const style = { jointure, extremite }, pct = Math.round(fractionEclairee * 100);
   const t = `lune ${lune.azDeg.toFixed(1)}° · ${lune.elDeg.toFixed(1)}° · ${pct} %`;

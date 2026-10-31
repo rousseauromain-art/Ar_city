@@ -5,7 +5,7 @@
  * Sorties : altitudes (m), masque `pm[relevement][k]` (angle maximal rencontré, °). Fonctions pures (v1 : bloc TERRAIN-CORE).
  * Dépend de : noyau/constantes.js.
  */
-import { RAD, RAYON_EFFECTIF_M } from '../noyau/constantes.js';
+import { RAD, RAYON_EFFECTIF_M, RELIEF_MAX_KM } from '../noyau/constantes.js';
 
 /**
  * @typedef {object} Bande
@@ -17,8 +17,6 @@ import { RAD, RAYON_EFFECTIF_M } from '../noyau/constantes.js';
  */
 /** @typedef {{z: number, max: number, ts: number, garantie: boolean}} ConfigBande */
 
-/** Portée maximale du relief, en km (v1 : `RELIEF_MAX_KM`). */
-export const RELIEF_MAX_KM = 200;
 /** Bandes Mapterhorn : z13 fin (non garanti), puis z12, z11 et z8 (Copernicus 30 m, garantis). */
 export const BANDES_HR = Object.freeze([
   { z: 13, max: 5, ts: 512, garantie: false },

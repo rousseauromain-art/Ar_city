@@ -3,16 +3,16 @@
  * Ruban de cap (repère écran, posé APRÈS la scène, jamais pivoté par le roulis) : bandeau sombre sous la zone de sécurité, graduations tous les 5° (plus longues tous les 15°, 45°, 90°),
  * lettres cardinales, valeur du cap au centre. Fonction pure (v1 : `draw`, « ruban de cap »). Entrées : vue, hauteur de la zone de sécurité, polices. Sortie : commandes de dessin.
  */
-import { trait, remplissage, texte } from './commandes.js';
+import { trait, remplissage, texte } from '../noyau/commandes.js';
 
 /** Hauteur du bandeau sous la zone de sécurité (px). */
 const HAUTEUR_RUBAN_PX = 24;
 const CARDINAUX = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
 
-/** @param {import('./projection.js').VueRendu} vue @param {{safeT: number, familles: {affichage: string, mono: string}}} o @returns {import('./commandes.js').Commande[]} */
+/** @param {import('../noyau/projection.js').VueRendu} vue @param {{safeT: number, familles: {affichage: string, mono: string}}} o @returns {import('../noyau/commandes.js').Commande[]} */
 export function commandesRuban(vue, { safeT, familles }) {
   const W = vue.largeurPx, rh = HAUTEUR_RUBAN_PX, top = safeT, ppd = W / vue.champDeg, cap = vue.capDeg, base = Math.round(cap);
-  /** @type {import('./commandes.js').Commande[]} */
+  /** @type {import('../noyau/commandes.js').Commande[]} */
   const out = [remplissage([['RC', 0, 0, W, top + rh]], 'rgba(14,26,43,.78)'), remplissage([['RC', 0, top + rh, W, 1]], 'rgba(243,233,210,.25)')];
   for (let dd = -Math.ceil(vue.champDeg / 2) - 6; dd <= Math.ceil(vue.champDeg / 2) + 6; dd++) {
     const deg = base + dd, n = ((deg % 360) + 360) % 360;

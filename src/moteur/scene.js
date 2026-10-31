@@ -10,13 +10,13 @@
 import { commandesHorizon } from '../rendu/repere-horizon.js';
 import { commandesCroix } from '../rendu/croix-visee.js';
 import { commandesRuban } from '../rendu/ruban-cap.js';
-import { ordonneeHorizon } from '../rendu/projection.js';
+import { ordonneeHorizon } from '../noyau/projection.js';
 import { creerPlaceur } from '../rendu/placement.js';
 import { composerEtiquettes } from '../rendu/etiquettes.js';
 import { composerBande, pointeursHorsChamp } from '../rendu/bande.js';
 import { grouperMobiles, reserverIcones, commandesIcones, composerAvions } from '../rendu/mobiles.js';
 import { poserBateaux } from '../rendu/escalier.js';
-import { texte } from '../rendu/commandes.js';
+import { texte } from '../noyau/commandes.js';
 import { commandesSoleil } from '../rendu/soleil.js';
 import { commandesLune } from '../rendu/lune.js';
 import { positionSoleil, positionLune, phaseLune } from '../noyau/astro.js';
@@ -30,7 +30,7 @@ import { messageCentral, texteStatut } from './statut.js';
 
 /** @typedef {import('./reglages.js').Reglages} Reglages */
 /** @typedef {import('./classement.js').DonneesScene} DonneesScene */
-/** @typedef {import('../rendu/commandes.js').Commande} Commande */
+/** @typedef {import('../noyau/commandes.js').Commande} Commande */
 /**
  * Mémoires entre deux images, MISES À JOUR par composerScene.
  * @typedef {object} MemoiresScene
@@ -46,7 +46,7 @@ import { messageCentral, texteStatut } from './statut.js';
  */
 
 /**
- * @param {{vue: import('../rendu/projection.js').VueRendu, reglages: Reglages, donnees: DonneesScene | null, memoires: MemoiresScene, ecran: EcranScene, maintenantMs: number, etat: EtatScene}} e
+ * @param {{vue: import('../noyau/projection.js').VueRendu, reglages: Reglages, donnees: DonneesScene | null, memoires: MemoiresScene, ecran: EcranScene, maintenantMs: number, etat: EtatScene}} e
  * @returns {{scene: Commande[], ecran: Commande[], bilan: {liste: any[], monuments: any[], affiches: number, badge: number, statut: string, message: string, etage: 'bas' | 'haut', comptes: import('../rendu/etiquettes.js').ComptesEtiquettes | null, zones: {bande: unknown[], avions: unknown[], bateaux: unknown[], etiquettes: unknown[]}}}}
  */
 export function composerScene({ vue, reglages: S, donnees: D, memoires: M, ecran: E, maintenantMs, etat }) {

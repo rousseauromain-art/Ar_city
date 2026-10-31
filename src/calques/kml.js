@@ -5,7 +5,7 @@
  * indique de quel côté tourner. Fonctions pures. Reprend la partie couches personnelles de `draw()` de la v1.
  * Entrées : couches (donnees/kml.js : sites déjà positionnés, `shown`). Sorties : éléments classés, couches de bande, sites trouvés. Dépend de : rendu/bande.js.
  */
-import { PLURIELS_INFRA } from '../rendu/bande.js';
+import { PLURIELS_INFRA } from '../noyau/constantes.js';
 
 /** @typedef {import('../donnees/kml.js').CouchePerso} CouchePerso */
 /** @typedef {import('../donnees/kml.js').ItemPerso} ItemPerso */

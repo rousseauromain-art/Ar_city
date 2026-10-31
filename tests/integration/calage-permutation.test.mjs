@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ajusterSurReperes } from '../../src/calage/reperes.js';
-import { champAffiche as champDe } from '../../src/rendu/projection.js';
+import { champAffiche as champDe } from '../../src/noyau/projection.js';
 
 const D = Math.PI / 180, ECRAN = { largeurPx: 915, hauteurPx: 412 };
 const champAffiche = (cam) => champDe(cam, ECRAN, null);

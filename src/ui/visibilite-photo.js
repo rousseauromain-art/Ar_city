@@ -4,7 +4,7 @@
  * Reçoit le contexte de la page (`c` : réglages, application, aides d'affichage, état partagé `ps`) ; ne lit ni n'écrit rien d'autre que ce contexte et le DOM.
  */
 import { RAD } from '../noyau/constantes.js';
-import { lirePixelsRecadres } from '../vision/lire-pixels.js';
+import { lirePixelsRecadres } from '../entrees/lire-pixels.js';
 import { LARGEUR_ANALYSE_PX, observerCiel } from '../vision/silhouette-ciel.js';
 
 /** @param {import('./contexte.js').Contexte} c */

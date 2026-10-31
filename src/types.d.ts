@@ -24,7 +24,7 @@ export interface Calque {
   libelle: string;
   charger(zone: unknown, donnees: unknown): Promise<unknown[]>;
   classer(elements: unknown[], scene: unknown, reglages: Record<string, unknown>): ElementClasse[];
-  preparer(classes: ElementClasse[], vue: import('./rendu/projection.js').VueRendu, contexte?: unknown): unknown[];
+  preparer(classes: ElementClasse[], vue: import('./noyau/projection.js').VueRendu, contexte?: unknown): unknown[];
 }
 
 export type NiveauJournal = 'info' | 'avert' | 'erreur';

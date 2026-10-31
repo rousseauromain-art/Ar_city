@@ -46,7 +46,7 @@ for(const sc of SCENES){
       const v1=await page.evaluate(()=>window.__vh.frameOps(false,true));
       const e1=await app.ev(EXTRAIRE_V1);
       const v2=await page.evaluate(async({e1,mem0,lane0,monuments,lieux,pylones,reperes,doublons})=>{
-        const pr=await import('/src/rendu/projection.js'), cv=await import('/src/rendu/canvas.js'), sc=await import('/src/moteur/scene.js'), rg=await import('/src/moteur/reglages.js');
+        const pr=await import('/src/noyau/projection.js'), cv=await import('/src/rendu/canvas.js'), sc=await import('/src/moteur/scene.js'), rg=await import('/src/moteur/reglages.js');
         const ev=s=>window.__vh.ev(s), T=ev('terrain'), pos=ev('pos');
         const bands=T.bands.map(b=>({z:b.z,max:b.max,ts:b.ts,shift:b.shift,garantie:b.guaranteed,tx0:b.tx0,ty0:b.ty0,nx:b.nx,ny:b.ny,tiles:b.tiles,altIdx:b.altIdx}));
         const terrain={h0:T.h0,pm:T.pm,bands}, S=rg.fusionnerReglages(e1.S);

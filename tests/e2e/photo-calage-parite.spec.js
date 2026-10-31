@@ -61,7 +61,7 @@ for(const sc of SCENES){
 
     // 1. pixels
     const e1=await app.ev(`${EMPREINTE}(grabFrameRGB(480))`);
-    const e2=await p2.evaluate(async(src)=>{ const m=await import('/src/vision/lire-pixels.js'); const W=innerWidth,H=innerHeight; return eval(src)(m.lirePixelsRecadres(document.getElementById('photoBg'),480,{largeurPx:W,hauteurPx:H})); },EMPREINTE);
+    const e2=await p2.evaluate(async(src)=>{ const m=await import('/src/entrees/lire-pixels.js'); const W=innerWidth,H=innerHeight; return eval(src)(m.lirePixelsRecadres(document.getElementById('photoBg'),480,{largeurPx:W,hauteurPx:H})); },EMPREINTE);
     console.log(sc.id,'pixels',JSON.stringify(e1));
     expect(e2,'pixels réduits identiques à la v1').toEqual(e1);
 
