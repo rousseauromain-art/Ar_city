@@ -13,5 +13,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.js", "src/types.d.ts", "tests/unit/**/*.mjs"]
+  "include": ["src/**/*.js", "src/types.d.ts", "tests/unit/**/*.mjs", "tests/integration/**/*.mjs"]
 }
