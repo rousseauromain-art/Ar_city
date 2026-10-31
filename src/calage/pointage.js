@@ -10,6 +10,8 @@ import { ecartAngle } from '../noyau/maths.js';
 
 /** Écart de relèvement maximal (°) entre le point touché et un candidat. */
 const FENETRE_POINTAGE_DEG = 12;
+/** Un toucher à moins de ce nombre de degrés du disque du soleil VU dans l'image vaut « voici le soleil », même si la boussole est fausse de plus de 12° (en voiture : 30 à 50°). */
+const FENETRE_SOLEIL_VU_DEG = 8;
 /** Un monument plus proche que cela (km) n'est pas assez précis pour corriger l'horizon. */
 const DIST_MIN_HORIZON_KM = 0.15;
 
@@ -20,6 +22,7 @@ const DIST_MIN_HORIZON_KM = 0.15;
  */
 
 /**
+ * Position apparente du disque du soleil détecté dans l'image (avant correction), `soleilVu`, sinon null.
  * @param {{
  *   toucher: {x: number, y: number},
  *   pose: {capDeg: number, inclinaisonDeg: number, roulisDeg: number},
@@ -27,6 +30,7 @@ const DIST_MIN_HORIZON_KM = 0.15;
  *   ecran: {largeurPx: number, hauteurPx: number},
  *   liste: ElementPointe[],
  *   soleil: {azDeg: number, elDeg: number} | null,
+ *   soleilVu?: {azDeg: number, elDeg: number} | null,
  *   avecRelief: boolean,
  *   correctionOeilM?: number,
  *   nomMonument: (c: ElementPointe) => string,
@@ -34,18 +38,20 @@ const DIST_MIN_HORIZON_KM = 0.15;
  * @returns {{aucun: true, note: string} | {aucun: false, source: 'soleil' | 'repere' | 'lieu', relevementDeg: number, cible: ElementPointe | null, nom: string, distKm: number, hauteurConnueM: number | null,
  *   correctionCapDeg: number, correctionHorizonDeg: number | null, texte: string, note: string}}
  */
-export function pointer({ toucher, pose, champDeg, ecran, liste, soleil, avecRelief, correctionOeilM = 0, nomMonument }) {
+export function pointer({ toucher, pose, champDeg, ecran, liste, soleil, soleilVu = null, avecRelief, correctionOeilM = 0, nomMonument }) {
   const fh = ecran.largeurPx / 2 / Math.tan((champDeg / 2) * RAD), cx = ecran.largeurPx / 2, cy = ecran.hauteurPx / 2, dx = toucher.x - cx, dy = toucher.y - cy, r = pose.roulisDeg * RAD;
   const lx = cx + dx * Math.cos(r) + dy * Math.sin(r), ly = cy - dx * Math.sin(r) + dy * Math.cos(r); // repère compensé du roulis, comme le rendu
   const capToucheDeg = (pose.capDeg + Math.atan((lx - cx) / fh) / RAD + 360) % 360, siteToucheDeg = pose.inclinaisonDeg - Math.atan((ly - cy) / fh) / RAD, oeilM = 1.6 + correctionOeilM;
   const sommet = (/** @type {ElementPointe} */ c) => (c.aP !== null && c.aP !== undefined && avecRelief ? c.aP : Math.atan2((c.ht || 20) - oeilM, Math.max(30, /** @type {number} */ (c.dist) * 1000)) / RAD);
   /** @type {ElementPointe | null} */
   let meilleur = null;
-  let meilleurScore = 1e9, estSoleil = false;
+  let meilleurScore = 1e9, estSoleil = false, viaDisque = false;
   // le SOLEIL est le repère le plus sûr : touché à moins de 12°, il l'emporte à écart égal
   if (soleil && soleil.elDeg > -1) {
     const db = Math.abs(ecartAngle(soleil.azDeg - capToucheDeg)), s = Math.hypot(db, 0.5 * (siteToucheDeg - soleil.elDeg)) - 1;
-    if (db < FENETRE_POINTAGE_DEG && s < meilleurScore) { meilleurScore = s; estSoleil = true; }
+    // le disque du soleil détecté dans l'image (position apparente, avant correction) : toucher à côté de lui = toucher le soleil
+    const dVu = soleilVu ? Math.hypot(ecartAngle(soleilVu.azDeg - capToucheDeg), 0.5 * (siteToucheDeg - soleilVu.elDeg)) : Infinity;
+    if ((db < FENETRE_POINTAGE_DEG || dVu < FENETRE_SOLEIL_VU_DEG) && Math.min(s, dVu - 1) < meilleurScore) { meilleurScore = Math.min(s, dVu - 1); estSoleil = true; viaDisque = !!soleilVu && dVu < FENETRE_SOLEIL_VU_DEG; }
   }
   for (const c of liste) {
     if (c.dist === null || c.dist === undefined || c.brg === null || c.brg === undefined || c.far || (avecRelief && c.hidden)) continue;
@@ -57,7 +63,8 @@ export function pointer({ toucher, pose, champDeg, ecran, liste, soleil, avecRel
   if (!estSoleil && !meilleur) return { aucun: true, note: 'aucun lieu ni monument connu près de cet endroit : visez un repère plus net, ou vérifiez son nom dans Réglages' };
   const signe = (/** @type {number} */ v) => (v >= 0 ? '+' : '');
   if (estSoleil && soleil) {
-    const corr = ecartAngle(soleil.azDeg - capToucheDeg), dp = soleil.elDeg - siteToucheDeg;
+    const refAz = viaDisque && soleilVu ? soleilVu.azDeg : capToucheDeg, refEl = viaDisque && soleilVu ? soleilVu.elDeg : siteToucheDeg; // le disque détecté donne la correction exacte, le doigt seulement une approximation
+    const corr = ecartAngle(soleil.azDeg - refAz), dp = soleil.elDeg - refEl;
     const texte = `cap ${signe(corr)}${corr.toFixed(1)}° · horizon ${signe(dp)}${dp.toFixed(1)}° (soleil à ${soleil.azDeg.toFixed(1)}° / ${soleil.elDeg.toFixed(1)}°)`;
     return { aucun: false, source: 'soleil', relevementDeg: soleil.azDeg, cible: null, nom: 'soleil', distKm: 150e6, hauteurConnueM: null, correctionCapDeg: corr, correctionHorizonDeg: dp, texte, note: `calé sur le soleil · ${texte}` };
   }
