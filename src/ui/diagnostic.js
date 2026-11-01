@@ -7,6 +7,7 @@ import { resumeCarnet } from '../calage/carnet.js';
 import { etatFusion, mesuresFusion } from '../entrees/capteurs.js';
 import { VERSION_V2 } from '../outils/version.js';
 import { echap, raison, signe } from './html.js';
+import { SORTIE_MS as SORTIE_ROTATION_MS } from '../entrees/rotation.js';
 
 /** @param {import('./contexte.js').Contexte} c @param {{analyse: {derniere: any, ms: number}, calage: ReturnType<typeof import('./calage.js').installerCalage>, oeil: ReturnType<typeof import('./oeil.js').installerOeil>}} m */
 export function installerDiagnostic(c, { analyse, calage, oeil }) {
@@ -28,7 +29,7 @@ export function installerDiagnostic(c, { analyse, calage, oeil }) {
       ...oeil.lignesDiagnostic(),
       `pylônes ${echap(e.telecom)} · repères hauts ${echap(e.reperes)}`, `relais ${relais || 'non configuré'}`, ...(direct ? [`capteurs : ${echap(etatFusion(fusion, S, Date.now()))}`, `mesures : ${(() => { const m = mesuresFusion(fusion, Date.now()), f = (/** @type {number | null} */ v) => (v === null ? '—' : v.toFixed(1) + '°'); return `boussole ${f(m.capBoussole)} · gyroscope ${f(m.capGyroscope)} · repère ${f(m.reperGyroscope)} · âge gyroscope ${m.ageGyroscopeMs === null ? '—' : Math.round(m.ageGyroscopeMs) + ' ms'} · désaccord depuis ${Math.round(m.desaccordDepuisMs)} ms${m.boussoleEnPause ? ' · boussole en pause' : ''}`; })()}`, `cap affiché ${pose().capDeg.toFixed(1)}° · calage ${S.headOff.toFixed(1)}° / ${S.pitchOff.toFixed(1)}°`,
         ...(ps.dernierRetour ? [`dernier retour à la boussole : il y a ${Math.round((Date.now() - ps.dernierRetour.t) / 1000)} s · boussole ${ps.dernierRetour.m.capBoussole?.toFixed(0)}° · gyroscope ${ps.dernierRetour.m.capGyroscope?.toFixed(0)}° · calage ${ps.dernierRetour.headOff.toFixed(1)}°`] : []),
-        `rotation : écran ${echap(ps.lectureRotation.typeEcran || 'inconnu')} · roulis ${ps.lectureRotation.roulisDeg.toFixed(0)}° · ${ps.rotation.actif ? 'AVERTISSEMENT AFFICHÉ (rotation automatique coupée ?)' : ps.rotation.depuis !== null ? `téléphone en paysage depuis ${Math.round((Date.now() - ps.rotation.depuis) / 1000)} s` : 'écran et téléphone dans le même sens'}${ps.rotation.dernierMs !== null ? ` · dernier avertissement il y a ${Math.round((Date.now() - ps.rotation.dernierMs) / 1000)} s` : ''}`,
+        `rotation : écran ${echap(ps.lectureRotation.typeEcran || 'inconnu')} · roulis ${ps.lectureRotation.roulisDeg.toFixed(0)}° · ${ps.rotation.actif ? `AVERTISSEMENT AFFICHÉ (rotation automatique coupée ?)${ps.rotation.horsDepuis !== null ? ` · sortie dans ${Math.max(0, Math.round((SORTIE_ROTATION_MS - (Date.now() - ps.rotation.horsDepuis)) / 1000))} s` : ''}` : ps.rotation.depuis !== null ? `téléphone en paysage depuis ${Math.round((Date.now() - ps.rotation.depuis) / 1000)} s` : 'écran et téléphone dans le même sens'}${ps.rotation.dernierMs !== null ? ` · dernier avertissement il y a ${Math.round((Date.now() - ps.rotation.dernierMs) / 1000)} s` : ''}`,
         `trace du cap (10 dernières secondes) : ${echantillons.slice(-10).map((x) => x.cap.toFixed(0)).join(' ')}`,
         `caméra ${entree && entree.etat().cameraOk ? 'active' : 'inactive'}${entree && entree.etat().erreurCamera ? ' · ' + echap(entree.etat().erreurCamera) : ''}`, `avions : ${echap(e.messageAir || '—')} · bateaux : ${echap(e.messageSea || '—')}`] : [])];
     $('dbgTitle').textContent = 'Diagnostic';
