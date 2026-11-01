@@ -26,6 +26,7 @@ import { installerDiagnostic } from './diagnostic.js';
 import { installerPhoto } from './photo.js';
 import { installerGestes } from './gestes.js';
 import { installerFiches } from './fiches.js';
+import { evaluerRotation, etatRotationInitial, MESSAGE_ROTATION } from '../entrees/rotation.js';
 import { installerDeclencheur } from './declencheur.js';
 import { creerCarnet } from '../app/carnet.js';
 
@@ -48,7 +49,7 @@ export function demarrerPage({ mode }) {
   const reglagesRepris = reprendreReglagesV1(stockage, (k) => { try { return localStorage.getItem(k); } catch { return null; } });
   const S = lireReglages(stockage);
   /** État partagé par la page et ses modules (ui/*.js) : la photo ouverte, la taille de l'écran, le dernier bilan de la scène, le dernier retour à la boussole. @type {import('./contexte.js').EtatPartage} */
-  const ps = { photoMode: null, W: 0, H: 0, dpr: 1, dernierBilan: null, dernierRetour: null };
+  const ps = { photoMode: null, W: 0, H: 0, dpr: 1, dernierBilan: null, dernierRetour: null, rotation: etatRotationInitial(), lectureRotation: { roulisDeg: 0, typeEcran: /** @type {string | null} */ (null) } };
   const sauver = () => ecrireReglages(stockage, S, ps.photoMode ? ps.photoMode.backup : null);
   const relais = String((/** @type {any} */ (window).APP_CONFIG || {}).relay || '');
   const app = creerApplication({ reglages: () => S, journal, stockage, relais, urlWorkerMasque: new URL('../workers/masque-relief.js', import.meta.url), quandChange: () => {} });
@@ -206,10 +207,20 @@ export function demarrerPage({ mode }) {
     derniere = t;
     dessinerImage();
   }
+  /** Écran en portrait, téléphone en paysage : le bandeau apparaît après 1,5 s, disparaît dès que la condition cesse, au plus une fois toutes les 5 min (entrees/rotation.js). */
+  function surveillerRotation() {
+    const roulisDeg = pose().roulisDeg, typeEcran = (screen.orientation && screen.orientation.type) || null;
+    ps.lectureRotation = { roulisDeg, typeEcran };
+    const r = evaluerRotation(ps.rotation, { direct, roulisDeg, typeEcran, maintenantMs: Date.now() });
+    ps.rotation = r.etat;
+    const m = $f('rotMsg');
+    if (m.hidden === r.avertir) { m.hidden = !r.avertir; m.textContent = r.avertir ? MESSAGE_ROTATION : ''; if (r.avertir) journal.info('rotation', 'écran en portrait, téléphone tenu en paysage'); }
+  }
   function dessinerImage() {
     if (S.photoVis === true && imageSource() && !document.hidden && Date.now() - vis.analyse.t > PERIODE_ANALYSE_MS) { vis.analyse.t = Date.now(); try { vis.analyserCiel(); } catch (e) { journal.erreur('vision', 'analyse du ciel', e); } }
     const d = app.donnees(), e = app.etat();
     oeil.synchroOeil();
+    if (direct) surveillerRotation();
     const po = pose(), maintenant = Date.now(), cam = entree ? entree.etat() : null;
     if (direct) app.actualiserMobiles(maintenant);
     const vue = { largeurPx: ps.W, hauteurPx: ps.H, capDeg: po.capDeg, inclinaisonDeg: po.inclinaisonDeg, roulisDeg: po.roulisDeg, champDeg: vFov() };
