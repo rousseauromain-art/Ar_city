@@ -194,3 +194,4 @@ button[disabled].etape10{pointer-events:none}
 #fiche .ficheG{margin-top:6px;opacity:.8;font-size:12px}
 #fiche .ficheLiens{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}#fiche .ficheLiens a{color:var(--ochre);border:1px solid rgba(224,165,38,.45);border-radius:4px;padding:8px 10px;text-decoration:none;min-height:20px}
 #ficheClose{position:absolute;top:4px;right:4px;width:36px;height:36px;border:0;background:none;color:var(--cream);font:400 24px/1 var(--mono)}
+#eyePropT{margin:4px 0 2px;color:#FFD23F}#eyePropT:empty{display:none}

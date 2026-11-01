@@ -53,39 +53,37 @@ test('la page en direct n’a plus de ligne « Rejouer une photo » (la page pho
   expect(erreurs).toEqual([]);
 });
 
-test('hauteur d’œil : « Réestimer » remet la correction à zéro ; « Altitude GPS » (direct) amène l’œil à l’altitude du téléphone',async({page})=>{
-  const erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
+const mesuresGps=(centre,bruit,prec,n=25)=>Array.from({length:n},(_,i)=>({t:i*1000,altitudeM:centre+bruit*Math.sin(i*2.4),precisionAltM:prec}));
+async function ouvrirDirectOeil(page){
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
   await page.goto('/v2/ar.html');
-  const r=await page.evaluate(()=>{ const v=window.__vh2, $=id=>document.getElementById(id), od=v.app.donnees, oe=v.entree.etat;
-    v.S.oeilGps=false; // le recalage automatique a son propre test
-    v.app.donnees=()=>({...od(),terrain:{h0:14.6,solM:13,origine:'relief fin : test',pm:null,bands:[]}});
-    v.entree.etat=()=>({...oe(),altitudeM:45,precisionAltM:8});
-    v.synchroOeil(); const a={gpsVisible:!$('eyeGps').hidden,detail:$('eyePopT').textContent};
-    $('eyeGps').click(); a.corr=v.S.obsHeight;
-    v.synchroOeil(); a.apres=$('eyeChip').textContent;
-    v.entree.etat=()=>({...oe(),altitudeM:45,precisionAltM:80}); v.synchroOeil(); a.gpsImprecis=$('eyeGps').hidden;
-    $('eyeRe').click(); a.reset=v.S.obsHeight;
-    v.app.donnees=od; v.entree.etat=oe; return a; });
-  expect(r).toEqual({gpsVisible:true,detail:'Sol estimé 13 m (relief fin : test) · correction 0 m → œil à 15 m · altitude GPS 45 m (±8)',corr:30,apres:'œil +30 m',gpsImprecis:true,reset:0});
+  await page.evaluate(()=>{ const v=window.__vh2, od=v.app.donnees, oe=v.entree.etat;
+    v.app.donnees=()=>({...od(),terrain:{h0:14.6,solM:13,origine:'modèle 30 m',pm:null,bands:[]}});
+    window.__gps=(centre,bruit,prec)=>{ const a=Array.from({length:25},(_,i)=>({t:i*1000,altitudeM:centre+bruit*Math.sin(i*2.4),precisionAltM:prec})); v.entree.etat=()=>({...oe(),altitudes:a,altitudeM:centre,precisionAltM:prec}); };
+    window.__restaurer=()=>{ v.app.donnees=od; v.entree.etat=oe; }; });
+}
+
+test('hauteur d’œil : par défaut le GPS PROPOSE (« Appliquer »), il n’impose rien ; bruit de ±15 m : aucune proposition ; « Réestimer » remet à zéro',async({page})=>{
+  const erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
+  await ouvrirDirectOeil(page);
+  const r=await page.evaluate(()=>{ const v=window.__vh2, $=id=>document.getElementById(id), a={};
+    a.defaut=v.S.oeilGps; window.__gps(13+Math.sin(0),15,5); v.synchroOeil(); a.bruitBouton=!$('eyeGps').hidden; a.obsBruit=v.S.obsHeight;
+    window.__gps(13+1.6+40,0.5,5); v.synchroOeil(); a.bouton=!$('eyeGps').hidden; a.prop=$('eyePropT').textContent; a.puce=$('eyeChip').textContent; a.obsAvant=v.S.obsHeight;
+    $('eyeGps').click(); a.obs=v.S.obsHeight; a.src=v.S.obsHeightSrc; v.synchroOeil(); a.apres=$('eyeChip').textContent;
+    window.__gps(13+1.6+60,0.5,15); v.synchroOeil(); a.imprecis=!$('eyeGps').hidden;
+    $('eyeRe').click(); a.reset=v.S.obsHeight; a.srcReset=v.S.obsHeightSrc; window.__restaurer(); return a; });
+  expect(r).toEqual({defaut:false,bruitBouton:false,obsBruit:0,bouton:true,prop:'GPS : +40 m (±5 m)',puce:'œil 0 m · GPS ?',obsAvant:0,obs:40,src:'gps',apres:'œil +40 m GPS',imprecis:false,reset:0,srcReset:''});
   expect(erreurs).toEqual([]);
 });
 
-test('hauteur d’œil automatique (direct) : l’altitude GPS précise recale seule ; un réglage à la main la fige ; imprécise ou incohérente, rien',async({page})=>{
+test('hauteur d’œil automatique (case cochée) : applique la proposition, un réglage à la main la fige',async({page})=>{
   const erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
-  await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
-  await page.goto('/v2/ar.html');
-  const r=await page.evaluate(()=>{ const v=window.__vh2, $=id=>document.getElementById(id), od=v.app.donnees, oe=v.entree.etat, a={};
-    v.app.donnees=()=>({...od(),terrain:{h0:14.6,solM:13,origine:'relief fin : test',pm:null,bands:[]}});
-    const gps=(altitudeM,precisionAltM)=>{ v.entree.etat=()=>({...oe(),altitudeM,precisionAltM}); };
-    gps(45,80); v.synchroOeil(); a.imprecis=v.S.obsHeight;
-    gps(400,8); v.synchroOeil(); a.incoherent=v.S.obsHeight;
-    gps(45,8); v.synchroOeil(); a.auto=v.S.obsHeight; a.puce=$('eyeChip').textContent;
-    $('eyeQ').value='5'; $('eyeQ').dispatchEvent(new Event('input',{bubbles:true})); a.main=v.S.obsHeight;
-    gps(60,8); v.synchroOeil(); a.fige=v.S.obsHeight;
-    v.app.donnees=od; v.entree.etat=oe; return a; });
-  expect(r).toEqual({imprecis:0,incoherent:0,auto:30,puce:'œil GPS +30 m',main:5,fige:5});
-  await page.evaluate(()=>{ window.__vh2.S.oeilGps=false; });
+  await ouvrirDirectOeil(page);
+  const r=await page.evaluate(()=>{ const v=window.__vh2, $=id=>document.getElementById(id), a={};
+    v.S.oeilGps=true; window.__gps(13+1.6+40,0.5,5); v.synchroOeil(); a.auto=v.S.obsHeight; a.src=v.S.obsHeightSrc; a.puce=$('eyeChip').textContent;
+    $('eyeQ').value='5'; $('eyeQ').dispatchEvent(new Event('input',{bubbles:true})); a.main=v.S.obsHeight; a.srcMain=v.S.obsHeightSrc;
+    window.__gps(13+1.6+80,0.5,5); v.synchroOeil(); a.fige=v.S.obsHeight; window.__restaurer(); v.S.oeilGps=false; return a; });
+  expect(r).toEqual({auto:40,src:'gps',puce:'œil +40 m GPS',main:5,srcMain:'main',fige:5});
   expect(erreurs).toEqual([]);
 });
 
