@@ -26,7 +26,7 @@ import { installerDiagnostic } from './diagnostic.js';
 import { installerPhoto } from './photo.js';
 import { installerGestes } from './gestes.js';
 import { installerFiches } from './fiches.js';
-import { evaluerRotation, etatRotationInitial, MESSAGE_ROTATION } from '../entrees/rotation.js';
+import { evaluerRotation, etatRotationInitial, fermerRotation, MESSAGE_ROTATION } from '../entrees/rotation.js';
 import { installerDeclencheur } from './declencheur.js';
 import { creerCarnet } from '../app/carnet.js';
 
@@ -216,6 +216,7 @@ export function demarrerPage({ mode }) {
     const m = $f('rotMsg');
     if (m.hidden === r.avertir) { m.hidden = !r.avertir; m.textContent = r.avertir ? MESSAGE_ROTATION : ''; if (r.avertir) journal.info('rotation', 'écran en portrait, téléphone tenu en paysage'); }
   }
+  $f('rotMsg').addEventListener('click', () => { ps.rotation = fermerRotation(ps.rotation, Date.now()); $f('rotMsg').hidden = true; }); // un toucher ferme le bandeau : la pause de 5 min commence
   function dessinerImage() {
     if (S.photoVis === true && imageSource() && !document.hidden && Date.now() - vis.analyse.t > PERIODE_ANALYSE_MS) { vis.analyse.t = Date.now(); try { vis.analyserCiel(); } catch (e) { journal.erreur('vision', 'analyse du ciel', e); } }
     const d = app.donnees(), e = app.etat();

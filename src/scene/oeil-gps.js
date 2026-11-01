@@ -38,7 +38,7 @@ export function resumerAltitudes(mesures, ondulationM = 0) {
   const moy = dernieres.reduce((s, v) => s + v, 0) / dernieres.length;
   return {
     n: ok.length, dureeMs: ok[ok.length - 1].t - ok[0].t, medianeM: mediane(hauteurs),
-    precisionM: mediane(ok.map((m) => m.precisionAltM).filter((p) => typeof p === 'number' && Number.isFinite(p))),
+    precisionM: mediane(/** @type {number[]} */ (ok.map((m) => m.precisionAltM).filter((p) => typeof p === 'number' && Number.isFinite(p)))),
     dispersion: { minM: Math.min(...dernieres), maxM: Math.max(...dernieres), ecartTypeM: Math.sqrt(dernieres.reduce((s, v) => s + (v - moy) ** 2, 0) / dernieres.length) },
   };
 }

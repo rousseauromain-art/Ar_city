@@ -54,17 +54,22 @@ export function installerOeil(c) {
   }
   /** Reprend le recalage automatique (case recochée). */
   const reprendreAuto = () => { manuel = false; derniereAutoMs = -Infinity; };
+  /** Ligne « altitude GPS » du Diagnostic. @param {ReturnType<typeof proposerCorrectionGps> | null} r @param {number | null} brute @param {number} n géoïde */
+  const ligneGps = (r, brute, n) => (r && r.medianeM !== null
+    ? `altitude GPS : médiane ${Math.round(r.medianeM)} m au niveau de la mer${brute !== null ? ` (dernière mesure ${brute} m${n ? ` − géoïde ${Math.round(n)} m` : ''})` : ''} sur ${r.n} mesure(s) en ${Math.round(r.dureeMs / 1000)} s · précision ±${r.precisionM === null ? '?' : Math.round(r.precisionM)} m`
+    : 'altitude GPS : aucune mesure');
+  /** Ligne « proposition » du Diagnostic : la correction proposée ou la raison du refus. @param {ReturnType<typeof proposerCorrectionGps> | null} p */
+  const ligneProposition = (p) => (!p ? 'aucune proposition (relief non calculé)'
+    : p.proposee ? `proposition : correction ${fmtOeil(/** @type {number} */ (p.correctionM))} (écart au sol ${Math.round(/** @type {number} */ (p.ecartSolM))} m)` : `aucune proposition : ${echap(p.raison)}`);
   /** Lignes du Diagnostic : altitude GPS, géoïde, sol et origine, dispersion, proposition ou raison du refus. @returns {string[]} lignes HTML (déjà échappées) */
   function lignesDiagnostic() {
     const t = /** @type {any} */ (app.donnees().terrain), g = direct && entree ? entree.etat() : null;
     const mode = `mode : ${S.oeilGps === true ? 'automatique (case cochée : recale seul, au plus toutes les 2 min)' : 'le GPS propose, vous appliquez'} · origine de la correction : ${S.obsHeightSrc || 'aucune'}`;
     if (!direct) return [`hauteur d'œil : ${mode}`];
-    const p = proposition(t), r = p, brute = g && g.altitudeM !== null && g.altitudeM !== undefined ? Math.round(g.altitudeM) : null, n = ondulation();
+    const p = proposition(t), brute = g && g.altitudeM !== null && g.altitudeM !== undefined ? Math.round(g.altitudeM) : null;
     const sol = t && t.solM !== undefined ? `sol ${Math.round(t.solM)} m (${echap(t.origine || '?')})` : 'sol inconnu (relief non calculé)';
-    const gps = r && r.medianeM !== null ? `altitude GPS : médiane ${Math.round(r.medianeM)} m au niveau de la mer${brute !== null ? ` (dernière mesure ${brute} m${n ? ` − géoïde ${Math.round(n)} m` : ''})` : ''} sur ${r.n} mesure(s) en ${Math.round(r.dureeMs / 1000)} s · précision ±${r.precisionM === null ? '?' : Math.round(r.precisionM)} m` : 'altitude GPS : aucune mesure';
-    const disp = r && r.dispersion ? `dispersion des ${Math.min(10, r.n)} dernières mesures : ${r.dispersion.minM.toFixed(0)} à ${r.dispersion.maxM.toFixed(0)} m (σ ${r.dispersion.ecartTypeM.toFixed(1)} m)` : 'dispersion : —';
-    const prop = p ? (p.proposee ? `proposition : correction ${fmtOeil(/** @type {number} */ (p.correctionM))} (écart au sol ${Math.round(/** @type {number} */ (p.ecartSolM))} m)` : `aucune proposition : ${echap(p.raison)}`) : 'aucune proposition (relief non calculé)';
-    return [`hauteur d'œil : ${mode}`, `${gps} · ${sol}`, `${disp} · seuils : écart ≥ ${ECART_PROPOSITION_M} m, précision ≤ ${PRECISION_MAX_M} m`, prop];
+    const disp = p && p.dispersion ? `dispersion des ${Math.min(10, p.n)} dernières mesures : ${p.dispersion.minM.toFixed(0)} à ${p.dispersion.maxM.toFixed(0)} m (σ ${p.dispersion.ecartTypeM.toFixed(1)} m)` : 'dispersion : —';
+    return [`hauteur d'œil : ${mode}`, `${ligneGps(p, brute, ondulation())} · ${sol}`, `${disp} · seuils : écart ≥ ${ECART_PROPOSITION_M} m, précision ≤ ${PRECISION_MAX_M} m`, ligneProposition(p)];
   }
   let derniereOeil = '';
   /** Met à jour la puce « œil », son détail et la ligne du réglage d'après le relief calculé ; applique le recalage automatique si la case est cochée. */
