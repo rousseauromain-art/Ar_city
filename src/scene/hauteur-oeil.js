@@ -108,22 +108,6 @@ export function correctionDepuisGps(altitudeGpsM, precisionAltM, solM, ondulatio
 }
 /** Au-delà, l'altitude GPS est jugée trop imprécise pour corriger la hauteur d'œil. */
 const PRECISION_ALT_MAX_M = 30;
-/** Recalage automatique : écart minimal avec la correction actuelle (m), délai minimal entre deux recalages (ms, chaque recalage relance le relief), écart maximal avec le sol (m) au-delà duquel l'altitude GPS est jugée incohérente. */
-export const OEIL_AUTO_ECART_MIN_M = 3, OEIL_AUTO_DELAI_MS = 30000, OEIL_AUTO_ECART_MAX_M = 100;
-
-/**
- * Faut-il recaler tout seul la hauteur d'œil sur l'altitude GPS ? Renvoie la nouvelle correction (m) ou `null` (rien à faire).
- * Rien si : l'utilisateur a réglé à la main, le dernier recalage est trop récent, l'altitude est absente / imprécise / incohérente avec le sol, ou le gain est sous 3 m.
- * @param {{altitudeM: number | null | undefined, precisionAltM: number | null | undefined, solM: number, obsHeight: number, derniereMs: number, maintenantMs: number, manuel: boolean, ondulationM?: number}} e
- * @returns {number | null}
- */
-export function decisionOeilAuto({ altitudeM, precisionAltM, solM, obsHeight, derniereMs, maintenantMs, manuel, ondulationM = 0 }) {
-  if (manuel || maintenantMs - derniereMs < OEIL_AUTO_DELAI_MS) return null;
-  const c = correctionDepuisGps(altitudeM, precisionAltM, solM, ondulationM);
-  if (c === null || Math.abs(/** @type {number} */ (altitudeM) - ondulationM - solM) > OEIL_AUTO_ECART_MAX_M) return null;
-  return Math.abs(c - obsHeight) >= OEIL_AUTO_ECART_MIN_M ? c : null;
-}
-
 /**
  * Altitude de l'œil : sol + 1,6 m + correction manuelle, jamais sous 1 m (v1 : `h0`).
  * @param {number} solM sol sous les pieds (NaN → 0) @param {number} [correctionM] correction manuelle (balcon +, sol surestimé -)
