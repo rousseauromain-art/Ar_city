@@ -186,7 +186,7 @@ export function demarrerPage({ mode }) {
     note('Cache vidé : rechargez la page.');
   });
   $('verInfo').textContent = VERSION_V2;
-  installerDiagnostic(c, { analyse: vis.analyse, calage });
+  installerDiagnostic(c, { analyse: vis.analyse, calage, oeil });
   installerPhoto(c, calage);
   const fiches = installerFiches(c);
   const gestes = installerGestes(c, calage, fiches);

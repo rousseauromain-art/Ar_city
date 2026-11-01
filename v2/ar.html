@@ -24,7 +24,7 @@
       <button id="eyeChip" class="chip" aria-label="Hauteur de prise de vue estimée" hidden></button>
     </div>
     <div id="radPop" class="chip" hidden><input type="range" id="radQ" min="10" max="200" step="5" value="60" aria-label="Rayon de recherche"></div>
-    <div id="eyePop" class="chip" hidden><span id="eyePopT"></span><input type="range" id="eyeQ" min="-30" max="250" step="1" value="0" aria-label="Correction de la hauteur de prise de vue"><span class="eyeBtns"><button type="button" id="eyeRe">Réestimer</button><button type="button" id="eyeGps" hidden>Altitude GPS</button></span></div>
+    <div id="eyePop" class="chip" hidden><span id="eyePopT"></span><div id="eyePropT"></div><input type="range" id="eyeQ" min="-30" max="250" step="1" value="0" aria-label="Correction de la hauteur de prise de vue"><span class="eyeBtns"><button type="button" id="eyeRe">Réestimer</button><button type="button" id="eyeGps" hidden>Appliquer</button></span></div>
     <div id="calib" class="chip"></div>
     <div id="photoChip" class="chip" hidden></div>
     <div id="filt" class="chip"></div>
@@ -116,7 +116,7 @@
     <label for="phv">Visibilité d'après la photo (on ne nomme que ce que la caméra voit)</label><input type="checkbox" id="phv">
   </div>
   <div class="row">
-    <label for="oeilGps">Hauteur d'œil d'après l'altitude GPS du téléphone (direct, si elle est précise)</label><input type="checkbox" id="oeilGps">
+    <label for="oeilGps">Hauteur d'œil recalée toute seule d'après l'altitude GPS (direct ; sinon le GPS propose dans la puce œil)</label><input type="checkbox" id="oeilGps">
   </div>
   <div class="row">
     <label for="autoRel">« Caler auto » : le relief avant le soleil</label><input type="checkbox" id="autoRel">

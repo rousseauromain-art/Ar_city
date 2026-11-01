@@ -8,8 +8,8 @@ import { etatFusion, mesuresFusion } from '../entrees/capteurs.js';
 import { VERSION_V2 } from '../outils/version.js';
 import { echap, raison, signe } from './html.js';
 
-/** @param {import('./contexte.js').Contexte} c @param {{analyse: {derniere: any, ms: number}, calage: ReturnType<typeof import('./calage.js').installerCalage>}} m */
-export function installerDiagnostic(c, { analyse, calage }) {
+/** @param {import('./contexte.js').Contexte} c @param {{analyse: {derniere: any, ms: number}, calage: ReturnType<typeof import('./calage.js').installerCalage>, oeil: ReturnType<typeof import('./oeil.js').installerOeil>}} m */
+export function installerDiagnostic(c, { analyse, calage, oeil }) {
   const { S, app, journal, stockage, carnet, fusion, entree, relais, direct, $, pose, imageSource, ps, echantillons, reglagesRepris } = c;
   $('btnDbg').addEventListener('click', () => {
     $('sheet').classList.remove('open');
@@ -25,6 +25,7 @@ export function installerDiagnostic(c, { analyse, calage }) {
         if (!a.ok) return `ciel illisible (${Math.round((a.skyFrac || 0) * 100)} % du haut de l'image) : règles estimées seulement · analyse ${analyse.ms.toFixed(1)} ms`;
         return `silhouette lue il y a ${Math.round((Date.now() - a.t) / 1000)} s sur ${a.cols.length} colonnes (ciel ${Math.round(a.skyFrac * 100)} % du haut de l'image) · ${liste.filter((m) => m.kind === 'monument' && m.photo === true).length} monument(s) vus, ${liste.filter((m) => m.photoHid).length} cachés · analyse ${analyse.ms.toFixed(1)} ms`;
       })()}`, `monuments ${d.monuments.length} · ${echap(e.monuments)}`,
+      ...oeil.lignesDiagnostic(),
       `pylônes ${echap(e.telecom)} · repères hauts ${echap(e.reperes)}`, `relais ${relais || 'non configuré'}`, ...(direct ? [`capteurs : ${echap(etatFusion(fusion, S, Date.now()))}`, `mesures : ${(() => { const m = mesuresFusion(fusion, Date.now()), f = (/** @type {number | null} */ v) => (v === null ? '—' : v.toFixed(1) + '°'); return `boussole ${f(m.capBoussole)} · gyroscope ${f(m.capGyroscope)} · repère ${f(m.reperGyroscope)} · âge gyroscope ${m.ageGyroscopeMs === null ? '—' : Math.round(m.ageGyroscopeMs) + ' ms'} · désaccord depuis ${Math.round(m.desaccordDepuisMs)} ms${m.boussoleEnPause ? ' · boussole en pause' : ''}`; })()}`, `cap affiché ${pose().capDeg.toFixed(1)}° · calage ${S.headOff.toFixed(1)}° / ${S.pitchOff.toFixed(1)}°`,
         ...(ps.dernierRetour ? [`dernier retour à la boussole : il y a ${Math.round((Date.now() - ps.dernierRetour.t) / 1000)} s · boussole ${ps.dernierRetour.m.capBoussole?.toFixed(0)}° · gyroscope ${ps.dernierRetour.m.capGyroscope?.toFixed(0)}° · calage ${ps.dernierRetour.headOff.toFixed(1)}°`] : []),
         `trace du cap (10 dernières secondes) : ${echantillons.slice(-10).map((x) => x.cap.toFixed(0)).join(' ')}`,
