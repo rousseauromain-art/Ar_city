@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { creerFusion, surOrientation, poseCapteurs, noterCalage, axesCamera, etatFusion, GYRO_SAUT_MS } from '../../src/entrees/capteurs.js';
+import { creerFusion, surOrientation, poseCapteurs, noterCalage, axesCamera, etatFusion, mesuresFusion, signalerReouverture, ACCORD_RETABLI_MS } from '../../src/entrees/capteurs.js';
 
 const src = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url), 'utf8');
 const debut = src.indexOf('let gotAbs=false;'), fin = src.indexOf('// ---------- données ----------', debut);
@@ -66,11 +66,69 @@ test('écran en paysage (90°, 270°) et à l’envers (180°)', () => {
   for (const angle of [90, 270, -90, 180]) compare(sequence({ pas: 120 }), { angleEcran: angle });
 });
 
-test('saut du repère du gyroscope (> 40° pendant plus de 2 s) : retour à la boussole, comme la v1', () => {
-  const s = sequence({ pas: 300, saut: { depuis: 120, valeur: 130 } });
-  const { f, reinit } = compare(s);
-  assert.equal(reinit, 1); assert.equal(f.gyroResets, 1);
-  assert.ok(GYRO_SAUT_MS === 2000);
+/** Rejoue une séquence dans la fusion de la v2 seule (sans la v1) : renvoie la fusion, les poses échantillonnées et les compteurs d'événements. */
+function jouerV2(etapes, { angleEcran = 0, S = { gyro: true, headOff: 0, pitchOff: 0 }, avant = null } = {}) {
+  const f = avant || creerFusion(), poses = [], ev = { reinit: 0, debut: 0, fin: 0, causes: [] };
+  for (const s of etapes) {
+    const r = surOrientation(f, { ...s.e, angleEcran }, s.absolu, s.t);
+    if (r.reinitialise) { ev.reinit++; ev.causes.push(r.cause); } if (r.perturbation === 'debut') ev.debut++; if (r.perturbation === 'fin') ev.fin++;
+    poses.push({ t: s.t, cap: poseCapteurs(f, S, s.t).capDeg });
+  }
+  return { f, poses, ev };
+}
+/** Téléphone immobile (cap 100°, debout) : la boussole mesure `biais(t)` d'écart, le gyroscope un décalage constant. */
+function immobile({ n = 400, t0 = 1000, biais = () => 0, decalageRel = 70, sautRelatifA = null, saut = 0 }) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const t = t0 + i * 50, cap = 100;
+    out.push({ t, absolu: true, e: { alpha: (360 - cap - biais(t - t0) + 720) % 360, beta: 85, gamma: 2 } });
+    out.push({ t: t + 5, absolu: false, e: { alpha: (360 - cap + decalageRel + (sautRelatifA !== null && i >= sautRelatifA ? saut : 0) + 720) % 360, beta: 85, gamma: 2 } });
+  }
+  return out;
+}
+const ecart = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
+
+test('VEILLE-ANCRAGE A : dérive magnétique progressive jusqu\'à 70° : aucun retour à la boussole, « boussole perturbée », le cap et le calage tiennent', () => {
+  const S = { gyro: true, headOff: 0, pitchOff: 0 };
+  const stable = jouerV2(immobile({ n: 200 }), { S }), capAvant = stable.poses[stable.poses.length - 1].cap;
+  noterCalage(stable.f, 11000); S.headOff = 12; // un calage vient d'être fait : +12°
+  const derive = jouerV2(immobile({ n: 400, t0: 12000, biais: (dt) => Math.min(70, dt / 300) }), { S, avant: stable.f }); // 0 → 70° en 21 s
+  assert.equal(derive.ev.reinit, 0, 'aucun retour à la boussole');
+  assert.equal(derive.ev.debut, 1, 'une seule perturbation signalée'); assert.equal(derive.f.boussolePerturbee, true);
+  assert.equal(derive.f.gyroResets, 0);
+  for (const p of derive.poses.slice(-50)) assert.ok(ecart(p.cap, capAvant + 12) < 0.5, `le cap suit le gyroscope : ${p.cap.toFixed(1)}° au lieu de ${(capAvant + 12).toFixed(1)}°`);
+  assert.match(etatFusion(derive.f, S, 40000), /BOUSSOLE PERTURBÉE/); assert.equal(mesuresFusion(derive.f, 40000).boussolePerturbee, true);
+  // la boussole redevient normale : accord retrouvé après 2 s, apprentissage repris
+  const fin = jouerV2(immobile({ n: 200, t0: 33000, biais: () => 0 }), { S, avant: derive.f });
+  assert.equal(fin.ev.fin, 1); assert.equal(fin.f.boussolePerturbee, false); assert.ok(ACCORD_RETABLI_MS === 2000);
+  assert.equal(fin.f.gyroResets, 0);
+});
+
+test('désaccord durable de 60° (voiture, métal) : jamais de retour à la boussole, même après des minutes', () => {
+  const r = jouerV2(immobile({ n: 4000, biais: (dt) => (dt > 3000 ? 60 : 0) })); // 200 s
+  assert.equal(r.ev.reinit, 0); assert.equal(r.f.boussolePerturbee, true);
+  const cap0 = r.poses[100].cap; assert.ok(ecart(r.poses[r.poses.length - 1].cap, cap0) < 0.5, 'le cap n\'a pas bougé');
+});
+
+test('saut instantané du repère du gyroscope (90° d\'une mesure à l\'autre) : un retour à la boussole, une seule fois', () => {
+  const r = jouerV2(immobile({ n: 300, sautRelatifA: 150, saut: 90 }));
+  assert.equal(r.ev.reinit, 1); assert.deepEqual(r.ev.causes, ['saut']); assert.equal(r.f.gyroResets, 1); assert.equal(r.f.boussolePerturbee, false);
+  const apres = r.poses[r.poses.length - 1].cap; assert.ok(ecart(apres, 100) < 3, `retour à la boussole : cap ${apres.toFixed(1)}°`);
+});
+
+test('caméra vers le haut (cap non défini) : pas de faux saut', () => {
+  const etapes = []; let t = 1000;
+  for (let i = 0; i < 100; i++) { t += 50; etapes.push({ t, absolu: true, e: { alpha: 260, beta: 2, gamma: 0 } }, { t: t + 5, absolu: false, e: { alpha: (330 + (i % 2) * 120) % 360, beta: 2, gamma: 0 } }); } // téléphone à plat, alpha qui saute (cap indéfini)
+  assert.equal(jouerV2(etapes).ev.reinit, 0);
+});
+
+test('réouverture (retour au premier plan, caméra relancée) : retour à la boussole, une seule fois', () => {
+  const f = jouerV2(immobile({ n: 200 })).f, capAvant = poseCapteurs(f, { gyro: true, headOff: 0, pitchOff: 0 }, 11000).capDeg;
+  signalerReouverture(f);
+  const r = jouerV2(immobile({ n: 100, t0: 12000, decalageRel: 130 }), { avant: f }); // le gyroscope a changé de repère pendant l'absence
+  assert.equal(r.ev.reinit, 1); assert.deepEqual(r.ev.causes, ['reouverture']); assert.equal(f.reouverture, false);
+  assert.ok(ecart(r.poses[r.poses.length - 1].cap, 100) < 3, 'cap ramené à la boussole'); assert.ok(capAvant !== undefined);
+  const encore = jouerV2(immobile({ n: 100, t0: 20000, decalageRel: 130 }), { avant: f }); assert.equal(encore.ev.reinit, 0, 'une seule fois');
 });
 
 test('boussole en pause après un calage, réglage gyroscope désactivé, décalages de calage', () => {

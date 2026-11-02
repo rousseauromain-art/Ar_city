@@ -52,6 +52,16 @@
 | D | Échelle calée une fois par téléphone avec 2 points, puis mémorisée | Petit | Les objets ne glissent plus vers les bords |
 | E | Prototype « RA stable » en WebXR (`immersive-ar`, DOM overlay), derrière un drapeau, mesuré de jour et de nuit à Paris | Gros | Ancrage comparable aux applis natives |
 
+## 4. État d'avancement (2/11/2026)
+
+| # | Action | État |
+|---|---|---|
+| A | La boussole ne défait plus le calage | **Faite en v2 (PR « ancrage-boussole »).** Retour à la boussole seulement sur un vrai saut du repère du gyroscope : saut instantané (plus de 40° d'une mesure à l'autre, cap défini) ou réouverture (retour au premier plan, caméra relancée). Un désaccord de plus de 40° sans saut ne fait plus rien : la boussole est jugée « perturbée », ignorée (ni apprentissage, ni rattrapage), le cap suit le gyroscope et le calage tient ; elle redevient fiable après 2 s d'accord. Ligne « Cap » du Diagnostic : « BOUSSOLE PERTURBÉE (ignorée depuis N s) ». Écart volontaire avec la v1 (figée), qui garde l'ancienne règle. |
+| B | Capteur d'orientation relatif 60 Hz (quaternions) | À faire (PR suivante, derrière une case « essai »). |
+| C | Recalage automatique continu sur le soleil et la lune | À faire (PR suivante, case décochée par défaut). Monuments lumineux de nuit (tour Eiffel) : plus tard. |
+| D | Échelle du champ calée avec 2 points | Faite (étape 11i). |
+| E | Prototype « RA stable » WebXR | Non lancé (choix du 2/11 : seulement si A à C ne suffisent pas). |
+
 ## Sources
 - Android, capteurs de position (game rotation vector) : https://developer.android.com/develop/sensors-and-location/sensors/sensors_position
 - RelativeOrientationSensor (MDN) : https://developer.mozilla.org/en-US/docs/Web/API/RelativeOrientationSensor

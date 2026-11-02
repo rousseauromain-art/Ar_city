@@ -5,7 +5,7 @@
  * Entrées : élément `<video>`, fusion des capteurs, rappel de position. Sortie : contrôleur { demarrer, arreter, etat, flux }. Reprend `startCamera`, `#go` et les écouteurs de la v1.
  * Dépend de : entrees/capteurs.js.
  */
-import { surOrientation, mesuresFusion } from './capteurs.js';
+import { surOrientation, mesuresFusion, signalerReouverture } from './capteurs.js';
 
 /** Durée (ms) des mesures d'altitude GPS gardées. */
 const HISTORIQUE_ALTITUDES_MS = 60000;
@@ -42,6 +42,8 @@ export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRet
   }
   const cameraVivante = () => { const t = flux && flux.getVideoTracks()[0]; return !!(t && t.readyState === 'live' && !video.paused); };
 
+  /** Appli ou caméra rouverte : le repère du gyroscope a pu être réinitialisé (retour à la boussole, une fois), puis la caméra repart. */
+  function rouvrir() { signalerReouverture(fusion); journal.info('direct', 'réouverture de la caméra : repère du gyroscope à vérifier'); demarrerCamera(); }
   async function demarrerCamera() {
     if (enCours) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { erreurCamera = 'Caméra indisponible : ouvrez la page en HTTPS'; return; }
@@ -51,7 +53,7 @@ export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRet
       const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
       flux = st; video.srcObject = st; await video.play(); erreurCamera = '';
       const piste = st.getVideoTracks()[0];
-      if (piste) piste.addEventListener('ended', () => { if (demarre && !doc.hidden && flux === st) demarrerCamera(); });
+      if (piste) piste.addEventListener('ended', () => { if (demarre && !doc.hidden && flux === st) rouvrir(); });
     } catch (e) { erreurCamera = 'Caméra refusée ou indisponible'; journal.avert('direct', erreurCamera, e); }
     enCours = false;
   }
@@ -62,9 +64,11 @@ export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRet
     const r = surOrientation(fusion, { alpha: e.alpha, beta: e.beta, gamma: e.gamma, webkitCompassHeading: /** @type {any} */ (e).webkitCompassHeading, angleEcran: angle }, absolu, maintenant());
     if (r.reinitialise) {
       const m = mesuresFusion(fusion, maintenant());
-      journal.avert('cap', 'gyroscope et boussole en désaccord de plus de 40° : repère du gyroscope réinitialisé, retour à la boussole', m);
+      journal.avert('cap', r.cause === 'reouverture' ? 'appli ou caméra rouverte : repère du gyroscope réinitialisé, retour à la boussole' : 'saut instantané du gyroscope (plus de 40° en une mesure) : repère réinitialisé, retour à la boussole', m);
       if (surRetourBoussole) surRetourBoussole(m);
     }
+    if (r.perturbation === 'debut') journal.avert('cap', 'boussole perturbée (plus de 40° d\'écart avec le gyroscope) : ignorée, le cap suit le gyroscope et le calage tient', mesuresFusion(fusion, maintenant()));
+    else if (r.perturbation === 'fin') journal.info('cap', 'boussole de nouveau d\'accord avec le gyroscope');
   }
 
   let capteursBranches = false;
@@ -92,9 +96,9 @@ export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRet
           surPosition({ lat: p.coords.latitude, lon: p.coords.longitude, precisionM: p.coords.accuracy, ...altitudeGps });
         }, (err) => { erreurCamera = erreurCamera || ''; journal.avert('direct', 'GPS refusé : ' + err.message); gpsErreur = 'GPS refusé : ' + err.message; }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
       } else gpsErreur = 'GPS indisponible';
-      doc.addEventListener('visibilitychange', () => { if (!demarre) return; if (doc.hidden) arreterCamera(); else if (!cameraVivante()) demarrerCamera(); });
-      fenetre.addEventListener('pageshow', (e) => { if (demarre && /** @type {PageTransitionEvent} */ (e).persisted && !cameraVivante()) demarrerCamera(); });
-      fenetre.addEventListener('focus', () => { if (demarre && !doc.hidden && !cameraVivante()) demarrerCamera(); });
+      doc.addEventListener('visibilitychange', () => { if (!demarre) return; if (doc.hidden) arreterCamera(); else { signalerReouverture(fusion); if (!cameraVivante()) demarrerCamera(); } }); // retour au premier plan : le repère du gyroscope a pu être réinitialisé
+      fenetre.addEventListener('pageshow', (e) => { if (demarre && /** @type {PageTransitionEvent} */ (e).persisted) { signalerReouverture(fusion); if (!cameraVivante()) demarrerCamera(); } });
+      fenetre.addEventListener('focus', () => { if (demarre && !doc.hidden && !cameraVivante()) rouvrir(); });
     },
     arreter: arreterCamera,
     /** Dernière position GPS brute (pour revenir de la position simulée). */
