@@ -29,6 +29,9 @@ test('toutes les zones sont ramenées à une forme commune et typées', () => {
     bateaux: [{ bateau: { name: 'Ferry' }, bateaux: [{ name: 'Ferry' }], icone: [400, 420, 10, 30], poly: null }],
   });
   assert.deepEqual(zones.map((z) => z.type), ['lieu', 'monument', 'bande', 'avion', 'bateau']);
+  const avecSource = zonesTouchables({ bande: [{ element: { nom: 'Mât', source: { name: 'Mât', operators: ['A'] } }, elements: [{ nom: 'Mât', source: { name: 'Mât' } }, { nom: 'Mât 2', source: { name: 'Mât 2' } }], x0: 0, x1: 10, y0: 0, y1: 10 }] });
+  assert.equal(avecSource[0].principal.name, 'Mât', 'la fiche reçoit l\'objet d\'origine (source), pas l\'élément de la bande');
+  assert.deepEqual(avecSource[0].elements.map((e) => e.name), ['Mât', 'Mât 2']);
   assert.equal(zones[2].elements.length, 2);
   assert.equal(zonesTouchables(null).length, 0);
 });

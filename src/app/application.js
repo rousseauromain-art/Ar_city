@@ -35,6 +35,7 @@ import { distanceEtCap } from '../noyau/geo.js';
 import { PROCHE_KM } from '../scene/relief.js';
 import { memeEndroit, estBruitGps } from './position.js';
 import { clausesLieux, requeteOverpass } from '../donnees/overpass.js';
+import { creerGestionCouches } from './couches.js';
 import { CATEGORIES_REPERES } from '../donnees/categories-reperes.js';
 
 /** @typedef {import('../moteur/classement.js').DonneesScene} DonneesScene */
@@ -109,6 +110,8 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   E.source = atlas.nombre() ? `atlas local (${atlas.nombre()} lieux)` : 'liste intégrée';
   D.lieux = lieuxBase;
   const change = (/** @type {string} */ quoi) => { version++; quandChange(quoi); };
+  const couches = creerGestionCouches({ D, caches, journal, change }); // couches personnelles (KMZ/KML) : relues de l'appareil au démarrage, jamais envoyées sur le réseau
+  const recalculerCouches = couches.recalculer;
   /** Les lieux de la v1 (`cities`) d'abord, puis les sommets lointains (`farPeaks`) : l'ordre compte pour les égalités de tri. */
   const publierLieux = () => { D.lieux = sommets.length ? lieuxBase.concat(sommets) : lieuxBase; };
   const encore = (/** @type {Point} */ ici) => memeEndroit(D.pos, ici); // l'observateur est resté au même endroit (à 300 m près) pendant le chargement : le bruit du GPS ne jette rien
@@ -293,6 +296,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
       const saut = D.pos ? distanceEtCap(D.pos, pos).distKm : Infinity;
       D.pos = { lat: pos.lat, lon: pos.lon };
       if (saut > 2) { D.terrain = null; sommets = []; publierLieux(); D.monuments = []; D.pylones = []; D.reperes = []; D.doublonsReperes = []; baseWikidata = []; tuilesOsm = []; batiments = []; Object.assign(couvert, { lieux: null, sommets: null, terrain: null, monuments: null, telecom: null, reperes: null }); }
+      recalculerCouches();
       change('position');
       if (trafic.mode === 'direct' && (saut === Infinity || saut > 3)) { chargerNavires(); chargerAvions(); } // la mémoire de l'appareil s'affiche dès le premier point GPS
       if (saut !== Infinity && saut > 3) rattraper();
@@ -325,6 +329,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
       change('atlas');
       return { recus: lieux.length, nouveaux, total: atlas.nombre() };
     },
+    ...couches.methodes,
     /** Ce qui est gardé pour le hors ligne. @returns {{lieux: number, zones: number, derniere: number | null}} */
     infoZone: () => { const z = atlas.zones(); return { lieux: atlas.nombre(), zones: z.length, derniere: z.length ? z[z.length - 1].saved : null }; },
     /** Efface l'atlas ; si les lieux affichés en viennent, retour à la liste intégrée. */
