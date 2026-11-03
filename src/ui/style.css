@@ -196,3 +196,4 @@ button[disabled].etape10{pointer-events:none}
 #ficheClose{position:absolute;top:4px;right:4px;width:36px;height:36px;border:0;background:none;color:var(--cream);font:400 24px/1 var(--mono)}
 #rotMsg{display:block;color:#FFD23F;border:1px solid rgba(255,210,63,.5);white-space:normal;line-height:1.35;pointer-events:auto}#rotMsg[hidden]{display:none}
 #eyePropT{margin:4px 0 2px;color:#FFD23F}#eyePropT:empty{display:none}
+#guideMsg{display:block;color:#FFD23F;border:1px solid rgba(255,210,63,.5);white-space:normal;line-height:1.35;pointer-events:auto;font-weight:700}#guideMsg[hidden]{display:none}

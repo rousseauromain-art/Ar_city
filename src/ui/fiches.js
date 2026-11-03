@@ -20,6 +20,12 @@ export function installerFiches(c) {
   function ouvrirEn(x, y) {
     const zone = zoneSousLeDoigt(zonesTouchables(ps.dernierBilan ? ps.dernierBilan.zones : null), x, y);
     if (!zone) { fermer(); return false; }
+    return afficher(zone);
+  }
+  /** Ouvre la fiche d'un élément connu (résultat d'une recherche, par exemple). @param {'lieu' | 'monument' | 'bande' | 'avion' | 'bateau'} type @param {unknown} element */
+  const ouvrirElement = (type, element) => afficher({ type, principal: element, elements: [element], poly: [] });
+  /** @param {import('../scene/toucher.js').ZoneToucher} zone */
+  function afficher(zone) {
     try {
       const f = contenuFiche(/** @type {any} */ (zone));
       const noms = zone.elements.slice(0, GROUPE_MAX).map((el) => echap(String(/** @type {any} */ (el).name || '?')));
@@ -31,5 +37,5 @@ export function installerFiches(c) {
       return true;
     } catch (e) { journal.erreur('fiche', 'ouverture de la fiche', e); return false; }
   }
-  return { ouvrirEn, fermer };
+  return { ouvrirEn, ouvrirElement, fermer };
 }
