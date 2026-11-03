@@ -27,6 +27,7 @@ import { installerPhoto } from './photo.js';
 import { installerGestes } from './gestes.js';
 import { installerFiches } from './fiches.js';
 import { installerCalageContinu, etatContinuInitial } from './calage-continu.js';
+import { creerSuiviXr } from '../entrees/webxr.js';
 import { evaluerRotation, etatRotationInitial, fermerRotation, MESSAGE_ROTATION } from '../entrees/rotation.js';
 import { installerDeclencheur } from './declencheur.js';
 import { creerCarnet } from '../app/carnet.js';
@@ -50,7 +51,7 @@ export function demarrerPage({ mode }) {
   const reglagesRepris = reprendreReglagesV1(stockage, (k) => { try { return localStorage.getItem(k); } catch { return null; } });
   const S = lireReglages(stockage);
   /** État partagé par la page et ses modules (ui/*.js) : la photo ouverte, la taille de l'écran, le dernier bilan de la scène, le dernier retour à la boussole. @type {import('./contexte.js').EtatPartage} */
-  const ps = { photoMode: null, W: 0, H: 0, dpr: 1, dernierBilan: null, dernierRetour: null, rotation: etatRotationInitial(), continu: etatContinuInitial(), lectureRotation: { roulisDeg: 0, typeEcran: /** @type {string | null} */ (null) } };
+  const ps = { photoMode: null, W: 0, H: 0, dpr: 1, dernierBilan: null, dernierRetour: null, rotation: etatRotationInitial(), continu: etatContinuInitial(), xr: null, lectureRotation: { roulisDeg: 0, typeEcran: /** @type {string | null} */ (null) } };
   const sauver = () => ecrireReglages(stockage, S, ps.photoMode ? ps.photoMode.backup : null);
   const relais = String((/** @type {any} */ (window).APP_CONFIG || {}).relay || '');
   const app = creerApplication({ reglages: () => S, journal, stockage, relais, urlWorkerMasque: new URL('../workers/masque-relief.js', import.meta.url), quandChange: () => {} });
@@ -193,6 +194,17 @@ export function demarrerPage({ mode }) {
   const fiches = installerFiches(c);
   const gestes = installerGestes(c, calage, fiches);
   const continu = installerCalageContinu(c, calage, gestes);
+  // suivi visuel WebXR (essai, direct) : pendant la session, le navigateur ne rappelle plus requestAnimationFrame de la page : c'est le suivi qui cadence l'affichage
+  const xr = creerSuiviXr({ fusion, journal, racine: () => document.body, surImage: () => dessinerImage(), surFin: () => { document.body.classList.remove('xr'); video && (video.style.visibility = ''); synchroniser(); } });
+  $f('btnXr').hidden = true;
+  if (direct) xr.disponible().then((ok) => { $f('btnXr').hidden = !ok; $f('xrInfo').textContent = ok ? '' : 'indisponible ici (Chrome Android, Services Google Play pour la RA, page en HTTPS)'; });
+  $f('btnXr').addEventListener('click', async () => {
+    if (xr.etat().actif) { await xr.arreter(); return; }
+    $('sheet').classList.remove('open'); document.body.classList.add('xr'); if (video) video.style.visibility = 'hidden';
+    await xr.demarrer();
+    if (!xr.etat().actif) { document.body.classList.remove('xr'); if (video) video.style.visibility = ''; note(xr.etat().erreur || 'Suivi visuel impossible', 6000); }
+  });
+  ps.xr = xr;
   $f('capRel').checked = S.capteurRelatif === true; $f('capRel').disabled = !direct; if (entree) entree.synchroniserCapteurRelatif();
   $f('capRel').addEventListener('change', (/** @type {any} */ e) => { S.capteurRelatif = e.target.checked; sauver(); if (entree) entree.synchroniserCapteurRelatif(); });
   $f('calCont').checked = S.calageContinu === true; $f('calCont').disabled = !direct; $f('calCont').addEventListener('change', (/** @type {any} */ e) => { S.calageContinu = e.target.checked; continu.reinitialiser(); sauver(); });

@@ -28,7 +28,7 @@ const FRAICHEUR_GYRO_MS = 1500;
  * @property {Vec3 | null} svRel @property {Vec3 | null} srRel idem, repère relatif (gyroscope) @property {number} relT instant de la dernière mesure relative
  * @property {number | null} gyroK cap du repère du gyroscope @property {number} gyroKT @property {number} magPauseUntil la boussole est en pause jusqu'à cet instant
  * @property {number} perturbeeDepuis début du désaccord boussole / gyroscope en cours (0 : aucun) @property {boolean} boussolePerturbee la boussole est ignorée (désaccord de plus de 40°) @property {number} accordDepuis début de l'accord retrouvé (0 : aucun)
- * @property {number | null} relBrut @property {number} relBrutT cap relatif BRUT de la dernière mesure et son instant (détection du saut instantané) @property {boolean} sautRelatif un saut instantané vient d'être vu @property {boolean} reouverture l'appli ou la caméra vient d'être rouverte @property {boolean} reouvAbs @property {boolean} reouvRel une mesure de chaque capteur a été reçue depuis la réouverture
+ * @property {number | null} relBrut @property {number} relBrutT cap relatif BRUT de la dernière mesure et son instant (détection du saut instantané) @property {boolean} sautRelatif un saut instantané vient d'être vu @property {boolean} suiviExterne un suivi visuel (WebXR) fournit les rotations : les mesures relatives de deviceorientation sont ignorées @property {boolean} reouverture l'appli ou la caméra vient d'être rouverte @property {boolean} reouvAbs @property {boolean} reouvRel une mesure de chaque capteur a été reçue depuis la réouverture
  * @property {number} gyroResets nombre de VRAIS retours à la boussole (saut instantané ou réouverture)
  * @property {({v: number, t: number, n: number} | null)[]} magBins écart boussole − gyroscope appris par secteur @property {boolean} capteur au moins une mesure reçue
  */
@@ -39,7 +39,7 @@ const FRAICHEUR_GYRO_MS = 1500;
  */
 
 /** @returns {Fusion} */
-export const creerFusion = () => ({ svAbs: null, srAbs: null, svRel: null, srRel: null, relT: 0, gyroK: null, gyroKT: 0, magPauseUntil: 0, perturbeeDepuis: 0, boussolePerturbee: false, accordDepuis: 0, relBrut: null, relBrutT: 0, sautRelatif: false, reouverture: false, reouvAbs: false, reouvRel: false, gyroResets: 0,
+export const creerFusion = () => ({ svAbs: null, srAbs: null, svRel: null, srRel: null, relT: 0, gyroK: null, gyroKT: 0, magPauseUntil: 0, perturbeeDepuis: 0, boussolePerturbee: false, accordDepuis: 0, relBrut: null, relBrutT: 0, sautRelatif: false, suiviExterne: false, reouverture: false, reouvAbs: false, reouvRel: false, gyroResets: 0,
   magBins: /** @type {Fusion['magBins']} */ (new Array(NB_SECTEURS).fill(null)), capteur: false });
 
 /**
@@ -108,7 +108,7 @@ export function surOrientation(f, e, absolu, t) {
   if (e.alpha === null || e.beta === null || e.gamma === null || e.alpha === undefined || e.beta === undefined || e.gamma === undefined) return { reinitialise: false, cause: null, perturbation: null };
   const ios = typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading);
   if (ios || absolu) mesureAbsolue(f, axesCamera(ios ? 360 - /** @type {number} */ (e.webkitCompassHeading) : e.alpha, e.beta, e.gamma, e.angleEcran));
-  if (ios || !absolu) mesureRelative(f, axesCamera(e.alpha, e.beta, e.gamma, e.angleEcran), t); // iOS : alpha brut = gyroscope
+  if ((ios || !absolu) && !f.suiviExterne) mesureRelative(f, axesCamera(e.alpha, e.beta, e.gamma, e.angleEcran), t); // iOS : alpha brut = gyroscope
   f.capteur = true;
   return apprendre(f, t);
 }
