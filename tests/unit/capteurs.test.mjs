@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { creerFusion, surOrientation, poseCapteurs, noterCalage, axesCamera, etatFusion, mesuresFusion, signalerReouverture, ACCORD_RETABLI_MS } from '../../src/entrees/capteurs.js';
+import { creerFusion, surOrientation, poseCapteurs, noterCalage, axesCamera, etatFusion, mesuresFusion, signalerReouverture, ACCORD_RETABLI_MS, axesDepuisQuaternion, surQuaternion } from '../../src/entrees/capteurs.js';
 
 const src = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url), 'utf8');
 const debut = src.indexOf('let gotAbs=false;'), fin = src.indexOf('// ---------- données ----------', debut);
@@ -151,4 +151,45 @@ test('sans capteur : les réglages de calage seuls ; mesures incomplètes ignor�
   assert.equal(f.capteur, false);
   const { v } = axesCamera(0, 90, 0, 0); // téléphone debout, haut vers le nord : la caméra arrière vise le nord
   assert.ok(Math.abs(v[1] - 1) < 1e-9 || Math.abs(v[1] + 1) < 1e-9);
+});
+
+/** Quaternion [x, y, z, w] de R = Rz(alpha) · Rx(beta) · Ry(gamma) (angles en degrés) : la rotation de deviceorientation. */
+function quaternionDesAngles(alpha, beta, gamma) {
+  const d = Math.PI / 180, mul = (a, b) => [a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1], a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0], a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3], a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]];
+  const qz = [0, 0, Math.sin(alpha * d / 2), Math.cos(alpha * d / 2)], qx = [Math.sin(beta * d / 2), 0, 0, Math.cos(beta * d / 2)], qy = [0, Math.sin(gamma * d / 2), 0, Math.cos(gamma * d / 2)];
+  return mul(mul(qz, qx), qy);
+}
+
+test('VEILLE-ANCRAGE B : le quaternion redonne EXACTEMENT les axes de deviceorientation (200 orientations, 4 rotations d\'écran)', () => {
+  let seed = 12345; const alea = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+  for (let i = 0; i < 200; i++) {
+    const alpha = alea() * 360, beta = -180 + alea() * 360, gamma = -90 + alea() * 180;
+    const q = quaternionDesAngles(alpha, beta, gamma);
+    for (const angle of [0, 90, 180, 270]) {
+      const a = axesCamera(alpha, beta, gamma, angle), b = axesDepuisQuaternion(q, angle);
+      for (let k = 0; k < 3; k++) { assert.ok(Math.abs(a.v[k] - b.v[k]) < 1e-9, `v[${k}] ${alpha.toFixed(1)}/${beta.toFixed(1)}/${gamma.toFixed(1)}/${angle}`); assert.ok(Math.abs(a.r[k] - b.r[k]) < 1e-9, `r[${k}]`); }
+    }
+  }
+  // quaternion non normalisé : normalisé en interne
+  const q = quaternionDesAngles(10, 80, 5).map((c) => c * 3), a = axesCamera(10, 80, 5, 0), b = axesDepuisQuaternion(q, 0);
+  for (let k = 0; k < 3; k++) assert.ok(Math.abs(a.v[k] - b.v[k]) < 1e-9);
+});
+
+test('capteur relatif : même pose que deviceorientation pour la même rotation (le gyroscope par quaternion, la boussole en nord)', () => {
+  const f1 = creerFusion(), f2 = creerFusion(), S = { gyro: true, headOff: 0, pitchOff: 0 };
+  let t = 1000;
+  for (let i = 0; i < 300; i++) {
+    t += 50; const cap = (i * 2.2) % 360, beta = 80 + 8 * Math.sin(i / 17), gamma = 6 * Math.sin(i / 11), dec = 70;
+    const abs = { alpha: (360 - cap + 720) % 360, beta, gamma }, rel = { alpha: (360 - cap + dec + 720) % 360, beta, gamma };
+    surOrientation(f1, { ...abs, angleEcran: 0 }, true, t); surOrientation(f1, { ...rel, angleEcran: 0 }, false, t + 5);
+    surOrientation(f2, { ...abs, angleEcran: 0 }, true, t); surQuaternion(f2, quaternionDesAngles(rel.alpha, rel.beta, rel.gamma), 0, t + 5);
+  }
+  const p1 = poseCapteurs(f1, S, t + 5), p2 = poseCapteurs(f2, S, t + 5);
+  assert.ok(ecart(p1.capDeg, p2.capDeg) < 1e-6, `cap ${p1.capDeg} / ${p2.capDeg}`); assert.ok(Math.abs(p1.inclinaisonDeg - p2.inclinaisonDeg) < 1e-6); assert.ok(Math.abs(p1.roulisDeg - p2.roulisDeg) < 1e-6);
+  assert.equal(f2.gyroResets, 0);
+});
+
+test('caméra à la verticale (angles singuliers) : le quaternion garde des axes valides', () => {
+  const b = axesDepuisQuaternion(quaternionDesAngles(40, 0, 0), 0); // téléphone à plat
+  assert.ok(Math.abs(Math.hypot(...b.v) - 1) < 1e-9); assert.ok(Math.abs(b.v[2] + 1) < 1e-9, 'la caméra arrière regarde le sol');
 });

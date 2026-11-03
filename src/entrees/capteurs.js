@@ -63,6 +63,36 @@ export function axesCamera(alpha, beta, gamma, angleEcran) {
   return { v, r };
 }
 
+/**
+ * Mêmes axes que `axesCamera`, depuis un quaternion `[x, y, z, w]` (capteur `RelativeOrientationSensor`, angles de `deviceorientation` remplacés par la rotation exacte). La rotation d'appareil vers repère Est / Nord / Haut est
+ * R = Rz(alpha) · Rx(beta) · Ry(gamma) : ses colonnes sont les axes x, y, z de l'appareil dans le monde, ceux que `axesCamera` calcule avec les angles. Sans angles, pas de singularité (caméra vers le haut ou le bas).
+ * @param {number[]} q quaternion [x, y, z, w] @param {number} angleEcran
+ * @returns {{v: Vec3, r: Vec3}}
+ */
+export function axesDepuisQuaternion(q, angleEcran) {
+  const n = Math.hypot(q[0], q[1], q[2], q[3]) || 1, x = q[0] / n, y = q[1] / n, z = q[2] / n, w = q[3] / n;
+  /** @type {Vec3} */
+  const colX = [1 - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w)];
+  /** @type {Vec3} */
+  const colY = [2 * (x * y - z * w), 1 - 2 * (x * x + z * z), 2 * (y * z + x * w)];
+  /** @type {Vec3} */
+  const colZ = [2 * (x * z + y * w), 2 * (y * z - x * w), 1 - 2 * (x * x + y * y)];
+  const neg = (/** @type {Vec3} */ k) => /** @type {Vec3} */ (k.map((m) => -m));
+  const r = angleEcran === 90 ? colY : (angleEcran === 270 || angleEcran === -90) ? neg(colY) : angleEcran === 180 ? neg(colX) : colX;
+  return { v: neg(colZ), r };
+}
+
+/**
+ * Une mesure du capteur d'orientation relatif (quaternion, 60 Hz) : remplace les mesures relatives de `deviceorientation` (le gyroscope) ; la boussole (`deviceorientationabsolute`) ne sert plus que de nord et de rattrapage lent.
+ * @param {Fusion} f @param {number[]} q quaternion [x, y, z, w] @param {number} angleEcran @param {number} t instant (ms)
+ * @returns {ReturnType<typeof surOrientation>}
+ */
+export function surQuaternion(f, q, angleEcran, t) {
+  mesureRelative(f, axesDepuisQuaternion(q, angleEcran), t);
+  f.capteur = true;
+  return apprendre(f, t);
+}
+
 /** Cap (°, 0 à 360) d'un vecteur. @param {Vec3} v */
 const capDe = (v) => (Math.atan2(v[0], v[1]) / RAD + 360) % 360;
 
