@@ -5,7 +5,7 @@
  * Entrées : élément `<video>`, fusion des capteurs, rappel de position. Sortie : contrôleur { demarrer, arreter, etat, flux }. Reprend `startCamera`, `#go` et les écouteurs de la v1.
  * Dépend de : entrees/capteurs.js.
  */
-import { surOrientation, mesuresFusion, signalerReouverture } from './capteurs.js';
+import { surOrientation, surQuaternion, mesuresFusion, signalerReouverture } from './capteurs.js';
 
 /** Durée (ms) des mesures d'altitude GPS gardées. */
 const HISTORIQUE_ALTITUDES_MS = 60000;
@@ -18,11 +18,12 @@ const HISTORIQUE_ALTITUDES_MS = 60000;
  *   surPosition: (p: {lat: number, lon: number, precisionM: number, altitudeM: number | null, precisionAltM: number | null}) => void,
  *   surRetourBoussole?: (mesures: ReturnType<typeof mesuresFusion>) => void,
  *   positionSimulee?: () => boolean,
+ *   capteurRelatif?: () => boolean,
  *   maintenant?: () => number,
  *   fenetre?: Window,
  * }} o
  */
-export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRetourBoussole, positionSimulee = () => false, maintenant = Date.now, fenetre = window }) {
+export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRetourBoussole, positionSimulee = () => false, capteurRelatif = () => false, maintenant = Date.now, fenetre = window }) {
   /** @type {MediaStream | null} */
   let flux = null;
   let demarre = false, enCours = false, erreurCamera = '', gpsErreur = '', precisionM = 0;
@@ -58,10 +59,12 @@ export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRet
     enCours = false;
   }
 
-  /** @param {DeviceOrientationEvent} e @param {boolean} absolu */
-  function surMesure(e, absolu) {
-    const angle = (fenetre.screen.orientation && fenetre.screen.orientation.angle) ?? /** @type {any} */ (fenetre).orientation ?? 0;
-    const r = surOrientation(fusion, { alpha: e.alpha, beta: e.beta, gamma: e.gamma, webkitCompassHeading: /** @type {any} */ (e).webkitCompassHeading, angleEcran: angle }, absolu, maintenant());
+  /** Capteur d'orientation relatif (quaternion, 60 Hz) : actif quand la case « essai » est cochée et que le navigateur le propose ; sinon `deviceorientation` (angles). */
+  const capteur = { sonde: /** @type {any} */ (null), actif: false, erreur: '', lectures: 0, depuis: 0, hz: 0 };
+  const angleEcran = () => (fenetre.screen.orientation && fenetre.screen.orientation.angle) ?? /** @type {any} */ (fenetre).orientation ?? 0;
+  function arreterCapteurRelatif() { try { if (capteur.sonde) capteur.sonde.stop(); } catch { /* déjà arrêté */ } capteur.sonde = null; capteur.actif = false; }
+  /** @param {ReturnType<typeof surOrientation>} r */
+  function traiter(r) {
     if (r.reinitialise) {
       const m = mesuresFusion(fusion, maintenant());
       journal.avert('cap', r.cause === 'reouverture' ? 'appli ou caméra rouverte : repère du gyroscope réinitialisé, retour à la boussole' : 'saut instantané du gyroscope (plus de 40° en une mesure) : repère réinitialisé, retour à la boussole', m);
@@ -69,6 +72,33 @@ export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRet
     }
     if (r.perturbation === 'debut') journal.avert('cap', 'boussole perturbée (plus de 40° d\'écart avec le gyroscope) : ignorée, le cap suit le gyroscope et le calage tient', mesuresFusion(fusion, maintenant()));
     else if (r.perturbation === 'fin') journal.info('cap', 'boussole de nouveau d\'accord avec le gyroscope');
+  }
+  /** Une lecture du capteur relatif : fréquence mesurée, puis la fusion. @param {any} s */
+  function lecture(s) {
+    const t = maintenant();
+    if (!capteur.actif) { capteur.actif = true; capteur.erreur = ''; signalerReouverture(fusion); journal.info('direct', 'capteur d\'orientation relatif actif (quaternion, 60 Hz)'); }
+    capteur.lectures++;
+    if (!capteur.depuis) capteur.depuis = t; else if (t - capteur.depuis >= 1000) { capteur.hz = Math.round((capteur.lectures * 1000) / (t - capteur.depuis)); capteur.lectures = 0; capteur.depuis = t; }
+    if (s.quaternion) traiter(surQuaternion(fusion, s.quaternion, angleEcran(), t));
+  }
+  /** Démarre ou arrête le capteur relatif selon la case ; repli propre sur `deviceorientation` en cas d'absence ou d'erreur (permission, capteur manquant). */
+  function synchroniserCapteurRelatif() {
+    if (!capteurRelatif()) { if (capteur.sonde) { arreterCapteurRelatif(); signalerReouverture(fusion); journal.info('direct', 'capteur relatif arrêté : retour à deviceorientation'); } capteur.erreur = ''; return; }
+    if (capteur.sonde) return;
+    const Classe = /** @type {any} */ (fenetre).RelativeOrientationSensor;
+    if (!Classe) { capteur.erreur = 'RelativeOrientationSensor indisponible (navigateur ou page non HTTPS) : deviceorientation'; journal.avert('direct', capteur.erreur); return; }
+    try {
+      const s = new Classe({ frequency: 60, referenceFrame: 'device' });
+      s.addEventListener('reading', () => lecture(s));
+      s.addEventListener('error', (/** @type {any} */ ev) => { capteur.erreur = `capteur relatif refusé ou absent (${(ev.error && ev.error.name) || 'erreur'}) : deviceorientation`; journal.avert('direct', capteur.erreur); arreterCapteurRelatif(); });
+      capteur.sonde = s; s.start();
+    } catch (e) { capteur.erreur = 'capteur relatif impossible : ' + (e instanceof Error ? e.message : String(e)); journal.avert('direct', capteur.erreur); capteur.sonde = null; }
+  }
+
+  /** @param {DeviceOrientationEvent} e @param {boolean} absolu */
+  function surMesure(e, absolu) {
+    if (!absolu && capteur.actif) return; // le capteur relatif (quaternion) remplace les mesures relatives de deviceorientation
+    traiter(surOrientation(fusion, { alpha: e.alpha, beta: e.beta, gamma: e.gamma, webkitCompassHeading: /** @type {any} */ (e).webkitCompassHeading, angleEcran: angleEcran() }, absolu, maintenant()));
   }
 
   let capteursBranches = false;
@@ -103,7 +133,9 @@ export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRet
     arreter: arreterCamera,
     /** Dernière position GPS brute (pour revenir de la position simulée). */
     derniereGps: () => derniereGps,
-    etat: () => ({ demarre, cameraOk: cameraVivante(), erreurCamera, gpsErreur, precisionM, vitesseMs, ...altitudeGps, altitudes: altitudes.slice() }),
+    /** Active ou coupe le capteur relatif selon la case « capteur relatif (essai) ». */
+    synchroniserCapteurRelatif,
+    etat: () => ({ demarre, cameraOk: cameraVivante(), erreurCamera, gpsErreur, precisionM, vitesseMs, ...altitudeGps, altitudes: altitudes.slice(), sourceRelative: capteur.actif ? 'quaternion 60 Hz' : 'deviceorientation', hzRelatif: capteur.actif ? capteur.hz : 0, erreurCapteurRelatif: capteur.erreur }),
     /** Dimensions de l'image de la caméra, ou null tant qu'elle n'est pas prête. @returns {{largeurPx: number, hauteurPx: number} | null} */
     flux: () => (video.videoWidth ? { largeurPx: video.videoWidth, hauteurPx: video.videoHeight } : null),
   };

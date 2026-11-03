@@ -60,7 +60,7 @@ export function demarrerPage({ mode }) {
 
   const video = /** @type {HTMLVideoElement | null} */ (document.getElementById('cam'));
   const simulee = () => S.simOn && !!lirePositionTexte(S.simPos);
-  const entree = direct && video ? creerEntreeDirecte({ video, fusion, journal, positionSimulee: simulee, surPosition: (p) => app.definirPosition({ lat: p.lat, lon: p.lon }),
+  const entree = direct && video ? creerEntreeDirecte({ video, fusion, journal, positionSimulee: simulee, capteurRelatif: () => S.capteurRelatif === true, surPosition: (p) => app.definirPosition({ lat: p.lat, lon: p.lon }),
     surRetourBoussole: (m) => { ps.dernierRetour = { t: Date.now(), m, headOff: S.headOff, pitchOff: S.pitchOff }; } }) : null;
   /** Échantillons du cap (1 par seconde, 10 min) : cap affiché, boussole, gyroscope, repère, calage — pour comprendre un décrochage. @type {{t: number, cap: number, boussole: number | null, gyro: number | null, repere: number | null, headOff: number, pitchOff: number}[]} */
   const echantillons = [];
@@ -193,6 +193,8 @@ export function demarrerPage({ mode }) {
   const fiches = installerFiches(c);
   const gestes = installerGestes(c, calage, fiches);
   const continu = installerCalageContinu(c, calage, gestes);
+  $f('capRel').checked = S.capteurRelatif === true; $f('capRel').disabled = !direct; if (entree) entree.synchroniserCapteurRelatif();
+  $f('capRel').addEventListener('change', (/** @type {any} */ e) => { S.capteurRelatif = e.target.checked; sauver(); if (entree) entree.synchroniserCapteurRelatif(); });
   $f('calCont').checked = S.calageContinu === true; $f('calCont').disabled = !direct; $f('calCont').addEventListener('change', (/** @type {any} */ e) => { S.calageContinu = e.target.checked; continu.reinitialiser(); sauver(); });
   installerDeclencheur(c);
 
