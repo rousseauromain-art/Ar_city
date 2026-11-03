@@ -56,6 +56,7 @@ Sens des dépendances : `ui → rendu → calques → scene, calage, vision → 
 | `src/donnees/{wikidata,monuments-wikidata,monuments}.js` | monuments Wikidata : tri monument / équipement / écarté (`wdClassify`), fabrication (plafonds, hauteurs supposées), chargement par tuiles du relais, Wikidata direct, mémoire de la zone |
 | `src/donnees/{trafic,avions,navires,memoire-direct}.js` | trafic en direct : avions (OpenSky via le relais ou direct) et navires (AIS via le relais) ; extrapolation au cap, quota, mobiles proches, mémoire en direct (cases de 0,1°) |
 | `src/donnees/{telecom,reperes-hauts}.js` | pylônes ANFR (relais `/telecom`, mémoire 7 jours) et repères hauts OpenStreetMap (tours, clochers, immeubles hauts) au format de la v1 |
+| `src/app/couches.js`, `src/ui/couches-perso{,-vue}.js` | couches personnelles : gestion (import, mémoire, recherche) et panneau « Couches perso » |
 | `src/donnees/{kml,kml-diagnostic,couches-perso}.js` | couches personnelles KMZ/KML : lecture locale, recherche, diagnostic de structure sans valeurs, mémoire `vh2-couches-perso` |
 | `src/donnees/{osm-tuiles,monuments-osm}.js` | objets OpenStreetMap par tuiles fixes ; tours télécom, bâtiments hauts, statues comme monuments, fusion sans doublon avec Wikidata |
 | `src/scene/regle-photo.js` | verdict « vu / caché / indéterminé » d'après la silhouette lue sur la photo (lieux et monuments) |

@@ -26,6 +26,7 @@ import { installerDiagnostic } from './diagnostic.js';
 import { installerPhoto } from './photo.js';
 import { installerGestes } from './gestes.js';
 import { installerFiches } from './fiches.js';
+import { installerCouchesPerso } from './couches-perso.js';
 import { installerCalageContinu, etatContinuInitial } from './calage-continu.js';
 import { installerCalageGuide } from './calage-guide.js';
 import { evaluerRotation, etatRotationInitial, fermerRotation, MESSAGE_ROTATION } from '../entrees/rotation.js';
@@ -192,6 +193,7 @@ export function demarrerPage({ mode }) {
   installerDiagnostic(c, { analyse: vis.analyse, calage, oeil });
   installerPhoto(c, calage);
   const fiches = installerFiches(c);
+  const couchesPerso = installerCouchesPerso(c, fiches);
   const gestes = installerGestes(c, calage, fiches);
   const continu = installerCalageContinu(c, calage, gestes);
   if (direct) installerCalageGuide(c, calage);
@@ -225,7 +227,7 @@ export function demarrerPage({ mode }) {
   function dessinerImage() {
     if (S.photoVis === true && imageSource() && !document.hidden && Date.now() - vis.analyse.t > PERIODE_ANALYSE_MS) { vis.analyse.t = Date.now(); try { vis.analyserCiel(); } catch (e) { journal.erreur('vision', 'analyse du ciel', e); } }
     const d = app.donnees(), e = app.etat();
-    oeil.synchroOeil(); continu.surImage();
+    oeil.synchroOeil(); couchesPerso.synchro(); continu.surImage();
     if (direct) surveillerRotation();
     const po = pose(), maintenant = Date.now(), cam = entree ? entree.etat() : null;
     if (direct) app.actualiserMobiles(maintenant);

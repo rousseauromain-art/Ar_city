@@ -25,6 +25,17 @@ function lignesCommunes(e) {
   return l;
 }
 
+/** Fiche d'un site d'une couche personnelle (KMZ/KML) : champs du fichier, description, liens, carte. @param {Fiche} f @param {any} e */
+function ficheSiteUtilisateur(f, e) {
+  f.sousTitre = String(e.lname || 'couche personnelle');
+  const cols = /** @type {string[]} */ (e.cols || []), vals = /** @type {string[]} */ (e.vals || []);
+  cols.forEach((k, i) => { if (vals[i]) f.lignes.push([k, String(vals[i])]); });
+  f.lignes = f.lignes.slice(0, 40);
+  if (e.desc) f.lignes.push(['Description', String(e.desc).slice(0, 600)]);
+  (e.links || []).forEach((/** @type {string} */ u, /** @type {number} */ i) => f.liens.push([(e.links.length > 1 ? `Lien ${i + 1}` : 'Lien du fichier'), u]));
+  f.liens.push(...carte(e));
+}
+
 /**
  * @param {{type: 'lieu' | 'monument' | 'bande' | 'avion' | 'bateau', principal: unknown, elements: unknown[]}} zone @returns {Fiche}
  */
@@ -44,6 +55,8 @@ export function contenuFiche(zone) {
     if (e.operator) f.lignes.push(['Opérateur', String(e.operator)]);
     if (e.qid) f.liens.push(['Wikipédia', `https://www.wikidata.org/wiki/Special:GoToLinkedPage/frwiki/${e.qid}`], [`Fiche Wikidata ${e.qid}`, `https://www.wikidata.org/wiki/${e.qid}`]); else f.liens.push(wikipedia(f.titre));
     f.liens.push(...carte(e));
+  } else if (zone.type === 'bande' && e.kind === 'user') {
+    ficheSiteUtilisateur(f, e);
   } else if (zone.type === 'bande') {
     f.sousTitre = String(e.sousTitre || e.operateur || e.type || e.cat || 'site');
     for (const [k, v] of Object.entries(e.champs || e.fields || {})) if (v !== null && v !== undefined && String(v) !== '') f.lignes.push([k, String(v)]);
