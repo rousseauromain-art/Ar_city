@@ -9,6 +9,7 @@
  * @property {null | {img: HTMLImageElement, w: number, h: number, url: string, backup: {headOff: number, pitchOff: number, camFov: number}, photo: import('../entrees/photo.js').ReglagesPhoto}} photoMode photo rejouée ouverte
  * @property {number} W largeur de l'écran (px) @property {number} H hauteur de l'écran (px) @property {number} dpr densité de pixels
  * @property {import('../entrees/rotation.js').EtatRotation} rotation état de l'avertissement « écran en portrait, téléphone en paysage » @property {{roulisDeg: number, typeEcran: string | null}} lectureRotation dernière lecture (diagnostic)
+ * @property {ReturnType<typeof import('./calage-continu.js').etatContinuInitial>} continu état du recalage continu (Diagnostic)
  * @property {any} dernierBilan bilan de la dernière image composée @property {null | {t: number, m: ReturnType<typeof import('../entrees/capteurs.js').mesuresFusion>, headOff: number, pitchOff: number}} dernierRetour dernier retour à la boussole
  */
 
