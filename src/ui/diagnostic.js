@@ -9,10 +9,17 @@ import { VERSION_V2 } from '../outils/version.js';
 import { echap, raison, signe } from './html.js';
 import { SORTIE_MS as SORTIE_ROTATION_MS } from '../entrees/rotation.js';
 
+/** Ligne « suivi visuel WebXR » du Diagnostic. @param {import('./contexte.js').EtatPartage} ps */
+function ligneXr(ps) {
+  const e = ps.xr ? ps.xr.etat() : null;
+  return `suivi visuel WebXR : ${e && e.actif ? `ACTIF · ${e.hz} Hz · ${e.suivi ? 'suivi' : 'suivi perdu'}` : 'éteint'}${e && e.erreur ? ` · ${echap(e.erreur)}` : ''}`;
+}
+
 /** Lignes du Diagnostic sur les rotations : source (quaternion 60 Hz ou deviceorientation) et écran contre téléphone. @param {import('./contexte.js').Contexte} c @returns {string[]} */
 function lignesRotation({ entree, ps }) {
   const e = entree ? entree.etat() : null;
   return [
+        ligneXr(ps),
         `source des rotations : ${echap(e ? e.sourceRelative : '—')}${e && e.hzRelatif ? ` · ${e.hzRelatif} Hz` : ''}${e && e.erreurCapteurRelatif ? ` · ${echap(e.erreurCapteurRelatif)}` : ''}`,
         `rotation : écran ${echap(ps.lectureRotation.typeEcran || 'inconnu')} · roulis ${ps.lectureRotation.roulisDeg.toFixed(0)}° · ${ps.rotation.actif ? `AVERTISSEMENT AFFICHÉ (rotation automatique coupée ?)${ps.rotation.horsDepuis !== null ? ` · sortie dans ${Math.max(0, Math.round((SORTIE_ROTATION_MS - (Date.now() - ps.rotation.horsDepuis)) / 1000))} s` : ''}` : ps.rotation.depuis !== null ? `téléphone en paysage depuis ${Math.round((Date.now() - ps.rotation.depuis) / 1000)} s` : 'écran et téléphone dans le même sens'}${ps.rotation.dernierMs !== null ? ` · dernier avertissement il y a ${Math.round((Date.now() - ps.rotation.dernierMs) / 1000)} s` : ''}`,
   ];
