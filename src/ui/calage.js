@@ -91,7 +91,7 @@ export function installerCalage(c) {
       return r.message;
     } finally { calageEnCours = false; }
   }
-  $('btnAlign').addEventListener('click', async () => { const b = $('btnAlign'); b.classList.add('on'); note('Calage en cours…', 20000); const m = await calerAuto(); note(m, 6000); b.classList.remove('on'); });
+  $('btnAlign').addEventListener('click', async () => { if (direct && ps.guide) { ps.guide.basculer(); return; } const b = $('btnAlign'); b.classList.add('on'); note('Calage en cours…', 20000); const m = await calerAuto(); note(m, 6000); b.classList.remove('on'); });
   $('btnAutoAlign').addEventListener('click', async () => {
     const b = $('btnAutoAlign'), orig = b.textContent; b.disabled = true; b.textContent = 'Analyse…';
     const m = await calerAuto(); b.textContent = m.length > 34 ? m.slice(0, 32) + '…' : m; note(m);
