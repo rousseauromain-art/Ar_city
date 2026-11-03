@@ -29,7 +29,9 @@ export function zonesTouchables(zones) {
     const el = /** @type {any} */ (z.element), poly = z.poly || (z.icone ? rect(z.icone) : null);
     if (poly) sortie.push({ type: el && el.kind === 'monument' ? 'monument' : 'lieu', principal: el, elements: [el], poly });
   }
-  for (const z of zones.bande || []) sortie.push({ type: 'bande', principal: z.element, elements: z.elements || [z.element], poly: rect([z.x0, z.x1, z.y0, z.y1]) });
+  // les éléments de la bande portent l'objet d'origine dans `source` (site de télécom, repère, site d'une couche personnelle) : c'est lui qui a les champs de la fiche
+  const origine = (/** @type {any} */ el) => (el && el.source ? el.source : el);
+  for (const z of zones.bande || []) sortie.push({ type: 'bande', principal: origine(z.element), elements: (z.elements || [z.element]).map(origine), poly: rect([z.x0, z.x1, z.y0, z.y1]) });
   for (const z of zones.avions || []) { const poly = z.poly || (z.icone ? rect(z.icone) : null); if (poly) sortie.push({ type: 'avion', principal: z.avion, elements: z.avions || [z.avion], poly }); }
   for (const z of zones.bateaux || []) { const poly = z.poly || (z.icone ? rect(z.icone) : null); if (poly) sortie.push({ type: 'bateau', principal: z.bateau, elements: z.bateaux || [z.bateau], poly }); }
   return sortie;
