@@ -58,7 +58,7 @@
 |---|---|---|
 | A | La boussole ne défait plus le calage | **Faite en v2 (PR « ancrage-boussole »).** Retour à la boussole seulement sur un vrai saut du repère du gyroscope : saut instantané (plus de 40° d'une mesure à l'autre, cap défini) ou réouverture (retour au premier plan, caméra relancée). Un désaccord de plus de 40° sans saut ne fait plus rien : la boussole est jugée « perturbée », ignorée (ni apprentissage, ni rattrapage), le cap suit le gyroscope et le calage tient ; elle redevient fiable après 2 s d'accord. Ligne « Cap » du Diagnostic : « BOUSSOLE PERTURBÉE (ignorée depuis N s) ». Écart volontaire avec la v1 (figée), qui garde l'ancienne règle. |
 | B | Capteur d'orientation relatif 60 Hz (quaternions) | À faire (PR suivante, derrière une case « essai »). |
-| C | Recalage automatique continu sur le soleil et la lune | À faire (PR suivante, case décochée par défaut). Monuments lumineux de nuit (tour Eiffel) : plus tard. |
+| C | Recalage automatique continu sur le soleil et la lune | **Fait en v2 (3/11)**, case « Recalage continu du cap sur le soleil et la lune » (décochée par défaut, direct seulement). Toutes les 3 s le disque de l'astre est cherché ; quand deux détections concordent à 1° près sur au moins 3 s, téléphone stable (< 10°/s), écart plausible (cap ≤ 15°, horizon ≤ 8° : au-delà, reflet), le cap est corrigé d'un demi-pas, au plus un pas toutes les 10 s, cumul plafonné à ±20°, plus rien sous 0,3°. Carnet : « auto continu soleil/lune ». Diagnostic : état, pas, cumul. Monuments lumineux de nuit (tour Eiffel) : plus tard. |
 | D | Échelle du champ calée avec 2 points | Faite (étape 11i). |
 | E | Prototype « RA stable » WebXR | Non lancé (choix du 2/11 : seulement si A à C ne suffisent pas). |
 

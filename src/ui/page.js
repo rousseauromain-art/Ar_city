@@ -26,6 +26,7 @@ import { installerDiagnostic } from './diagnostic.js';
 import { installerPhoto } from './photo.js';
 import { installerGestes } from './gestes.js';
 import { installerFiches } from './fiches.js';
+import { installerCalageContinu, etatContinuInitial } from './calage-continu.js';
 import { evaluerRotation, etatRotationInitial, fermerRotation, MESSAGE_ROTATION } from '../entrees/rotation.js';
 import { installerDeclencheur } from './declencheur.js';
 import { creerCarnet } from '../app/carnet.js';
@@ -49,7 +50,7 @@ export function demarrerPage({ mode }) {
   const reglagesRepris = reprendreReglagesV1(stockage, (k) => { try { return localStorage.getItem(k); } catch { return null; } });
   const S = lireReglages(stockage);
   /** État partagé par la page et ses modules (ui/*.js) : la photo ouverte, la taille de l'écran, le dernier bilan de la scène, le dernier retour à la boussole. @type {import('./contexte.js').EtatPartage} */
-  const ps = { photoMode: null, W: 0, H: 0, dpr: 1, dernierBilan: null, dernierRetour: null, rotation: etatRotationInitial(), lectureRotation: { roulisDeg: 0, typeEcran: /** @type {string | null} */ (null) } };
+  const ps = { photoMode: null, W: 0, H: 0, dpr: 1, dernierBilan: null, dernierRetour: null, rotation: etatRotationInitial(), continu: etatContinuInitial(), lectureRotation: { roulisDeg: 0, typeEcran: /** @type {string | null} */ (null) } };
   const sauver = () => ecrireReglages(stockage, S, ps.photoMode ? ps.photoMode.backup : null);
   const relais = String((/** @type {any} */ (window).APP_CONFIG || {}).relay || '');
   const app = creerApplication({ reglages: () => S, journal, stockage, relais, urlWorkerMasque: new URL('../workers/masque-relief.js', import.meta.url), quandChange: () => {} });
@@ -176,7 +177,7 @@ export function demarrerPage({ mode }) {
   $('btnSet').addEventListener('click', majZone); majZone();
   $('phv').checked = S.photoVis === true;
   $('phv').addEventListener('change', (/** @type {any} */ e) => { S.photoVis = e.target.checked; app.definirAnalysePhoto(null); vis.analyse.derniere = null; sauver(); });
-  $('oeilGps').checked = S.oeilGps !== false; $('oeilGps').disabled = !direct; $('oeilGps').addEventListener('change', (/** @type {any} */ e) => { S.oeilGps = e.target.checked; oeil.reprendreAuto(); sauver(); });
+  $('oeilGps').checked = S.oeilGps === true; $('oeilGps').disabled = !direct; $('oeilGps').addEventListener('change', (/** @type {any} */ e) => { S.oeilGps = e.target.checked; oeil.reprendreAuto(); sauver(); });
   $('autoRel').checked = S.autoRelief === true; $('autoRel').addEventListener('change', (/** @type {any} */ e) => { S.autoRelief = e.target.checked; sauver(); });
   $('gyr').disabled = !direct; $('gyr').checked = S.gyro !== false;
   $('gyr').addEventListener('change', (/** @type {any} */ e) => { S.gyro = e.target.checked; sauver(); });
@@ -191,6 +192,8 @@ export function demarrerPage({ mode }) {
   installerPhoto(c, calage);
   const fiches = installerFiches(c);
   const gestes = installerGestes(c, calage, fiches);
+  const continu = installerCalageContinu(c, calage, gestes);
+  $f('calCont').checked = S.calageContinu === true; $f('calCont').disabled = !direct; $f('calCont').addEventListener('change', (/** @type {any} */ e) => { S.calageContinu = e.target.checked; continu.reinitialiser(); sauver(); });
   installerDeclencheur(c);
 
   // ---------- boucle d'affichage : 30 images/s au plus ----------
@@ -220,7 +223,7 @@ export function demarrerPage({ mode }) {
   function dessinerImage() {
     if (S.photoVis === true && imageSource() && !document.hidden && Date.now() - vis.analyse.t > PERIODE_ANALYSE_MS) { vis.analyse.t = Date.now(); try { vis.analyserCiel(); } catch (e) { journal.erreur('vision', 'analyse du ciel', e); } }
     const d = app.donnees(), e = app.etat();
-    oeil.synchroOeil();
+    oeil.synchroOeil(); continu.surImage();
     if (direct) surveillerRotation();
     const po = pose(), maintenant = Date.now(), cam = entree ? entree.etat() : null;
     if (direct) app.actualiserMobiles(maintenant);
