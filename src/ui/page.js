@@ -49,6 +49,14 @@ function griserCommandesImage(grise, direct) {
   }
 }
 
+/** Texte de l'état du hors ligne (lieux, bâtiments et rues gardés). @param {ReturnType<ReturnType<typeof creerApplication>['infoZone']>} z */
+function texteZone(z) {
+  if (!z.lieux && !z.urbain) return 'Aucune zone téléchargée : en cas de panne réseau, seule une petite liste de grandes villes reste disponible.';
+  const lieux = z.lieux ? `${z.lieux} lieux enregistrés sur ${z.zones} zone(s) téléchargée(s), dernière le ${z.derniere ? new Date(z.derniere).toLocaleDateString('fr-FR') : '—'}. Chaque téléchargement s'ajoute aux précédents, rien n'est écrasé.` : '';
+  const ville = z.urbain ? ` Ville gardée le ${new Date(z.urbain.t).toLocaleDateString('fr-FR')} : ${z.urbain.nBatiments} bâtiments (${z.urbain.batiments} tuiles) et ${z.urbain.rues} tuile(s) de rues.` : '';
+  return lieux + ville;
+}
+
 /** Fond transparent pendant la session : le navigateur compose l'image de la caméra DERRIÈRE la page (html, body et #stage sont noirs sinon). @param {boolean} actif */
 const modeXr = (actif) => { document.documentElement.classList.toggle('xr', actif); document.body.classList.toggle('xr', actif); };
 
@@ -87,7 +95,7 @@ export function demarrerPage({ mode }) {
   const ps = { photoMode: null, W: 0, H: 0, dpr: 1, dernierBilan: null, dernierRetour: null, rotation: etatRotationInitial(), continu: etatContinuInitial(), xr: null, guide: null, lectureRotation: { roulisDeg: 0, typeEcran: /** @type {string | null} */ (null) } };
   const sauver = () => ecrireReglages(stockage, S, ps.photoMode ? ps.photoMode.backup : null);
   const relais = String((/** @type {any} */ (window).APP_CONFIG || {}).relay || '');
-  const app = creerApplication({ reglages: () => S, journal, stockage, relais, urlWorkerMasque: new URL('../workers/masque-relief.js', import.meta.url), quandChange: () => {} });
+  const app = creerApplication({ reglages: () => S, journal, stockage, relais, urlWorkerMasque: new URL('../workers/masque-relief.js', import.meta.url), urlWorkerSilhouette: new URL('../workers/silhouette-batiments.js', import.meta.url), quandChange: () => {} });
   app.definirMode(mode);
   const fusion = creerFusion();
   const carnet = creerCarnet({ stockage, journal, relais, reseau: app.reseau }); carnet.demarrer();
@@ -133,7 +141,9 @@ export function demarrerPage({ mode }) {
   const cases = [
     ['lyPlaces', (s) => s.layers.places, (s, v) => { s.layers.places = v; }], ['lyMon', (s) => s.layers.monuments, (s, v) => { s.layers.monuments = v; }, 'monuments'],
     ['lyEq', (s) => s.layers.equip !== false, (s, v) => { s.layers.equip = v; }], ['lyTel', (s) => s.telecom, (s, v) => { s.telecom = v; }, 'telecom'],
-    ['lyBld', (s) => s.buildings, (s, v) => { s.buildings = v; }, 'reperes'], ['lySea', (s) => s.sea, (s, v) => { s.sea = v; }], ['lyAir', (s) => s.air, (s, v) => { s.air = v; }],
+    ['lyBld', (s) => s.buildings, (s, v) => { s.buildings = v; }, 'reperes'],
+    ['lyUrb', (s) => s.layers.urban === true, (s, v) => { s.layers.urban = v; }, 'urbain'], ['lyUrbClip', (s) => s.layers.urbClip !== false, (s, v) => { s.layers.urbClip = v; }, 'urbain'],
+    ['lyUrbSmooth', (s) => s.layers.urbSmooth !== false, (s, v) => { s.layers.urbSmooth = v; }, 'urbain'], ['lyUrbFill', (s) => s.layers.urbFill !== false, (s, v) => { s.layers.urbFill = v; }, 'urbain'], ['lySea', (s) => s.sea, (s, v) => { s.sea = v; }], ['lyAir', (s) => s.air, (s, v) => { s.air = v; }],
     ['air', (s) => s.air, (s, v) => { s.air = v; }], ['sea', (s) => s.sea, (s, v) => { s.sea = v; }], ['tel', (s) => s.telecom, (s, v) => { s.telecom = v; }, 'telecom'], ['bld', (s) => s.buildings, (s, v) => { s.buildings = v; }, 'reperes'],
     ['dst', (s) => s.showDist, (s, v) => { s.showDist = v; }], ['vil', (s) => s.hamlets, (s, v) => { s.hamlets = v; }, 'lieux'], ['rdg', (s) => s.ridges !== false, (s, v) => { s.ridges = v; }],
     ['sky', (s) => s.skyline, (s, v) => { s.skyline = v; }], ['crs', (s) => s.cross, (s, v) => { s.cross = v; }], ['lun', (s) => s.lune !== false, (s, v) => { s.lune = v; }], ['rel', (s) => s.relief, (s, v) => { s.relief = v; if (v) s.calculRelief = true; }, 'terrain'], ['relc', (s) => s.calculRelief !== false, (s, v) => { s.calculRelief = v; if (!v) s.relief = false; }, 'terrain'],
@@ -196,18 +206,18 @@ export function demarrerPage({ mode }) {
   // ---------- hors ligne : télécharger la zone (lieux + relief d'ici), supprimer ----------
   const majZone = () => {
     const z = app.infoZone(), del = $('btnZoneDel');
-    $('zoneInfo').textContent = z.lieux ? `${z.lieux} lieux enregistrés sur ${z.zones} zone(s) téléchargée(s), dernière le ${z.derniere ? new Date(z.derniere).toLocaleDateString('fr-FR') : '—'}. Chaque téléchargement s'ajoute aux précédents, rien n'est écrasé.` : 'Aucune zone téléchargée : en cas de panne réseau, seule une petite liste de grandes villes reste disponible.';
-    del.style.display = z.lieux ? 'inline-block' : 'none';
+    $('zoneInfo').textContent = texteZone(z);
+    del.style.display = z.lieux || z.urbain ? 'inline-block' : 'none';
   };
   $('btnZoneDL').addEventListener('click', async () => {
     const b = $('btnZoneDL'), titre = 'Télécharger cette zone (150 km)';
     if (!app.donnees().pos) { note('Zone hors ligne : en attente de la position', 5000); return; }
     b.disabled = true; b.textContent = 'Téléchargement… (30 à 60 s)';
-    try { const r = await app.telechargerZone({ rayonKm: 150 }); b.textContent = `+${r.nouveaux} nouveaux (${r.total} au total)`; note('Zone téléchargée : lieux et relief gardés pour le hors ligne', 6000); }
+    try { const r = await app.telechargerZone({ rayonKm: 150 }); b.textContent = `+${r.nouveaux} nouveaux (${r.total} au total)`; note(r.urbain ? 'Zone téléchargée : lieux, relief, bâtiments et rues gardés pour le hors ligne' : 'Zone téléchargée : lieux et relief gardés ; bâtiments et rues indisponibles pour l\'instant', 6000); }
     catch (e) { b.textContent = 'Échec : réessayer dans une minute'; journal.avert('app', 'téléchargement de la zone', e); }
     majZone(); setTimeout(() => { b.disabled = false; b.textContent = titre; }, 3000);
   });
-  $('btnZoneDel').addEventListener('click', () => { if (!confirm('Supprimer les lieux téléchargés pour le hors ligne ?')) return; app.supprimerZone(); majZone(); note('Zone supprimée', 4000); });
+  $('btnZoneDel').addEventListener('click', () => { if (!confirm('Supprimer les lieux, bâtiments et rues téléchargés pour le hors ligne ?')) return; app.supprimerZone(); majZone(); note('Zone supprimée', 4000); });
   $('btnSet').addEventListener('click', majZone); majZone();
   $('phv').checked = S.photoVis === true;
   $('phv').addEventListener('change', (/** @type {any} */ e) => { S.photoVis = e.target.checked; app.definirAnalysePhoto(null); vis.analyse.derniere = null; sauver(); });
