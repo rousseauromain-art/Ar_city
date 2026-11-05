@@ -16,9 +16,10 @@ function ligneXr(ps) {
 }
 
 /** Lignes du Diagnostic sur la ville : bâtiments (BD TOPO), silhouette, rues. @param {import('./contexte.js').Contexte} c @returns {string[]} */
-function lignesVille({ app, S }) {
-  const u = app.etat().urbain;
-  return [`bâtiments (BD TOPO) : ${echap(u.batiments || (S.layers.urban ? 'en attente' : 'calque éteint : rien n\'est chargé'))}${u.nBatiments ? ` · silhouette calculée en ${u.silhouetteMs} ms` : ''}`, `rues : ${echap(u.rues || '—')}`];
+function lignesVille({ app, S, positionPropre, direct }) {
+  const u = app.etat().urbain, pp = positionPropre.etat();
+  const pos = !direct ? [] : pp.brute && pp.nettoyee ? [`position GPS : brute ${pp.brute.lat.toFixed(6)}, ${pp.brute.lon.toFixed(6)} (± ${Math.round(pp.brute.precisionM)} m) · nettoyée ${pp.nettoyee.lat.toFixed(6)}, ${pp.nettoyee.lon.toFixed(6)} · ${pp.mode === 'mediane' ? `médiane de ${pp.n} mesure(s) sur ${pp.nMesures}` : 'dernière mesure (en marche ou téléphone en mouvement)'}${pp.corrigeeBat ? ` · ramenée hors d'un bâtiment de ${pp.deplaceBatM.toFixed(1)} m` : ''}`] : ['position GPS : aucun fix reçu (position simulée, ou GPS en attente)'];
+  return [...pos, `bâtiments (BD TOPO) : ${echap(u.batiments || (S.layers.urban ? 'en attente' : 'calque éteint : rien n\'est chargé'))}${u.nBatiments ? ` · silhouette calculée en ${u.silhouetteMs} ms` : ''}`, `rues : ${echap(u.rues || '—')}`];
 }
 
 /** Lignes du Diagnostic sur les rotations : source (quaternion 60 Hz ou deviceorientation) et écran contre téléphone. @param {import('./contexte.js').Contexte} c @returns {string[]} */

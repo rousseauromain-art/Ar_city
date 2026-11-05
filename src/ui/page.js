@@ -31,6 +31,7 @@ import { installerCalageContinu, etatContinuInitial } from './calage-continu.js'
 import { creerSuiviXr } from '../entrees/webxr.js';
 import { installerCalageGuide } from './calage-guide.js';
 import { installerCalageVille } from './calage-ville.js';
+import { creerPositionPropre } from './position-propre.js';
 import { evaluerRotation, etatRotationInitial, fermerRotation, MESSAGE_ROTATION } from '../entrees/rotation.js';
 import { installerDeclencheur } from './declencheur.js';
 import { creerCarnet } from '../app/carnet.js';
@@ -103,7 +104,8 @@ export function demarrerPage({ mode }) {
 
   const video = /** @type {HTMLVideoElement | null} */ (document.getElementById('cam'));
   const simulee = () => S.simOn && !!lirePositionTexte(S.simPos);
-  const entree = direct && video ? creerEntreeDirecte({ video, fusion, journal, positionSimulee: simulee, capteurRelatif: () => S.capteurRelatif === true, surPosition: (p) => app.definirPosition({ lat: p.lat, lon: p.lon }),
+  const positionPropre = creerPositionPropre({ app, S, vitesse: () => (entree ? entree.etat().vitesseMs : null), echantillons: () => echantillons, journal, puce: () => $f('posChip') });
+  const entree = direct && video ? creerEntreeDirecte({ video, fusion, journal, positionSimulee: simulee, capteurRelatif: () => S.capteurRelatif === true, surPosition: (p) => positionPropre.surFix(p),
     surRetourBoussole: (m) => { ps.dernierRetour = { t: Date.now(), m, headOff: S.headOff, pitchOff: S.pitchOff }; } }) : null;
   /** Échantillons du cap (1 par seconde, 10 min) : cap affiché, boussole, gyroscope, repère, calage — pour comprendre un décrochage. @type {{t: number, cap: number, boussole: number | null, gyro: number | null, repere: number | null, headOff: number, pitchOff: number}[]} */
   const echantillons = [];
@@ -178,7 +180,7 @@ export function demarrerPage({ mode }) {
   /** Dimensions de l'écran pour les lectures d'image. */
   const ecranPx = () => ({ largeurPx: ps.W, hauteurPx: ps.H });
   // ---------- modules de la page (ui/*.js) : chacun reçoit le contexte `c` ----------
-  const c = /** @type {import('./contexte.js').Contexte} */ ({ direct, S, app, journal, stockage, carnet, fusion, entree, video, relais, memoires, ov, familles, ps, simulee, echantillons, reglagesRepris,
+  const c = /** @type {import('./contexte.js').Contexte} */ ({ direct, S, app, journal, stockage, carnet, fusion, entree, video, relais, memoires, ov, familles, ps, simulee, echantillons, positionPropre, reglagesRepris,
     $, $f, note, sauver, synchroniser, pose, vFov, fluxImage, ecranPx, imageSource, dessinerImage, redimensionner });
   const oeil = installerOeil(c);
   const vis = installerVisibilitePhoto(c);

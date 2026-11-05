@@ -306,7 +306,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     },
     /** Nouvelle position (GPS, photo, simulation) : les chargements dont le seuil de déplacement est dépassé repartent. @param {Point} pos @param {{force?: boolean}} [o] */
     definirPosition(pos, { force = false } = {}) {
-      if (!force && estBruitGps(D.pos, pos)) return Promise.resolve([]); // un fix GPS à moins de 10 m n'est que du bruit : rien ne change, rien ne se relance
+      if (!force && estBruitGps(D.pos, pos)) return Promise.resolve([]); // un fix GPS à moins de 5 m n est que du bruit : rien ne change, rien ne se relance
       const saut = D.pos ? distanceEtCap(D.pos, pos).distKm : Infinity;
       D.pos = { lat: pos.lat, lon: pos.lon };
       if (saut > 2) { urbain.reinitialiser(); D.terrain = null; sommets = []; publierLieux(); D.monuments = []; D.pylones = []; D.reperes = []; D.doublonsReperes = []; baseWikidata = []; tuilesOsm = []; batiments = []; Object.assign(couvert, { lieux: null, sommets: null, terrain: null, monuments: null, telecom: null, reperes: null }); }

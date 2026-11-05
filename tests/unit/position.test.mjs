@@ -11,7 +11,7 @@ test('un fix GPS à quelques mètres est du bruit, un déplacement de 50 m n\'en
   assert.equal(estBruitGps(A, decale(3)), true);
   assert.equal(estBruitGps(A, decale(50)), false);
   assert.equal(estBruitGps(null, A), false, 'la toute première position n\'est jamais du bruit');
-  assert.equal(BRUIT_GPS_KM, 0.01);
+  assert.equal(BRUIT_GPS_KM, 0.005);
 });
 
 test('même endroit : moins de 300 m (le seuil de recalcul du relief)', () => {
