@@ -62,7 +62,7 @@ test('WebXR : fond transparent (html, body), caméra libérée puis relancée, c
   expect(await page.evaluate(()=>getComputedStyle(document.getElementById('stage')).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   expect(await page.evaluate(()=>getComputedStyle(document.documentElement).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   expect(await page.evaluate(()=>window.__vh2.entree.etat().cameraOk)).toBe(false); // flux arrêté avant la session
-  for(const id of ['btnAlign','btnAutoAlign','phv','calCont']) expect(await page.evaluate((id)=>document.getElementById(id).disabled,id)).toBe(true);
+  for(const id of ['btnAlign','btnAutoAlign','btnPlate','phv','calCont']) expect(await page.evaluate((id)=>document.getElementById(id).disabled,id)).toBe(true);
   await page.evaluate(()=>window.__xrSession.end());
   await expect.poll(()=>page.evaluate(()=>window.__vh2.entree.etat().cameraOk),{timeout:8000}).toBe(true); // relancé à la fin
   expect(await page.evaluate(()=>document.documentElement.classList.contains('xr'))).toBe(false);

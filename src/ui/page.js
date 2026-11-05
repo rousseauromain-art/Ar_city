@@ -32,6 +32,7 @@ import { creerSuiviXr } from '../entrees/webxr.js';
 import { installerCalageGuide } from './calage-guide.js';
 import { installerCalageVille } from './calage-ville.js';
 import { installerCalageOmbre } from './calage-ombre.js';
+import { installerLirePlaque } from './lire-plaque.js';
 import { creerPositionPropre } from './position-propre.js';
 import { creerPositionToits } from '../calage/position-toits-worker.js';
 import { evaluerRotation, etatRotationInitial, fermerRotation, MESSAGE_ROTATION } from '../entrees/rotation.js';
@@ -44,7 +45,7 @@ const $ = (id) => { const e = document.getElementById(id); if (!e) throw new Err
 const $f = (id) => document.getElementById(id) || document.createElement('span');
 
 /** Commandes qui lisent l'image de la caméra : sans l'accès à la caméra (`camera-access`) de la session WebXR, elles n'ont plus d'image à lire. */
-const COMMANDES_IMAGE = ['btnAlign', 'btnAutoAlign', 'phv', 'calCont'];
+const COMMANDES_IMAGE = ['btnAlign', 'btnAutoAlign', 'btnPlate', 'phv', 'calCont'];
 /** Grise (ou rend) les commandes qui lisent l'image. @param {boolean} grise @param {boolean} direct */
 function griserCommandesImage(grise, direct) {
   for (const id of COMMANDES_IMAGE) {
@@ -242,6 +243,7 @@ export function demarrerPage({ mode }) {
   const fiches = installerFiches(c);
   const couchesPerso = installerCouchesPerso(c, fiches);
   const ombre = installerCalageOmbre(c, calage);
+  installerLirePlaque(c);
   const gestes = installerGestes(c, calage, fiches, ombre);
   const continu = installerCalageContinu(c, calage, gestes);
   ps.xr = installerSuiviXr({ fusion, journal, video, entree, direct, dessinerImage: () => dessinerImage(), synchroniser, note });
