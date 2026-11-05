@@ -38,6 +38,7 @@ Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque d
 - **Ne jamais lui demander de lancer une commande git ou un terminal.** Claude fait tous les commits, branches, envois et pull requests. Romain ne fait que : tester sur le téléphone, fusionner une PR (bouton « Merge » de GitHub dans le navigateur ou l'appli), déposer des fichiers via le site GitHub (« Add files via upload », par exemple dans `Ar_city-photos`). Toute consigne à son attention se donne en gestes sur le téléphone.
 
 ## Règles de travail
+- **État des sujets :** `docs/ETAT.md` (une ligne par sujet : état, preuve, terrain). **Chaque PR met à jour `docs/ETAT.md`.**
 - **Branches :** `main` est la version en ligne. Une branche par sujet ; on relit le diff, puis on fusionne.
 - **Tests :** aucune livraison sans tests automatiques verts.
 - **Bug signalé :** le reproduire d'abord avec la version d'avant, puis vérifier qu'il disparaît.

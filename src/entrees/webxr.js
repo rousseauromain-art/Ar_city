@@ -29,7 +29,7 @@ export const quaternionXrVersEnu = (qXr) => multiplier(Q_XR_VERS_ENU, qXr);
  */
 export function creerSuiviXr({ fenetre = window, fusion, journal, racine, surImage, surFin = () => {}, maintenant = Date.now }) {
   const xr = /** @type {any} */ (fenetre.navigator).xr;
-  const etat = { actif: false, erreur: '', images: 0, depuis: 0, hz: 0, suivi: false };
+  const etat = { actif: false, erreur: '', images: 0, depuis: 0, hz: 0, suivi: false, cameraAcces: false };
   /** @type {any} */
   let session = null;
   /** Le navigateur propose-t-il une session de réalité augmentée ? @returns {Promise<boolean>} */
@@ -42,13 +42,14 @@ export function creerSuiviXr({ fenetre = window, fusion, journal, racine, surIma
     etat.erreur = '';
     try {
       if (!(await disponible())) throw new Error('réalité augmentée WebXR indisponible (Services Google Play pour la RA requis, page en HTTPS)');
-      const s = await xr.requestSession('immersive-ar', { requiredFeatures: ['local'], optionalFeatures: ['dom-overlay'], domOverlay: { root: racine() } });
+      const s = await xr.requestSession('immersive-ar', { requiredFeatures: ['local'], optionalFeatures: ['dom-overlay', 'camera-access'], domOverlay: { root: racine() } });
       const canevas = fenetre.document.createElement('canvas'), gl = /** @type {any} */ (canevas.getContext('webgl', { xrCompatible: true, alpha: true }));
       if (!gl) throw new Error('WebGL indisponible');
       if (gl.makeXRCompatible) await gl.makeXRCompatible();
       const Couche = /** @type {any} */ (fenetre).XRWebGLLayer;
       await s.updateRenderState({ baseLayer: new Couche(s, gl) });
       const reference = await s.requestReferenceSpace('local');
+      etat.cameraAcces = Array.isArray(s.enabledFeatures) && s.enabledFeatures.includes('camera-access');
       session = s; etat.actif = true; etat.images = 0; etat.depuis = 0; fusion.suiviExterne = true; signalerReouverture(fusion); // le repère du suivi visuel est nouveau : le nord est refait d'après la boussole, une fois
       s.addEventListener('end', () => { session = null; etat.actif = false; etat.suivi = false; fusion.suiviExterne = false; signalerReouverture(fusion); journal.info('webxr', 'session terminée'); surFin(); });
       const image = (/** @type {number} */ t, /** @type {any} */ cadre) => {

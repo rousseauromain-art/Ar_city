@@ -39,17 +39,33 @@ const $ = (id) => { const e = document.getElementById(id); if (!e) throw new Err
 /** Élément facultatif (absent de la page en direct : la photo rejouée a sa propre page) : un élément détaché si la page ne l'a pas. @param {string} id @returns {any} */
 const $f = (id) => document.getElementById(id) || document.createElement('span');
 
-/** Suivi visuel WebXR (essai, direct) : pendant la session le navigateur ne rappelle plus requestAnimationFrame, c'est le suivi qui cadence l'affichage.
- * @param {{fusion: any, journal: any, video: HTMLVideoElement | null, direct: boolean, dessinerImage: () => void, synchroniser: () => void, note: (t: string, ms?: number) => void}} o */
-function installerSuiviXr({ fusion, journal, video, direct, dessinerImage, synchroniser, note }) {
-  const xr = creerSuiviXr({ fusion, journal, racine: () => document.body, surImage: () => dessinerImage(), surFin: () => { document.body.classList.remove('xr'); video && (video.style.visibility = ''); synchroniser(); } });
+/** Commandes qui lisent l'image de la caméra : sans l'accès à la caméra (`camera-access`) de la session WebXR, elles n'ont plus d'image à lire. */
+const COMMANDES_IMAGE = ['btnAlign', 'btnAutoAlign', 'phv', 'calCont'];
+/** Grise (ou rend) les commandes qui lisent l'image. @param {boolean} grise @param {boolean} direct */
+function griserCommandesImage(grise, direct) {
+  for (const id of COMMANDES_IMAGE) {
+    const e = $f(id); e.disabled = grise || (id === 'calCont' && !direct);
+    if (grise) e.title = 'Indisponible pendant le suivi visuel WebXR : le navigateur ne donne pas l\'image de la caméra'; else e.removeAttribute('title');
+  }
+}
+
+/** Fond transparent pendant la session : le navigateur compose l'image de la caméra DERRIÈRE la page (html, body et #stage sont noirs sinon). @param {boolean} actif */
+const modeXr = (actif) => { document.documentElement.classList.toggle('xr', actif); document.body.classList.toggle('xr', actif); };
+
+/** Suivi visuel WebXR (essai, direct) : pendant la session le navigateur ne rappelle plus requestAnimationFrame, c'est le suivi qui cadence l'affichage ; le flux getUserMedia est libéré avant la session et relancé à la fin.
+ * @param {{fusion: any, journal: any, video: HTMLVideoElement | null, entree: any, direct: boolean, dessinerImage: () => void, synchroniser: () => void, note: (t: string, ms?: number) => void}} o */
+function installerSuiviXr({ fusion, journal, video, entree, direct, dessinerImage, synchroniser, note }) {
+  const fin = () => { modeXr(false); griserCommandesImage(false, direct); if (video) video.style.visibility = ''; if (entree) entree.reprendreCamera(); synchroniser(); };
+  const xr = creerSuiviXr({ fusion, journal, racine: () => document.body, surImage: () => dessinerImage(), surFin: fin });
   $f('btnXr').hidden = true;
   if (direct) xr.disponible().then((ok) => { $f('btnXr').hidden = !ok; $f('xrInfo').textContent = ok ? '' : 'indisponible ici (Chrome Android, Services Google Play pour la RA, page en HTTPS)'; });
   $f('btnXr').addEventListener('click', async () => {
     if (xr.etat().actif) { await xr.arreter(); return; }
-    $('sheet').classList.remove('open'); document.body.classList.add('xr'); if (video) video.style.visibility = 'hidden';
+    $('sheet').classList.remove('open'); modeXr(true); if (video) video.style.visibility = 'hidden';
+    if (entree) entree.suspendreCamera();
     await xr.demarrer();
-    if (!xr.etat().actif) { document.body.classList.remove('xr'); if (video) video.style.visibility = ''; note(xr.etat().erreur || 'Suivi visuel impossible', 6000); }
+    if (!xr.etat().actif) { fin(); note(xr.etat().erreur || 'Suivi visuel impossible', 6000); return; }
+    if (!xr.etat().cameraAcces) { griserCommandesImage(true, direct); note('Suivi visuel actif : calages sur l\'image indisponibles (pas d\'accès à la caméra)', 5000); }
   });
   return xr;
 }
@@ -212,7 +228,7 @@ export function demarrerPage({ mode }) {
   const couchesPerso = installerCouchesPerso(c, fiches);
   const gestes = installerGestes(c, calage, fiches);
   const continu = installerCalageContinu(c, calage, gestes);
-  ps.xr = installerSuiviXr({ fusion, journal, video, direct, dessinerImage: () => dessinerImage(), synchroniser, note });
+  ps.xr = installerSuiviXr({ fusion, journal, video, entree, direct, dessinerImage: () => dessinerImage(), synchroniser, note });
   $f('capRel').checked = S.capteurRelatif === true; $f('capRel').disabled = !direct; if (entree) entree.synchroniserCapteurRelatif();
   $f('capRel').addEventListener('change', (/** @type {any} */ e) => { S.capteurRelatif = e.target.checked; sauver(); if (entree) entree.synchroniserCapteurRelatif(); });
   if (direct) installerCalageGuide(c, calage);
