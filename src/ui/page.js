@@ -31,6 +31,7 @@ import { installerCalageContinu, etatContinuInitial } from './calage-continu.js'
 import { creerSuiviXr } from '../entrees/webxr.js';
 import { installerCalageGuide } from './calage-guide.js';
 import { installerCalageVille } from './calage-ville.js';
+import { installerCalageOmbre } from './calage-ombre.js';
 import { creerPositionPropre } from './position-propre.js';
 import { creerPositionToits } from '../calage/position-toits-worker.js';
 import { evaluerRotation, etatRotationInitial, fermerRotation, MESSAGE_ROTATION } from '../entrees/rotation.js';
@@ -95,7 +96,7 @@ export function demarrerPage({ mode }) {
   const reglagesRepris = reprendreReglagesV1(stockage, (k) => { try { return localStorage.getItem(k); } catch { return null; } });
   const S = lireReglages(stockage);
   /** État partagé par la page et ses modules (ui/*.js) : la photo ouverte, la taille de l'écran, le dernier bilan de la scène, le dernier retour à la boussole. @type {import('./contexte.js').EtatPartage} */
-  const ps = { photoMode: null, W: 0, H: 0, dpr: 1, dernierBilan: null, dernierRetour: null, rotation: etatRotationInitial(), continu: etatContinuInitial(), xr: null, guide: null, axeRue: null, lectureRotation: { roulisDeg: 0, typeEcran: /** @type {string | null} */ (null) } };
+  const ps = { photoMode: null, W: 0, H: 0, dpr: 1, dernierBilan: null, dernierRetour: null, rotation: etatRotationInitial(), continu: etatContinuInitial(), xr: null, guide: null, axeRue: null, traitOmbre: null, lectureRotation: { roulisDeg: 0, typeEcran: /** @type {string | null} */ (null) } };
   const sauver = () => ecrireReglages(stockage, S, ps.photoMode ? ps.photoMode.backup : null);
   const relais = String((/** @type {any} */ (window).APP_CONFIG || {}).relay || '');
   const app = creerApplication({ reglages: () => S, journal, stockage, relais, urlWorkerMasque: new URL('../workers/masque-relief.js', import.meta.url), urlWorkerSilhouette: new URL('../workers/silhouette-batiments.js', import.meta.url), quandChange: () => {} });
@@ -240,7 +241,8 @@ export function demarrerPage({ mode }) {
   installerPhoto(c, calage);
   const fiches = installerFiches(c);
   const couchesPerso = installerCouchesPerso(c, fiches);
-  const gestes = installerGestes(c, calage, fiches);
+  const ombre = installerCalageOmbre(c, calage);
+  const gestes = installerGestes(c, calage, fiches, ombre);
   const continu = installerCalageContinu(c, calage, gestes);
   ps.xr = installerSuiviXr({ fusion, journal, video, entree, direct, dessinerImage: () => dessinerImage(), synchroniser, note });
   $f('capRel').checked = S.capteurRelatif === true; $f('capRel').disabled = !direct; if (entree) entree.synchroniserCapteurRelatif();
@@ -287,7 +289,7 @@ export function demarrerPage({ mode }) {
     const vue = { largeurPx: ps.W, hauteurPx: ps.H, capDeg: po.capDeg, inclinaisonDeg: po.inclinaisonDeg, roulisDeg: po.roulisDeg, champDeg: vFov() };
     const r = composerScene({ vue, reglages: S, donnees: d.pos ? d : null, memoires, maintenantMs: maintenant,
       ecran: { reservations: obstaclesInterface(), safeT, safeB: parseFloat(css.getPropertyValue('--safe-b')) || 0, mesurerTexte, familles },
-      etat: { axeRue: ps.axeRue && ps.axeRue.jusqua > maintenant ? ps.axeRue : null, photo: !!ps.photoMode, utcMs: ps.photoMode ? ps.photoMode.photo.utc : direct ? maintenant : null, capteur: direct ? fusion.capteur : false, erreurCamera: cam ? cam.erreurCamera : '', precisionM: cam ? cam.precisionM : 0,
+      etat: { traitOmbre: ps.traitOmbre, axeRue: ps.axeRue && ps.axeRue.jusqua > maintenant ? ps.axeRue : null, photo: !!ps.photoMode, utcMs: ps.photoMode ? ps.photoMode.photo.utc : direct ? maintenant : null, capteur: direct ? fusion.capteur : false, erreurCamera: cam ? cam.erreurCamera : '', precisionM: cam ? cam.precisionM : 0,
         chargement: e.chargementLieux, source: e.source, etatRelief: e.etatRelief, messageAir: e.messageAir, messageSea: e.messageSea } });
     ctx.setTransform(ps.dpr, 0, 0, ps.dpr, 0, 0); ctx.clearRect(0, 0, ps.W, ps.H);
     ctx.save(); avecRoulis(ctx, vue, () => dessiner(ctx, r.scene)); ctx.restore(); dessiner(ctx, r.ecran);

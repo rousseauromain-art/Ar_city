@@ -6,8 +6,8 @@
 import { noterCalage } from '../entrees/capteurs.js';
 import { RAD } from '../noyau/constantes.js';
 
-/** @param {import('./contexte.js').Contexte} c @param {ReturnType<typeof import('./calage.js').installerCalage>} calage @param {ReturnType<typeof import('./fiches.js').installerFiches>} fiches */
-export function installerGestes(c, calage, fiches) {
+/** @param {import('./contexte.js').Contexte} c @param {ReturnType<typeof import('./calage.js').installerCalage>} calage @param {ReturnType<typeof import('./fiches.js').installerFiches>} fiches @param {ReturnType<typeof import('./calage-ombre.js').installerCalageOmbre>} ombre */
+export function installerGestes(c, calage, fiches, ombre) {
   const { S, fusion, ov, direct, note, sauver, synchroniser, vFov, ps } = c;
   // ---------- glisser (cap, horizon) et pincer (champ) ----------
   /** @type {null | {x: number, y: number, h: number, p: number, moved: boolean, t: number}} */
@@ -16,12 +16,14 @@ export function installerGestes(c, calage, fiches) {
   /** @type {null | {d0: number, t0: number}} */
   let pinch = null;
   ov.addEventListener('pointerdown', (e) => {
+    if (ombre.actif()) { ov.setPointerCapture(e.pointerId); ombre.surPointeur('down', e.clientX, e.clientY); return; } // calage sur une ombre : le doigt trace, rien d'autre ne bouge
     ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); ov.setPointerCapture(e.pointerId);
     if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, t0: Math.tan(S.camFov / 2 * RAD) }; drag = null; return; }
     if (ptrs.size > 2) return;
     drag = { x: e.clientX, y: e.clientY, t: Date.now(), h: S.headOff, p: S.pitchOff, moved: false };
   });
   ov.addEventListener('pointermove', (e) => {
+    if (ombre.actif()) { ombre.surPointeur('move', e.clientX, e.clientY); return; }
     if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pinch && ptrs.size >= 2) {
       const [a, b] = [...ptrs.values()], r = (Math.hypot(a.x - b.x, a.y - b.y) || 1) / pinch.d0;
@@ -34,6 +36,7 @@ export function installerGestes(c, calage, fiches) {
     S.headOff = direct ? drag.h - dh : (drag.h - dh + 360) % 360; S.pitchOff = drag.p + Math.atan((e.clientY - drag.y) / fh) / RAD;
   });
   ov.addEventListener('pointerup', (e) => {
+    if (ombre.actif()) { ombre.surPointeur('up', e.clientX, e.clientY); return; }
     const etaitPincement = !!pinch; ptrs.delete(e.pointerId);
     if (etaitPincement) { if (ptrs.size < 2) { pinch = null; sauver(); } drag = null; return; }
     if (drag && !drag.moved && Date.now() - drag.t < 450) { S.headOff = drag.h; S.pitchOff = drag.p; if (calage.echelleActive()) calage.toucherEchelle(e.clientX, e.clientY); else if (calage.pointageActif()) { calage.definirModePointage(false); calage.pointerSur(e.clientX, e.clientY); } else { const r = ov.getBoundingClientRect(); fiches.ouvrirEn(e.clientX - r.left, e.clientY - r.top); } } else { sauver(); if (direct && drag && drag.moved) noterCalage(fusion, Date.now()); if (drag && drag.moved && ((direct && fusion.capteur) || ps.photoMode)) calage.consigner('glisser', { h: drag.h, p: drag.p }); } // calage récent : la boussole ne le défait pas

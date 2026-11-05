@@ -7,7 +7,7 @@
 import { RAD } from '../noyau/constantes.js';
 import { ecartAngle } from '../noyau/maths.js';
 import { xDepuisEcart, yDepuisSite } from '../noyau/projection.js';
-import { trait } from '../noyau/commandes.js';
+import { trait, remplissage } from '../noyau/commandes.js';
 
 /** Distances (m) échantillonnées le long de l'axe. */
 const DISTANCES_M = [3, 5, 8, 12, 18, 27, 40, 60, 90, 130, 200, 300, 400];
@@ -26,4 +26,11 @@ export function commandesAxeRue(vue, { capDeg, oeilM }) {
   const chemin = DISTANCES_M.map((d, i) => /** @type {import('../noyau/commandes.js').OperationChemin} */ ([i ? 'L' : 'M', xDepuisEcart(vue, ecart), yDepuisSite(vue, -Math.atan2(h, d) / RAD)]));
   // l'axe est vertical à l'écran si l'on vise son sens ; il part du bas de l'image vers le point de fuite
   return [trait(chemin, 'rgba(14,26,43,.7)', 7, { jointure: 'round', extremite: 'round' }), trait(chemin, '#FFD23F', 3, { tirets: [10, 7], jointure: 'round', extremite: 'round' })];
+}
+
+/** Trait tracé au doigt pour le calage sur une ombre : du pied (rond) vers le bout (flèche simple), jaune sur halo sombre. @param {{x0: number, y0: number, x1: number, y1: number}} t @returns {import('../noyau/commandes.js').Commande[]} */
+export function commandesTraitOmbre({ x0, y0, x1, y1 }) {
+  /** @type {import('../noyau/commandes.js').OperationChemin[]} */
+  const chemin = [['M', x0, y0], ['L', x1, y1]];
+  return [trait(chemin, 'rgba(14,26,43,.7)', 7, { jointure: 'round', extremite: 'round' }), trait(chemin, '#FFD23F', 3, { jointure: 'round', extremite: 'round' }), remplissage([['A', x0, y0, 5]], '#FFD23F'), remplissage([['A', x1, y1, 3]], '#FFF3C4')];
 }
