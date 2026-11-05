@@ -128,7 +128,13 @@
   <div class="row">
     <label for="capRel">Capteur d'orientation relatif à 60 Hz (essai : rotations plus fluides ; sinon deviceorientation)</label><input type="checkbox" id="capRel">
   </div>
+    <div class="row">
+    <label for="posToits">Position par les toits (essai, direct : après « Caler auto » sur les toits, la position est corrigée de ±20 m d'après la silhouette des bâtiments)</label><input type="checkbox" id="posToits">
+  </div>
   <div class="row">
+    <label for="stepLen">Longueur d'un pas : <b id="stepLenV">0,7 m</b> (la position corrigée avance avec vos pas)</label><input type="range" id="stepLen" min="0.5" max="1" step="0.05" value="0.7">
+  </div>
+<div class="row">
     <label for="calCont">Recalage continu du cap sur le soleil et la lune (direct : se corrige tout seul quand l'astre est dans l'image)</label><input type="checkbox" id="calCont">
   </div>
   <div class="row">

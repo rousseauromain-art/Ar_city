@@ -19,6 +19,7 @@
 /**
  * @typedef {object} Contexte
  * @property {ReturnType<typeof import('./position-propre.js').creerPositionPropre>} positionPropre position GPS nettoyée (direct)
+ * @property {ReturnType<typeof import('../calage/position-toits-worker.js').creerPositionToits>} calculerPositionToits position par les toits (Worker, repli fil principal)
  * @property {boolean} direct page en direct (sinon photo rejouée)
  * @property {import('../moteur/reglages.js').Reglages} S @property {ReturnType<typeof import('../app/application.js').creerApplication>} app
  * @property {typeof import('../outils/journal.js').journal} journal @property {ReturnType<typeof import('../outils/stockage.js').creerStockage>} stockage

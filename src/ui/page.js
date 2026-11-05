@@ -32,6 +32,7 @@ import { creerSuiviXr } from '../entrees/webxr.js';
 import { installerCalageGuide } from './calage-guide.js';
 import { installerCalageVille } from './calage-ville.js';
 import { creerPositionPropre } from './position-propre.js';
+import { creerPositionToits } from '../calage/position-toits-worker.js';
 import { evaluerRotation, etatRotationInitial, fermerRotation, MESSAGE_ROTATION } from '../entrees/rotation.js';
 import { installerDeclencheur } from './declencheur.js';
 import { creerCarnet } from '../app/carnet.js';
@@ -104,7 +105,7 @@ export function demarrerPage({ mode }) {
 
   const video = /** @type {HTMLVideoElement | null} */ (document.getElementById('cam'));
   const simulee = () => S.simOn && !!lirePositionTexte(S.simPos);
-  const positionPropre = creerPositionPropre({ app, S, vitesse: () => (entree ? entree.etat().vitesseMs : null), echantillons: () => echantillons, journal, puce: () => $f('posChip') });
+  const positionPropre = creerPositionPropre({ app, S, vitesse: () => (entree ? entree.etat().vitesseMs : null), capDeg: () => pose().capDeg, echantillons: () => echantillons, journal, puce: () => $f('posChip') });
   const entree = direct && video ? creerEntreeDirecte({ video, fusion, journal, positionSimulee: simulee, capteurRelatif: () => S.capteurRelatif === true, surPosition: (p) => positionPropre.surFix(p),
     surRetourBoussole: (m) => { ps.dernierRetour = { t: Date.now(), m, headOff: S.headOff, pitchOff: S.pitchOff }; } }) : null;
   /** Échantillons du cap (1 par seconde, 10 min) : cap affiché, boussole, gyroscope, repère, calage — pour comprendre un décrochage. @type {{t: number, cap: number, boussole: number | null, gyro: number | null, repere: number | null, headOff: number, pitchOff: number}[]} */
@@ -145,7 +146,7 @@ export function demarrerPage({ mode }) {
     ['lyPlaces', (s) => s.layers.places, (s, v) => { s.layers.places = v; }], ['lyMon', (s) => s.layers.monuments, (s, v) => { s.layers.monuments = v; }, 'monuments'],
     ['lyEq', (s) => s.layers.equip !== false, (s, v) => { s.layers.equip = v; }], ['lyTel', (s) => s.telecom, (s, v) => { s.telecom = v; }, 'telecom'],
     ['lyBld', (s) => s.buildings, (s, v) => { s.buildings = v; }, 'reperes'],
-    ['lyUrb', (s) => s.layers.urban === true, (s, v) => { s.layers.urban = v; }, 'urbain'], ['lyUrbClip', (s) => s.layers.urbClip !== false, (s, v) => { s.layers.urbClip = v; }, 'urbain'],
+    ['posToits', (s) => s.positionToits === true, (s, v) => { s.positionToits = v; }, 'urbain'], ['lyUrb', (s) => s.layers.urban === true, (s, v) => { s.layers.urban = v; }, 'urbain'], ['lyUrbClip', (s) => s.layers.urbClip !== false, (s, v) => { s.layers.urbClip = v; }, 'urbain'],
     ['lyUrbSmooth', (s) => s.layers.urbSmooth !== false, (s, v) => { s.layers.urbSmooth = v; }, 'urbain'], ['lyUrbFill', (s) => s.layers.urbFill !== false, (s, v) => { s.layers.urbFill = v; }, 'urbain'], ['lySea', (s) => s.sea, (s, v) => { s.sea = v; }], ['lyAir', (s) => s.air, (s, v) => { s.air = v; }],
     ['air', (s) => s.air, (s, v) => { s.air = v; }], ['sea', (s) => s.sea, (s, v) => { s.sea = v; }], ['tel', (s) => s.telecom, (s, v) => { s.telecom = v; }, 'telecom'], ['bld', (s) => s.buildings, (s, v) => { s.buildings = v; }, 'reperes'],
     ['dst', (s) => s.showDist, (s, v) => { s.showDist = v; }], ['vil', (s) => s.hamlets, (s, v) => { s.hamlets = v; }, 'lieux'], ['rdg', (s) => s.ridges !== false, (s, v) => { s.ridges = v; }],
@@ -180,7 +181,7 @@ export function demarrerPage({ mode }) {
   /** Dimensions de l'écran pour les lectures d'image. */
   const ecranPx = () => ({ largeurPx: ps.W, hauteurPx: ps.H });
   // ---------- modules de la page (ui/*.js) : chacun reçoit le contexte `c` ----------
-  const c = /** @type {import('./contexte.js').Contexte} */ ({ direct, S, app, journal, stockage, carnet, fusion, entree, video, relais, memoires, ov, familles, ps, simulee, echantillons, positionPropre, reglagesRepris,
+  const c = /** @type {import('./contexte.js').Contexte} */ ({ direct, S, app, journal, stockage, carnet, fusion, entree, video, relais, memoires, ov, familles, ps, simulee, echantillons, positionPropre, calculerPositionToits: creerPositionToits(new URL('../workers/position-toits.js', import.meta.url)), reglagesRepris,
     $, $f, note, sauver, synchroniser, pose, vFov, fluxImage, ecranPx, imageSource, dessinerImage, redimensionner });
   const oeil = installerOeil(c);
   const vis = installerVisibilitePhoto(c);
@@ -244,8 +245,11 @@ export function demarrerPage({ mode }) {
   ps.xr = installerSuiviXr({ fusion, journal, video, entree, direct, dessinerImage: () => dessinerImage(), synchroniser, note });
   $f('capRel').checked = S.capteurRelatif === true; $f('capRel').disabled = !direct; if (entree) entree.synchroniserCapteurRelatif();
   $f('capRel').addEventListener('change', (/** @type {any} */ e) => { S.capteurRelatif = e.target.checked; sauver(); if (entree) entree.synchroniserCapteurRelatif(); });
+  positionPropre.brancherAcceleration(direct);
   const calageVille = installerCalageVille(c, calage);
   if (direct) installerCalageGuide(c, calage, calageVille);
+  $('stepLen').value = String(S.longueurPas); $('stepLenV').textContent = `${String(S.longueurPas).replace('.', ',')} m`;
+  $('stepLen').addEventListener('input', (/** @type {any} */ e) => { S.longueurPas = +e.target.value; $('stepLenV').textContent = `${String(S.longueurPas).replace('.', ',')} m`; sauver(); });
   $f('calCont').checked = S.calageContinu === true; $f('calCont').disabled = !direct; $f('calCont').addEventListener('change', (/** @type {any} */ e) => { S.calageContinu = e.target.checked; continu.reinitialiser(); sauver(); });
   installerDeclencheur(c);
 

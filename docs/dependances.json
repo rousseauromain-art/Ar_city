@@ -11,6 +11,6 @@
   "rendu": ["noyau", "donnees"],
   "moteur": ["noyau", "scene", "calques", "rendu"],
   "app": ["noyau", "donnees", "scene", "calage", "moteur", "outils"],
-  "workers": ["noyau", "scene"],
+  "workers": ["noyau", "scene", "calage"],
   "ui": ["noyau", "outils", "donnees", "entrees", "vision", "scene", "calques", "calage", "rendu", "moteur", "app"]
 }

@@ -9,6 +9,7 @@
 import { RAD } from '../noyau/constantes.js';
 import { tableRelief, elevationRelief, observerHorizon, nettoyerPointsHorizon, ajusterHorizon } from './horizon.js';
 import { calerSurReperes } from './reperes.js';
+import { calerSurToits } from './toits.js';
 
 /** Coût maximal (°) de l'ajustement sur le relief, et décalage d'horizon maximal (°) accepté en direct (le capteur d'inclinaison est juste à ~1°). v1 : 0,6 et 3. */
 export const COUT_MAX_DEG = 0.6, HORIZON_MAX_DIRECT_DEG = 3;
@@ -24,12 +25,13 @@ export const COLONNES_MIN = 25, RELIEF_VILLE_DENSE_MIN_DEG = 3;
  * @property {() => Promise<void>} attendreRelief relance le relief s'il est périmé et attend (au plus 8 s)
  * @property {() => ArrayLike<Float32Array> | null} relief masque du relief (`terrain.pm`) ou null @property {() => import('./soleil.js').ResultatSoleil} soleil calage sur le soleil (calage/soleil.js)
  * @property {(largeurPx: number) => import('./horizon.js').Luminance | null} lireLuminance @property {(pose: PoseAuto, focalePx: number) => import('../vision/silhouette-ciel.js').SilhouetteCiel | null} lireSilhouette
+ * @property {(() => Promise<{ang: Float32Array} | null>) | null} [toits] ville dense de jour : silhouette brute des bâtiments (calage sur les toits, cap seulement) ; null ailleurs
  * @property {import('./reperes.js').ElementRepere[]} liste éléments affichés @property {'relief-soleil' | 'soleil-relief'} [ordre] ordre des méthodes (défaut `soleil-relief` = la v1 (j) ; `relief-soleil` : le relief d'abord, réglage « Caler auto : le relief avant le soleil ») @property {() => import('./soleil.js').ResultatSoleil} [lune] calage sur la lune (de nuit, quand le soleil est couché) @property {boolean} [permutation] refuser les concordances fortuites de repères (défaut oui ; `false` redonne la v1 (j))
  */
 /**
  * @typedef {object} ResultatAuto
  * @property {string} message texte pour la note @property {boolean} applique des corrections sont à appliquer @property {number} dh correction de cap (°) @property {number} dp correction d'horizon (°)
- * @property {number | null} champ nouveau champ du capteur (°), ou null @property {'soleil' | 'lune' | 'relief' | 'reperes' | 'aucune'} source
+ * @property {number | null} champ nouveau champ du capteur (°), ou null @property {import('./horizon.js').PointHorizon[]} [ptsToits] limite du ciel lue (calage sur les toits) : sert à corriger la position @property {'soleil' | 'lune' | 'toits' | 'relief' | 'reperes' | 'aucune'} source
  */
 
 const f = (/** @type {number} */ v) => (v >= 0 ? '+' : '') + v.toFixed(1) + '°';
@@ -61,6 +63,9 @@ export async function calerAutomatiquement(c) {
     if (!reliefDabord) { const so = parSoleil(); if (so) return so; }
     /** Quand le relief ne suffit pas : le soleil (si le relief passait en premier), puis les repères. */
     const repli = (/** @type {string} */ pourquoi) => (reliefDabord && parSoleil()) || parRepères(pourquoi);
+    // en ville de jour : la limite du ciel est faite des toits (cap seulement), avant le relief
+    const T = c.toits ? await calerSurToits({ pose: c.pose, camFov: c.camFov, ecran: c.ecran, champAffiche: c.champAffiche, photo: c.photo, lireLuminance: c.lireLuminance, lireSilhouette: c.lireSilhouette, relief: c.relief, toits: c.toits }) : null;
+    if (T && T.ok) return { message: T.message, applique: true, dh: T.dh, dp: 0, champ: null, source: 'toits', ptsToits: T.pts };
     // le relief n'est attendu (au plus 8 s) que s'il sert
     await c.attendreRelief();
     const pm = c.relief();
