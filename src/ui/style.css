@@ -197,4 +197,4 @@ button[disabled].etape10{pointer-events:none}
 #rotMsg{display:block;color:#FFD23F;border:1px solid rgba(255,210,63,.5);white-space:normal;line-height:1.35;pointer-events:auto}#rotMsg[hidden]{display:none}
 #eyePropT{margin:4px 0 2px;color:#FFD23F}#eyePropT:empty{display:none}
 html.xr,html.xr body,html.xr #stage{background:transparent!important}body.xr #start{display:none!important}
-#guideMsg{display:block;color:#FFD23F;border:1px solid rgba(255,210,63,.5);white-space:normal;line-height:1.35;pointer-events:auto;font-weight:700}#guideMsg[hidden]{display:none}
+#guideMsg{display:block;color:#FFD23F;border:1px solid rgba(255,210,63,.5);white-space:normal;line-height:1.35;pointer-events:auto;font-weight:700}#guideMsg[hidden]{display:none}#guideMsg .guideBtn{display:block;margin:6px 0 0;padding:7px 12px;border:1px solid rgba(255,210,63,.7);border-radius:8px;background:rgba(14,26,43,.85);color:#FFF3C4;font-weight:700}

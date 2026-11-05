@@ -11,6 +11,7 @@ function couche(nom,features,extent=4096){
   const keys=[],values=[], idx=(l,v)=>{ let i=l.indexOf(v); if(i<0){ i=l.length; l.push(v); } return i; };
   const feats=features.map(f=>{
     const tags=Object.entries(f.tags||{}).flatMap(([k,v])=>[idx(keys,k),idx(values,String(v))]); const geom=[]; let cx=0,cy=0;
+    if(f.type==='point'){ const g=[cmd(1,1),zig(f.x),zig(f.y)]; const b=[...empile(2,tags),...champ(3,0,varint(1)),...empile(4,g)]; return champ(2,2,[...varint(b.length),...b]); }
     for(const t of f.traces){ geom.push(cmd(1,1),zig(t[0][0]-cx),zig(t[0][1]-cy)); cx=t[0][0]; cy=t[0][1]; geom.push(cmd(2,t.length-1));
       for(const p of t.slice(1)){ geom.push(zig(p[0]-cx),zig(p[1]-cy)); cx=p[0]; cy=p[1]; } if(f.type==='polygone') geom.push(cmd(7,1)); }
     const b=[...empile(2,tags),...champ(3,0,varint(f.type==='polygone'?3:2)),...empile(4,geom)]; return champ(2,2,[...varint(b.length),...b]); });
@@ -29,9 +30,10 @@ const dansTuile=(lat,lon,z,tx,ty)=>{ const n=2**z, fx=(lon+180)/360*n, fy=(1-Mat
 /**
  * @param {import('@playwright/test').Page} page
  * @param {{pos:{lat:number,lon:number}, batiments?:{N:number,E:number,w:number,l:number,h:number,etages?:number}[], rues?:{nom:string,classe?:string,points:[number,number][]}[], ign?:'ok'|'refuse', relais?:boolean}} o
+ *   lieux : [{nom, classe:'city', population, N, E}] posés dans la couche `place` d'OpenFreeMap (une grande ville rend « ville dense ») ;
  *   batiments : rectangles (centre nord/est en m, demi-largeur w, demi-profondeur l, hauteur h) ; rues : polylignes en (nord, est) m.
  */
-async function installerVille(page,{pos,batiments=[],rues=[],ign='ok',relais=true}){
+async function installerVille(page,{pos,batiments=[],rues=[],lieux=[],ign='ok',relais=true}){
   const compte={ign:0,relais:0,rues:0,tilejson:0};
   const tuileBat=(z,tx,ty)=>tuile(couche('batiment',batiments.map(b=>{ const c=[[-b.l,-b.w],[-b.l,b.w],[b.l,b.w],[b.l,-b.w]].map(([dn,de])=>{ const p=decaler(pos,b.N+dn,b.E+de); return dansTuile(p.lat,p.lon,z,tx,ty); });
     return { type:'polygone', tags:b.etages?{nombre_d_etages:b.etages}:{hauteur:b.h}, traces:[c] }; })));
@@ -41,7 +43,8 @@ async function installerVille(page,{pos,batiments=[],rues=[],ign='ok',relais=tru
   await page.route(/\/bdtopo\?z=(\d+)&x=(\d+)&y=(\d+)/,async r=>{ compte.relais++; if(!relais){ await r.fulfill({status:502,body:''}); return; } const m=r.request().url().match(/z=(\d+)&x=(\d+)&y=(\d+)/); await r.fulfill({status:200,contentType:'application/x-protobuf',headers:{'access-control-allow-origin':'*'},body:tuileBat(+m[1],+m[2],+m[3])}); });
   await page.route(/tiles\.openfreemap\.org\/planet$/,async r=>{ compte.tilejson++; await r.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify({tiles:['https://tiles.openfreemap.org/planet/20260101/{z}/{x}/{y}.pbf']})}); });
   await page.route(/tiles\.openfreemap\.org\/planet\/20260101\/(\d+)\/(\d+)\/(\d+)\.pbf/,async r=>{ compte.rues++; const m=r.request().url().match(/(\d+)\/(\d+)\/(\d+)\.pbf/); await r.fulfill({status:200,contentType:'application/x-protobuf',headers:{'access-control-allow-origin':'*'},body:z14(+m[1],+m[2],+m[3])}); });
-  const z14=(z,x,y)=>z===14?tuileRues(z,x,y):tuile(couche('place',[]));
+  const tuileLieux=(z,tx,ty)=>tuile(couche('place',lieux.map(l=>{ const p=decaler(pos,l.N||0,l.E||0), [x,y]=dansTuile(p.lat,p.lon,z,tx,ty); return { type:'point', x, y, tags:{class:l.classe||'city',name:l.nom,population:l.population||0} }; })));
+  const z14=(z,x,y)=>z===14?Buffer.concat([tuileRues(z,x,y),tuileLieux(z,x,y)]):tuileLieux(z,x,y);
   return compte;
 }
 module.exports={installerVille,decaler,local,couche,tuile};

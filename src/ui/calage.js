@@ -181,6 +181,6 @@ export function installerCalage(c) {
   /** @type {{dernier: any}} */
   const banc = { dernier: null };
   $f('btnBench').addEventListener('click', () => { $('sheet').classList.remove('open'); lancerBanc(); });
-  return { consigner, evaluerSoleil, evaluerLune, evaluerAuto, calerAuto, evaluerPointage, toucherEchelle, pointerSur, definirModePointage, apprisIci, lancerBanc, banc, echelleActive: () => etapeEchelle !== 0, pointageActif: () => modePointage, bancEnCours: () => bancEnCours,
+  return { appliquerCalage, consigner, evaluerSoleil, evaluerLune, evaluerAuto, calerAuto, evaluerPointage, toucherEchelle, pointerSur, definirModePointage, apprisIci, lancerBanc, banc, echelleActive: () => etapeEchelle !== 0, pointageActif: () => modePointage, bancEnCours: () => bancEnCours,
     definirPermutation: (/** @type {boolean} */ v) => { permutationReperes = v; }, definirOrdreAuto: (/** @type {'relief-soleil' | 'soleil-relief' | null} */ v) => { ordreAuto = v; } };
 }

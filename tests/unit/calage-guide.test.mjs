@@ -38,3 +38,17 @@ test('repère : la distance est annoncée ; bord du champ : la marge de 5° comp
   assert.equal(consigne({ type: 'soleil', nom: 'le soleil', azDeg: 24, elDeg: 0 }, { capDeg: 0, inclinaisonDeg: 0 }, champ).dansLeChamp, true, '24° < 30° − 5°');
   assert.equal(consigne({ type: 'soleil', nom: 'le soleil', azDeg: 26, elDeg: 0 }, { capDeg: 0, inclinaisonDeg: 0 }, champ).dansLeChamp, false, '26° > 25°');
 });
+
+test('en ville : soleil, puis lune, puis la rue, puis les toits, puis comme ailleurs (repère, horizon) ; consigne de la rue', () => {
+  const ville = { rue: { nom: 'Rue de Rivoli', axeDeg: 90 }, toits: true }, repere = { nom: 'Tour', brg: 10, dist: 2 }, vide = { soleil: null, lune: null, repere, capDeg: 0, ville };
+  assert.equal(choisirCible({ ...vide, soleil: { azDeg: 200, elDeg: 30 } }).type, 'soleil');
+  assert.equal(choisirCible({ ...vide, lune: { azDeg: 100, elDeg: 20 } }).type, 'lune');
+  const rue = choisirCible(vide); assert.equal(rue.type, 'rue'); assert.equal(rue.azDeg, 90);
+  assert.equal(choisirCible({ ...vide, ville: { rue: null, toits: true } }).type, 'toits');
+  assert.equal(choisirCible({ ...vide, ville: { rue: null, toits: false } }).type, 'repere');
+  assert.equal(choisirCible({ ...vide, repere: null, ville: null }).type, 'relief', 'hors ville : comme avant');
+  assert.equal(choisirCible({ ...vide, ville: null }).type, 'repere');
+  const c = consigne(rue, { capDeg: 10, inclinaisonDeg: 0 }, { champHDeg: 60, champVDeg: 40 });
+  assert.match(c.texte, /point où se rejoignent les bords de la rue \(trottoirs, lignes des façades\)/); assert.equal(c.dansLeChamp, false, 'jamais d\'auto-calage : l\'utilisateur touche le bouton');
+  assert.equal(consigne({ type: 'toits', nom: 'la ligne des toits', azDeg: 0, elDeg: 0 }, { capDeg: 0, inclinaisonDeg: 0 }, { champHDeg: 60, champVDeg: 40 }).dansLeChamp, true);
+});

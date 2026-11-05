@@ -12,6 +12,7 @@
  * @property {ReturnType<typeof import('./calage-continu.js').etatContinuInitial>} continu état du recalage continu (Diagnostic)
  * @property {ReturnType<typeof import('../entrees/webxr.js').creerSuiviXr> | null} xr suivi visuel WebXR (essai)
  * @property {null | {basculer: () => void, actif: () => boolean}} guide calage guidé (direct) : un toucher sur le bouton cible le lance ou l'annule
+ * @property {null | {capDeg: number, oeilM: number, jusqua: number}} axeRue axe de la rue tracé au sol jusqu'à `jusqua` (ms) après un calage sur la rue
  * @property {any} dernierBilan bilan de la dernière image composée @property {null | {t: number, m: ReturnType<typeof import('../entrees/capteurs.js').mesuresFusion>, headOff: number, pitchOff: number}} dernierRetour dernier retour à la boussole
  */
 
