@@ -25,7 +25,9 @@
  * @typedef {object} CommandeGlyphe Pictogramme posé sur sa base (x, y) : halo sombre, puis remplissages et traits de sa couleur, rejoué avec des chemins réutilisables.
  * @property {'glyphe'} type @property {number} x @property {number} y @property {number} alpha @property {string} couleur
  * @property {{fill: OperationChemin[]|null, fill2: OperationChemin[]|null, stroke: OperationChemin[]|null, evenodd: boolean}} chemins
- * @typedef {CommandeTrait | CommandeRemplissage | CommandeTexte | CommandeGroupe | CommandeGlyphe} Commande
+ * @typedef {object} CommandeDecoupe Enfants dessinés seulement dans le rectangle (x, y, l, h) : le reste est coupé (pictogramme caché par un bâtiment plus proche).
+ * @property {'decoupe'} type @property {number} x @property {number} y @property {number} l @property {number} h @property {Commande[]} enfants
+ * @typedef {CommandeTrait | CommandeRemplissage | CommandeTexte | CommandeGroupe | CommandeGlyphe | CommandeDecoupe} Commande
  */
 
 /** Réglages de trait par défaut du canvas. */
@@ -58,6 +60,9 @@ export const texte = (texte, x, y, police, couleur, options = {}) => ({ type: 't
 
 /** Enfants dessinés dans un repère local (origine en x, y ; pivoté de angleRad). @param {number} x @param {number} y @param {number} angleRad @param {Commande[]} enfants @returns {CommandeGroupe} */
 export const groupe = (x, y, angleRad, enfants) => ({ type: 'groupe', x, y, angleRad, enfants });
+
+/** Enfants dessinés seulement dans le rectangle (x, y, l, h). @param {number} x @param {number} y @param {number} l @param {number} h @param {Commande[]} enfants @returns {CommandeDecoupe} */
+export const decoupe = (x, y, l, h, enfants) => ({ type: 'decoupe', x, y, l, h, enfants });
 
 /**
  * Courbe passant par les milieux des points (quadratiques), du point `i0` au point `i1` — celle de la silhouette et des crêtes de la v1.

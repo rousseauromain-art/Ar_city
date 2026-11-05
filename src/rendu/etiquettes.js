@@ -72,10 +72,10 @@ function regrouperIcones(ordre) {
 /**
  * @param {(Etiquette | EtiquetteMonument)[]} etiquettes dans l'ordre de priorité
  * @param {ReturnType<typeof import('./placement.js').creerPlaceur>} placeur
- * @param {{mesurerTexte: (police: string, texte: string) => number, familles: Familles, avantNoms?: () => void}} options `avantNoms` : appelée après la réservation des icônes de monuments et avant le placement des noms (la bande des équipements, quand elle passe au-dessus de l'horizon)
+ * @param {{mesurerTexte: (police: string, texte: string) => number, familles: Familles, avantNoms?: () => void, occultation?: (x: number, distKm: number) => number | null}} options `occultation` : ordonnée du haut du bâtiment plus proche qui masque un monument à cette abscisse et cette distance (silhouette des bâtiments), ou null ; `avantNoms` : appelée après la réservation des icônes de monuments et avant le placement des noms (la bande des équipements, quand elle passe au-dessus de l'horizon)
  * @returns {{commandes: import('../noyau/commandes.js').Commande[], comptes: ComptesEtiquettes, zones: ZoneEtiquette[]}}
  */
-export function composerEtiquettes(etiquettes, placeur, { mesurerTexte, familles, avantNoms }) {
+export function composerEtiquettes(etiquettes, placeur, { mesurerTexte, familles, avantNoms, occultation }) {
   /** @type {import('../noyau/commandes.js').Commande[]} */
   const commandes = [];
   const comptes = { eligibles: 0, affichees: 0, fantomes: 0, sansPlace: 0, fantomesVus: 0 };
@@ -106,7 +106,7 @@ export function composerEtiquettes(etiquettes, placeur, { mesurerTexte, familles
     let leadY = e.y, boiteIcone = [0, 0, 0, 0];
     if (mon) {
       const ic = e.icone, sb = ic.boite;
-      if (sb) { commandes.push(...commandesSilhouetteMonument(sb.cle, e.x, sb.yTop, sb.yBase, 0.26 * alpha, 0.95 * alpha)); boiteIcone = [sb.x0, sb.x1, sb.yTop, sb.yBase]; leadY = e.y + 1; }
+      if (sb) { commandes.push(...commandesSilhouetteMonument(sb.cle, e.x, sb.yTop, sb.yBase, 0.26 * alpha, 0.95 * alpha, occultation ? occultation(e.x, /** @type {any} */ (e.proprietaire).dist) : null)); boiteIcone = [sb.x0, sb.x1, sb.yTop, sb.yBase]; leadY = e.y + 1; }
       else {
         if (ic.yTerre - e.y > 8) commandes.push(trait([['M', e.x, ic.yTerre], ['L', e.x, e.y]], `rgba(${e.teinte},${0.45 * alpha})`, 1, { tirets: [2, 3], jointure: 'round' }));
         commandes.push(commandeGlyphe(ic.type, e.x, e.y, ic.gH, `rgb(${e.teinte})`, alpha));

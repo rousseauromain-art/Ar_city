@@ -5,7 +5,9 @@
  * génériques, dessinés maison. Entrées : type, position, hauteur en pixels. Sorties : commandes (noyau/commandes.js). Fonctions pures (v1 : `GLYPH`,
  * `SPR`, `monSpriteKey`, `drawSprite`, `drawGlyph`, `infraIconLook`).
  */
-import { remplissage, trait, glyphe } from './commandes.js';
+import { remplissage, trait, glyphe, decoupe } from './commandes.js';
+
+/** @typedef {import('./commandes.js').Commande} Commande */
 
 /** @typedef {import('./commandes.js').OperationChemin} OperationChemin */
 
@@ -126,9 +128,13 @@ export function cheminsGlyphe(type, h) {
  */
 export const commandeGlyphe = (type, x, yBase, h, couleur, alpha = 1) => glyphe(x, yBase, alpha, couleur, cheminsGlyphe(type, h));
 
-/** Silhouette d'un monument à l'échelle exacte (largeur = rapport réel × hauteur à l'écran), de son sol à son sommet (v1 : `drawSprite`, sans bâtiment devant). */
-/** @param {string} cle @param {number} x @param {number} yTop @param {number} yBase @param {number} remplissageA @param {number} traitA */
-export function commandesSilhouetteMonument(cle, x, yTop, yBase, remplissageA, traitA) {
+/**
+ * Silhouette d'un monument à l'échelle exacte (largeur = rapport réel × hauteur à l'écran), de son sol à son sommet (v1 : `drawSprite`).
+ * `occY` : ordonnée (px) du haut du bâtiment plus proche qui le masque en partie : visible au-dessus de cette ligne, en pointillés (remplissage à 35 %) derrière.
+ * @param {string} cle @param {number} x @param {number} yTop @param {number} yBase @param {number} remplissageA @param {number} traitA @param {number | null} [occY]
+ * @returns {Commande[]}
+ */
+export function commandesSilhouetteMonument(cle, x, yTop, yBase, remplissageA, traitA, occY = null) {
   const sp = SILHOUETTES[cle], Hpx = yBase - yTop, P = (/** @type {number[]} */ pt) => [x + pt[0] * Hpx, yBase - pt[1] * Hpx];
   /** @type {OperationChemin[]} */
   const contour = [];
@@ -136,12 +142,15 @@ export function commandesSilhouetteMonument(cle, x, yTop, yBase, remplissageA, t
   contour.push(['Z']);
   if (sp.hole) { for (const [i, q] of /** @type {number[][]} */ (sp.hole).entries()) { const [px, py] = P(q); contour.push([i ? 'L' : 'M', px, py]); } contour.push(['Z']); }
   const rond = { jointure: /** @type {'round'} */ ('round'), extremite: /** @type {'round'} */ ('round') };
-  const cmds = [remplissage(contour, `rgba(242,193,78,${remplissageA})`, 'evenodd'), trait(contour, 'rgba(14,26,43,.75)', 3.6, rond), trait(contour, `rgba(255,214,110,${traitA})`, 1.6, rond)];
+  const corps = [remplissage(contour, `rgba(242,193,78,${remplissageA})`, 'evenodd'), trait(contour, 'rgba(14,26,43,.75)', 3.6, rond), trait(contour, `rgba(255,214,110,${traitA})`, 1.6, rond)];
   if (sp.lines) {
     /** @type {OperationChemin[]} */
     const detail = [];
     for (const l of /** @type {number[][]} */ (sp.lines)) { const a = P([l[0], l[1]]), b = P([l[2], l[3]]); detail.push(['M', a[0], a[1]], ['L', b[0], b[1]]); }
-    cmds.push(trait(detail, `rgba(255,214,110,${traitA * 0.8})`, 1.2, rond));
+    corps.push(trait(detail, `rgba(255,214,110,${traitA * 0.8})`, 1.2, rond));
   }
+  if (occY === null || occY === undefined) return corps;
+  const wBox = Math.abs(sp.asp) * Hpx + 40, /** @type {Commande[]} */ cmds = [decoupe(x - wBox, yTop - 10, 2 * wBox, Math.max(0, occY - yTop + 10), corps)];
+  if (occY < yBase) cmds.push(decoupe(x - wBox, occY, 2 * wBox, yBase - occY + 10, [trait(contour, `rgba(255,214,110,${traitA * 0.7})`, 1.2, { tirets: [3, 3], jointure: 'round', extremite: 'round' }), remplissage(contour, `rgba(242,193,78,${remplissageA * 0.35})`, 'evenodd')]));
   return cmds;
 }

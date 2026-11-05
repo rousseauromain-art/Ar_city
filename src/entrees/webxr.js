@@ -49,8 +49,7 @@ export function creerSuiviXr({ fenetre = window, fusion, journal, racine, surIma
       const Couche = /** @type {any} */ (fenetre).XRWebGLLayer;
       await s.updateRenderState({ baseLayer: new Couche(s, gl) });
       const reference = await s.requestReferenceSpace('local');
-      etat.cameraAcces = Array.isArray(s.enabledFeatures) && s.enabledFeatures.includes('camera-access');
-      session = s; etat.actif = true; etat.images = 0; etat.depuis = 0; fusion.suiviExterne = true; signalerReouverture(fusion); // le repère du suivi visuel est nouveau : le nord est refait d'après la boussole, une fois
+      session = s; etat.cameraAcces = Array.isArray(s.enabledFeatures) && s.enabledFeatures.includes('camera-access'); etat.actif = true; etat.images = 0; etat.depuis = 0; fusion.suiviExterne = true; signalerReouverture(fusion); // le repère du suivi visuel est nouveau : le nord est refait d'après la boussole, une fois
       s.addEventListener('end', () => { session = null; etat.actif = false; etat.suivi = false; fusion.suiviExterne = false; signalerReouverture(fusion); journal.info('webxr', 'session terminée'); surFin(); });
       const image = (/** @type {number} */ t, /** @type {any} */ cadre) => {
         if (!session) return;
