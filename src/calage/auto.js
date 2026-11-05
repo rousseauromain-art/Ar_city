@@ -61,11 +61,13 @@ export async function calerAutomatiquement(c) {
     // ordre : par défaut le soleil d'abord (v1 (j) : sa direction est exacte) ; `relief-soleil` (réglage) : le relief d'abord, le soleil ensuite, puis les repères
     const reliefDabord = c.ordre === 'relief-soleil';
     if (!reliefDabord) { const so = parSoleil(); if (so) return so; }
-    /** Quand le relief ne suffit pas : le soleil (si le relief passait en premier), puis les repères. */
-    const repli = (/** @type {string} */ pourquoi) => (reliefDabord && parSoleil()) || parRepères(pourquoi);
+    /** Quand le relief ne suffit pas : le soleil (si le relief passait en premier), puis les repères. `refusToits` : pourquoi les toits n'ont pas servi (ville de jour), pour que le message le dise. */
+    let refusToits = '';
+    const repli = (/** @type {string} */ pourquoi) => (reliefDabord && parSoleil()) || parRepères(refusToits + pourquoi);
     // en ville de jour : la limite du ciel est faite des toits (cap seulement), avant le relief
     const T = c.toits ? await calerSurToits({ pose: c.pose, camFov: c.camFov, ecran: c.ecran, champAffiche: c.champAffiche, photo: c.photo, lireLuminance: c.lireLuminance, lireSilhouette: c.lireSilhouette, relief: c.relief, toits: c.toits }) : null;
     if (T && T.ok) return { message: T.message, applique: true, dh: T.dh, dp: 0, champ: null, source: 'toits', ptsToits: T.pts };
+    if (T) refusToits = `toits : ${T.raison} · `;
     // le relief n'est attendu (au plus 8 s) que s'il sert
     await c.attendreRelief();
     const pm = c.relief();

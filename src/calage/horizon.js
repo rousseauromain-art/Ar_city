@@ -116,7 +116,7 @@ export function coutSurTable(pts, P, tab, ecran, fh, dh = 0) { return coutDe(pts
 /**
  * @param {PointHorizon[]} pts @param {PoseCalage} P @param {number} cam0 champ du capteur (réglage) @param {Float32Array} tab table du relief (ou table relief + bâtiments)
  * @param {EcranCalage} ecran @param {(cam: number) => number} champAffiche champ affiché pour un champ de capteur (recadrage compris)
- * @param {{champ?: boolean, courbe?: {dh: number, cost: number}[]}} [options] `champ: false` : le champ n'est jamais cherché (toits) ; `courbe` : reçoit le coût de chaque cap essayé (pas de 0,5°) pour juger si l'alignement est unique
+ * @param {{champ?: boolean, plageDeg?: number, courbe?: {dh: number, cost: number}[]}} [options] `champ: false` : le champ n'est jamais cherché (toits) ; `plageDeg` : demi-largeur de la recherche de cap (défaut 20° ; 45° pour les toits : boussole faussée par le métal) ; `courbe` : reçoit le coût de chaque cap essayé (pas de 0,5°) pour juger si l'alignement est unique
  * @returns {{dh: number, dp: number, cam: number, cost: number, flat: boolean, n: number, relief: number, base?: number}}
  */
 export function ajusterHorizon(pts, P, cam0, tab, ecran, champAffiche, options = {}) {
@@ -131,7 +131,8 @@ export function ajusterHorizon(pts, P, cam0, tab, ecran, champAffiche, options =
   // seuls le cap et l'horizon sont ajustés : sur une seule image, le champ de la caméra n'est pas mesurable de façon fiable
   /** @type {{cost: number, dp: number, dh: number}} */
   let b = { cost: Infinity, dp: 0, dh: 0 };
-  for (let dh = -20; dh <= 20; dh += 0.5) { const c = cost(dh, cam0); if (options.courbe) options.courbe.push({ dh, cost: c.cost }); if (c.cost < b.cost) b = { ...c, dh }; }
+  const plage = options.plageDeg ?? 20;
+  for (let dh = -plage; dh <= plage; dh += 0.5) { const c = cost(dh, cam0); if (options.courbe) options.courbe.push({ dh, cost: c.cost }); if (c.cost < b.cost) b = { ...c, dh }; }
   const c0 = b.dh;
   for (let dh = c0 - 0.75; dh <= c0 + 0.75; dh += 0.05) { const c = cost(dh, cam0); if (c.cost < b.cost) b = { ...c, dh }; }
   // le champ (zoom) n'est cherché que si le relief est marqué (montagnes) et retenu seulement s'il améliore nettement l'ajustement

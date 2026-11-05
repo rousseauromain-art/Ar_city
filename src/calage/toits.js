@@ -14,6 +14,8 @@ import { alignementsAlternatifs } from './permutation.js';
 export const COUT_MAX_TOITS_DEG = 0.5;
 /** Part minimale des directions du champ où un bâtiment est connu, et variation minimale (°) de la silhouette. */
 export const COUVERTURE_MIN = 0.3, VARIATION_MIN_DEG = 1.5;
+/** Demi-largeur (°) de la recherche du cap : une boussole faussée par le métal ou la carrosserie se trompe de 30 à 40° (plus que les 20° du relief). */
+export const PLAGE_CAP_DEG = 45;
 /** Colonnes d'horizon minimales. */
 export const COLONNES_MIN_TOITS = 25;
 /** Largeur (px) de l'image réduite lue pour les toits : plus fine que pour le relief (320) : le cap se joue au dixième de degré. */
@@ -63,13 +65,13 @@ export async function calerSurToits(c) {
   const P = c.pose, cam0 = c.camFov, champ = c.champAffiche(cam0), fh = (c.ecran.largeurPx / 2) / Math.tan(champ / 2 * RAD);
   if (couvertureBatiments(bat.ang, P.capDeg, champ) < COUVERTURE_MIN) return { ok: false, raison: 'peu de bâtiments connus dans le champ' };
   const pm = c.relief(), tab = tableFusionnee(pm ? tableRelief(pm) : null, bat.ang);
-  const { lo, hi } = plageElevations(tab, P.capDeg, champ / 2 + 22);
+  const { lo, hi } = plageElevations(tab, P.capDeg, champ / 2 + PLAGE_CAP_DEG + 2);
   if (hi - lo < VARIATION_MIN_DEG) return { ok: false, raison: 'silhouette des toits trop plate' };
   const fr = c.lireLuminance(LARGEUR_LUMINANCE_PX);
   if (!fr) return { ok: false, raison: 'image caméra illisible' };
   const pts = nettoyerPointsHorizon(observerHorizon(fr, P, fh, lo - 4, hi + 4, c.ecran), c.lireSilhouette(P, fh), P, fh, c.ecran).pts;
   if (pts.length < COLONNES_MIN_TOITS) return { ok: false, raison: `limite du ciel peu visible (${pts.length} colonnes)` };
-  const courbe = /** @type {{dh: number, cost: number}[]} */ ([]), R = ajusterHorizon(pts, P, cam0, tab, c.ecran, c.champAffiche, { champ: false, courbe });
+  const courbe = /** @type {{dh: number, cost: number}[]} */ ([]), R = ajusterHorizon(pts, P, cam0, tab, c.ecran, c.champAffiche, { champ: false, plageDeg: PLAGE_CAP_DEG, courbe });
   if (R.flat) return { ok: false, raison: 'silhouette plate : cap indéterminé' };
   if (R.cost > COUT_MAX_TOITS_DEG) return { ok: false, raison: `toits incertains (écart ${R.cost.toFixed(2)}°)` };
   const alt = alignementsAlternatifs(courbe, { dh: R.dh, cost: R.cost });
