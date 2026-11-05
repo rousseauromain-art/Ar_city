@@ -4,3 +4,5 @@
 - `liste-affichage.js` : liste commune lieux + monuments (priorité, score, tri, dédoublonnage, nets avant fantômes).
 - `regle-photo.js` : verdict d'après la silhouette lue sur la photo (étape 5).
 - `mobiles.js` : visibilité d'un avion ou d'un bateau (champ, courbure de la Terre) — étape 8.
+
+- `silhouette-batiments.js` (silhouette des bâtiments, 3 couches et brute au pas de 0,1°), `position.js` (GPS nettoyé), `pas.js` (pas et position corrigée) : purs.

@@ -32,4 +32,14 @@ Une ligne par sujet. **Chaque PR met à jour ce fichier.** La colonne « Terrain
 | Bandeau de rotation d'écran | fait | `src/entrees/rotation.js`, `tests/e2e/rotation-ecran-v2.spec.js` | non testé |
 | Mode hors ligne : télécharger une zone (lieux, relief) | fait | `src/app/application.js:telechargerZone` | non testé |
 | Relais Cloudflare (`relais/`) | fait | `relais/relais-worker.js` | validé |
+| Silhouette des bâtiments (BD TOPO), calque éteint par défaut | fait (parité avec la v1 sauf la courbure terrestre, voulue) | `src/scene/silhouette-batiments.js`, `src/calques/batiments.js`, `tests/integration/silhouette-v1.test.mjs`, `tests/e2e/batiments-v2.spec.js` | non testé |
+| Rues (OpenFreeMap z14, repli Overpass) | fait | `src/donnees/rues.js`, `tests/unit/rues.test.mjs` | non testé |
+| Bâtiments et rues dans « Télécharger cette zone » | fait | `src/app/urbain.js:telechargerZone`, `tests/e2e/batiments-v2.spec.js` (hors ligne) | non testé |
+| Cap sur l'axe de la rue (guidage en ville, deux sens, carrefour) | fait | `src/calage/rue.js`, `src/ui/calage-ville.js`, `tests/e2e/caler-rue-v2.spec.js` | non testé |
+| GPS nettoyé (médiane à l'arrêt, hors des bâtiments, puce ± précision) | fait | `src/scene/position.js`, `src/ui/position-propre.js`, `tests/e2e/gps-batiment-v2.spec.js` | non testé |
+| Calage sur les toits (cap seul, de jour, en ville) | fait | `src/calage/toits.js`, `tests/unit/calage-toits.test.mjs`, `tests/e2e/caler-toits-v2.spec.js` | non testé |
+| Position par les toits (essai, décochée) | fait | `src/calage/position-toits.js`, `tests/unit/position-toits.test.mjs`, `tests/e2e/caler-toits-v2.spec.js` | non testé |
+| Cap par une ombre tracée au doigt | fait | `src/calage/ombre.js`, `src/ui/calage-ombre.js`, `tests/e2e/caler-ombre-v2.spec.js` | non testé |
+| Position par une plaque de rue (OCR Tesseract.js, Base Adresse) | fait (l'OCR réel n'est pas testé en session) | `src/calage/adresse.js`, `src/ui/lire-plaque.js`, `tests/e2e/caler-plaque-v2.spec.js` | non testé |
+| Position corrigée qui avance avec les pas | fait | `src/scene/pas.js`, `tests/unit/pas.test.mjs` | non testé |
 | CI : lint, types, unitaires ; parité à la main | fait | `.github/workflows/tests.yml`, `.github/workflows/parite.yml` | sans objet |

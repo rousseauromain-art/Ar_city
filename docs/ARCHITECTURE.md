@@ -74,6 +74,10 @@ Sens des dépendances : `ui → rendu → calques → scene, calage, vision → 
 | `src/donnees/sommets-lointains.js` | grands sommets jusqu'à 200 km (tuiles OpenFreeMap z7), gardés 60 jours |
 | `src/moteur/` | **moteur de scène** (étape 9a) : `composerScene` assemble tous les calques dans l'ordre de la v1 (horizon, croix, relief, noms, bande, mobiles, ruban de cap, message), réglages et leur mémorisation, bandeau d'état |
 | `src/vision/{lire-pixels,soleil,silhouette-ciel}.js` | lecture des pixels de l'image (seule périphérie DOM), détection du disque du soleil (taches, reflets) et silhouette du ciel (visibilité d'après la photo) |
+| `src/donnees/{bdtopo,rues,adresse}.js`, `src/app/urbain.js` | bâtiments BD TOPO (tuiles z15, 2,5 km, repli relais `/bdtopo`), rues (OpenFreeMap z14, repli Overpass), Base Adresse Nationale ; `urbain.js` décide quand charger, garde `D.batiments` / `D.rues`, recalcule la silhouette et gère la zone hors ligne |
+| `src/scene/{silhouette-batiments,position,pas}.js`, `workers/silhouette-batiments.js` | silhouette des bâtiments (3 couches, lissage en blocs ; brute au pas de 0,1° pour le calage), position GPS nettoyée (médiane à l'arrêt, hors des bâtiments), pas et position corrigée qui avance en marchant |
+| `src/calques/batiments.js` | calque « Silhouette des bâtiments » (éteint par défaut) ; pictogramme masqué par un bâtiment plus proche : pointillés derrière (`decoupe`) |
+| `src/calage/{rue,toits,position-toits,permutation,ombre,adresse}.js` | cap sur l'axe de la rue, cap sur les toits (max relief + bâtiments, test contre les silhouettes répétitives), position par les toits (essai, Worker), cap par une ombre tracée au doigt, position par une plaque de rue |
 | `src/calage/{soleil,pointage,horizon,reperes,auto}.js` | calage sur le soleil, pointage au doigt, calage sur le relief et sur les repères, « Caler auto » (soleil → relief → repères) : corrections de cap, d'horizon et de champ, messages de la v1 |
 | `src/rendu/soleil.js` | symbole du soleil à sa position calculée (heure de la prise de vue en photo) |
 | `src/rendu/{ruban-cap,croix-visee}.js` | ruban de cap (graduations, cardinaux) et croix de visée |
