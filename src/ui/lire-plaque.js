@@ -62,6 +62,6 @@ export function installerLirePlaque(c) {
       demander(lu.requete, r);
     } catch (e) { fermer(); journal.avert('position', 'lecture de la plaque impossible', e); note('Lecture de la plaque impossible : ' + (e instanceof Error ? e.message : String(e)), 7000); }
   }
-  $('btnPlate').addEventListener('click', () => { if (!bandeau().hidden) { fermer(); return; } lire(); });
+  $('btnPlate').addEventListener('click', () => { $('sheet').classList.remove('open'); if (!bandeau().hidden) { fermer(); return; } lire(); });
   return { lire };
 }

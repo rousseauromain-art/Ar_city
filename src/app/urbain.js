@@ -102,6 +102,7 @@ async function telechargerZone(c, pos) {
   const bat = await c.sourceBatiments.charger({ pos, rayonKm: BATIMENTS_RAYON_KM }), tuilesRues = c.sourceRues.tuilesDe(pos, RAYON_RUES_HORS_LIGNE_KM * 1000);
   let ru = 0;
   for (const t of tuilesRues) { try { await c.sourceRues.garderTuile(t); ru++; } catch (err) { c.journal.avert('urbain', `tuile de rues ${t.x}/${t.y} indisponible`, err); } }
+  if (!bat.tuilesOk) throw new Error('aucune tuile de bâtiments reçue');
   const info = { t: c.maintenant(), batiments: bat.tuilesOk, rues: ru, nBatiments: bat.batiments.length, centre: { lat: pos.lat, lon: pos.lon } };
   c.stockage.ecrire('zoneUrbaine', info);
   return info;
@@ -148,8 +149,8 @@ export function creerUrbain(p) {
     infoZone: () => c.stockage.lire('zoneUrbaine', null),
     /** Efface bâtiments et rues gardés. */
     async effacer() {
+      c.stockage.ecrire('zoneUrbaine', null); // tout de suite : l'écran ne doit pas annoncer une zone en cours d'effacement
       const a = await c.cacheDonnees.effacerPrefixe('bd/'), b = await c.cacheDonnees.effacerPrefixe('ru/');
-      c.stockage.ecrire('zoneUrbaine', null);
       return { batiments: a, rues: b };
     },
     etat: () => ({ batiments: e.msgBatiments, rues: e.msgRues, silhouetteMs: e.dureeSilhouetteMs, nBatiments: D.batiments.length, nRues: D.rues.length }),

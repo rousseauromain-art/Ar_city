@@ -67,7 +67,7 @@ export async function calerAutomatiquement(c) {
     // en ville de jour : la limite du ciel est faite des toits (cap seulement), avant le relief
     const T = c.toits ? await calerSurToits({ pose: c.pose, camFov: c.camFov, ecran: c.ecran, champAffiche: c.champAffiche, photo: c.photo, lireLuminance: c.lireLuminance, lireSilhouette: c.lireSilhouette, relief: c.relief, toits: c.toits }) : null;
     if (T && T.ok) return { message: T.message, applique: true, dh: T.dh, dp: 0, champ: null, source: 'toits', ptsToits: T.pts };
-    if (T) refusToits = `toits : ${T.raison} · `;
+    if (T && !T.raison.startsWith('bâtiments indisponibles')) refusToits = `toits : ${T.raison} · `; // « indisponibles » : pas un refus, la méthode n'a pas eu de données
     // le relief n'est attendu (au plus 8 s) que s'il sert
     await c.attendreRelief();
     const pm = c.relief();

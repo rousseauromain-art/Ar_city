@@ -28,6 +28,6 @@ export function installerCalageOmbre(c, calage) {
     ps.traitOmbre = { x0: pied.x, y0: pied.y, x1: x, y1: y };
     if (phase === 'up') { const p = pied; armer(false); caler(p, { x, y }); }
   }
-  $('btnShadow').addEventListener('click', () => armer(!actif));
+  $('btnShadow').addEventListener('click', () => { $('sheet').classList.remove('open'); armer(!actif); });
   return { actif: () => actif, surPointeur };
 }
