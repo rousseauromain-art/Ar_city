@@ -2,7 +2,7 @@
 /**
  * Décodeur de tuiles vectorielles Mapbox (MVT, protobuf) : couches demandées, points et étiquettes. Fonctions pures, aucune dépendance.
  * Entrées : octets d'une tuile. Sorties : couches { name, extent, keys, values, features }. Ne décode QUE les couches demandées (une tuile
- * fait souvent plus de 100 Ko). Seul le type POINT est géré (le seul utilisé par `place` et `mountain_peak`). Reprend le décodeur de la v1.
+ * fait souvent plus de 100 Ko). Géométries : POINT (`place`, `mountain_peak`), LINESTRING (`transportation`) et POLYGON (`building`, trous écartés). Reprend le décodeur de la v1.
  */
 
 /** @typedef {{i: number}} Curseur */
@@ -87,8 +87,8 @@ function nomDeCouche(sub) {
 }
 
 /**
- * Décode les couches demandées d'une tuile (toutes si `couches` est omis).
- * @param {Uint8Array} buf @param {string[]} [couches]
+ * Décode les couches demandées d'une tuile (toutes si `couches` est omis ; un prédicat sur le nom de la couche est accepté).
+ * @param {Uint8Array} buf @param {string[] | ((nom: string) => boolean)} [couches]
  * @returns {Record<string, CoucheMVT>}
  */
 export function decoderTuileMVT(buf, couches) {
@@ -99,7 +99,7 @@ export function decoderTuileMVT(buf, couches) {
     const key = lireVarint(buf, pos), field = key >>> 3, wt = key & 7;
     if (field === 3 && wt === 2) {
       const len = lireVarint(buf, pos), sub = buf.subarray(pos.i, pos.i + len), name = nomDeCouche(sub);
-      if (!couches || couches.includes(name)) out[name] = decoderCouche(sub);
+      if (!couches || (typeof couches === 'function' ? couches(name) : couches.includes(name))) out[name] = decoderCouche(sub);
       pos.i += len;
     } else sauterChamp(buf, pos, wt);
   }
@@ -120,6 +120,54 @@ export function pointsDeFeature(f) {
     else break;
   }
   return pts;
+}
+
+/** Cœur commun des lignes et des polygones : suite de tracés (MoveTo ouvre un tracé, LineTo le prolonge, ClosePath le ferme) en coordonnées locales de la tuile. @param {FeatureMVT} f @param {number} type @returns {[number, number][][]} */
+function tracesDeFeature(f, type) {
+  if (f.type !== type) return [];
+  const cmds = f.geometry;
+  /** @type {[number, number][][]} */
+  const traces = [];
+  /** @type {[number, number][] | null} */
+  let cur = null;
+  let x = 0, y = 0, i = 0;
+  while (i < cmds.length) {
+    const cmdInt = cmds[i++], id = cmdInt & 0x7, count = cmdInt >>> 3;
+    if (id === 1 || id === 2) {
+      for (let k = 0; k < count; k++) {
+        x += zigzag(cmds[i++]); y += zigzag(cmds[i++]);
+        if (id === 1) { if (cur && cur.length) traces.push(cur); cur = []; }
+        if (cur) cur.push([x, y]);
+      }
+    } else if (id === 7) { if (cur && cur.length) traces.push(cur); cur = null; }
+    else break;
+  }
+  if (cur && cur.length) traces.push(cur);
+  return traces;
+}
+
+/** Lignes d'une feature de type LINESTRING (2) : un tableau de points locaux par ligne. @param {FeatureMVT} f @returns {[number, number][][]} */
+export function lignesDeFeature(f) { return tracesDeFeature(f, 2).filter((t) => t.length > 1); }
+
+/** Aire signée d'un anneau (formule du lacet). @param {[number, number][]} r */
+const aireSignee = (r) => { let a = 0; for (let k = 0; k < r.length; k++) { const p = r[k], q = r[(k + 1) % r.length]; a += p[0] * q[1] - q[0] * p[1]; } return a; };
+
+/** Anneaux EXTÉRIEURS d'une feature de type POLYGON (3) : les trous (enroulement opposé à celui du premier anneau) sont écartés, comme dans la v1 (une cour intérieure fait partie du bâtiment). @param {FeatureMVT} f @returns {[number, number][][]} */
+export function anneauxDeFeature(f) {
+  const rings = tracesDeFeature(f, 3).filter((r) => r.length > 2);
+  if (!rings.length) return [];
+  const s0 = Math.sign(aireSignee(rings[0])) || 1;
+  return rings.filter((r) => Math.sign(aireSignee(r)) === s0);
+}
+
+/** Noms des couches d'une tuile, sans les décoder. @param {Uint8Array} buf @returns {string[]} */
+export function nomsDeCouches(buf) {
+  const pos = { i: 0 }, out = [];
+  while (pos.i < buf.length) {
+    const key = lireVarint(buf, pos), field = key >>> 3, wt = key & 7;
+    if (field === 3 && wt === 2) { const len = lireVarint(buf, pos); out.push(nomDeCouche(buf.subarray(pos.i, pos.i + len))); pos.i += len; } else sauterChamp(buf, pos, wt);
+  }
+  return out;
 }
 
 /** Étiquettes (clé → valeur) d'une feature. @param {FeatureMVT} f @param {CoucheMVT} layer @returns {Record<string, any>} */

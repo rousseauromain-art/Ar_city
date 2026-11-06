@@ -9,3 +9,5 @@
 - `banc.js` (10d) : PUR et asynchrone. Banc d'essai (photo rejouée) : dix départs décalés, « Caler auto » à chaque fois, verdict réussi / refusé / faux, référence rétablie ; `pourquoiIgnore` donne la raison pour laquelle un monument n'est pas un repère. Rien n'est appliqué ni consigné par le module : la page s'en charge.
 Tout est pur (aucun DOM) ; `ui/page.js` applique les corrections (`S.headOff`, `S.pitchOff`, pause de la boussole en direct).
 - `echelle.js` (11i) : PUR. Champ de vision et cap réel déduits de deux repères touchés dont on connaît les relèvements (au moins 10° d'écart) ; refus clairs (trop proches, ordre inversé, champ impossible).
+
+- `rue.js`, `toits.js`, `position-toits.js`, `permutation.js`, `ombre.js`, `adresse.js` : calages en ville (axe de la rue, toits, position par les toits, test contre les silhouettes répétitives, ombre tracée au doigt, plaque de rue). Purs ; `position-toits-worker.js` est le client du Worker.

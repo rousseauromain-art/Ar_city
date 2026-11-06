@@ -28,6 +28,7 @@
     <div id="photoChip" class="chip" hidden></div>
     <div id="filt" class="chip"></div>
     <div id="guideMsg" class="chip" hidden role="status"></div>
+<div id="plateMsg" class="chip" hidden role="status"></div>
     <div id="note" class="chip"></div>
   </div>
   <div id="tools">
@@ -46,6 +47,10 @@
     <label class="lySub"><svg viewBox="0 0 24 24" stroke="#78CDE8"><path d="M3 20h18M5 20v-5q7-9 14 0v5M9 20v-3q3-4 6 0v3"/></svg><span class="lyN">Équipements urbains<em id="lyInfoEq">stades, gares et métros, canaux, parcs, places, théâtres, ponts</em></span><input type="checkbox" id="lyEq"></label>
     <label><svg viewBox="0 0 24 24" stroke="#E85A5A"><path d="M8 21l3.2-15h1.6L16 21M9.6 14.5l5.2-3M14.4 14.5l-5.2-3M8.8 18l6.8-2.6M15.2 18l-6.8-2.6M12 6V2.5M10 3.5h4"/></svg><span class="lyN">Pylônes télécom<em id="lyInfoTel">ANFR, France — via le relais</em></span><input type="checkbox" id="lyTel"></label>
     <label><svg viewBox="0 0 24 24" stroke="#A98BFF"><path d="M6 21V8h7v13M13 12h5v9M8.5 11h2M8.5 14h2M8.5 17h2M15 15h1M15 18h1M9.5 8V4"/></svg><span class="lyN">Repères hauts<em id="lyInfoBld">tours, cheminées, châteaux d'eau (OSM)</em></span><input type="checkbox" id="lyBld"></label>
+    <label><svg viewBox="0 0 24 24" stroke="#C79BE8"><path d="M3 21V10l4-3v14M9 21V5l5 2v14M16 21V12h5v9"/></svg><span class="lyN">Silhouette des bâtiments<em id="lyInfoUrb">BD TOPO (IGN) : la ville dessinée en blocs, sur 2,5 km</em></span><input type="checkbox" id="lyUrb"></label>
+    <label class="lySub"><svg viewBox="0 0 24 24" stroke="#C79BE8"><path d="M3 20h18M7 20V9M12 20V9M17 20V9"/></svg><span class="lyN">Premier plan masqué<em>à hauteur de rue, les 150 premiers mètres sont ignorés</em></span><input type="checkbox" id="lyUrbClip"></label>
+    <label class="lySub"><svg viewBox="0 0 24 24" stroke="#C79BE8"><path d="M3 16h4V9h5v5h4V7h5"/></svg><span class="lyN">Lissage en blocs<em>silhouette de ville dessinée, plutôt que le contour exact</em></span><input type="checkbox" id="lyUrbSmooth"></label>
+    <label class="lySub"><svg viewBox="0 0 24 24" stroke="#C79BE8"><path d="M3 20V11h6V6h6v9h6v5z"/></svg><span class="lyN">Remplissage<em>colorer la silhouette jusqu'au sol</em></span><input type="checkbox" id="lyUrbFill"></label>
     <label><svg viewBox="0 0 24 24" stroke="#7FE3C4"><path d="M3 16h18l-3 4H6zM12 3v12M12 4l6 9h-6M12 6l-5 7h5"/></svg><span class="lyN">Bateaux<em id="lyInfoSea">AIS, en direct — via le relais</em></span><input type="checkbox" id="lySea"></label>
     <label><svg viewBox="0 0 24 24" stroke="#8FD3FF"><path d="M12 2.5c1 0 1.5 1 1.5 2.5v4.5l7.5 4.5v2l-7.5-2v4.5l2.5 2v1.5L12 21l-4 1v-1.5l2.5-2V14L3 16v-2l7.5-4.5V5c0-1.5.5-2.5 1.5-2.5z"/></svg><span class="lyN">Avions<em id="lyInfoAir">OpenSky, en direct</em></span><input type="checkbox" id="lyAir"></label>
     <div id="lyUser"></div>
@@ -124,7 +129,13 @@
   <div class="row">
     <label for="capRel">Capteur d'orientation relatif à 60 Hz (essai : rotations plus fluides ; sinon deviceorientation)</label><input type="checkbox" id="capRel">
   </div>
+    <div class="row">
+    <label for="posToits">Position par les toits (essai, direct : après « Caler auto » sur les toits, la position est corrigée de ±20 m d'après la silhouette des bâtiments)</label><input type="checkbox" id="posToits">
+  </div>
   <div class="row">
+    <label for="stepLen">Longueur d'un pas : <b id="stepLenV">0,7 m</b> (la position corrigée avance avec vos pas)</label><input type="range" id="stepLen" min="0.5" max="1" step="0.05" value="0.7">
+  </div>
+<div class="row">
     <label for="calCont">Recalage continu du cap sur le soleil et la lune (direct : se corrige tout seul quand l'astre est dans l'image)</label><input type="checkbox" id="calCont">
   </div>
   <div class="row">
@@ -146,6 +157,8 @@
   <div class="row zbtns">
     <button id="btnAutoAlign">Caler auto</button>
     <button id="btnLearned">Reprendre l'écart appris</button>
+    <button id="btnShadow" title="Tracez au doigt l'ombre d'un poteau, du pied vers le bout (soleil à plus de 10°)">Ombre : tracer l'ombre d'un poteau</button>
+    <button id="btnPlate" title="Visez une plaque de rue ou un numéro : la position est corrigée après votre confirmation">Lire une plaque de rue</button>
   </div>
     <div id="poiList"></div>
   <div class="row">

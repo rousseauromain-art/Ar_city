@@ -24,6 +24,8 @@ import { normaliser } from '../noyau/texte.js';
  * @property {import('../donnees/reperes-hauts.js').Repere[]} reperes @property {boolean[]} doublonsReperes `doublonsReperes[i]` : le repère `i` est déjà dessiné comme monument
  * @property {import('../donnees/kml.js').CouchePerso[]} couchesPerso @property {import('../donnees/trafic.js').Mobile[]} mobiles mobiles proches (donnees/trafic.js)
  * @property {import('../calques/photo-silhouette.js').AnalysePhoto | null} analysePhoto
+ * @property {import('../scene/silhouette-batiments.js').Batiment[]} [batiments] bâtiments BD TOPO (donnees/bdtopo.js) @property {import('../donnees/rues.js').Rue[]} [rues] rues proches (donnees/rues.js)
+ * @property {import('../calques/batiments.js').SilhouetteUrbaine | null} [silhouetteUrbaine] silhouette des bâtiments calculée (app/urbain.js)
  */
 
 /**

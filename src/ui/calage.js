@@ -21,6 +21,8 @@ import { villeDense } from '../scene/liste-affichage.js';
 import { lirePixelsRecadres } from '../entrees/lire-pixels.js';
 import { LARGEUR_ANALYSE_PX, observerCiel } from '../vision/silhouette-ciel.js';
 import { echap, signe } from './html.js';
+import { sourceToits } from './toits-source.js';
+import { installerPositionToits } from './position-toits.js';
 
 /** Vitesse (m/s) au-delà de laquelle on est jugé en véhicule. */
 const VITESSE_VEHICULE_MS = 3;
@@ -32,6 +34,7 @@ export function installerCalage(c) {
   const soleilMaintenant = () => { const d = app.donnees(), t = ps.photoMode ? ps.photoMode.photo.utc : Date.now(); return d.pos && t ? positionSoleil(t, d.pos.lat, d.pos.lon) : null; };
   /** Applique une correction de cap et d'horizon : la boussole est mise en pause (direct), le calage mémorisé. @param {number} dh @param {number} dp */
   function appliquerCalage(dh, dp) { S.headOff += dh; S.pitchOff += dp; if (direct) noterCalage(fusion, Date.now()); sauver(); }
+  const corrigerPositionToits = installerPositionToits(c);
   let calageEnCours = false, bancEnCours = false;
   /** Consigne un calage au carnet (rien pendant le banc d'essai, ni sans position) : cap brut contre cap juste. @param {string} src @param {{h: number, p: number} | null} avant @param {Record<string, unknown>} [extra] */
   function consigner(src, avant, extra) {
@@ -61,6 +64,8 @@ export function installerCalage(c) {
     return calerSurSoleil({ pos: d.pos, soleil: soleilMaintenant(), pose: pose(), champDeg: vFov(), ecran: { largeurPx: ps.W, hauteurPx: ps.H }, large: !!(ps.photoMode && ps.photoMode.photo.peuFiable) || enVehicule() || forcerLarge,
       lirePixels: (cw) => lirePixelsRecadres(src, cw, { largeurPx: ps.W, hauteurPx: ps.H }) });
   }
+  /** Ville dense de jour (le soleil est levé) : la limite du ciel est faite des toits, le calage sur les toits est tenté avant le relief. @param {ReturnType<typeof app.donnees>} d */
+  const jourEnVille = (d) => { const so = soleilMaintenant(); return !!d.pos && !!so && so.elDeg > 0 && villeDense({ pos: d.pos, cities: /** @type {any} */ (d.lieux), monuments: /** @type {any} */ (d.monuments), batiments: /** @type {any} */ (d.reperes) }); };
   /** « Caler auto » SANS rien appliquer : soleil, puis relief, puis repères (calage/auto.js). Sert au calage et aux tests de parité. @returns {Promise<import('../calage/auto.js').ResultatAuto>} */
   /** Test de permutation des repères (défaut oui) ; les tests de parité avec la v1 (j), qui n'en a pas, l'éteignent. */
   let permutationReperes = true, ordreAuto = /** @type {'relief-soleil' | 'soleil-relief' | null} */ (null);
@@ -68,7 +73,7 @@ export function installerCalage(c) {
     const src = imageSource(), d = app.donnees();
     return calerAutomatiquement({ pos: d.pos, pose: pose(), camFov: S.camFov, ecran: ecranPx(), champAffiche: (cam) => champAffiche(cam, ecranPx(), fluxImage()), photo: !!ps.photoMode, permutation: opts.permutation ?? permutationReperes, ordre: opts.ordre ?? ordreAuto ?? (S.autoRelief ? 'relief-soleil' : 'soleil-relief'),
       villeDense: villeDense({ pos: d.pos, cities: /** @type {any} */ (d.lieux), monuments: /** @type {any} */ (d.monuments), batiments: /** @type {any} */ (d.reperes) }), avecRelief: S.relief && !!d.terrain, correctionOeilM: S.obsHeight || 0,
-      attendreRelief: () => app.attendreRelief(8000), relief: () => { const t = app.donnees().terrain; return t ? t.pm : null; }, soleil: () => evaluerSoleil(), lune: () => evaluerLune(),
+      toits: jourEnVille(app.donnees()) ? sourceToits({ app, S, precisionM: () => (entree ? entree.etat().precisionM : 0) }) : null, attendreRelief: () => app.attendreRelief(8000), relief: () => { const t = app.donnees().terrain; return t ? t.pm : null; }, soleil: () => evaluerSoleil(), lune: () => evaluerLune(),
       lireLuminance: (cw) => { const px = lirePixelsRecadres(src, cw, ecranPx()); return px ? luminance(px) : null; },
       lireSilhouette: (po, fh) => { const px = lirePixelsRecadres(src, LARGEUR_ANALYSE_PX, ecranPx()); return px ? observerCiel(px, { ecran: ecranPx(), pose: po, focalePx: fh }) : null; },
       liste: d.pos ? monumentsPourCalage({ monuments: d.monuments, elements: (ps.dernierBilan && ps.dernierBilan.monuments) || [], pos: d.pos, terrain: d.terrain }) : [] }); // la v1 cherche ses repères dans tout `monumentSites`, pas dans la liste affichée
@@ -88,7 +93,7 @@ export function installerCalage(c) {
         sauver(); synchroniser(); journal.info('calage', r.message);
         consigner(sourceAuto(r.source), avant, { msg: r.message.slice(0, 120) });
       }
-      return r.message;
+      return r.message + (r.source === 'toits' ? await corrigerPositionToits(r) : '');
     } finally { calageEnCours = false; }
   }
   $('btnAlign').addEventListener('click', async () => { if (direct && ps.guide) { ps.guide.basculer(); return; } const b = $('btnAlign'); b.classList.add('on'); note('Calage en cours…', 20000); const m = await calerAuto(); note(m, 6000); b.classList.remove('on'); });
@@ -181,6 +186,6 @@ export function installerCalage(c) {
   /** @type {{dernier: any}} */
   const banc = { dernier: null };
   $f('btnBench').addEventListener('click', () => { $('sheet').classList.remove('open'); lancerBanc(); });
-  return { consigner, evaluerSoleil, evaluerLune, evaluerAuto, calerAuto, evaluerPointage, toucherEchelle, pointerSur, definirModePointage, apprisIci, lancerBanc, banc, echelleActive: () => etapeEchelle !== 0, pointageActif: () => modePointage, bancEnCours: () => bancEnCours,
+  return { soleilMaintenant, appliquerCalage, consigner, evaluerSoleil, evaluerLune, evaluerAuto, calerAuto, evaluerPointage, toucherEchelle, pointerSur, definirModePointage, apprisIci, lancerBanc, banc, echelleActive: () => etapeEchelle !== 0, pointageActif: () => modePointage, bancEnCours: () => bancEnCours,
     definirPermutation: (/** @type {boolean} */ v) => { permutationReperes = v; }, definirOrdreAuto: (/** @type {'relief-soleil' | 'soleil-relief' | null} */ v) => { ordreAuto = v; } };
 }

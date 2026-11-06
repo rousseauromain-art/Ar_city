@@ -62,8 +62,18 @@ export function creerCacheDonnees(nom, { caches: stockage = globalThis.caches, m
     } catch (e) { if (journal) journal.avert('cache', `élagage ${prefixe} impossible`, e); }
   }
 
+  /** Efface toutes les entrées d'un préfixe (suppression d'une zone hors ligne) ; renvoie le nombre d'entrées effacées. @param {string} prefixe */
+  async function effacerPrefixe(prefixe) {
+    try {
+      if (!stockage) return 0;
+      const c = await stockage.open(nom), ks = (await c.keys()).filter((k) => k.url.startsWith(BASE + prefixe));
+      for (const k of ks) await c.delete(k);
+      return ks.length;
+    } catch (e) { if (journal) journal.avert('cache', `effacement ${prefixe} impossible`, e); return 0; }
+  }
+
   return {
-    lire, ecrire, elaguer, compter,
+    lire, ecrire, elaguer, compter, effacerPrefixe,
     /** Élague tous les 10 enregistrements d'un genre (v1 : `dcPuts[kind] % 10 === 1`). @param {string} genre @param {string} prefixe @param {number} max */
     async elaguerSiBesoin(genre, prefixe, max) { if ((ecritures[genre] = (ecritures[genre] || 0) + 1) % 10 === 1) await elaguer(prefixe, max); },
     /**

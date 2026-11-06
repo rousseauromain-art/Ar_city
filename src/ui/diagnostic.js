@@ -15,6 +15,14 @@ function ligneXr(ps) {
   return `suivi visuel WebXR : ${e && e.actif ? `ACTIF · ${e.hz} Hz · ${e.suivi ? 'suivi' : 'suivi perdu'}` : 'éteint'}${e && e.erreur ? ` · ${echap(e.erreur)}` : ''}`;
 }
 
+/** Lignes du Diagnostic sur la ville : bâtiments (BD TOPO), silhouette, rues. @param {import('./contexte.js').Contexte} c @returns {string[]} */
+function lignesVille({ app, S, positionPropre, direct }) {
+  const u = app.etat().urbain, pp = positionPropre.etat();
+  const pos = !direct ? [] : pp.brute && pp.nettoyee ? [`position GPS : brute ${pp.brute.lat.toFixed(6)}, ${pp.brute.lon.toFixed(6)} (± ${Math.round(pp.brute.precisionM)} m) · nettoyée ${pp.nettoyee.lat.toFixed(6)}, ${pp.nettoyee.lon.toFixed(6)} · ${pp.mode === 'mediane' ? `médiane de ${pp.n} mesure(s) sur ${pp.nMesures}` : 'dernière mesure (en marche ou téléphone en mouvement)'}${pp.corrigeeBat ? ` · ramenée hors d'un bâtiment de ${pp.deplaceBatM.toFixed(1)} m` : ''}`] : ['position GPS : aucun fix reçu (position simulée, ou GPS en attente)'];
+  const corr = direct && pp.correction ? [`position corrigée (${echap(pp.correction.source)}) : ${pp.correction.pos.lat.toFixed(6)}, ${pp.correction.pos.lon.toFixed(6)} · ${pp.correction.pas} pas depuis · le GPS reprend la main après 20 s d'écart de plus de 2 × sa précision`] : [];
+  return [...pos, ...corr, `bâtiments (BD TOPO) : ${echap(u.batiments || (S.layers.urban ? 'en attente' : 'calque éteint : rien n\'est chargé'))}${u.nBatiments ? ` · silhouette calculée en ${u.silhouetteMs} ms` : ''}`, `rues : ${echap(u.rues || '—')}`];
+}
+
 /** Lignes du Diagnostic sur les rotations : source (quaternion 60 Hz ou deviceorientation) et écran contre téléphone. @param {import('./contexte.js').Contexte} c @returns {string[]} */
 function lignesRotation({ entree, ps }) {
   const e = entree ? entree.etat() : null;
@@ -42,7 +50,7 @@ export function installerDiagnostic(c, { analyse, calage, oeil }) {
         if (!a.ok) return `ciel illisible (${Math.round((a.skyFrac || 0) * 100)} % du haut de l'image) : règles estimées seulement · analyse ${analyse.ms.toFixed(1)} ms`;
         return `silhouette lue il y a ${Math.round((Date.now() - a.t) / 1000)} s sur ${a.cols.length} colonnes (ciel ${Math.round(a.skyFrac * 100)} % du haut de l'image) · ${liste.filter((m) => m.kind === 'monument' && m.photo === true).length} monument(s) vus, ${liste.filter((m) => m.photoHid).length} cachés · analyse ${analyse.ms.toFixed(1)} ms`;
       })()}`, `monuments ${d.monuments.length} · ${echap(e.monuments)}`,
-      ...oeil.lignesDiagnostic(),
+      ...oeil.lignesDiagnostic(), ...lignesVille(c),
       `pylônes ${echap(e.telecom)} · repères hauts ${echap(e.reperes)}`, `relais ${relais || 'non configuré'}`, ...(direct ? [`capteurs : ${echap(etatFusion(fusion, S, Date.now()))}`, `mesures : ${(() => { const m = mesuresFusion(fusion, Date.now()), f = (/** @type {number | null} */ v) => (v === null ? '—' : v.toFixed(1) + '°'); return `boussole ${f(m.capBoussole)} · gyroscope ${f(m.capGyroscope)} · repère ${f(m.reperGyroscope)} · âge gyroscope ${m.ageGyroscopeMs === null ? '—' : Math.round(m.ageGyroscopeMs) + ' ms'} · désaccord depuis ${Math.round(m.desaccordDepuisMs)} ms${m.boussoleEnPause ? ' · boussole en pause' : ''}`; })()}`, `cap affiché ${pose().capDeg.toFixed(1)}° · calage ${S.headOff.toFixed(1)}° / ${S.pitchOff.toFixed(1)}°`,
         ...(ps.dernierRetour ? [`dernier retour à la boussole : il y a ${Math.round((Date.now() - ps.dernierRetour.t) / 1000)} s · boussole ${ps.dernierRetour.m.capBoussole?.toFixed(0)}° · gyroscope ${ps.dernierRetour.m.capGyroscope?.toFixed(0)}° · calage ${ps.dernierRetour.headOff.toFixed(1)}°`] : []),
         `recalage continu : ${echap(ps.continu.etat)} · ${ps.continu.pas} pas · cumul ${ps.continu.cumulDeg.toFixed(1)}°${ps.continu.dernier ? ` · dernier : cap ${ps.continu.dernier.dh >= 0 ? '+' : ''}${ps.continu.dernier.dh.toFixed(1)}° sur ${echap(ps.continu.dernier.astre)} il y a ${Math.round((Date.now() - ps.continu.dernier.t) / 1000)} s` : ''}`,

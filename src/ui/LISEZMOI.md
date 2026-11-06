@@ -4,3 +4,5 @@
 - `outils-page.js` (v2/outils.html) : journal, relais, rapport.
 
 - Étape 11a (reprises de la v1 des 26–27/10) : puce « œil » à côté du rayon (la correction de hauteur, détail et curseur au toucher, d'après `terrain.solM` / `origine`) ; en photo rejouée, le plein écran masque les bandeaux (classe `clean`, leur place revient aux noms) ; la page en direct n'a plus de ligne « Rejouer une photo » (page photo séparée).
+
+- `calage-ville.js`, `calage-ombre.js`, `lire-plaque.js`, `position-propre.js`, `position-toits.js`, `toits-source.js` : calage en ville, position nettoyée et corrigée.

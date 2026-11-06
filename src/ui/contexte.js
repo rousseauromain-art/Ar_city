@@ -12,11 +12,15 @@
  * @property {ReturnType<typeof import('./calage-continu.js').etatContinuInitial>} continu état du recalage continu (Diagnostic)
  * @property {ReturnType<typeof import('../entrees/webxr.js').creerSuiviXr> | null} xr suivi visuel WebXR (essai)
  * @property {null | {basculer: () => void, actif: () => boolean}} guide calage guidé (direct) : un toucher sur le bouton cible le lance ou l'annule
+ * @property {null | {x0: number, y0: number, x1: number, y1: number}} traitOmbre trait tracé au doigt pendant le calage sur une ombre
+ * @property {null | {capDeg: number, oeilM: number, jusqua: number}} axeRue axe de la rue tracé au sol jusqu'à `jusqua` (ms) après un calage sur la rue
  * @property {any} dernierBilan bilan de la dernière image composée @property {null | {t: number, m: ReturnType<typeof import('../entrees/capteurs.js').mesuresFusion>, headOff: number, pitchOff: number}} dernierRetour dernier retour à la boussole
  */
 
 /**
  * @typedef {object} Contexte
+ * @property {ReturnType<typeof import('./position-propre.js').creerPositionPropre>} positionPropre position GPS nettoyée (direct)
+ * @property {ReturnType<typeof import('../calage/position-toits-worker.js').creerPositionToits>} calculerPositionToits position par les toits (Worker, repli fil principal)
  * @property {boolean} direct page en direct (sinon photo rejouée)
  * @property {import('../moteur/reglages.js').Reglages} S @property {ReturnType<typeof import('../app/application.js').creerApplication>} app
  * @property {typeof import('../outils/journal.js').journal} journal @property {ReturnType<typeof import('../outils/stockage.js').creerStockage>} stockage

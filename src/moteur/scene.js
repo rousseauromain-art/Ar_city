@@ -10,6 +10,7 @@
 import { commandesHorizon } from '../rendu/repere-horizon.js';
 import { commandesCroix } from '../rendu/croix-visee.js';
 import { commandesRuban } from '../rendu/ruban-cap.js';
+import { commandesAxeRue, commandesTraitOmbre } from '../rendu/axe-rue.js';
 import { ordonneeHorizon } from '../noyau/projection.js';
 import { creerPlaceur } from '../rendu/placement.js';
 import { composerEtiquettes } from '../rendu/etiquettes.js';
@@ -22,6 +23,7 @@ import { commandesLune } from '../rendu/lune.js';
 import { positionSoleil, positionLune, phaseLune } from '../noyau/astro.js';
 import { calque as calqueRelief, classerCretes, cretesDe } from '../calques/relief.js';
 import { calque as calquePhoto } from '../calques/photo-silhouette.js';
+import { calque as calqueBatiments, occultationMonument } from '../calques/batiments.js';
 import { classerMobiles } from '../calques/avions.js';
 import { classerNavires } from '../calques/bateaux.js';
 import { normaliser } from '../noyau/texte.js';
@@ -41,6 +43,8 @@ import { messageCentral, texteStatut } from './statut.js';
  * @property {(police: string, texte: string) => number} mesurerTexte @property {{affichage: string, mono: string}} familles
  * @typedef {object} EtatScene
  * @property {boolean} photo mode photo rejouée @property {boolean} capteur boussole disponible @property {string} erreurCamera @property {number} precisionM précision du GPS @property {boolean} chargement lieux en chargement
+ * @property {{x0: number, y0: number, x1: number, y1: number} | null} [traitOmbre] trait tracé au doigt pendant le calage sur une ombre (pixels d'écran)
+ * @property {{capDeg: number, oeilM: number} | null} [axeRue] axe de la rue à tracer au sol (5 s après un calage sur la rue)
  * @property {number | null} [utcMs] instant du soleil : heure de la prise de vue en photo, heure du téléphone en direct ; absent ou null : pas de symbole du soleil
  * @property {string} source source des lieux @property {string} etatRelief « calcul… », « indispo », … @property {string} messageAir @property {string} messageSea
  */
@@ -65,8 +69,12 @@ export function composerScene({ vue, reglages: S, donnees: D, memoires: M, ecran
     return { scene: base, ecran: surimpression(h.message), bilan: { liste: [], monuments: [], affiches: 0, badge: 0, statut: h.statut, message: h.message, etage: basse ? 'bas' : 'haut', comptes: null, zones: { bande: [], avions: [], bateaux: [], etiquettes: [] } } };
   }
   const terrain = D.terrain, ligneRelief = S.skyline && !!terrain, jointureHeritee = ligneRelief ? 'round' : 'miter';
-  // 1. relief et traits bleus de la photo
+  // 1. silhouette des bâtiments (avant la ligne de relief, comme la v1), relief et traits bleus de la photo
+  const urbain = S.layers.urban === true && D.silhouetteUrbaine ? D.silhouetteUrbaine : null;
+  base.push(...calqueBatiments.preparer(urbain, vue, { reglages: { urban: S.layers.urban === true, remplir: S.layers.urbFill !== false } }));
   if (terrain) base.push(...calqueRelief.preparer(S.skyline ? classerCretes(cretesDe(terrain.pm), { toutVoir: S.beyond }) : [], vue, { terrain, reglages: { silhouette: S.skyline, cretes: S.ridges !== false, distances: S.showDist, toutVoir: S.beyond }, mesurerTexte }));
+  if (etat.axeRue) base.push(...commandesAxeRue(vue, etat.axeRue));
+  if (etat.traitOmbre) base.push(...commandesTraitOmbre(etat.traitOmbre)); // en dernier : par-dessus tout, comme le doigt qui trace
   base.push(...calquePhoto.preparer(D.analysePhoto, vue, { reglages: { toutVoir: S.beyond, analyseActive: S.photoVis === true }, maintenantMs, jointure: jointureHeritee }));
   // 2. classements, étiquettes, bande, mobiles
   const c = classerScene({ S, D, vue, maintenantMs, snapPrecedent: M.calageMonuments, analyseAppliqueeT: M.analyseT }), { couches, trouves } = couchesDeLaBande({ S, D, classesEquipements: c.classesEquipements });
@@ -79,7 +87,7 @@ export function composerScene({ vue, reglages: S, donnees: D, memoires: M, ecran
     memoireLignes: M.lignes, mesurerTexte, familles, jointure });
   /** @type {{haut: ReturnType<typeof composerBande> | null}} */
   const etageHaut = { haut: null };
-  const noms = composerEtiquettes(c.etiquettes, placeur, { mesurerTexte, familles, avantNoms: () => {
+  const noms = composerEtiquettes(c.etiquettes, placeur, { mesurerTexte, familles, occultation: urbain ? occultationMonument(urbain, vue) : undefined, avantNoms: () => {
     reserverIcones(groupes, placeur.reservations); // icônes des mobiles : réservées avant tout nom
     if (!basse) etageHaut.haut = composerBande(couches, vue, placeur, optBande('haut', jointureHeritee)); // horizon trop bas à l'écran : la bande passe au-dessus, avant les lieux
   } });

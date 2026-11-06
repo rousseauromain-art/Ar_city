@@ -37,6 +37,10 @@ import { memeEndroit, estBruitGps } from './position.js';
 import { clausesLieux, requeteOverpass } from '../donnees/overpass.js';
 import { creerGestionCouches } from './couches.js';
 import { CATEGORIES_REPERES } from '../donnees/categories-reperes.js';
+import { creerSourceBatiments } from '../donnees/bdtopo.js';
+import { creerSourceRues } from '../donnees/rues.js';
+import { creerSilhouetteWorker } from '../scene/silhouette-worker.js';
+import { creerUrbain } from './urbain.js';
 
 /** @typedef {import('../moteur/classement.js').DonneesScene} DonneesScene */
 /** @typedef {import('../moteur/reglages.js').Reglages} Reglages */
@@ -46,6 +50,12 @@ import { CATEGORIES_REPERES } from '../donnees/categories-reperes.js';
 const CACHE_DONNEES_V1 = 'vh-data-v1', CACHE_TERRAIN_V1 = 'vh-terrain-v1';
 /** Mémoires de la v1 gardées dans le stockage local (atlas des lieux, monuments) : copiées une fois si la v2 n'a encore rien. [nom v2, clé v1] */
 const STOCKAGE_V1 = /** @type {[string, string][]} */ ([['atlas', 'vh_atlas_v1'], ['monuments', 'vh_mon_v2'], ['tuilesAnciennes', 'vh_montile_v2']]);
+
+/** Worker de la silhouette des bâtiments (le calcul d'une grande ville prend plusieurs dizaines de ms) ; null : calcul sur le fil principal. @param {string | URL | undefined} url @param {{avert: (m: string, msg: string, d?: unknown) => unknown}} journal */
+function calculSilhouetteWorker(url, journal) {
+  if (!url || typeof Worker === 'undefined') return null;
+  try { return creerSilhouetteWorker(url); } catch (e) { journal.avert('app', 'Worker de la silhouette indisponible : calcul sur le fil principal', e); return null; }
+}
 
 /** Stockage de la v2 vu par les sources de données : `lire(nom, valeurParDefaut)`. @param {ReturnType<typeof import('../outils/stockage.js').creerStockage>} s */
 const stockageSimple = (s) => ({ lire: (/** @type {string} */ nom, /** @type {any} */ defaut) => s.lire(nom, { parDefaut: defaut === undefined ? null : defaut }), ecrire: (/** @type {string} */ nom, /** @type {unknown} */ v) => s.ecrire(nom, v) });
@@ -57,6 +67,7 @@ const stockageSimple = (s) => ({ lire: (/** @type {string} */ nom, /** @type {an
  *   stockage: ReturnType<typeof import('../outils/stockage.js').creerStockage>,
  *   relais?: string,
  *   urlWorkerMasque?: string | URL,
+ *   urlWorkerSilhouette?: string | URL,
  *   fetchImpl?: (url: string, init: any) => Promise<Response>,
  *   caches?: CacheStorage,
  *   maintenant?: () => number,
@@ -64,7 +75,7 @@ const stockageSimple = (s) => ({ lire: (/** @type {string} */ nom, /** @type {an
  *   visible?: () => boolean,
  * }} p
  */
-export function creerApplication({ reglages, journal, stockage, relais, urlWorkerMasque, fetchImpl, caches = globalThis.caches, maintenant = Date.now, quandChange = () => {}, visible = () => !globalThis.document || !globalThis.document.hidden }) {
+export function creerApplication({ reglages, journal, stockage, relais, urlWorkerMasque, urlWorkerSilhouette, fetchImpl, caches = globalThis.caches, maintenant = Date.now, quandChange = () => {}, visible = () => !globalThis.document || !globalThis.document.hidden }) {
   const st = stockageSimple(stockage);
   for (const [nomV2, cleV1] of STOCKAGE_V1) { // reprise unique : la v1 n'est ni modifiée ni effacée
     try {
@@ -88,6 +99,8 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   const memoireDirect = creerMemoireDirect(cacheDonnees);
   const sourceAvions = creerSourceAvions({ reseau: /** @type {any} */ (reseau), memoire: memoireDirect, relais, maintenant });
   const sourceNavires = creerSourceNavires({ reseau: /** @type {any} */ (reseau), memoire: memoireDirect, relais, maintenant });
+  const sourceBatiments = creerSourceBatiments({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, relais, journal });
+  const sourceRues = creerSourceRues({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, openfreemap, overpass, journal });
   const chargeurTuiles = creerChargeurTuiles({ reseau: /** @type {any} */ (reseauTuiles), decoder: decoderTuile });
   /** @type {import('../scene/masque.js').CalculMasque} */
   let masque = (b, c, o) => calculerMasque(b, c, o);
@@ -114,7 +127,8 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   const recalculerCouches = couches.recalculer;
   /** Les lieux de la v1 (`cities`) d'abord, puis les sommets lointains (`farPeaks`) : l'ordre compte pour les égalités de tri. */
   const publierLieux = () => { D.lieux = sommets.length ? lieuxBase.concat(sommets) : lieuxBase; };
-  const encore = (/** @type {Point} */ ici) => memeEndroit(D.pos, ici); // l'observateur est resté au même endroit (à 300 m près) pendant le chargement : le bruit du GPS ne jette rien
+  const encore = (/** @type {Point} */ ici) => memeEndroit(D.pos, ici);
+  const urbain = creerUrbain({ D, reglages, journal, change, encore, maintenant, sourceBatiments, sourceRues, calculer: calculSilhouetteWorker(urlWorkerSilhouette, journal), cacheDonnees, stockage: st, reculSuivant, direct: () => trafic.mode === 'direct' }); // l'observateur est resté au même endroit (à 300 m près) pendant le chargement : le bruit du GPS ne jette rien
 
   /** Monuments finaux : base Wikidata + tours, bâtiments hauts et statues OSM. Les doublons repères/monuments sont recalculés avec. */
   function recomposerMonuments() {
@@ -165,7 +179,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     occupe.terrain = true; E.etatRelief = 'calcul…'; change('relief');
     try {
       await calculerTerrainAvecRepli({ pos, source: 'mapterhorn', chargeur: chargeurTuiles, masque, correctionOeilM: S.obsHeight || 0, maintenant,
-        publier: (t) => { if (!encore(pos)) return; D.terrain = { h0: t.h0, pm: t.pm, bands: t.bands, solM: t.solM, origine: t.origine }; E.terrainCentre = { ...pos }; E.etatRelief = t.refining || t.partial ? 'calcul…' : 'ok'; change('relief'); } });
+        publier: (t) => { if (!encore(pos)) return; D.terrain = { h0: t.h0, pm: t.pm, bands: t.bands, solM: t.solM, origine: t.origine }; E.terrainCentre = { ...pos }; E.etatRelief = t.refining || t.partial ? 'calcul…' : 'ok'; change('relief'); urbain.recalculer(); } });
       couvert.terrain = { ...pos }; E.etatRelief = 'ok'; recul.terrain.t = null; recul.terrain.ms = 30000;
     } catch (e) { E.etatRelief = 'indispo'; recul.terrain.t = maintenant(); recul.terrain.ms = reculSuivant(recul.terrain.ms); journal.erreur('app', 'relief', e); }
     occupe.terrain = false; change('relief');
@@ -251,14 +265,14 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     if (S.sea) { chargerNavires(); trafic.minuteurSea = setInterval(chargerNavires, 30000); }
   }
 
-  const chargeurs = { lieux: chargerLieux, sommets: chargerSommets, terrain: chargerTerrain, monuments: chargerMonuments, telecom: chargerTelecom, reperes: chargerReperes };
+  const chargeurs = { lieux: chargerLieux, sommets: chargerSommets, terrain: chargerTerrain, monuments: chargerMonuments, telecom: chargerTelecom, reperes: chargerReperes, batiments: urbain.chargerBatiments, rues: urbain.chargerRues };
   /** Tout ce qui doit l'être pour la position courante (chaque chargeur applique ses propres seuils). @param {boolean} [force] */
   const actualiser = (force = false) => Promise.allSettled(Object.values(chargeurs).map((c) => c(force)));
 
   /** Après un saut de position : tous les chargements sont relancés toutes les 3 s pendant 1 min (chacun s'ignore s'il couvre déjà le lieu) et les reculs sont oubliés. */
   function rattraper() {
     clearInterval(trafic.minuteurRattrapage);
-    recul.telecom.t = recul.monuments.t = recul.reperes.t = recul.terrain.t = null;
+    recul.telecom.t = recul.monuments.t = recul.reperes.t = recul.terrain.t = null; urbain.oublierRecul();
     let n = 0;
     trafic.minuteurRattrapage = setInterval(() => { if (++n > 20 || !D.pos) { clearInterval(trafic.minuteurRattrapage); return; } actualiser(false); }, 3000);
   }
@@ -292,30 +306,31 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     },
     /** Nouvelle position (GPS, photo, simulation) : les chargements dont le seuil de déplacement est dépassé repartent. @param {Point} pos @param {{force?: boolean}} [o] */
     definirPosition(pos, { force = false } = {}) {
-      if (!force && estBruitGps(D.pos, pos)) return Promise.resolve([]); // un fix GPS à moins de 10 m n'est que du bruit : rien ne change, rien ne se relance
+      if (!force && estBruitGps(D.pos, pos)) return Promise.resolve([]); // un fix GPS à moins de 5 m n est que du bruit : rien ne change, rien ne se relance
       const saut = D.pos ? distanceEtCap(D.pos, pos).distKm : Infinity;
       D.pos = { lat: pos.lat, lon: pos.lon };
-      if (saut > 2) { D.terrain = null; sommets = []; publierLieux(); D.monuments = []; D.pylones = []; D.reperes = []; D.doublonsReperes = []; baseWikidata = []; tuilesOsm = []; batiments = []; Object.assign(couvert, { lieux: null, sommets: null, terrain: null, monuments: null, telecom: null, reperes: null }); }
+      if (saut > 2) { urbain.reinitialiser(); D.terrain = null; sommets = []; publierLieux(); D.monuments = []; D.pylones = []; D.reperes = []; D.doublonsReperes = []; baseWikidata = []; tuilesOsm = []; batiments = []; Object.assign(couvert, { lieux: null, sommets: null, terrain: null, monuments: null, telecom: null, reperes: null }); }
       recalculerCouches();
       change('position');
       if (trafic.mode === 'direct' && (saut === Infinity || saut > 3)) { chargerNavires(); chargerAvions(); } // la mémoire de l'appareil s'affiche dès le premier point GPS
       if (saut !== Infinity && saut > 3) rattraper();
       return actualiser(force || saut > 2);
     },
-    /** Après un changement de réglage (rayon, calques, relief…) : relance ce qui est nécessaire. @param {{lieux?: boolean, terrain?: boolean, monuments?: boolean, telecom?: boolean, reperes?: boolean}} [quoi] */
+    /** Après un changement de réglage (rayon, calques, relief…) : relance ce qui est nécessaire. @param {{lieux?: boolean, terrain?: boolean, monuments?: boolean, telecom?: boolean, reperes?: boolean, urbain?: boolean}} [quoi] */
     recharger(quoi = {}) {
       if (quoi.terrain) recul.terrain.t = null; // demande explicite : on oublie le recul
       if (quoi.terrain) { couvert.terrain = null; couvert.sommets = null; }
       if (quoi.monuments) couvert.monuments = null;
       if (quoi.telecom) couvert.telecom = null;
       if (quoi.reperes) couvert.reperes = null;
-      return Promise.allSettled([chargerLieux(!!quoi.lieux), chargerSommets(!!quoi.terrain), chargerTerrain(!!quoi.terrain), chargerMonuments(!!quoi.monuments), chargerTelecom(!!quoi.telecom), chargerReperes(!!quoi.reperes)]);
+      urbain.oublier(!!quoi.urbain);
+      return Promise.allSettled([chargerLieux(!!quoi.lieux), chargerSommets(!!quoi.terrain), chargerTerrain(!!quoi.terrain), chargerMonuments(!!quoi.monuments), chargerTelecom(!!quoi.telecom), chargerReperes(!!quoi.reperes), urbain.chargerBatiments(!!quoi.urbain), urbain.chargerRues(!!quoi.urbain)]);
     },
     actualiser,
     /**
      * Mode hors ligne : télécharge les lieux (villes, villages, hameaux et toutes les catégories de repères) dans un rayon de `rayonKm` autour de la position, les ajoute à l'atlas local (cumulatif, rien n'est écrasé)
      * et met en cache le relief d'ici (tuiles à durée illimitée). Comme la v1 (`downloadZone`). Lève une erreur si la position est inconnue, si Overpass ne répond pas ou si la réponse est vide.
-     * @param {{rayonKm?: number}} [o] @returns {Promise<{recus: number, nouveaux: number, total: number}>}
+     * @param {{rayonKm?: number}} [o] @returns {Promise<{recus: number, nouveaux: number, total: number, urbain: {t: number, batiments: number, rues: number, nBatiments: number} | null}>}
      */
     async telechargerZone({ rayonKm = 150 } = {}) {
       const pos = D.pos;
@@ -326,29 +341,34 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
       const nouveaux = atlas.absorber(lieux, pos, rayonKm);
       journal.info('app', `zone hors ligne : ${lieux.length} lieux reçus, ${nouveaux} nouveaux, ${atlas.nombre()} au total`);
       chargerTerrain(true); // les tuiles de relief d'ici restent sur l'appareil
+      /** @type {{t: number, batiments: number, rues: number, nBatiments: number} | null} */
+      let urb = null;
+      try { urb = await urbain.telechargerZone(pos); journal.info('app', `zone hors ligne : ${urb.batiments} tuile(s) de bâtiments (${urb.nBatiments} bâtiments), ${urb.rues} tuile(s) de rues`); } catch (e) { journal.avert('app', 'zone hors ligne : bâtiments et rues indisponibles', e); }
       change('atlas');
-      return { recus: lieux.length, nouveaux, total: atlas.nombre() };
+      return { recus: lieux.length, nouveaux, total: atlas.nombre(), urbain: urb };
     },
     ...couches.methodes,
-    /** Ce qui est gardé pour le hors ligne. @returns {{lieux: number, zones: number, derniere: number | null}} */
-    infoZone: () => { const z = atlas.zones(); return { lieux: atlas.nombre(), zones: z.length, derniere: z.length ? z[z.length - 1].saved : null }; },
+    /** Ce qui est gardé pour le hors ligne. @returns {{lieux: number, zones: number, derniere: number | null, urbain: {t: number, batiments: number, rues: number, nBatiments: number} | null}} */
+    infoZone: () => { const z = atlas.zones(); return { lieux: atlas.nombre(), zones: z.length, derniere: z.length ? z[z.length - 1].saved : null, urbain: /** @type {{t: number, batiments: number, rues: number, nBatiments: number} | null} */ (urbain.infoZone()) }; },
     /** Efface l'atlas ; si les lieux affichés en viennent, retour à la liste intégrée. */
     supprimerZone() {
-      atlas.effacer();
+      atlas.effacer(); urbain.effacer();
       if (E.source.startsWith('atlas local')) { lieuxBase = listeIntegree(); E.source = 'liste intégrée'; publierLieux(); }
       change('atlas');
     },
     /** Silhouette du ciel lue sur l'image (null : aucune) ; datée par l'appelant. @param {any} analyse */
     definirAnalysePhoto(analyse) { D.analysePhoto = analyse; change('analyse'); },
+    /** Bâtiments et rues d'ici, chargés au besoin (calage en ville) même si le calque est éteint. */
+    assurerBatiments: urbain.assurerBatiments, assurerRues: urbain.assurerRues, urbain: { recalculer: urbain.recalculer, etat: urbain.etat },
     /** Données pour `composerScene`. */
     donnees: () => D,
     /** Corrige la hauteur d'œil : relit le relief. @param {number} m */
     corrigerHauteurOeil(m) { reglages().obsHeight = m; return chargerTerrain(true); },
-    /** @returns {{version: number, source: string, chargementLieux: boolean, depuisLieuxMs: number, sourcesLieux: import('../donnees/lieux.js').DetailSource[], etatRelief: string, monuments: string, telecom: string, reperes: string, messageAir: string, messageSea: string, lieux: number, sommets: number, nbMonuments: number}} */
-    etat: () => ({ version, source: E.source, chargementLieux: E.chargementLieux, depuisLieuxMs: E.chargementLieux ? maintenant() - E.debutLieux : 0, sourcesLieux: E.sourcesLieux, etatRelief: E.etatRelief, monuments: E.msgMonuments, telecom: E.msgTelecom, reperes: E.msgReperes, messageAir: trafic.msgAir, messageSea: trafic.msgSea, lieux: lieuxBase.length, sommets: sommets.length, nbMonuments: D.monuments.length }),
+    /** @returns {{version: number, source: string, chargementLieux: boolean, depuisLieuxMs: number, sourcesLieux: import('../donnees/lieux.js').DetailSource[], etatRelief: string, monuments: string, telecom: string, reperes: string, messageAir: string, messageSea: string, lieux: number, sommets: number, nbMonuments: number, urbain: ReturnType<typeof import('./urbain.js').creerUrbain>['etat'] extends () => infer R ? R : never}} */
+    etat: () => ({ version, source: E.source, chargementLieux: E.chargementLieux, depuisLieuxMs: E.chargementLieux ? maintenant() - E.debutLieux : 0, sourcesLieux: E.sourcesLieux, etatRelief: E.etatRelief, monuments: E.msgMonuments, telecom: E.msgTelecom, reperes: E.msgReperes, messageAir: trafic.msgAir, messageSea: trafic.msgSea, lieux: lieuxBase.length, sommets: sommets.length, nbMonuments: D.monuments.length, urbain: urbain.etat() }),
     /** Compteurs de la mémoire de l'appareil par genre : { hit, net, stale, fail }. */
     compteursCache: () => cacheDonnees.compteurs(),
     /** Vrai si un chargement est en cours. */
-    occupe: () => Object.values(occupe).some(Boolean),
+    occupe: () => Object.values(occupe).some(Boolean) || urbain.occupe(),
   };
 }

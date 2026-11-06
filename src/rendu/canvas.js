@@ -59,6 +59,9 @@ export function dessiner(ctx, commandes) {
         if (fill2) ctx.fill(fill2);
         if (stroke) ctx.stroke(stroke);
       } finally { ctx.restore(); }
+    } else if (c.type === 'decoupe') {
+      ctx.save(); ctx.beginPath(); ctx.rect(c.x, c.y, c.l, c.h); ctx.clip();
+      try { dessiner(ctx, c.enfants); } finally { ctx.restore(); }
     } else if (c.type === 'groupe') {
       ctx.save();
       ctx.translate(c.x, c.y); ctx.rotate(c.angleRad);

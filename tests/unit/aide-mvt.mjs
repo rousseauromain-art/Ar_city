@@ -19,3 +19,24 @@ export function coucheMVT(nom, features, extent = 4096) {
   return champ(3, 2, [...varint(corps.length), ...corps]);
 }
 export const tuileMVT = (...couches) => Uint8Array.from(couches.flat());
+
+const cmd = (id, count) => (count << 3) | id;
+/** Couche de géométries : features = [{type:'ligne'|'polygone', traces:[[ [x,y], … ], …], tags}] (coordonnées locales ENTIÈRES ; les polygones sont fermés par ClosePath). */
+export function coucheGeometriesMVT(nom, features, extent = 4096) {
+  const keys = [], values = [];
+  const idx = (liste, v) => { let i = liste.indexOf(v); if (i < 0) { i = liste.length; liste.push(v); } return i; };
+  const feats = features.map((f) => {
+    const tags = Object.entries(f.tags || {}).flatMap(([k, v]) => [idx(keys, k), idx(values, String(v))]);
+    const geom = []; let cx = 0, cy = 0;
+    for (const t of f.traces) {
+      geom.push(cmd(1, 1), zig(t[0][0] - cx), zig(t[0][1] - cy)); cx = t[0][0]; cy = t[0][1];
+      geom.push(cmd(2, t.length - 1));
+      for (const p of t.slice(1)) { geom.push(zig(p[0] - cx), zig(p[1] - cy)); cx = p[0]; cy = p[1]; }
+      if (f.type === 'polygone') geom.push(cmd(7, 1));
+    }
+    const b = [...empile(2, tags), ...champ(3, 0, varint(f.type === 'polygone' ? 3 : 2)), ...empile(4, geom)];
+    return champ(2, 2, [...varint(b.length), ...b]);
+  });
+  const corps = [...chaine(1, nom), ...feats.flat(), ...keys.flatMap((k) => chaine(3, k)), ...values.flatMap((v) => { const b = chaine(1, v); return champ(4, 2, [...varint(b.length), ...b]); }), ...champ(5, 0, varint(extent))];
+  return champ(3, 2, [...varint(corps.length), ...corps]);
+}

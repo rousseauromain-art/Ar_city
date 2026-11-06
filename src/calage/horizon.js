@@ -32,8 +32,11 @@ export function luminance({ d, cw, ch }) {
 
 /** Table du relief : l'angle de la silhouette pour chacun des 720 relèvements (v1 : `skyTable`). @param {ArrayLike<Float32Array>} pm */
 export function tableRelief(pm) { const t = new Float32Array(NB_RELEVEMENTS); for (let i = 0; i < NB_RELEVEMENTS; i++) t[i] = masqueDans(pm, i * PAS_RELEVEMENT_DEG, 1e9); return t; }
-/** Angle du relief dans une direction, interpolé (v1 : `skyAtT`). @param {Float32Array} t @param {number} b */
-export function elevationRelief(t, b) { const f = (((b % 360) + 360) % 360) / PAS_RELEVEMENT_DEG, i = Math.floor(f) % NB_RELEVEMENTS, u = f - Math.floor(f); return t[i] * (1 - u) + t[(i + 1) % NB_RELEVEMENTS] * u; }
+/**
+ * Angle de la silhouette dans une direction, interpolé (v1 : `skyAtT`). Le pas se déduit de la longueur de la table : 720 directions (0,5°) pour le relief, 3600 (0,1°) pour une table qui contient aussi les bâtiments (calage sur les toits).
+ * @param {Float32Array} t @param {number} b
+ */
+export function elevationRelief(t, b) { const nb = t.length, f = (((b % 360) + 360) % 360) / (360 / nb), i = Math.floor(f) % nb, u = f - Math.floor(f); return t[i] * (1 - u) + t[(i + 1) % nb] * u; }
 
 /**
  * Points de l'horizon lus dans l'image : par colonne, la plus forte transition clair → sombre dans la bande d'élévations [eMin, eMax].
@@ -82,31 +85,43 @@ export function nettoyerPointsHorizon(pts, silhouette, P, fh, ecran) {
 }
 
 /**
- * @param {PointHorizon[]} pts @param {PoseCalage} P @param {number} cam0 champ du capteur (réglage) @param {Float32Array} tab table du relief
+ * Coût d'un alignement : écart quadratique moyen (°) sur les 70 % de colonnes les mieux ajustées, et horizon (moyenne des résidus de ces colonnes). `r` et `dev` : tampons de la taille de `pts`.
+ * @param {PointHorizon[]} pts @param {PoseCalage} P @param {Float32Array} tab @param {number} cx @param {number} cy @param {number} fh focale (px) @param {number} dh décalage de cap (°) @param {Float64Array} r @param {Float64Array} dev
+ */
+function coutDe(pts, P, tab, cx, cy, fh, dh, r, dev) {
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    r[i] = elevationRelief(tab, P.capDeg + dh + Math.atan((p.x - cx) / fh) / RAD) - (P.inclinaisonDeg - Math.atan((p.y - cy) / fh) / RAD);
+  }
+  // écart quadratique moyen sur les 70 % de colonnes les mieux ajustées : robuste aux poteaux, reflets et palmiers (30 % écartés)
+  const s = Float64Array.from(r).sort(), med = s[s.length >> 1];
+  for (let i = 0; i < s.length; i++) dev[i] = (s[i] - med) * (s[i] - med);
+  const d = Float64Array.from(dev).sort(), m = Math.max(3, Math.floor(d.length * 0.7));
+  let acc = 0, sum = 0;
+  for (let i = 0; i < m; i++) { acc += d[i]; }
+  // horizon : moyenne des résidus de ces mêmes colonnes (plus précise que la médiane seule)
+  /** @type {number[]} */
+  const keep = [];
+  for (let i = 0; i < s.length; i++) if ((s[i] - med) * (s[i] - med) <= d[m - 1]) keep.push(s[i]);
+  for (const v of keep) sum += v;
+  return { cost: Math.sqrt(acc / m), dp: sum / keep.length };
+}
+
+/**
+ * Coût d'une table pour des points d'horizon donnés, à cap décalé de `dh` et à champ fixe (focale `fh`) : sert à comparer des positions candidates (calage sur les toits).
+ * @param {PointHorizon[]} pts @param {PoseCalage} P @param {Float32Array} tab @param {EcranCalage} ecran @param {number} fh @param {number} [dh]
+ */
+export function coutSurTable(pts, P, tab, ecran, fh, dh = 0) { return coutDe(pts, P, tab, ecran.largeurPx / 2, ecran.hauteurPx / 2, fh, dh, new Float64Array(pts.length), new Float64Array(pts.length)); }
+
+/**
+ * @param {PointHorizon[]} pts @param {PoseCalage} P @param {number} cam0 champ du capteur (réglage) @param {Float32Array} tab table du relief (ou table relief + bâtiments)
  * @param {EcranCalage} ecran @param {(cam: number) => number} champAffiche champ affiché pour un champ de capteur (recadrage compris)
+ * @param {{champ?: boolean, plageDeg?: number, courbe?: {dh: number, cost: number}[]}} [options] `champ: false` : le champ n'est jamais cherché (toits) ; `plageDeg` : demi-largeur de la recherche de cap (défaut 20° ; 45° pour les toits : boussole faussée par le métal) ; `courbe` : reçoit le coût de chaque cap essayé (pas de 0,5°) pour juger si l'alignement est unique
  * @returns {{dh: number, dp: number, cam: number, cost: number, flat: boolean, n: number, relief: number, base?: number}}
  */
-export function ajusterHorizon(pts, P, cam0, tab, ecran, champAffiche) {
+export function ajusterHorizon(pts, P, cam0, tab, ecran, champAffiche, options = {}) {
   const cx = ecran.largeurPx / 2, cy = ecran.hauteurPx / 2, r = new Float64Array(pts.length), dev = new Float64Array(pts.length);
-  function cost(/** @type {number} */ dh, /** @type {number} */ cam) {
-    const fh = (ecran.largeurPx / 2) / Math.tan(champAffiche(cam) / 2 * RAD);
-    for (let i = 0; i < pts.length; i++) {
-      const p = pts[i];
-      r[i] = elevationRelief(tab, P.capDeg + dh + Math.atan((p.x - cx) / fh) / RAD) - (P.inclinaisonDeg - Math.atan((p.y - cy) / fh) / RAD);
-    }
-    // écart quadratique moyen sur les 70 % de colonnes les mieux ajustées : robuste aux poteaux, reflets et palmiers (30 % écartés)
-    const s = Float64Array.from(r).sort(), med = s[s.length >> 1];
-    for (let i = 0; i < s.length; i++) dev[i] = (s[i] - med) * (s[i] - med);
-    const d = Float64Array.from(dev).sort(), m = Math.max(3, Math.floor(d.length * 0.7));
-    let acc = 0, sum = 0;
-    for (let i = 0; i < m; i++) { acc += d[i]; }
-    // horizon : moyenne des résidus de ces mêmes colonnes (plus précise que la médiane seule)
-    /** @type {number[]} */
-    const keep = [];
-    for (let i = 0; i < s.length; i++) if ((s[i] - med) * (s[i] - med) <= d[m - 1]) keep.push(s[i]);
-    for (const v of keep) sum += v;
-    return { cost: Math.sqrt(acc / m), dp: sum / keep.length };
-  }
+  const cost = (/** @type {number} */ dh, /** @type {number} */ cam) => coutDe(pts, P, tab, cx, cy, (ecran.largeurPx / 2) / Math.tan(champAffiche(cam) / 2 * RAD), dh, r, dev);
   // relief présent dans le champ ? sans relief (mer seule), le cap et le champ sont indéterminés
   const half = champAffiche(cam0) / 2 + 20;
   let lo = 90, hi = -90;
@@ -116,12 +131,13 @@ export function ajusterHorizon(pts, P, cam0, tab, ecran, champAffiche) {
   // seuls le cap et l'horizon sont ajustés : sur une seule image, le champ de la caméra n'est pas mesurable de façon fiable
   /** @type {{cost: number, dp: number, dh: number}} */
   let b = { cost: Infinity, dp: 0, dh: 0 };
-  for (let dh = -20; dh <= 20; dh += 0.5) { const c = cost(dh, cam0); if (c.cost < b.cost) b = { ...c, dh }; }
+  const plage = options.plageDeg ?? 20;
+  for (let dh = -plage; dh <= plage; dh += 0.5) { const c = cost(dh, cam0); if (options.courbe) options.courbe.push({ dh, cost: c.cost }); if (c.cost < b.cost) b = { ...c, dh }; }
   const c0 = b.dh;
   for (let dh = c0 - 0.75; dh <= c0 + 0.75; dh += 0.05) { const c = cost(dh, cam0); if (c.cost < b.cost) b = { ...c, dh }; }
   // le champ (zoom) n'est cherché que si le relief est marqué (montagnes) et retenu seulement s'il améliore nettement l'ajustement
   let cam = cam0;
-  if (relief >= RELIEF_MIN_CHAMP_DEG) {
+  if (relief >= RELIEF_MIN_CHAMP_DEG && options.champ !== false) {
     /** @type {{cost: number, dp?: number, dh?: number, cm?: number}} */
     let bc = { cost: b.cost };
     for (let cm = Math.max(20, cam0 - 12); cm <= Math.min(110, cam0 + 12); cm += 1) for (let dh = b.dh - 4; dh <= b.dh + 4; dh += 0.25) { const c = cost(dh, cm); if (c.cost < bc.cost) bc = { ...c, dh, cm }; }

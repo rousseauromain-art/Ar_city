@@ -26,7 +26,7 @@ const HISTORIQUE_ALTITUDES_MS = 60000;
 export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRetourBoussole, positionSimulee = () => false, capteurRelatif = () => false, maintenant = Date.now, fenetre = window }) {
   /** @type {MediaStream | null} */
   let flux = null;
-  let demarre = false, enCours = false, erreurCamera = '', gpsErreur = '', precisionM = 0;
+  let demarre = false, suspendu = false, enCours = false, erreurCamera = '', gpsErreur = '', precisionM = 0;
   /** @type {{altitudeM: number | null, precisionAltM: number | null}} */
   let altitudeGps = { altitudeM: null, precisionAltM: null };
   /** Mesures d'altitude GPS des 60 dernières secondes (la hauteur d'œil n'en tire une proposition qu'avec la médiane d'au moins 10 mesures). @type {{t: number, altitudeM: number, precisionAltM: number | null}[]} */
@@ -54,7 +54,7 @@ export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRet
       const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
       flux = st; video.srcObject = st; await video.play(); erreurCamera = '';
       const piste = st.getVideoTracks()[0];
-      if (piste) piste.addEventListener('ended', () => { if (demarre && !doc.hidden && flux === st) rouvrir(); });
+      if (piste) piste.addEventListener('ended', () => { if (demarre && !suspendu && !doc.hidden && flux === st) rouvrir(); });
     } catch (e) { erreurCamera = 'Caméra refusée ou indisponible'; journal.avert('direct', erreurCamera, e); }
     enCours = false;
   }
@@ -126,11 +126,15 @@ export function creerEntreeDirecte({ video, fusion, journal, surPosition, surRet
           surPosition({ lat: p.coords.latitude, lon: p.coords.longitude, precisionM: p.coords.accuracy, ...altitudeGps });
         }, (err) => { erreurCamera = erreurCamera || ''; journal.avert('direct', 'GPS refusé : ' + err.message); gpsErreur = 'GPS refusé : ' + err.message; }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
       } else gpsErreur = 'GPS indisponible';
-      doc.addEventListener('visibilitychange', () => { if (!demarre) return; if (doc.hidden) arreterCamera(); else { signalerReouverture(fusion); if (!cameraVivante()) demarrerCamera(); } }); // retour au premier plan : le repère du gyroscope a pu être réinitialisé
-      fenetre.addEventListener('pageshow', (e) => { if (demarre && /** @type {PageTransitionEvent} */ (e).persisted) { signalerReouverture(fusion); if (!cameraVivante()) demarrerCamera(); } });
-      fenetre.addEventListener('focus', () => { if (demarre && !doc.hidden && !cameraVivante()) rouvrir(); });
+      doc.addEventListener('visibilitychange', () => { if (!demarre || suspendu) return; if (doc.hidden) arreterCamera(); else { signalerReouverture(fusion); if (!cameraVivante()) demarrerCamera(); } }); // retour au premier plan : le repère du gyroscope a pu être réinitialisé
+      fenetre.addEventListener('pageshow', (e) => { if (demarre && !suspendu && /** @type {PageTransitionEvent} */ (e).persisted) { signalerReouverture(fusion); if (!cameraVivante()) demarrerCamera(); } });
+      fenetre.addEventListener('focus', () => { if (demarre && !suspendu && !doc.hidden && !cameraVivante()) rouvrir(); });
     },
     arreter: arreterCamera,
+    /** Libère la caméra pour une session WebXR (le navigateur la veut pour lui) : aucune relance automatique tant que la reprise n'est pas demandée. */
+    suspendreCamera() { suspendu = true; arreterCamera(); journal.info('direct', 'caméra libérée pour la session WebXR'); },
+    /** Fin de la session WebXR : la caméra repart (le repère du gyroscope est refait par la fin de session). */
+    async reprendreCamera() { suspendu = false; if (demarre) await demarrerCamera(); },
     /** Dernière position GPS brute (pour revenir de la position simulée). */
     derniereGps: () => derniereGps,
     /** Active ou coupe le capteur relatif selon la case « capteur relatif (essai) ». */
