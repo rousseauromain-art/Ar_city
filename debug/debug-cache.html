@@ -46,6 +46,9 @@ input{width:100%;min-height:48px;margin:0 0 10px;padding:10px 14px;border-radius
 (() => {
 const $=id=>document.getElementById(id), D=Math.PI/180;
 const TCACHE='vh-terrain-v1', DCACHE='vh-data-v1', DC_BASE='https://vh.cache/';
+// caches de la v2 (relief et données qu'elle a chargés elle-même), lus en plus, après ceux de la v1 : un export contient ce que l'une OU l'autre a vu
+const TCACHE2='vh2-terrain', DCACHE2='vh2-donnees';
+const ouvrir=async n=>(await caches.has(n))?caches.open(n):null;
 const MAX=Math.max(50000,+new URLSearchParams(location.search).get('maxOctets')||20e6); // 20 Mo : marge sous la limite d'envoi de GitHub
 const msg=t=>{ $('msg').textContent=t; };
 
@@ -75,10 +78,10 @@ async function entry(c,tag,url){
   const type=r.headers.get('content-type')||'', txt=/json|text/.test(type);
   return {c:tag,k:tag==='dc'?url.slice(DC_BASE.length):url,t:+r.headers.get('x-t')||0,type,enc:txt?'text':'b64',d:txt?await r.text():b64(await r.arrayBuffer())};
 }
-async function relief(c0){ const c=await caches.open(TCACHE), out=[]; for(const u of reliefUrls(c0)){ const e=await entry(c,'t',u); if(e) out.push(e); } return out; }
+async function relief(c0){ const cs=[await caches.open(TCACHE),await ouvrir(TCACHE2)].filter(Boolean), out=[]; for(const u of reliefUrls(c0)){ for(const c of cs){ const e=await entry(c,'t',u); if(e){ out.push(e); break; } } } return out; }
 async function donnees(){
-  const c=await caches.open(DCACHE), out=[];
-  for(const rq of await c.keys()){ const k=rq.url.slice(DC_BASE.length); if(!rq.url.startsWith(DC_BASE)||/^(live|bd)\//.test(k)) continue; const e=await entry(c,'dc',rq.url); if(e) out.push(e); }
+  const out=[], vus=new Set();
+  for(const c of [await caches.open(DCACHE),await ouvrir(DCACHE2)].filter(Boolean)) for(const rq of await c.keys()){ const k=rq.url.slice(DC_BASE.length); if(!rq.url.startsWith(DC_BASE)||/^(live|bd)\//.test(k)||vus.has(k)) continue; const e=await entry(c,'dc',rq.url); if(e){ out.push(e); vus.add(k); } }
   return out;
 }
 
@@ -112,20 +115,20 @@ async function exporterRelief(c0){
 
 // ---- lieux connus : centres des requêtes de lieux mémorisées (pl/<source>/<lat>,<lon>/<rayon>/...) ----
 async function lieuxConnus(){
-  const c=await caches.open(DCACHE), seen=new Map();
-  for(const rq of await c.keys()){ const m=/^https:\/\/vh\.cache\/pl\/\w+\/(-?[\d.]+),(-?[\d.]+)\/(\d+)\//.exec(rq.url); if(!m) continue;
+  const seen=new Map();
+  for(const c of [await caches.open(DCACHE),await ouvrir(DCACHE2)].filter(Boolean)) for(const rq of await c.keys()){ const m=/^https:\/\/vh\.cache\/pl\/\w+\/(-?[\d.]+),(-?[\d.]+)\/(\d+)\//.exec(rq.url); if(!m) continue;
     const k=(+m[1]).toFixed(1)+','+(+m[2]).toFixed(1); if(!seen.has(k)) seen.set(k,{lat:+m[1],lon:+m[2]}); }
   return [...seen.values()].sort((a,b)=>b.lat-a.lat);
 }
 async function afficher(){
-  const t=await caches.open(TCACHE), d=await caches.open(DCACHE);
-  const [nt,nd]=[(await t.keys()).length,(await d.keys()).length];
+  const t=await caches.open(TCACHE), d=await caches.open(DCACHE), t2=await ouvrir(TCACHE2), d2=await ouvrir(DCACHE2);
+  const [nt,nd]=[(await t.keys()).length+(t2?(await t2.keys()).length:0),(await d.keys()).length+(d2?(await d2.keys()).length:0)];
   $('stat').textContent=`${nt} tuile(s) de relief et ${nd} jeu(x) de données en mémoire sur cet appareil.`;
   const box=$('lieux'); box.textContent='';
   const L=await lieuxConnus();
   if(!L.length){ box.innerHTML='<div class="row">Aucun lieu mémorisé pour l\'instant.</div>'; return; }
   for(const p of L){
-    const urls=reliefUrls(p), hr=urls.filter(u=>u.includes('mapterhorn')); let have=0; for(const u of hr) if(await t.match(u)) have++;
+    const urls=reliefUrls(p), hr=urls.filter(u=>u.includes('mapterhorn')); let have=0; for(const u of hr) if((await t.match(u))||(t2&&await t2.match(u))) have++;
     const btn=document.createElement('button'); btn.innerHTML=`<span>${p.lat.toFixed(3)}, ${p.lon.toFixed(3)}<small class="${have?'ok':'bad'}">${have?have+' tuiles de relief en mémoire':'pas de relief en mémoire'}</small></span><span>Exporter ›</span>`;
     btn.onclick=()=>exporterRelief(p); box.appendChild(btn);
   }

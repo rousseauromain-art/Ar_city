@@ -34,6 +34,9 @@ export const SCENES = [
   { id: 'ibiza-coucher', lieu: 'Ibiza, coucher de soleil (photo du 27/09)', photo: 'PXL_20260927_173517301.jpg', ecran: ECRANS.paysage, radius: 30, heure: '2026-09-27T17:35:17Z' },
   { id: 'morgat-plage', lieu: 'Morgat, plage (photo du 24/08)', photo: 'PXL_20260824_175454144.jpg', ecran: ECRANS.paysage, radius: 180, heure: '2026-08-24T17:54:54Z' },
   { id: 'paris-grenelle-nuit', lieu: 'Paris, Grenelle, tour Eiffel de nuit (27/10)', pos: { lat: 48.8494956, lon: 2.2865298 }, capDeg: 28, inclinaisonDeg: 0, champDeg: 67, ecran: ECRANS.portrait, radius: 180, heure: '2026-10-27T19:30:00Z' },
+  // 06/11 10:20 UTC : position du fix GPS gardé avec les pylônes (tel/963,-32), cap vers le Réservoir des Gallets (1,8 km), la cathédrale et Les Horizons (Rennes) ;
+  // relief : seul le relief de Rennes (27/10) est exporté, 227 tuiles Mapterhorn sur 262 (10 tuiles fines z13 manquent autour de Cesson).
+  { id: 'cesson-gallets', lieu: 'Cesson-Sévigné, vers Rennes (06/11)', pos: { lat: 48.1358919, lon: -1.6233885 }, capDeg: 237, inclinaisonDeg: 0, champDeg: 67, ecran: ECRANS.portrait, radius: 180, heure: '2026-11-06T10:20:00Z' },
 ];
 
 /** Modes d'affichage comparés (bouton œil). */
