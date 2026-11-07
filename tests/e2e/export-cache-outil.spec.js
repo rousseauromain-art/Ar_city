@@ -79,3 +79,23 @@ test('l\'outil se charge sans erreur et la v1 figée n\'est pas touchée',async(
   await page.goto('/debug/debug-cache.html'); await expect(page.locator('#stat')).toContainText('en mémoire');
   expect(errs).toEqual([]);
 });
+
+test('les caches de la v2 sont exportés aussi (relief et données qu’elle a chargés elle-même), après ceux de la v1',async({page},info)=>{
+  await page.goto('/debug/debug-cache.html');
+  const k=await page.evaluate(async(C)=>{
+    const t2=await caches.open('vh2-terrain'), d2=await caches.open('vh2-donnees'), h=type=>({headers:{'x-t':'1','content-type':type}});
+    const z=13, nn=512*2**z, s=Math.sin(C.lat*Math.PI/180), x=Math.floor((C.lon+180)/360*nn/512), y=Math.floor((0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*nn/512);
+    const near=`https://tiles.mapterhorn.com/${z}/${x}/${y}.webp`;
+    await t2.put(near,new Response(new Uint8Array([5,6]),h('image/webp')));
+    await d2.put('https://vh.cache/pl/ofm/48.250,-4.450/180/1/beach',new Response('{"data":[1]}',h('application/json')));
+    return near;
+  },C);
+  await page.reload();
+  await expect(page.locator('#lieux button')).toHaveCount(1);
+  let dl=page.waitForEvent('download'); await page.locator('#lieux button').click();
+  let f=info.outputPath('relief-v2.json'); await (await dl).saveAs(f);
+  expect(readDump(f).entries.map(e=>e.k)).toContain(k);
+  dl=page.waitForEvent('download'); await page.click('#btnDon');
+  f=info.outputPath('donnees-v2.json'); await (await dl).saveAs(f);
+  expect(readDump(f).entries.map(e=>e.k)).toContain('pl/ofm/48.250,-4.450/180/1/beach');
+});

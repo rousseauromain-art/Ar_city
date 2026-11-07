@@ -19,5 +19,5 @@ module.exports=defineConfig({
     timezoneId:'Europe/Paris',
     launchOptions:{args:['--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream']},
   },
-  webServer:{command:'node tests/helpers/server.js',url:`http://127.0.0.1:${PORT}/index.html`,env:{PORT:String(PORT)},reuseExistingServer:!process.env.CI},
+  webServer:{command:'node tests/helpers/server.js',url:`http://127.0.0.1:${PORT}/index.html`,env:{PORT:String(PORT),...(process.env.SITE_DIR?{SITE_DIR:process.env.SITE_DIR}:{})},reuseExistingServer:!process.env.CI},
 });

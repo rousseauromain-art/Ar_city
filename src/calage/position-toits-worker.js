@@ -9,6 +9,13 @@ import { corrigerPositionParToits } from './position-toits.js';
 
 /** @param {string | URL | undefined} urlWorker adresse de workers/position-toits.js @returns {(entree: Entree) => Promise<ReturnType<typeof corrigerPositionParToits>>} */
 export function creerPositionToits(urlWorker) {
+  /** @type {((entree: Entree) => Promise<ReturnType<typeof corrigerPositionParToits>>) | null} */
+  let calcul = null; // le Worker est créé au premier calcul : l'ouverture de la page n'en démarre aucun
+  return (entree) => (calcul || (calcul = creer(urlWorker)))(entree);
+}
+
+/** @param {string | URL | undefined} urlWorker @returns {(entree: Entree) => Promise<ReturnType<typeof corrigerPositionParToits>>} */
+function creer(urlWorker) {
   /** @type {Worker | null} */
   let worker = null;
   try { if (urlWorker && typeof Worker !== 'undefined') worker = new Worker(urlWorker, { type: 'module' }); } catch { worker = null; }

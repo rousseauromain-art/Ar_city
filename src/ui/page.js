@@ -37,7 +37,9 @@ import { creerPositionPropre } from './position-propre.js';
 import { creerPositionToits } from '../calage/position-toits-worker.js';
 import { evaluerRotation, etatRotationInitial, fermerRotation, MESSAGE_ROTATION } from '../entrees/rotation.js';
 import { installerDeclencheur } from './declencheur.js';
+import { installerAides } from './aides.js';
 import { creerCarnet } from '../app/carnet.js';
+import { texteHeurePosition } from '../app/demarrage.js';
 
 /** @param {string} id @returns {any} */
 const $ = (id) => { const e = document.getElementById(id); if (!e) throw new Error(`élément #${id} introuvable`); return e; };
@@ -83,6 +85,12 @@ function installerSuiviXr({ fusion, journal, video, entree, direct, dessinerImag
   return xr;
 }
 
+/** Direct : repart tout de suite de la dernière position (« position de HH:MM » jusqu'au premier fix) et du dernier relief (app/demarrage.js). @param {any} app @param {import('./contexte.js').EtatPartage} ps @param {boolean} direct @param {() => boolean} simulee @param {any} journal */
+function reprendreDemarrage(app, ps, direct, simulee, journal) {
+  if (!direct || simulee()) return;
+  app.reprendreDemarrage().then((/** @type {any} */ p) => { if (p && !ps.photoMode && !ps.fixGps) ps.positionMemoire = p; }).catch((/** @type {any} */ e) => journal.avert('page', 'démarrage : mémoire illisible', e));
+}
+
 /** @param {{mode: 'photo' | 'direct'}} o `photo` : photo rejouée (v2/photo.html) ; `direct` : caméra, GPS et capteurs (v2/ar.html). */
 export function demarrerPage({ mode }) {
   const direct = mode === 'direct';
@@ -97,7 +105,7 @@ export function demarrerPage({ mode }) {
   const reglagesRepris = reprendreReglagesV1(stockage, (k) => { try { return localStorage.getItem(k); } catch { return null; } });
   const S = lireReglages(stockage);
   /** État partagé par la page et ses modules (ui/*.js) : la photo ouverte, la taille de l'écran, le dernier bilan de la scène, le dernier retour à la boussole. @type {import('./contexte.js').EtatPartage} */
-  const ps = { photoMode: null, W: 0, H: 0, dpr: 1, dernierBilan: null, dernierRetour: null, rotation: etatRotationInitial(), continu: etatContinuInitial(), xr: null, guide: null, axeRue: null, traitOmbre: null, lectureRotation: { roulisDeg: 0, typeEcran: /** @type {string | null} */ (null) } };
+  const ps = { photoMode: null, W: 0, H: 0, dpr: 1, dernierBilan: null, dernierRetour: null, rotation: etatRotationInitial(), continu: etatContinuInitial(), xr: null, guide: null, axeRue: null, traitOmbre: null, lectureRotation: { roulisDeg: 0, typeEcran: /** @type {string | null} */ (null) }, positionMemoire: /** @type {{lat: number, lon: number, t: number} | null} */ (null), fixGps: false, dernierRoulis: 0 };
   const sauver = () => ecrireReglages(stockage, S, ps.photoMode ? ps.photoMode.backup : null);
   const relais = String((/** @type {any} */ (window).APP_CONFIG || {}).relay || '');
   const app = creerApplication({ reglages: () => S, journal, stockage, relais, urlWorkerMasque: new URL('../workers/masque-relief.js', import.meta.url), urlWorkerSilhouette: new URL('../workers/silhouette-batiments.js', import.meta.url), quandChange: () => {} });
@@ -108,7 +116,7 @@ export function demarrerPage({ mode }) {
   const video = /** @type {HTMLVideoElement | null} */ (document.getElementById('cam'));
   const simulee = () => S.simOn && !!lirePositionTexte(S.simPos);
   const positionPropre = creerPositionPropre({ app, S, vitesse: () => (entree ? entree.etat().vitesseMs : null), capDeg: () => pose().capDeg, echantillons: () => echantillons, journal, puce: () => $f('posChip') });
-  const entree = direct && video ? creerEntreeDirecte({ video, fusion, journal, positionSimulee: simulee, capteurRelatif: () => S.capteurRelatif === true, surPosition: (p) => positionPropre.surFix(p),
+  const entree = direct && video ? creerEntreeDirecte({ video, fusion, journal, positionSimulee: simulee, capteurRelatif: () => S.capteurRelatif === true, surPosition: (p) => { ps.positionMemoire = null; ps.fixGps = true; positionPropre.surFix(p); },
     surRetourBoussole: (m) => { ps.dernierRetour = { t: Date.now(), m, headOff: S.headOff, pitchOff: S.pitchOff }; } }) : null;
   /** Échantillons du cap (1 par seconde, 10 min) : cap affiché, boussole, gyroscope, repère, calage — pour comprendre un décrochage. @type {{t: number, cap: number, boussole: number | null, gyro: number | null, repere: number | null, headOff: number, pitchOff: number}[]} */
   const echantillons = [];
@@ -256,6 +264,7 @@ export function demarrerPage({ mode }) {
   $('stepLen').addEventListener('input', (/** @type {any} */ e) => { S.longueurPas = +e.target.value; $('stepLenV').textContent = `${String(S.longueurPas).replace('.', ',')} m`; sauver(); });
   $f('calCont').checked = S.calageContinu === true; $f('calCont').disabled = !direct; $f('calCont').addEventListener('change', (/** @type {any} */ e) => { S.calageContinu = e.target.checked; continu.reinitialiser(); sauver(); });
   installerDeclencheur(c);
+  installerAides(c, VERSION_V2);
 
   // ---------- boucle d'affichage : 30 images/s au plus ----------
   let derniere = 0;
@@ -295,8 +304,8 @@ export function demarrerPage({ mode }) {
         chargement: e.chargementLieux, source: e.source, etatRelief: e.etatRelief, messageAir: e.messageAir, messageSea: e.messageSea } });
     ctx.setTransform(ps.dpr, 0, 0, ps.dpr, 0, 0); ctx.clearRect(0, 0, ps.W, ps.H);
     ctx.save(); avecRoulis(ctx, vue, () => dessiner(ctx, r.scene)); ctx.restore(); dessiner(ctx, r.ecran);
-    ps.dernierBilan = r.bilan;
-    $('status').textContent = ps.photoMode || direct ? (direct && cam && cam.gpsErreur && !d.pos ? cam.gpsErreur : r.bilan.statut) : 'Ouvrez une photo';
+    ps.dernierBilan = r.bilan; ps.dernierRoulis = vue.roulisDeg;
+    $('status').textContent = ps.photoMode || direct ? (direct && cam && cam.gpsErreur && !d.pos ? cam.gpsErreur : (direct && ps.positionMemoire && !ps.photoMode ? texteHeurePosition(ps.positionMemoire.t) + ' · ' : '') + r.bilan.statut) : 'Ouvrez une photo';
     if (direct) { const c = $('calib'); if (S.headOff || S.pitchOff) { c.style.display = 'block'; c.innerHTML = `cap ${S.headOff > 0 ? '+' : ''}${S.headOff.toFixed(0)}° · horizon ${S.pitchOff > 0 ? '+' : ''}${S.pitchOff.toFixed(0)}°<b>remettre</b>`; } else c.style.display = 'none'; }
     const b = $('eyeBadge'), n = r.bilan.badge; b.textContent = n ? '+' + n : ''; b.style.display = n ? 'block' : 'none';
     const pc = $('photoChip');
@@ -307,6 +316,7 @@ export function demarrerPage({ mode }) {
 
   redimensionner(); synchroniser(); $('photoBg').hidden = true; $('photoChip').hidden = true;
   if (!direct) { const simu = simulee() ? lirePositionTexte(S.simPos) : null; if (simu) app.definirPosition(simu); }
+  reprendreDemarrage(app, ps, direct, simulee, journal);
   journal.info('page', `page ${direct ? 'direct' : 'photo'} ouverte (${VERSION_V2})`);
   /** @type {any} */ (window).__vh2 = { S, app, memoires, photo: () => ps.photoMode, vFov, analyserCiel: vis.analyserCiel, analyse: vis.analyse, evaluerSoleil: calage.evaluerSoleil, evaluerAuto: calage.evaluerAuto, calerAuto: calage.calerAuto, evaluerPointage: calage.evaluerPointage, evaluerLune: calage.evaluerLune, toucherEchelle: calage.toucherEchelle, synchroOeil: oeil.synchroOeil, definirPermutation: calage.definirPermutation, definirOrdreAuto: calage.definirOrdreAuto, carnet, lancerBanc: calage.lancerBanc, fusion, entree, pose, rendreImage: dessinerImage, bilan: () => ps.dernierBilan, ctx };
   requestAnimationFrame(image);

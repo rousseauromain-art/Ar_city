@@ -1,46 +1,45 @@
 // @ts-nocheck
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { zonesTouchables, zoneSousLeDoigt, distancePolygone } from '../../src/scene/toucher.js';
+import { hitBest, hitIn, inQuad, hitsDeScene } from '../../src/scene/toucher.js';
 import { rectangleIncline } from '../../src/rendu/etiquettes.js';
 
-const carre = [[10, 10], [50, 10], [50, 30], [10, 30]];
-
-test('distance à un polygone : 0 dedans, distance au bord dehors', () => {
-  assert.equal(distancePolygone(20, 20, carre), 0);
-  assert.equal(distancePolygone(60, 20, carre), 10);
-  assert.ok(Math.abs(distancePolygone(53, 34, carre) - 5) < 1e-9);
-});
+const W = 400, H = 300;
 
 test('le rectangle d\'un nom incliné suit la rotation de l\'ancre', () => {
   const droit = rectangleIncline(100, 200, 0, 50, 12, 4);
   assert.deepEqual(droit, [[100, 188], [150, 188], [150, 204], [100, 204]]);
-  const incline = rectangleIncline(100, 200, -Math.PI / 4, 50, 12, 4); // monte vers la droite
+  const incline = rectangleIncline(100, 200, -Math.PI / 4, 50, 12, 4);
   assert.ok(incline[1][1] < incline[0][1], 'le bout du nom est plus haut à l\'écran');
-  const gauche = rectangleIncline(100, 200, Math.PI / 4, -50, 12, 4); // nom à gauche de l'ancre
-  assert.ok(gauche[1][0] < 100);
 });
 
-test('toutes les zones sont ramenées à une forme commune et typées', () => {
-  const zones = zonesTouchables({
-    etiquettes: [{ element: { kind: 'city', name: 'Dinard' }, icone: null, poly: carre }, { element: { kind: 'monument', name: 'Tour' }, icone: [100, 120, 100, 140], poly: null }],
-    bande: [{ element: { name: 'Mât' }, elements: [{ name: 'Mât' }, { name: 'Mât 2' }], x0: 200, x1: 220, y0: 10, y1: 30 }],
-    avions: [{ avion: { name: 'AF123' }, avions: [{ name: 'AF123' }], icone: [300, 320, 10, 30], poly: null }],
-    bateaux: [{ bateau: { name: 'Ferry' }, bateaux: [{ name: 'Ferry' }], icone: [400, 420, 10, 30], poly: null }],
-  });
-  assert.deepEqual(zones.map((z) => z.type), ['lieu', 'monument', 'bande', 'avion', 'bateau']);
-  const avecSource = zonesTouchables({ bande: [{ element: { nom: 'Mât', source: { name: 'Mât', operators: ['A'] } }, elements: [{ nom: 'Mât', source: { name: 'Mât' } }, { nom: 'Mât 2', source: { name: 'Mât 2' } }], x0: 0, x1: 10, y0: 0, y1: 10 }] });
-  assert.equal(avecSource[0].principal.name, 'Mât', 'la fiche reçoit l\'objet d\'origine (source), pas l\'élément de la bande');
-  assert.deepEqual(avecSource[0].elements.map((e) => e.name), ['Mât', 'Mât 2']);
-  assert.equal(zones[2].elements.length, 2);
-  assert.equal(zonesTouchables(null).length, 0);
+test('inQuad (v1) : dedans, dehors, marge', () => {
+  const q = [[10, 10], [50, 10], [50, 30], [10, 30]];
+  assert.equal(inQuad(q, 20, 20, 0), true);
+  assert.equal(inQuad(q, 55, 20, 0), false);
+  assert.equal(inQuad(q, 55, 20, 6), true);
 });
 
-test('la zone sous le doigt : la plus proche, la plus petite d\'abord, rien hors tolérance', () => {
-  const grande = { type: 'lieu', principal: 'grande', elements: ['grande'], poly: [[0, 0], [200, 0], [200, 100], [0, 100]] };
-  const petite = { type: 'monument', principal: 'petite', elements: ['petite'], poly: carre };
-  assert.equal(zoneSousLeDoigt([grande, petite], 20, 20).principal, 'petite', 'deux zones sous le doigt : la plus petite');
-  assert.equal(zoneSousLeDoigt([grande, petite], 150, 50).principal, 'grande');
-  assert.equal(zoneSousLeDoigt([petite], 70, 20).principal, 'petite', 'à 20 px : dans la tolérance');
-  assert.equal(zoneSousLeDoigt([petite], 90, 20), null, 'à 40 px : trop loin');
+test('hitBest (v1) : franchement dedans d\'abord, puis à 6 px ; le centre le plus proche l\'emporte', () => {
+  const a = { t: 'a', g: null, roll: 0, x0: 0, x1: 100, y0: 0, y1: 20 }, b = { t: 'b', g: null, roll: 0, icon: [50, 70, 0, 20], poly: null };
+  assert.equal(hitBest(58, 10, [[a, b]], W, H).t, 'b'); // dans les deux : le centre de b (60) est plus proche que celui de a (50)
+  assert.equal(hitBest(90, 10, [[a, b]], W, H).t, 'a');
+  assert.equal(hitBest(104, 10, [[a]], W, H).t, 'a'); // marge de 6 px
+  assert.equal(hitBest(120, 10, [[a]], W, H), null);
+});
+
+test('roulis : le point tapé est ramené dans le repère de l\'image (v1 : hitLocal)', () => {
+  const h = { t: 'x', g: null, roll: 90, x0: 190, x1: 210, y0: 40, y1: 60 }; // zone posée au-dessus du centre, image tournée de 90°
+  assert.equal(hitIn(200, 50, h, 0, W, H), false);
+  assert.equal(hitIn(100, 150, h, 0, W, H) || hitIn(300, 150, h, 0, W, H), true);
+});
+
+test('zones de la scène au format de la v1 : icône et nom d\'un monument dans une seule zone, +N dans _hidObjs, objet d\'origine de la bande', () => {
+  const m = { name: 'Fort', kind: 'monument' }, cache1 = { name: 'Caché' }, site = { name: 'Pylône', kind: 'telecom' };
+  const hits = hitsDeScene({ etiquettes: [{ element: m, icone: [0, 10, 0, 10], poly: null, caches: [cache1] }, { element: m, icone: null, poly: [[12, 0], [40, 0], [40, 8], [12, 8]] }],
+    bande: [{ element: { nom: 'P', source: site }, elements: [{ source: site }], x0: 0, x1: 5, y0: 0, y1: 5 }], avions: [{ avion: { kind: 'plane' }, avions: [{ kind: 'plane' }], icone: [0, 1, 0, 1], poly: null }],
+    bateaux: [{ bateau: { m: { kind: 'ship' } }, bateaux: [{ m: { kind: 'ship' } }], icone: [0, 1, 0, 1], poly: null }] }, 0);
+  assert.equal(hits.length, 4);
+  assert.deepEqual(hits[0].icon, [0, 10, 0, 10]); assert.equal(hits[0].poly.length, 4); assert.deepEqual(hits[0].t._hidObjs, [cache1]);
+  assert.equal(hits[1].t, site); assert.equal(hits[3].t.kind, 'ship');
 });

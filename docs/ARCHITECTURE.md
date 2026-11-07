@@ -8,8 +8,10 @@ Référence : `REFONTE.md` (méthode du figuier étrangleur, règles, plan). Ce 
 index.html            lanceur (v1, v2 en développement, outils)
 v1/                   application de référence FIGÉE (2026-10-25 (j))
 debug/                outils de diagnostic (liés à la v1), dont debug-cache.html (export du cache)
+v2/ar.html            la page de la v2, deux entrées : direct, et ?mode=photo (photo rejouée) ; v2/photo.html redirige
 v2/outils.html        page d'outils de la v2 (étape 1)
-src/                  modules ES natifs de la v2 (sans outil de construction)
+src/                  modules ES natifs de la v2 (servis bruts en développement et avec ?modules=1)
+construction/         construire.mjs : site publié dans dist/ (esbuild : code et style de la v2 dans la page, workers regroupés dans b/workers/, cartes de sources, service worker v2/sw.js)
 tests/unit            node:test sur les modules purs
 tests/e2e             Playwright : parcours critiques, sur la v1 figée et sur v2/outils.html
 tests/caracterisation harnais : rejoue des scènes de référence dans la v1 et écrit un dump par calque
@@ -95,6 +97,8 @@ Toutes les dépendances (fetch, horloge, stockage, journal) sont **injectées** 
 2. `npm run types` : `tsc --noEmit`, `checkJs` strict, types en JSDoc (`// @ts-check` en tête de chaque module).
 3. `npm run test:unit` : `node:test`, moins de 2 s.
 4. `npm run test:e2e` : Playwright.
+5. `npm run build` : construction du site publié (vérifiée à chaque envoi ; publication par `.github/workflows/pages.yml` à chaque fusion sur `main`).
+6. `npm run test:regroupe` : relief, silhouette et livraison sur la version publiée (`SITE_DIR=dist`) ; `npm run perf` : banc de chargement (`tests/perf/banc.mjs`, chiffres dans `docs/MESURES-V1-V2.md`).
 
 La v1 figée, `debug/` et les tests Playwright (CommonJS) sont hors du lint et du contrôle de types.
 

@@ -77,7 +77,8 @@ export function composerScene({ vue, reglages: S, donnees: D, memoires: M, ecran
   if (etat.traitOmbre) base.push(...commandesTraitOmbre(etat.traitOmbre)); // en dernier : par-dessus tout, comme le doigt qui trace
   base.push(...calquePhoto.preparer(D.analysePhoto, vue, { reglages: { toutVoir: S.beyond, analyseActive: S.photoVis === true }, maintenantMs, jointure: jointureHeritee }));
   // 2. classements, étiquettes, bande, mobiles
-  const c = classerScene({ S, D, vue, maintenantMs, snapPrecedent: M.calageMonuments, analyseAppliqueeT: M.analyseT }), { couches, trouves } = couchesDeLaBande({ S, D, classesEquipements: c.classesEquipements });
+  const Dv = terrain && /** @type {any} */ (terrain).provisoire ? { ...D, terrain: null } : D; // relief du dernier démarrage : ligne d'horizon seulement, pas de verdict sans les tuiles
+  const c = classerScene({ S, D: Dv, vue, maintenantMs, snapPrecedent: M.calageMonuments, analyseAppliqueeT: M.analyseT }), { couches, trouves } = couchesDeLaBande({ S, D: Dv, classesEquipements: c.classesEquipements });
   const oeilM = terrain ? terrain.h0 : 1.6, fq = S.filter ? normaliser(S.filter) : '', scM = { oeilM };
   const mobiles = [...classerMobiles(D.mobiles, vue, scM, { couche: S.air, filtre: fq }, 'plane'), ...classerNavires(D.mobiles, vue, scM, { couche: S.sea, filtre: fq })]
     .filter((x) => x.etat === 'net').sort((a, b) => a.el.ordre - b.el.ordre).map((x) => x.el);

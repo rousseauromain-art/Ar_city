@@ -1,1 +1,189 @@
-[]
+[
+ {
+  "domaine": "interface",
+  "v1": "réglages · libellé · Points de vue et curiosites≤ 20 km",
+  "v2": "réglages · libellé · Points de vue et curiosités≤ 20 km",
+  "raison": "accent rétabli (la v1 l'avait perdu) : même texte sinon"
+ },
+ {
+  "domaine": "interface",
+  "v1": "réglages · libellé · Chateaux, forts, menhirs, moulins≤ 15 km",
+  "v2": "réglages · libellé · Châteaux, forts, menhirs, moulins≤ 15 km",
+  "raison": "accent rétabli (la v1 l'avait perdu) : même texte sinon"
+ },
+ {
+  "domaine": "interface",
+  "v1": "réglages · libellé · Ancien relief (v1, comparaison)",
+  "v2": null,
+  "raison": "l'ancien moteur de relief de la v1 (AWS/SRTM, comparaison v1/v2) n'existe pas dans la v2 : le relief Mapterhorn est le seul (REFONTE.md, étape 5)"
+ },
+ {
+  "domaine": "interface",
+  "v1": "réglages · aide · Bascule sur l'ancien relief (tuiles AWS/SRTM ~30 m, tolérance de masquage d'origine) pour comparer avec le nouveau (v2, Mapterhorn, plus précis, actif par défaut). Ce réglage change quels lieux sont masqués : c'est volontairement l'objet de la comparaison, donc la liste des noms peut différer entre v1 et v2 ici.",
+  "v2": null,
+  "raison": "l'ancien moteur de relief de la v1 (AWS/SRTM, comparaison v1/v2) n'existe pas dans la v2 : le relief Mapterhorn est le seul (REFONTE.md, étape 5)"
+ },
+ {
+  "domaine": "interface",
+  "v1": "réglages · bouton · Telecharger cette zone (150 km)",
+  "v2": "réglages · bouton · Télécharger cette zone (150 km)",
+  "raison": "accent rétabli (la v1 l'avait perdu) : même texte sinon"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · section · Essais",
+  "raison": "demande du 07/11 : les 6 options d'essai de la v2 rangées dans une section « Essais » repliée"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · libellé · « Caler auto » : le relief avant le soleil",
+  "raison": "réglage de la v2 (étape 11c, 30/10), éteint par défaut : sans lui, même ordre que la v1"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · libellé · Afficher la lune (position calculée)",
+  "raison": "lune de la v2 (étape 11h) : calage de nuit validé sur 2 photos réelles"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · libellé · Calculer le relief (ligne d'horizon, crêtes, calage)",
+  "raison": "relief séparé du masquage (étape 10f, demande du 29/10) : le calcul et le masquage sont deux cases"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · libellé · Hauteur d'œil recalée toute seule d'après l'altitude GPS (direct ; sinon le GPS propose dans la puce œil)",
+  "raison": "option d'essai (décision 003, 1/11), section « Essais »"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · libellé · Suivi visuel WebXR (essai : un seul calage, puis les noms tiennent en tournant ; Chrome Android avec les Services Google Play pour la RA)",
+  "raison": "option d'essai (Ancrage E, 3/11), section « Essais »"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · libellé · Capteur d'orientation relatif à 60 Hz (essai : rotations plus fluides ; sinon deviceorientation)",
+  "raison": "option d'essai (Ancrage B, 3/11), section « Essais »"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · libellé · Position par les toits (essai, direct : après « Caler auto » sur les toits, la position est corrigée de ±20 m d'après la silhouette des bâtiments)",
+  "raison": "option d'essai (Se caler en ville, 5/11), section « Essais »"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · libellé · Longueur d'un pas : (la position corrigée avance avec vos pas)",
+  "raison": "option d'essai (pas, 5/11), section « Essais »"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · libellé · Recalage continu du cap sur le soleil et la lune (direct : se corrige tout seul quand l'astre est dans l'image)",
+  "raison": "option d'essai (Ancrage C, 3/11), section « Essais »"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · aide · Par défaut le soleil, s'il est dans l'image, passe en premier : sa direction est exacte (sur vos photos réelles, le relief seul se trompe parfois de 3° quand le soleil est visible). Cochée : le relief passe d'abord, le soleil ensuite, puis les repères.",
+  "raison": "aide du réglage « le relief avant le soleil » (étape 11c)"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · aide · Un disque argenté sur la position calculée de la lune, avec sa fraction éclairée : de nuit, c'est aussi la cible du calage sur la lune.",
+  "raison": "aide de la lune de la v2 (étape 11h)"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · aide · Une fois par téléphone : touchez deux repères connus (monuments, lieux, soleil), au moins 10° l'un de l'autre. Le champ de vision et le cap se règlent d'un coup, et le champ est mémorisé. En direct seulement : une photo a sa propre focale.",
+  "raison": "échelle du champ calée avec 2 repères (étape 11i, 29/10)"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · aide · Calcule le relief autour de vous. Il sert à la ligne d'horizon, aux crêtes et au calage automatique. Éteint : plus aucune ligne de relief, ni masquage, ni calage sur le relief.",
+  "raison": "aide du calcul du relief, séparé du masquage (étape 10f)"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · aide · Fonctions en essai, éteintes par défaut : elles ne changent rien tant qu'elles ne sont pas cochées.",
+  "raison": "aide de la section « Essais » (demande du 07/11)"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · bouton · Ombre : tracer l'ombre d'un poteau",
+  "raison": "calage par l'ombre (Se caler en ville, 5/11), rangé dans les Réglages pour garder la colonne d'outils de la v1"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · bouton · Lire une plaque de rue",
+  "raison": "lecture d'une plaque (Se caler en ville, 5/11), rangé dans les Réglages pour garder la colonne d'outils de la v1"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · bouton · Calibrer le champ avec 2 repères",
+  "raison": "échelle du champ calée avec 2 repères (étape 11i, 29/10)"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "réglages · bouton · Démarrer le suivi visuel",
+  "raison": "option d'essai (Ancrage E, 3/11), section « Essais »"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "boutons · libellé · Calques",
+  "raison": "un libellé sous chaque icône de la colonne de boutons (étape 11d, demande du 28/10)"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "boutons · libellé · Cherch.",
+  "raison": "un libellé sous chaque icône de la colonne de boutons (étape 11d, demande du 28/10)"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "boutons · libellé · Caler",
+  "raison": "un libellé sous chaque icône de la colonne de boutons (étape 11d, demande du 28/10)"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "boutons · libellé · Pointer",
+  "raison": "un libellé sous chaque icône de la colonne de boutons (étape 11d, demande du 28/10)"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "boutons · libellé · Relire",
+  "raison": "un libellé sous chaque icône de la colonne de boutons (étape 11d, demande du 28/10)"
+ },
+ {
+  "domaine": "interface",
+  "v1": null,
+  "v2": "boutons · libellé · Écran",
+  "raison": "un libellé sous chaque icône de la colonne de boutons (étape 11d, demande du 28/10)"
+ },
+ {
+  "domaine": "calage",
+  "regle": "pointage-soleil-detecte",
+  "v1": "toucher près du soleil : correction d'après le point touché",
+  "v2": "toucher à moins de 8° du disque du soleil détecté : correction d'après le disque (même résultat que le calage sur le soleil)",
+  "raison": "évolution décidée le 1/11 (CLAUDE.md, « Calage soleil en direct ») : en voiture la boussole se trompe de 30 à 50°, le doigt ne vise pas au dixième de degré ; le disque détecté est exact"
+ }
+]

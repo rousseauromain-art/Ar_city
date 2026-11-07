@@ -43,6 +43,7 @@ test('KML puis KMZ : couche ajoutée, sites dans la bande, fiche au toucher, mé
   expect(await page.evaluate(()=>window.__vh2.app.couchesPerso()[1].pts.length)).toBe(2);
   // seule la 1re couche reste : on supprime la 2e
   page.on('dialog',d=>d.accept());
+  await expect(page.locator('[data-f="del"]')).toHaveCount(2); // la ligne de la 2e couche est dessinée (sous charge, elle arrive après le message)
   await page.evaluate(()=>{ const b=[...document.querySelectorAll('[data-f="del"]')][1]; b.click(); });
   await expect.poll(()=>page.evaluate(()=>window.__vh2.app.couchesPerso().length)).toBe(1);
   // les sites s'affichent dans la bande : cap vers le nord, une zone « bande » de la couche existe
@@ -52,9 +53,10 @@ test('KML puis KMZ : couche ajoutée, sites dans la bande, fiche au toucher, mé
   await expect.poll(zone,{timeout:20000,message:'le site de la couche doit être dans la bande'}).not.toBeNull();
   const p=await zone(), r=await page.evaluate(()=>{ const b=document.getElementById('ov').getBoundingClientRect(); return {x:b.left,y:b.top}; });
   await page.mouse.click(r.x+p.x,r.y+p.y);
-  await expect(page.locator('#fiche')).toBeVisible();
-  await expect(page.locator('#ficheBody')).toContainText('Antenne Nord');
-  await expect(page.locator('#ficheBody')).toContainText('Test SA');
+  await expect(page.locator('#dbg')).toBeVisible();
+  await expect(page.locator('#dbgBody')).toContainText('Antenne Nord');
+  await expect(page.locator('#dbgBody')).toContainText('Test SA');
+  await page.click('#dbgClose');
   // mémorisée sur l'appareil : rechargement
   await page.reload(); await page.click('#go');
   await expect.poll(()=>page.evaluate(()=>window.__vh2.app.couchesPerso().length),{timeout:15000}).toBe(1);

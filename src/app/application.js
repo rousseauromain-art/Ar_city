@@ -3,8 +3,7 @@
  * RACINE DE COMPOSITION de la v2 : le seul endroit qui assemble réseau, caches, sources de données, relief et moteur de scène. Les modules de `donnees/` ne se connaissent pas entre eux,
  * le moteur ne charge rien : ici, on décide QUAND charger (mêmes seuils de déplacement que la v1), on garde ce qui est chargé et on prévient l'affichage quand quelque chose change.
  * Entrées : réglages (lus à chaque décision), position, journal, stockage, adresse du relais, adresse du Worker du masque. Sortie : `donnees()` (pour `composerScene`) + `etat()` (diagnostic).
- * Les chargements ne bloquent jamais l'affichage : une erreur est journalisée, l'étape suivante continue, un recul progressif évite de harceler un service en panne.
- * Dépend de : donnees/*, scene/terrain.js, scene/masque-worker.js, noyau/geo.js.
+ * Les chargements ne bloquent jamais l'affichage : une erreur est journalisée, l'étape suivante continue, un recul progressif évite de harceler un service en panne. Dépend de : donnees/*, scene/terrain.js, scene/masque-worker.js, noyau/geo.js.
  */
 import { creerReseau } from '../donnees/reseau.js';
 import { creerWikidataLieux } from '../donnees/wikidata-lieux.js';
@@ -40,7 +39,10 @@ import { CATEGORIES_REPERES } from '../donnees/categories-reperes.js';
 import { creerSourceBatiments } from '../donnees/bdtopo.js';
 import { creerSourceRues } from '../donnees/rues.js';
 import { creerSilhouetteWorker } from '../scene/silhouette-worker.js';
+import { profilBatiments, lisserCouches } from '../scene/silhouette-batiments.js';
 import { creerUrbain } from './urbain.js';
+import { creerDemarrage, reprendre } from './demarrage.js';
+import { creerModifsOsm } from './modifs-osm.js';
 
 /** @typedef {import('../moteur/classement.js').DonneesScene} DonneesScene */
 /** @typedef {import('../moteur/reglages.js').Reglages} Reglages */
@@ -54,7 +56,20 @@ const STOCKAGE_V1 = /** @type {[string, string][]} */ ([['atlas', 'vh_atlas_v1']
 /** Worker de la silhouette des bâtiments (le calcul d'une grande ville prend plusieurs dizaines de ms) ; null : calcul sur le fil principal. @param {string | URL | undefined} url @param {{avert: (m: string, msg: string, d?: unknown) => unknown}} journal */
 function calculSilhouetteWorker(url, journal) {
   if (!url || typeof Worker === 'undefined') return null;
-  try { return creerSilhouetteWorker(url); } catch (e) { journal.avert('app', 'Worker de la silhouette indisponible : calcul sur le fil principal', e); return null; }
+  return auPremierUsage(() => creerSilhouetteWorker(url), /** @type {any} */ ((/** @type {any} */ b, /** @type {any} */ o, /** @type {boolean} */ l) => { const profil = profilBatiments(b, o); return Promise.resolve({ profil, ls: lisserCouches(profil.la, l) }); }), journal, 'de la silhouette');
+}
+
+/**
+ * Calcul confié à un Worker créé au PREMIER appel (l'ouverture de la page ne démarre aucun Worker) ; s'il ne peut pas être créé, le calcul se fait sur le fil principal (`repli`).
+ * @template {(...a: any[]) => any} F @param {() => F} creer @param {F} repli @param {{avert: (m: string, msg: string, d?: unknown) => unknown}} journal @param {string} quoi @returns {F}
+ */
+function auPremierUsage(creer, repli, journal, quoi) {
+  /** @type {F | null} */
+  let calcul = null;
+  return /** @type {F} */ ((...a) => {
+    if (!calcul) { try { calcul = creer(); } catch (e) { journal.avert('app', `Worker ${quoi} indisponible : calcul sur le fil principal`, e); calcul = repli; } }
+    return /** @type {F} */ (calcul)(...a);
+  });
 }
 
 /** Stockage de la v2 vu par les sources de données : `lire(nom, valeurParDefaut)`. @param {ReturnType<typeof import('../outils/stockage.js').creerStockage>} s */
@@ -101,10 +116,12 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   const sourceNavires = creerSourceNavires({ reseau: /** @type {any} */ (reseau), memoire: memoireDirect, relais, maintenant });
   const sourceBatiments = creerSourceBatiments({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, relais, journal });
   const sourceRues = creerSourceRues({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, openfreemap, overpass, journal });
-  const chargeurTuiles = creerChargeurTuiles({ reseau: /** @type {any} */ (reseauTuiles), decoder: decoderTuile });
+  const demarrage = creerDemarrage({ stockage: st, caches, maintenant, journal }); // dernière position et dernier relief, repris à l'ouverture
+  const garderPosition = (/** @type {Point} */ pos, /** @type {boolean} */ memoire) => { if (!memoire && trafic.mode === 'direct') demarrage.garderPosition(pos); }, garderRelief = (/** @type {Point} */ pos) => { const T = /** @type {any} */ (D.terrain); if (trafic.mode === 'direct' && T && !T.provisoire && encore(pos)) demarrage.garderRelief({ pos, h0: T.h0, solM: T.solM, origine: T.origine, pm: T.pm }); };
+  const modifsOsm = creerModifsOsm({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, stockage: st }), chargeurTuiles = creerChargeurTuiles({ reseau: /** @type {any} */ (reseauTuiles), decoder: decoderTuile });
   /** @type {import('../scene/masque.js').CalculMasque} */
   let masque = (b, c, o) => calculerMasque(b, c, o);
-  if (urlWorkerMasque && typeof Worker !== 'undefined') { try { masque = creerMasqueWorker(urlWorkerMasque); } catch (e) { journal.avert('app', 'Worker du masque indisponible : calcul sur le fil principal', e); } }
+  if (urlWorkerMasque && typeof Worker !== 'undefined') masque = auPremierUsage(() => creerMasqueWorker(urlWorkerMasque), masque, journal, 'du masque'); // créé au premier relief : l'ouverture ne démarre aucun Worker
 
   /** Ce qui est chargé, et d'où. */
   const D = /** @type {DonneesScene & {mobiles: any[]}} */ ({ pos: /** @type {any} */ (null), terrain: null, lieux: [], monuments: [], pylones: [], reperes: [], doublonsReperes: [], couchesPerso: [], mobiles: [], analysePhoto: null });
@@ -134,7 +151,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   function recomposerMonuments() {
     if (!D.pos) return;
     const S = reglages(), sep = separerTuilesOsm(tuilesOsm);
-    D.monuments = combinerMonuments({ pos: D.pos, rayonKm: rayonMonuments(S.radius), cities: /** @type {any} */ (lieuxBase), tours: sep.tours, statues: sep.statues, hints: {}, supportsAnfr: /** @type {any} */ (D.pylones),
+    D.monuments = combinerMonuments({ pos: D.pos, rayonKm: rayonMonuments(S.radius), cities: /** @type {any} */ (lieuxBase), tours: sep.tours, statues: sep.statues, hints: modifsOsm.hints(), supportsAnfr: /** @type {any} */ (D.pylones),
       batiments: /** @type {any} */ (batiments), avecAnfr: !!S.layers.monuments }, baseWikidata);
     D.doublonsReperes = doublonsBatiments(D.reperes, D.monuments);
   }
@@ -180,7 +197,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     try {
       await calculerTerrainAvecRepli({ pos, source: 'mapterhorn', chargeur: chargeurTuiles, masque, correctionOeilM: S.obsHeight || 0, maintenant,
         publier: (t) => { if (!encore(pos)) return; D.terrain = { h0: t.h0, pm: t.pm, bands: t.bands, solM: t.solM, origine: t.origine }; E.terrainCentre = { ...pos }; E.etatRelief = t.refining || t.partial ? 'calcul…' : 'ok'; change('relief'); urbain.recalculer(); } });
-      couvert.terrain = { ...pos }; E.etatRelief = 'ok'; recul.terrain.t = null; recul.terrain.ms = 30000;
+      couvert.terrain = { ...pos }; E.etatRelief = 'ok'; recul.terrain.t = null; recul.terrain.ms = 30000; garderRelief(pos);
     } catch (e) { E.etatRelief = 'indispo'; recul.terrain.t = maintenant(); recul.terrain.ms = reculSuivant(recul.terrain.ms); journal.erreur('app', 'relief', e); }
     occupe.terrain = false; change('relief');
   }
@@ -277,7 +294,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     trafic.minuteurRattrapage = setInterval(() => { if (++n > 20 || !D.pos) { clearInterval(trafic.minuteurRattrapage); return; } actualiser(false); }, 3000);
   }
 
-  return {
+  const api = {
     /** Le réseau unique (le carnet de calage s'en sert pour son envoi au relais). */
     reseau,
     /** Le relief affiché est-il périmé pour la position courante (absent, ou calculé à plus de 300 m) ? */
@@ -304,8 +321,9 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
       D.mobiles = r.mobiles;
       return D.mobiles;
     },
-    /** Nouvelle position (GPS, photo, simulation) : les chargements dont le seuil de déplacement est dépassé repartent. @param {Point} pos @param {{force?: boolean}} [o] */
-    definirPosition(pos, { force = false } = {}) {
+    /** Nouvelle position (GPS, photo, simulation) : les chargements dont le seuil de déplacement est dépassé repartent. En direct, la position est gardée pour le prochain démarrage (sauf `memoire` : c'est elle). @param {Point} pos @param {{force?: boolean, memoire?: boolean}} [o] */
+    definirPosition(pos, { force = false, memoire = false } = {}) {
+      garderPosition(pos, memoire);
       if (!force && estBruitGps(D.pos, pos)) return Promise.resolve([]); // un fix GPS à moins de 5 m n est que du bruit : rien ne change, rien ne se relance
       const saut = D.pos ? distanceEtCap(D.pos, pos).distKm : Infinity;
       D.pos = { lat: pos.lat, lon: pos.lon };
@@ -316,6 +334,9 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
       if (saut !== Infinity && saut > 3) rattraper();
       return actualiser(force || saut > 2);
     },
+    /** Démarrage (direct) : repart de la dernière position gardée et du dernier relief calculé à moins de 300 m (app/demarrage.js). @returns {Promise<{lat: number, lon: number, t: number} | null>} */
+    reprendreDemarrage: () => reprendre({ demarrage, D, definirPosition: (p) => api.definirPosition(p, { memoire: true }), avecRelief: reglages().calculRelief !== false, change, journal }),
+    osmDerniereModif: /** Dernière modification OSM (fiche d'une tour sans nom) ; un nom d'usage appris renomme le monument (v1 : `fillOsmEdits`). @param {string} id */ (id) => modifsOsm.derniere(id).then((r) => { if (r.nouveauNom) { recomposerMonuments(); change('monuments'); } return r; }),
     /** Après un changement de réglage (rayon, calques, relief…) : relance ce qui est nécessaire. @param {{lieux?: boolean, terrain?: boolean, monuments?: boolean, telecom?: boolean, reperes?: boolean, urbain?: boolean}} [quoi] */
     recharger(quoi = {}) {
       if (quoi.terrain) recul.terrain.t = null; // demande explicite : on oublie le recul
@@ -371,4 +392,5 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     /** Vrai si un chargement est en cours. */
     occupe: () => Object.values(occupe).some(Boolean) || urbain.occupe(),
   };
+  return api;
 }

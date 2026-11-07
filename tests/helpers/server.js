@@ -1,10 +1,11 @@
 // Serveur http local des tests : sert le depot tel quel (comme GitHub Pages) et, pour v1/villes-horizon.html seulement,
 // injecte le crochet de test (hook.js) juste avant le dernier "})();" du script principal.
 const http=require('http'), fs=require('fs'), path=require('path');
-const ROOT=path.resolve(__dirname,'..','..');
+// SITE_DIR : sert le site construit (dist/, construction/construire.mjs) au lieu du dépôt brut.
+const ROOT=process.env.SITE_DIR?path.resolve(process.env.SITE_DIR):path.resolve(__dirname,'..','..');
 const HOOK=fs.readFileSync(path.join(__dirname,'hook.js'),'utf8');
 const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json','.css':'text/css',
-  '.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.webp':'image/webp','.kml':'application/vnd.google-earth.kml+xml'};
+  '.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.webp':'image/webp','.map':'application/json','.kml':'application/vnd.google-earth.kml+xml'};
 
 function injectHook(html){
   const i=html.lastIndexOf('})();');

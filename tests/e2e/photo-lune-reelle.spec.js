@@ -13,7 +13,7 @@ for(const ph of PHOTOS) test(`« Caler auto » de nuit sur la lune : ${ph.nom}`,
   test.skip(!fs.existsSync(path.join(PHOTOS_DIR,ph.f)),'photo absente (dépôt privé Ar_city-photos)');
   const erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
-  await page.goto('/v2/photo.html');
+  await page.goto('/v2/ar.html?mode=photo');
   await page.setInputFiles('#photoFile',path.join(PHOTOS_DIR,ph.f));
   await page.waitForFunction(()=>window.__vh2&&window.__vh2.photo());
   const r=await page.evaluate(async()=>{

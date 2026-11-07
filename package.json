@@ -1,7 +1,7 @@
 {
   "name": "villes-horizon",
   "private": true,
-  "description": "Tests automatiques de Villes à l'horizon (la page est servie telle quelle, sans outil de construction)",
+  "description": "Villes à l'horizon : tests automatiques et construction du site publié (esbuild, construction/construire.mjs)",
   "scripts": {
     "lint": "eslint src tests/unit tests/integration --max-warnings=91",
     "types": "tsc --noEmit -p tsconfig.json",
@@ -10,12 +10,16 @@
     "test": "npm run lint && npm run types && npm run test:unit && npm run test:integration && npm run test:e2e",
     "dump:v1": "node tests/caracterisation/dump-v1.mjs",
     "serve": "node tests/helpers/server.js",
-    "test:integration": "node --test \"tests/integration/*.test.mjs\""
+    "test:integration": "node --test \"tests/integration/*.test.mjs\"",
+    "build": "node construction/construire.mjs",
+    "test:regroupe": "node construction/construire.mjs && SITE_DIR=dist PORT=4181 playwright test livraison-v2 relief-direct-v2 batiments-v2 masque-worker",
+    "perf": "node tests/perf/banc.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",
     "@types/node": "22.20.5",
+    "esbuild": "^0.25.11",
     "eslint": "10.13.0",
     "globals": "17.13.0",
     "typescript": "7.0.2"

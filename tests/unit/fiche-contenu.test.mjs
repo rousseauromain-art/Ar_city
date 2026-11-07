@@ -1,34 +1,42 @@
 // @ts-nocheck
+// Fiches : fonctions de la v1 déplacées (le texte est comparé à la v1 sur une scène réelle par tests/e2e/fiches-parite.spec.js) ; ici, l'aiguillage et les ajouts de la v2.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { contenuFiche } from '../../src/ui/fiche-contenu.js';
+import { contenuFiche, lienWikipediaLieu } from '../../src/ui/fiche-contenu.js';
 
-const noms = (f) => f.lignes.map(([k]) => k);
-const urls = (f) => f.liens.map(([, u]) => u).join(' ');
+const ctx = { S: { relief: true, beyond: false }, terrain: { h0: 12, origine: 'mapterhorn' }, maintenantMs: Date.UTC(2026, 10, 7) };
+const texte = (h) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
-test('lieu : type, distance, direction, altitude, population, liens', () => {
-  const f = contenuFiche({ type: 'lieu', principal: { name: 'Dinard', kind: 'town', dist: 3.456, brg: 92.4, ele: 14, pop: 10400, lat: 48.63, lon: -2.06 }, elements: [{}] });
-  assert.equal(f.titre, 'Dinard'); assert.equal(f.sousTitre, 'ville');
-  assert.deepEqual(f.lignes, [['Distance', '3,5 km'], ['Direction', '92°'], ['Altitude', '14 m'], ['Population', '10 400']]);
-  assert.match(urls(f), /wikipedia.*Dinard/); assert.match(urls(f), /openstreetmap/);
+test('aiguillage comme la v1 (TAP_DETAIL) : monument, équipement, ANFR, avion, bateau, KML', () => {
+  assert.equal(contenuFiche({ kind: 'monument', name: 'Fort', type: 'chateau', dist: 1.2, links: 30, qid: 'Q1' }, null, ctx).titre, 'Monument');
+  assert.equal(contenuFiche({ kind: 'monument', cat: 'equip', name: 'Gare', type: 'gare', dist: 1.2 }, null, ctx).titre, 'Équipement');
+  const anfr = contenuFiche({ kind: 'telecom', name: 'Pylône', dist: 2, sup_id: 7, operators: [{ name: 'Orange', systems: [{ system: '5G NR 3500', status: 'En service', date: '2024-01-02' }] }], owner: 'TDF', address: '1 rue', cp: '35510' }, null, ctx);
+  assert.equal(anfr.titre, 'Support telecom'); assert.match(texte(anfr.html), /Orange 5G NR 3500 \(En service, 2024\)/); assert.match(anfr.html, /TDF \(exploitant\)/);
+  assert.equal(contenuFiche({ kind: 'plane', name: 'AFR1', id: 'abc', alt: 1000, vel: 200, trk: 90, dist: 5, t: ctx.maintenantMs - 120000 }, null, ctx).titre, 'Avion');
+  assert.equal(contenuFiche({ kind: 'ship', name: 'Navire', mmsi: '227', type: 60, vel: 3, trk: 10, dist: 2, t: ctx.maintenantMs }, null, ctx).titre, 'Navire');
+  assert.equal(contenuFiche({ kind: 'user', name: 'Site', lname: 'Couche', col: '#fff', lat: 48, lon: -2, dist: 1, cols: [], vals: [], links: [] }, null, ctx).titre, 'Couche');
 });
 
-test('monument : hauteur connue ou supposée, liens Wikidata', () => {
-  const connu = contenuFiche({ type: 'monument', principal: { name: 'Tour Solidor', kind: 'monument', type: 'tour', htWd: 65, qid: 'Q123', dist: 1.2, brg: 10, lat: 48.6, lon: -2 }, elements: [{}, {}] });
-  assert.equal(connu.plus, 1); assert.ok(noms(connu).includes('Hauteur')); assert.deepEqual(connu.lignes.find(([k]) => k === 'Hauteur'), ['Hauteur', '65 m (Wikidata)']);
-  assert.match(urls(connu), /Special:GoToLinkedPage\/frwiki\/Q123/); assert.match(urls(connu), /wikidata\.org\/wiki\/Q123/);
-  const inconnu = contenuFiche({ type: 'monument', principal: { name: 'Chapelle', kind: 'monument', dist: 12 }, elements: [{}] });
-  assert.deepEqual(inconnu.lignes.find(([k]) => k === 'Hauteur'), ['Hauteur', 'inconnue (supposée 12 m)']); assert.deepEqual(inconnu.lignes[0], ['Distance', '12 km']);
+test('monument : diagnostic d\'affichage replié avec toutes les valeurs (verdict, rang, hauteurs, relief, œil, sol, angles, crête, marge)', () => {
+  const f = contenuFiche({ kind: 'monument', name: 'Château d\'eau', type: 'tour', dist: 1.8, brg: 80, links: 3, ht: 40, angH: 1.2, rang: 4, demSol: 30, aG: 0.5, aP: 1.7, mask: 0.4, hidden: false }, null, ctx);
+  const t = texte(f.html);
+  for (const k of ['verdict', 'rang parmi les monuments nets', 'hauteur utilisée', 'hauteur apparente', 'relief : actif · source mapterhorn · œil à 12.0 m', 'altitude du sol sous le monument : 30.0 m', 'angle sol / sommet', 'crête devant', 'marge de visibilité']) assert.ok(t.includes(k), k);
+  assert.match(f.html, /<details class="dg"/);
 });
 
-test('avion et bateau : vitesses converties, liens externes', () => {
-  const a = contenuFiche({ type: 'avion', principal: { name: 'AF123', id: 'abc123', alt: 10000, vel: 250, trk: 45, dist: 20, brg: 200 }, elements: [{}] });
-  assert.ok(a.lignes.some(([k, v]) => k === 'Vitesse' && v === '900 km/h')); assert.match(urls(a), /adsbexchange.*abc123/); assert.match(urls(a), /flightradar24.*AF123/);
-  const b = contenuFiche({ type: 'bateau', principal: { name: 'Ferry', mmsi: '227000000', vel: 5.14, trk: 90, lat: 48.6, lon: -2.0, dist: 2 }, elements: [{}, {}, {}] });
-  assert.equal(b.plus, 2); assert.ok(b.lignes.some(([k, v]) => k === 'Vitesse' && v === '10,0 nœuds')); assert.match(urls(b), /marinetraffic.*227000000/); assert.match(urls(b), /vesselfinder/);
+test('groupe : liste complète triée par distance, le plus proche déplié ; +N : l\'icône d\'abord puis les cachés, dans l\'ordre', () => {
+  const g = [{ kind: 'telecom', name: 'B', dist: 3, sup_id: 2 }, { kind: 'telecom', name: 'A', dist: 1, sup_id: 1 }];
+  const f = contenuFiche(g[0], g, ctx);
+  assert.equal(f.titre, '2 supports telecom'); assert.ok(f.html.indexOf('A</div>') < f.html.indexOf('B</div>')); assert.equal((f.html.match(/<details class="telgrp" open>/g) || []).length, 1);
+  const m = { kind: 'monument', name: 'Tour', type: 'tour', dist: 2, _hidObjs: [{ kind: 'monument', name: 'Clocher', type: 'clocher', dist: 1 }] };
+  const h = contenuFiche(m, null, ctx);
+  assert.equal(h.titre, '2 monuments'); assert.ok(h.html.indexOf('Tour') < h.html.indexOf('Clocher'));
 });
 
-test('élément sans données : une fiche minimale, sans erreur', () => {
-  const f = contenuFiche({ type: 'bande', principal: null, elements: [] });
-  assert.equal(f.titre, 'Sans nom'); assert.deepEqual(f.lignes, []);
+test('lieu : Wikipédia mène à l\'article (tag wikipedia ou wikidata), sinon « Rechercher sur Wikipédia »', () => {
+  assert.match(lienWikipediaLieu({ name: 'Dinard', wikipedia: 'fr:Dinard' }), /href="https:\/\/fr\.wikipedia\.org\/wiki\/Dinard">Wikipédia</);
+  assert.match(lienWikipediaLieu({ name: 'Dinard', wikidata: 'Q212433' }), /GoToLinkedPage\/frwiki\/Q212433">Wikipédia</);
+  assert.match(lienWikipediaLieu({ name: 'Saint-Test' }), />Rechercher sur Wikipédia</);
+  const f = contenuFiche({ name: 'Saint-Test', kind: 'town', pop: 12000, dist: 3.5, lat: 48, lon: -2 }, null, ctx);
+  assert.equal(f.titre, 'Ville'); assert.match(texte(f.html), /12 000 habitants/);
 });

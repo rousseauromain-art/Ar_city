@@ -6,7 +6,7 @@ test('la v2 reprend la ligne de relief et le rayon de la v1, une seule fois, san
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
   const v1={skyline:true,radius:180,headOff:55,camFov:90};
   await page.addInitScript(s=>{ if(!localStorage.getItem('vh_settings_v2')) localStorage.setItem('vh_settings_v2',s); },JSON.stringify(v1));
-  await page.goto('/v2/photo.html');
+  await page.goto('/v2/ar.html?mode=photo');
   const S=await page.evaluate(()=>({skyline:window.__vh2.S.skyline,radius:window.__vh2.S.radius,headOff:window.__vh2.S.headOff,camFov:window.__vh2.S.camFov}));
   expect(S).toEqual({skyline:true,radius:180,headOff:0,camFov:67});
   await page.evaluate(()=>document.getElementById('btnDbg').click());
@@ -22,7 +22,7 @@ test('la v2 reprend la ligne de relief et le rayon de la v1, une seule fois, san
 test('relief : le calcul (ligne d’horizon, crêtes, calage) est séparé du masquage ; éteindre le calcul éteint aussi le masquage, cocher le masquage rallume le calcul',async({page})=>{
   const erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
-  await page.goto('/v2/photo.html');
+  await page.goto('/v2/ar.html?mode=photo');
   const lire=()=>page.evaluate(()=>({calcul:window.__vh2.S.calculRelief,masquage:window.__vh2.S.relief,ligne:window.__vh2.S.skyline}));
   expect(await lire()).toEqual({calcul:true,masquage:true,ligne:true}); // la ligne de relief est affichée par défaut
   await page.evaluate(()=>document.getElementById('rel').click());     // masquage éteint : le calcul reste
@@ -38,7 +38,7 @@ test('relief : le calcul (ligne d’horizon, crêtes, calage) est séparé du ma
 
 test('« Caler auto » : le réglage « relief avant le soleil » est décoché par défaut et mémorisé',async({page})=>{
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
-  await page.goto('/v2/photo.html');
+  await page.goto('/v2/ar.html?mode=photo');
   expect(await page.evaluate(()=>window.__vh2.S.autoRelief)).toBe(false);
   await page.evaluate(()=>document.getElementById('autoRel').click());
   expect(await page.evaluate(()=>window.__vh2.S.autoRelief)).toBe(true);

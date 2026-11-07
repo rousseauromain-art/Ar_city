@@ -4,6 +4,7 @@
 //  3. `pointCalibrate` de la v1 = `pointer` de la v2 sur une grille de touchers : mêmes corrections et même texte.
 // Ignoré sans le dossier PHOTOS_DIR (CI sans jeton).
 const {test,expect}=require('@playwright/test');
+const SOLEIL_DETECTE=require('../ecarts-acceptes.json').some(e=>e.domaine==='calage'&&e.regle==='pointage-soleil-detecte');
 const path=require('path'), fs=require('fs');
 const {ouvrirSceneReelle,ignorerSiAbsent,PHOTOS_DIR}=require('../helpers/scenes-reelles.js');
 const {seedCaches,readExports}=require('../helpers/cache.js');
@@ -45,7 +46,7 @@ for(const sc of SCENES){
     await p2.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
     await p2.addInitScript(reseauCoupe);
     await p2.addInitScript(s=>{ try{ localStorage.setItem('vh2:reglages',JSON.stringify({v:1,d:s})); }catch(e){} },{...REGLAGES,radius:sc.radius,headOff:0,pitchOff:0});
-    await p2.goto('/v2/photo.html');
+    await p2.goto('/v2/ar.html?mode=photo');
     const urls=reliefUrls(v1.pos).tout, exp=readExports(fichiersExport());
     await seedCaches(p2,{entries:exp.entries.filter(e=>e.c==='dc'||urls.has(e.k))},{noms:{t:'vh2-terrain',dc:'vh2-donnees'}});
     await p2.setInputFiles('#photoFile',path.join(PHOTOS_DIR,sc.photo));
@@ -77,7 +78,10 @@ for(const sc of SCENES){
       const x=Math.round(W*fx), y=Math.round(H*fy);
       const a=await app.ev(`(()=>{ const h=S.headOff,p=S.pitchOff,n=$('note'); n.textContent=''; const r=pointCalibrate(${x},${y}); const o={ok:!!r,dh:S.headOff-h,dp:S.pitchOff-p,note:n.textContent}; S.headOff=h; S.pitchOff=p; return o; })()`);
       const b=await p2.evaluate(([x,y])=>{ const r=window.__vh2.evaluerPointage(x,y); return r.aucun?{ok:false,note:r.note}:{ok:true,dh:r.correctionCapDeg,dp:r.correctionHorizonDeg||0,note:r.note}; },[x,y]);
+      if(process.env.DETAIL&&(a.ok!==b.ok||Math.abs((b.dh||0)-(a.dh||0))>1e-6)) console.log("POINTAGE",x,y,JSON.stringify(a),JSON.stringify(b));
       expect(b.ok,`toucher (${x},${y}) : même verdict`).toBe(a.ok);
+      // écart justifié (tests/ecarts-acceptes.json, pointage-soleil-detecte) : un toucher près du soleil détecté cale sur le disque, exactement comme le calage sur le soleil
+      if(a.ok&&b.ok&&SOLEIL_DETECTE&&s2.ok&&/^calé sur le soleil/.test(a.note)&&/^calé sur le soleil/.test(b.note)&&Math.abs(b.dh-s2.dh)<1e-6&&Math.abs(b.dp-s2.dp)<1e-6){ trouves++; compares++; continue; }
       if(a.ok){ trouves++; expect(Math.abs(b.dh-a.dh),`toucher (${x},${y}) : cap`).toBeLessThan(1e-6); expect(Math.abs(b.dp-a.dp),`toucher (${x},${y}) : horizon`).toBeLessThan(1e-6); expect(b.note,`toucher (${x},${y}) : texte`).toBe(a.note); }
       else expect(b.note).toBe(a.note);
       compares++;

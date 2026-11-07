@@ -30,7 +30,7 @@ async function ouvrirV2Reelle(browser,sc,v1,{reglages,nuit=true}){
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
   await page.addInitScript(reseauCoupe);
   await page.addInitScript(s=>{ try{ localStorage.setItem('vh2:reglages',JSON.stringify({v:1,d:s})); }catch(e){} },{...reglages,lune:false,radius:sc.radius,headOff:0,pitchOff:0});
-  await page.goto('/v2/photo.html');
+  await page.goto('/v2/ar.html?mode=photo');
   const urls=reliefUrls(v1.pos).tout, exp=readExports(fichiersExport());
   await seedCaches(page,{entries:exp.entries.filter(e=>e.c==='dc'||urls.has(e.k))},{noms:{t:'vh2-terrain',dc:'vh2-donnees'}});
   await page.setInputFiles('#photoFile',path.join(PHOTOS_DIR,sc.photo));
