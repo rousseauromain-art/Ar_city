@@ -24,24 +24,24 @@ h2{margin:26px 0 10px;font-size:13px;letter-spacing:.14em;text-transform:upperca
 <body>
 <main>
   <h1>Villes à l'horizon</h1>
-  <p class="sub">Choisissez un mode. La version 1 reste disponible en bas de page.</p>
+  <p class="sub">La version 3 est la version active. La version 1 sert de référence ; la version 2 est gelée.</p>
 
-  <h2>Version 2</h2>
-  <a class="btn" href="v2/ar.html" id="v2ar">
-    <span>Réalité augmentée<small>Caméra, position et boussole, en direct</small></span>
+  <h2>Version 3 — active</h2>
+  <a class="btn" href="v3/villes-horizon.html" id="v3ar">
+    <span>Réalité augmentée<small>Caméra, GPS et boussole, en direct</small></span>
   </a>
-  <a class="btn" href="v2/ar.html?mode=photo" id="v2photo">
-    <span>Photo rejouée<small>Rejouer une photo avec ses lieux et son calage</small></span>
+  <a class="btn" href="v3/villes-horizon.html" id="v3photo">
+    <span>Analyse d'une photo<small>Rejouer une photo avec ses lieux et son calage</small></span>
   </a>
+  <p class="note" id="v3Note">La v3 est la v1 avec des greffes de la v2, toutes éteintes au départ : Réglages › Greffes v2 pour les allumer une par une. Photo : touchez « Ouvrir la caméra », puis Réglages › Test et simulation › Rejouer une photo.</p>
 
   <h2>Outils de diagnostic</h2>
   <a class="btn sec" href="debug/debug-trafic.html">Trafic : bateaux et avions</a>
   <a class="btn sec" href="debug/debug-profondeur.html">Profondeur et photo</a>
   <a class="btn sec" href="debug/debug-lieux.html">Lieux et monuments</a>
   <a class="btn sec" href="debug/debug-cache.html">Export du cache (relief, données)</a>
-  <a class="btn sec" href="v2/outils.html">Outils v2 (journal, relais, rapport)</a>
 
-  <h2>Version 1 — référence figée</h2>
+  <h2>Version 1 — référence</h2>
   <a class="btn" href="v1/villes-horizon.html" id="ar">
     <span>Réalité augmentée<small>Caméra, GPS et boussole, en direct</small></span>
   </a>
@@ -49,6 +49,15 @@ h2{margin:26px 0 10px;font-size:13px;letter-spacing:.14em;text-transform:upperca
     <span>Analyse d'une photo<small>Rejouer une photo avec ses lieux et son calage</small></span>
   </a>
   <p class="note" id="photoNote">Dans la v1 : touchez « Ouvrir la caméra », puis Réglages › Test et simulation › Rejouer une photo.</p>
+
+  <h2>Version 2 — gelée</h2>
+  <a class="btn sec" href="v2/ar.html" id="v2ar">
+    <span>Réalité augmentée<small>Caméra, position et boussole, en direct</small></span>
+  </a>
+  <a class="btn sec" href="v2/ar.html?mode=photo" id="v2photo">
+    <span>Photo rejouée<small>Rejouer une photo avec ses lieux et son calage</small></span>
+  </a>
+  <a class="btn sec" href="v2/outils.html">Outils v2 (journal, relais, rapport)</a>
 </main>
 </body>
 </html>

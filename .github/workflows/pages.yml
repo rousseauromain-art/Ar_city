@@ -1,7 +1,7 @@
 name: Publication (GitHub Pages)
 
-# Construit le site (construction/construire.mjs : la page v2 et ses workers regroupés et minifiés par esbuild, avec cartes de sources ;
-# service worker versionné ; v1, debug et outils copiés tels quels) et le publie avec GitHub Pages.
+# Construit le site (v2/construction/construire.mjs : la page v2 et ses workers regroupés et minifiés par esbuild, avec cartes de sources ;
+# service worker versionné ; page d'accueil, config.js, v1, v3 et debug copiés tels quels) et le publie avec GitHub Pages.
 # Réglage à faire une fois : dépôt › Settings › Pages › Build and deployment › Source : « GitHub Actions ».
 on:
   push:
