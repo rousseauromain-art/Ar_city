@@ -37,6 +37,7 @@ import { creerPositionPropre } from './position-propre.js';
 import { creerPositionToits } from '../calage/position-toits-worker.js';
 import { evaluerRotation, etatRotationInitial, fermerRotation, MESSAGE_ROTATION } from '../entrees/rotation.js';
 import { installerDeclencheur } from './declencheur.js';
+import { installerAides } from './aides.js';
 import { creerCarnet } from '../app/carnet.js';
 import { texteHeurePosition } from '../app/demarrage.js';
 
@@ -263,6 +264,7 @@ export function demarrerPage({ mode }) {
   $('stepLen').addEventListener('input', (/** @type {any} */ e) => { S.longueurPas = +e.target.value; $('stepLenV').textContent = `${String(S.longueurPas).replace('.', ',')} m`; sauver(); });
   $f('calCont').checked = S.calageContinu === true; $f('calCont').disabled = !direct; $f('calCont').addEventListener('change', (/** @type {any} */ e) => { S.calageContinu = e.target.checked; continu.reinitialiser(); sauver(); });
   installerDeclencheur(c);
+  installerAides(c, VERSION_V2);
 
   // ---------- boucle d'affichage : 30 images/s au plus ----------
   let derniere = 0;
