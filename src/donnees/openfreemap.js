@@ -4,6 +4,7 @@
  * fragile). Découpage fixe par zoom, moins fin qu'Overpass sur les petits lieux. Entrées : position, rayon, réseau. Sortie : lieux.
  * Reprend `loadFromOpenFreeMap` de la v1. Dépend de : donnees/mvt.js.
  */
+import { liensWiki } from './overpass.js';
 import { decoderTuileMVT, pointsDeFeature, etiquettesDeFeature, localVersLonLat, tuilesDeBoite } from './mvt.js';
 
 /** @typedef {import('./overpass.js').Lieu} Lieu */
@@ -84,7 +85,7 @@ export function creerOpenFreeMap({ reseau, journal }) {
             const key = name + '@' + lat.toFixed(4) + ',' + lon.toFixed(4);
             if (seen.has(key)) continue;
             seen.add(key);
-            got.push({ name, lat, lon, kind, pop: +(tags.population || 0), ele });
+            got.push({ name, lat, lon, kind, pop: +(tags.population || 0), ele , ...liensWiki(tags) });
           }
         }
       }

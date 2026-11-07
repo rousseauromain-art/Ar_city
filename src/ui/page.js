@@ -105,7 +105,7 @@ export function demarrerPage({ mode }) {
   const reglagesRepris = reprendreReglagesV1(stockage, (k) => { try { return localStorage.getItem(k); } catch { return null; } });
   const S = lireReglages(stockage);
   /** État partagé par la page et ses modules (ui/*.js) : la photo ouverte, la taille de l'écran, le dernier bilan de la scène, le dernier retour à la boussole. @type {import('./contexte.js').EtatPartage} */
-  const ps = { photoMode: null, W: 0, H: 0, dpr: 1, dernierBilan: null, dernierRetour: null, rotation: etatRotationInitial(), continu: etatContinuInitial(), xr: null, guide: null, axeRue: null, traitOmbre: null, lectureRotation: { roulisDeg: 0, typeEcran: /** @type {string | null} */ (null) }, positionMemoire: /** @type {{lat: number, lon: number, t: number} | null} */ (null), fixGps: false };
+  const ps = { photoMode: null, W: 0, H: 0, dpr: 1, dernierBilan: null, dernierRetour: null, rotation: etatRotationInitial(), continu: etatContinuInitial(), xr: null, guide: null, axeRue: null, traitOmbre: null, lectureRotation: { roulisDeg: 0, typeEcran: /** @type {string | null} */ (null) }, positionMemoire: /** @type {{lat: number, lon: number, t: number} | null} */ (null), fixGps: false, dernierRoulis: 0 };
   const sauver = () => ecrireReglages(stockage, S, ps.photoMode ? ps.photoMode.backup : null);
   const relais = String((/** @type {any} */ (window).APP_CONFIG || {}).relay || '');
   const app = creerApplication({ reglages: () => S, journal, stockage, relais, urlWorkerMasque: new URL('../workers/masque-relief.js', import.meta.url), urlWorkerSilhouette: new URL('../workers/silhouette-batiments.js', import.meta.url), quandChange: () => {} });
@@ -304,7 +304,7 @@ export function demarrerPage({ mode }) {
         chargement: e.chargementLieux, source: e.source, etatRelief: e.etatRelief, messageAir: e.messageAir, messageSea: e.messageSea } });
     ctx.setTransform(ps.dpr, 0, 0, ps.dpr, 0, 0); ctx.clearRect(0, 0, ps.W, ps.H);
     ctx.save(); avecRoulis(ctx, vue, () => dessiner(ctx, r.scene)); ctx.restore(); dessiner(ctx, r.ecran);
-    ps.dernierBilan = r.bilan;
+    ps.dernierBilan = r.bilan; ps.dernierRoulis = vue.roulisDeg;
     $('status').textContent = ps.photoMode || direct ? (direct && cam && cam.gpsErreur && !d.pos ? cam.gpsErreur : (direct && ps.positionMemoire && !ps.photoMode ? texteHeurePosition(ps.positionMemoire.t) + ' · ' : '') + r.bilan.statut) : 'Ouvrez une photo';
     if (direct) { const c = $('calib'); if (S.headOff || S.pitchOff) { c.style.display = 'block'; c.innerHTML = `cap ${S.headOff > 0 ? '+' : ''}${S.headOff.toFixed(0)}° · horizon ${S.pitchOff > 0 ? '+' : ''}${S.pitchOff.toFixed(0)}°<b>remettre</b>`; } else c.style.display = 'none'; }
     const b = $('eyeBadge'), n = r.bilan.badge; b.textContent = n ? '+' + n : ''; b.style.display = n ? 'block' : 'none';

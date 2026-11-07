@@ -34,7 +34,7 @@ import { commandeGlyphe, commandesSilhouetteMonument } from '../noyau/icones.js'
 
 /**
  * Zone de toucher d'un nom ou d'une icône de monument : `element` est l'objet d'origine (lieu, monument), `icone` un rectangle [x0, x1, y0, y1] ou `poly` des sommets [x, y].
- * @typedef {{element: unknown, icone: number[] | null, poly: number[][] | null}} ZoneEtiquette
+ * @typedef {{element: unknown, icone: number[] | null, poly: number[][] | null, caches?: unknown[]}} ZoneEtiquette
  */
 
 /**
@@ -51,7 +51,7 @@ const CHEVAUCHEMENT_REGROUPEMENT = 0.45;
 
 /**
  * Regroupe les icônes de monument SANS silhouette qui se chevauchent : la première (la plus prioritaire) reste, les autres sont retirées et comptées sur elle.
- * @param {(Etiquette | EtiquetteMonument)[]} ordre @returns {{retirees: Set<unknown>, plus: Map<unknown, number>}}
+ * @param {(Etiquette | EtiquetteMonument)[]} ordre @returns {{retirees: Set<unknown>, plus: Map<unknown, number>, caches: Map<unknown, unknown[]>}} `caches` : les monuments regroupés derrière chaque icône gardée (v1 : `_hidObjs`)
  */
 function regrouperIcones(ordre) {
   /** @type {{e: EtiquetteMonument, b: number[], g: number}[]} */
@@ -60,13 +60,15 @@ function regrouperIcones(ordre) {
   const retirees = new Set();
   /** @type {Map<unknown, number>} */
   const plus = new Map();
+  /** @type {Map<unknown, unknown[]>} */
+  const caches = new Map();
   for (const e of ordre) {
     if (e.style !== 'monument' || e.icone.boite) continue;
     const g = e.icone.gH, b = [e.x - g / 2, e.x + g / 2, e.y - g, e.y];
     const k = gardees.find((o) => Math.min(o.b[1], b[1]) - Math.max(o.b[0], b[0]) > Math.min(g, o.g) * CHEVAUCHEMENT_REGROUPEMENT && b[2] < o.b[3] && b[3] > o.b[2]);
-    if (k) { retirees.add(e); plus.set(k.e, (plus.get(k.e) || 0) + 1); } else gardees.push({ e, b, g });
+    if (k) { retirees.add(e); plus.set(k.e, (plus.get(k.e) || 0) + 1); caches.set(k.e, [...(caches.get(k.e) || []), e.proprietaire]); } else gardees.push({ e, b, g });
   }
-  return { retirees, plus };
+  return { retirees, plus, caches };
 }
 
 /**
@@ -81,7 +83,7 @@ export function composerEtiquettes(etiquettes, placeur, { mesurerTexte, familles
   const comptes = { eligibles: 0, affichees: 0, fantomes: 0, sansPlace: 0, fantomesVus: 0 };
   /** Zones de toucher : un nom posé (polygone, incliné comme lui) ou l'icône d'un monument (rectangle). Format des zones d'avions et de bateaux. @type {ZoneEtiquette[]} */
   const zones = [];
-  const { retirees, plus } = regrouperIcones(etiquettes);
+  const { retirees, plus, caches } = regrouperIcones(etiquettes);
   const ordre = etiquettes.filter((e) => !retirees.has(e));
   // les icônes des monuments sont réservées AVANT tout le reste : aucun nom ne peut passer dessus
   for (const e of ordre) {
@@ -118,7 +120,7 @@ export function composerEtiquettes(etiquettes, placeur, { mesurerTexte, familles
             texte('+' + (n > 99 ? '99' : n), bx, by + 2.9, `700 8px ${familles.mono}`, '#F3E9D2', { alignement: 'center' }));
         }
       }
-      zones.push({ element: e.proprietaire, icone: [boiteIcone[0] - 4, boiteIcone[1] + 4, boiteIcone[2] - 4, boiteIcone[3] + 4], poly: null });
+      zones.push({ element: e.proprietaire, icone: [boiteIcone[0] - 4, boiteIcone[1] + 4, boiteIcone[2] - 4, boiteIcone[3] + 4], poly: null, caches: caches.get(e) || [] });
       if (!ps && !plat) continue;
     }
     const contour = (/** @type {number} */ largeur) => ({ couleur: `rgba(14,26,43,${ghost ? 0.6 : 0.9})`, largeur, jointure: /** @type {'round'} */ ('round') });

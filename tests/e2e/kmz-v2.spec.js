@@ -52,9 +52,10 @@ test('KML puis KMZ : couche ajoutée, sites dans la bande, fiche au toucher, mé
   await expect.poll(zone,{timeout:20000,message:'le site de la couche doit être dans la bande'}).not.toBeNull();
   const p=await zone(), r=await page.evaluate(()=>{ const b=document.getElementById('ov').getBoundingClientRect(); return {x:b.left,y:b.top}; });
   await page.mouse.click(r.x+p.x,r.y+p.y);
-  await expect(page.locator('#fiche')).toBeVisible();
-  await expect(page.locator('#ficheBody')).toContainText('Antenne Nord');
-  await expect(page.locator('#ficheBody')).toContainText('Test SA');
+  await expect(page.locator('#dbg')).toBeVisible();
+  await expect(page.locator('#dbgBody')).toContainText('Antenne Nord');
+  await expect(page.locator('#dbgBody')).toContainText('Test SA');
+  await page.click('#dbgClose');
   // mémorisée sur l'appareil : rechargement
   await page.reload(); await page.click('#go');
   await expect.poll(()=>page.evaluate(()=>window.__vh2.app.couchesPerso().length),{timeout:15000}).toBe(1);

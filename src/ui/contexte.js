@@ -9,7 +9,7 @@
  * @property {null | {img: HTMLImageElement, w: number, h: number, url: string, backup: {headOff: number, pitchOff: number, camFov: number}, photo: import('../entrees/photo.js').ReglagesPhoto}} photoMode photo rejouée ouverte
  * @property {number} W largeur de l'écran (px) @property {number} H hauteur de l'écran (px) @property {number} dpr densité de pixels
  * @property {import('../entrees/rotation.js').EtatRotation} rotation état de l'avertissement « écran en portrait, téléphone en paysage » @property {{roulisDeg: number, typeEcran: string | null}} lectureRotation dernière lecture (diagnostic)
- * @property {{lat: number, lon: number, t: number} | null} positionMemoire position du dernier démarrage, affichée « position de HH:MM » jusqu'au premier fix GPS @property {boolean} fixGps un fix GPS est arrivé
+ * @property {{lat: number, lon: number, t: number} | null} positionMemoire position du dernier démarrage, affichée « position de HH:MM » jusqu'au premier fix GPS @property {boolean} fixGps un fix GPS est arrivé @property {number} dernierRoulis roulis (°) de la dernière image (zones de toucher)
  * @property {ReturnType<typeof import('./calage-continu.js').etatContinuInitial>} continu état du recalage continu (Diagnostic)
  * @property {ReturnType<typeof import('../entrees/webxr.js').creerSuiviXr> | null} xr suivi visuel WebXR (essai)
  * @property {null | {basculer: () => void, actif: () => boolean}} guide calage guidé (direct) : un toucher sur le bouton cible le lance ou l'annule

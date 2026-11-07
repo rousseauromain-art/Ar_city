@@ -7,7 +7,10 @@
  */
 import { CATEGORIES_REPERES, TYPES_LIEUX } from './categories-reperes.js';
 
-/** @typedef {{name: string, lat: number, lon: number, kind: string, pop: number, ele: number | null, farPeak?: boolean}} Lieu */
+/** @typedef {{name: string, lat: number, lon: number, kind: string, pop: number, ele: number | null, farPeak?: boolean, wikidata?: string, wikipedia?: string}} Lieu */
+
+/** Tags wikidata et wikipedia d'un lieu, gardés pour le lien de sa fiche (article direct plutôt qu'une recherche). @param {Record<string, any>} t */
+export const liensWiki = (t) => ({ ...(/^Q\d+$/.test(String(t.wikidata || '')) ? { wikidata: String(t.wikidata) } : {}), ...(/^[a-z-]+:./.test(String(t.wikipedia || '')) ? { wikipedia: String(t.wikipedia) } : {}) });
 /** @typedef {{requeter: (url: string, o?: {methode?: 'GET'|'POST', corps?: string, entetes?: Record<string, string>, analyse?: 'json'|'texte'|'octets', delaiMs?: number, signal?: AbortSignal}) => Promise<unknown>}} ReseauRequeter */
 
 /** Miroirs publics mondiaux (5 serveurs indépendants). */
@@ -53,7 +56,7 @@ export function lireReponseOverpass(j) {
     if (seen.has(key)) continue;
     seen.add(key);
     const ev = parseFloat(t.ele);
-    got.push({ name, lat, lon, kind: typeDepuisEtiquettes(t), pop: +(t.population || 0), ele: isFinite(ev) ? ev : null });
+    got.push({ name, lat, lon, kind: typeDepuisEtiquettes(t), pop: +(t.population || 0), ele: isFinite(ev) ? ev : null , ...liensWiki(t) });
   }
   return got;
 }

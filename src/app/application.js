@@ -3,8 +3,7 @@
  * RACINE DE COMPOSITION de la v2 : le seul endroit qui assemble réseau, caches, sources de données, relief et moteur de scène. Les modules de `donnees/` ne se connaissent pas entre eux,
  * le moteur ne charge rien : ici, on décide QUAND charger (mêmes seuils de déplacement que la v1), on garde ce qui est chargé et on prévient l'affichage quand quelque chose change.
  * Entrées : réglages (lus à chaque décision), position, journal, stockage, adresse du relais, adresse du Worker du masque. Sortie : `donnees()` (pour `composerScene`) + `etat()` (diagnostic).
- * Les chargements ne bloquent jamais l'affichage : une erreur est journalisée, l'étape suivante continue, un recul progressif évite de harceler un service en panne.
- * Dépend de : donnees/*, scene/terrain.js, scene/masque-worker.js, noyau/geo.js.
+ * Les chargements ne bloquent jamais l'affichage : une erreur est journalisée, l'étape suivante continue, un recul progressif évite de harceler un service en panne. Dépend de : donnees/*, scene/terrain.js, scene/masque-worker.js, noyau/geo.js.
  */
 import { creerReseau } from '../donnees/reseau.js';
 import { creerWikidataLieux } from '../donnees/wikidata-lieux.js';
@@ -42,6 +41,7 @@ import { creerSourceRues } from '../donnees/rues.js';
 import { creerSilhouetteWorker } from '../scene/silhouette-worker.js';
 import { creerUrbain } from './urbain.js';
 import { creerDemarrage, reprendre } from './demarrage.js';
+import { creerModifsOsm } from './modifs-osm.js';
 
 /** @typedef {import('../moteur/classement.js').DonneesScene} DonneesScene */
 /** @typedef {import('../moteur/reglages.js').Reglages} Reglages */
@@ -104,7 +104,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   const sourceRues = creerSourceRues({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, openfreemap, overpass, journal });
   const demarrage = creerDemarrage({ stockage: st, caches, maintenant, journal }); // dernière position et dernier relief, repris à l'ouverture
   const garderPosition = (/** @type {Point} */ pos, /** @type {boolean} */ memoire) => { if (!memoire && trafic.mode === 'direct') demarrage.garderPosition(pos); }, garderRelief = (/** @type {Point} */ pos) => { const T = /** @type {any} */ (D.terrain); if (trafic.mode === 'direct' && T && !T.provisoire && encore(pos)) demarrage.garderRelief({ pos, h0: T.h0, solM: T.solM, origine: T.origine, pm: T.pm }); };
-  const chargeurTuiles = creerChargeurTuiles({ reseau: /** @type {any} */ (reseauTuiles), decoder: decoderTuile });
+  const modifsOsm = creerModifsOsm({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, stockage: st }), chargeurTuiles = creerChargeurTuiles({ reseau: /** @type {any} */ (reseauTuiles), decoder: decoderTuile });
   /** @type {import('../scene/masque.js').CalculMasque} */
   let masque = (b, c, o) => calculerMasque(b, c, o);
   if (urlWorkerMasque && typeof Worker !== 'undefined') { try { masque = creerMasqueWorker(urlWorkerMasque); } catch (e) { journal.avert('app', 'Worker du masque indisponible : calcul sur le fil principal', e); } }
@@ -137,7 +137,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   function recomposerMonuments() {
     if (!D.pos) return;
     const S = reglages(), sep = separerTuilesOsm(tuilesOsm);
-    D.monuments = combinerMonuments({ pos: D.pos, rayonKm: rayonMonuments(S.radius), cities: /** @type {any} */ (lieuxBase), tours: sep.tours, statues: sep.statues, hints: {}, supportsAnfr: /** @type {any} */ (D.pylones),
+    D.monuments = combinerMonuments({ pos: D.pos, rayonKm: rayonMonuments(S.radius), cities: /** @type {any} */ (lieuxBase), tours: sep.tours, statues: sep.statues, hints: modifsOsm.hints(), supportsAnfr: /** @type {any} */ (D.pylones),
       batiments: /** @type {any} */ (batiments), avecAnfr: !!S.layers.monuments }, baseWikidata);
     D.doublonsReperes = doublonsBatiments(D.reperes, D.monuments);
   }
@@ -322,6 +322,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     },
     /** Démarrage (direct) : repart de la dernière position gardée et du dernier relief calculé à moins de 300 m (app/demarrage.js). @returns {Promise<{lat: number, lon: number, t: number} | null>} */
     reprendreDemarrage: () => reprendre({ demarrage, D, definirPosition: (p) => api.definirPosition(p, { memoire: true }), avecRelief: reglages().calculRelief !== false, change, journal }),
+    osmDerniereModif: /** Dernière modification OSM (fiche d'une tour sans nom) ; un nom d'usage appris renomme le monument (v1 : `fillOsmEdits`). @param {string} id */ (id) => modifsOsm.derniere(id).then((r) => { if (r.nouveauNom) { recomposerMonuments(); change('monuments'); } return r; }),
     /** Après un changement de réglage (rayon, calques, relief…) : relance ce qui est nécessaire. @param {{lieux?: boolean, terrain?: boolean, monuments?: boolean, telecom?: boolean, reperes?: boolean, urbain?: boolean}} [quoi] */
     recharger(quoi = {}) {
       if (quoi.terrain) recul.terrain.t = null; // demande explicite : on oublie le recul

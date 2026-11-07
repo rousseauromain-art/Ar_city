@@ -15,7 +15,7 @@ import { masqueDans, altitudeEn, PROCHE_KM } from './relief.js';
  * @property {number} dist distance (km) @property {number} brg relèvement (°) @property {string} [kind]
  * @property {number|null} [dem] altitude du sol sous l'élément (m) @property {number|null} [ele] altitude connue (m)
  * @property {number} [ht] hauteur propre (m) @property {string} [src]
- * @typedef {{aG: number, aP: number, mask: number, hidden: boolean, unknown: boolean, low: boolean}} Verdict
+ * @typedef {{aG: number, aP: number, mask: number, hidden: boolean, unknown: boolean, low: boolean, dem?: number | null}} Verdict
  */
 
 /** Hauteur supposée d'un élément selon son type, en m (v1 : `HT`). */
@@ -59,7 +59,7 @@ export function verdictRelief(masque, bands, c, tol = TOLERANCES) {
   const r = evaluerElement(masque, { ...c, dem }, c.ht ?? (c.kind ? HAUTEUR_TYPE_M[c.kind] : undefined) ?? HAUTEUR_DEFAUT_M, tol);
   let { hidden } = r, low = false;
   if (c.src === 'osm' && !hidden && c.dist > PROCHE_KM && r.aP - r.mask < TOUR_DEGAGEE_DEG) { hidden = true; low = true; }
-  return { ...r, hidden, low };
+  return { ...r, hidden, low, dem };
 }
 
 /** Altitude du sol sous un élément, null si hors couverture. @param {Bande[]} bands @param {{lat: number, lon: number, dist: number}} c */

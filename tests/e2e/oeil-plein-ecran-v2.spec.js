@@ -44,11 +44,11 @@ test('photo rejouée + plein écran : bandeaux masqués (vue épurée), rétabli
   expect(erreurs).toEqual([]);
 });
 
-test('la page en direct n’a plus de ligne « Rejouer une photo » (la page photo s’en charge)',async({page})=>{
+test('la page en direct a la ligne « Rejouer une photo » de la v1 (Réglages › Test et simulation), et sa puce œil',async({page})=>{
   const erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
   await page.goto('/v2/ar.html');
-  await expect(page.locator('#btnPhoto')).toHaveCount(0); await expect(page.locator('#photoFile')).toHaveCount(0); await expect(page.locator('#btnBench')).toHaveCount(0);
+  await expect(page.locator('details[data-grp=sim] #btnPhoto')).toHaveCount(1); await expect(page.locator('#photoFile')).toHaveCount(1); await expect(page.locator('#btnBench')).toHaveCount(1);
   await expect(page.locator('#eyeChip')).toBeVisible();
   expect(erreurs).toEqual([]);
 });
