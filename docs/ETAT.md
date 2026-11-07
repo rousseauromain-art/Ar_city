@@ -1,9 +1,10 @@
-# État des sujets (v2)
+# État des sujets
 
-Une ligne par sujet. **Chaque PR met à jour ce fichier.** La colonne « Terrain » reste à « non testé » tant que Romain n'a pas vérifié sur son téléphone ; seule une vérification sur le terrain la change (avec la date).
+Une ligne par sujet (chemins de la v2 relatifs à `v2/` depuis le rangement). **Chaque PR met à jour ce fichier.** La colonne « Terrain » reste à « non testé » tant que Romain n'a pas vérifié sur son téléphone ; seule une vérification sur le terrain la change (avec la date).
 
 | Sujet | État | Preuve (fichier:fonction, test, PR) | Terrain |
 |---|---|---|---|
+| Rangement : un dossier par version (v2 dans `v2/`, harnais dans `tests/commun/`, documents dans `docs/`), `villes-horizon.html` de la racine supprimé | fait | site construit comparé avant/après (seuls changent les chemins `v2/src`, `v2/b` et les cartes de sources), tests de la v2 verts (lint, types, 326 unitaires, 59 intégration, 152 e2e avec les scènes réelles) | — |
 | Page photo rejouée : même page que le direct (v2/ar.html?mode=photo ; photo.html redirige ; Réglages › Rejouer une photo en direct) | fait | `src/ui/page-ar.js`, `src/ui/photo.js:passerEnPhoto`, `tests/e2e/photo-v2.spec.js` | validé 29/10 (avant la page unique) ; non testé depuis |
 | Page direct (v2/ar.html) | fait | `src/entrees/direct.js:creerEntreeDirecte`, `tests/e2e/direct-v2.spec.js` | validé 29/10 |
 | Moteur de scène (calques, bande, étiquettes) | fait | `src/moteur/scene.js:composerScene`, parité v1 `tests/e2e/*-parite.spec.js` | validé 29/10 |

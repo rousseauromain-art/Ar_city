@@ -8,7 +8,7 @@
 <title>Réalité augmentée — Villes à l'horizon v2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../src/ui/style.css">
+<link rel="stylesheet" href="src/ui/style.css">
 <script>/* une page, deux entrées : ?mode=photo = photo rejouée (même interface, sans caméra ni GPS) */ if(/[?&]mode=photo(&|$)/.test(location.search)) document.documentElement.classList.add('mode-photo');</script>
 </head>
 <body>
@@ -282,7 +282,7 @@
   <small>Version 2 : données et réglages gardés à part de la v1. Nécessite une page en HTTPS (Safari ou Chrome). Fonctionne en portrait comme en paysage.</small>
 </div>
 <script src="../config.js" onerror="void 0"></script>
-<script type="module" src="../src/ui/page-ar.js"></script>
+<script type="module" src="src/ui/page-ar.js"></script>
 <script>
 /* Si les modules de la page ne se chargent pas (fichiers en cache après une mise à jour, erreur de syntaxe), on le dit au lieu de laisser un écran figé. */
 setTimeout(function(){ if(window.__vh2) return; var d=document.createElement('div'); d.id='chargementKo'; d.setAttribute('role','alert');

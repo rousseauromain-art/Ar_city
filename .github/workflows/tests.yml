@@ -6,10 +6,31 @@ on:
   pull_request:
     paths-ignore: ['**.md']
 
+# La v2 est gelée : ses tests (lint, types, unitaires, intégration, construction) ne tournent que si v2/ (ou l'outillage commun) change.
+
 # Les tests e2e et la parité avec la v1 ne tournent plus à chaque envoi (ils bloquaient les fusions) : Romain valide sur le téléphone. Ils restent lançables à la main : npm run test:e2e, ou parite.yml.
 jobs:
+  changements:
+    name: Fichiers modifiés
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      v2: ${{ steps.f.outputs.v2 }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: f
+        env:
+          AVANT: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [ -z "$AVANT" ] || ! git cat-file -e "$AVANT^{commit}" 2>/dev/null; then echo "v2=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          if git diff --name-only "$AVANT" HEAD | grep -qE '^(v2/|tests/commun/|package(-lock)?\.json|\.github/workflows/tests\.yml)'; then echo "v2=true"; else echo "v2=false"; fi >> "$GITHUB_OUTPUT"
+
   qualite:
-    name: Qualité (lint, types, tests unitaires)
+    name: v2 — qualité (lint, types, tests unitaires, construction)
+    needs: changements
+    if: needs.changements.outputs.v2 == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -26,7 +47,9 @@ jobs:
         run: npm run build
 
   integration:
-    name: Intégration (relief, lieux, monuments sur relief synthétique)
+    name: v2 — intégration (relief, lieux, monuments sur relief synthétique)
+    needs: changements
+    if: needs.changements.outputs.v2 == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

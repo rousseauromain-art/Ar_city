@@ -1,0 +1,24 @@
+name: Tag v2-fin
+
+# Pose une fois le tag v2-fin sur le dernier commit de la v2 avant le rangement (a92a67b, aussi gardé par la branche archive/v2-fin) :
+# les sessions cloud de Claude ne peuvent pas pousser d'étiquette. Sans effet si le tag existe déjà. À supprimer une fois le tag posé.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - run: |
+          if git ls-remote --exit-code --tags origin refs/tags/v2-fin >/dev/null; then echo "tag v2-fin déjà posé"; exit 0; fi
+          git tag v2-fin a92a67bd3fadd6e12133a775b5236d8f898cfa00
+          git push origin refs/tags/v2-fin
