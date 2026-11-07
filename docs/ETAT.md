@@ -43,7 +43,7 @@ Une ligne par sujet. **Chaque PR met à jour ce fichier.** La colonne « Terrain
 | Position par une plaque de rue (OCR Tesseract.js, Base Adresse) | fait (l'OCR réel n'est pas testé en session) | `src/calage/adresse.js`, `src/ui/lire-plaque.js`, `tests/e2e/caler-plaque-v2.spec.js` | non testé |
 | Position corrigée qui avance avec les pas | fait | `src/scene/pas.js`, `tests/unit/pas.test.mjs` | non testé |
 | CI : lint, types, unitaires ; parité à la main | fait | `.github/workflows/tests.yml`, `.github/workflows/parite.yml` | sans objet |
-| Site publié regroupé (esbuild), Pages, `?modules=1` | fait (au moins aussi rapide que la v1 : 0,49 s / 2,85 s contre 0,50 s / 3,02 s) | `construction/construire.mjs`, `.github/workflows/pages.yml`, `tests/e2e/livraison-v2.spec.js`, `tests/perf/banc.mjs`, `docs/MESURES-V1-V2.md` | non testé (réglage Pages à faire) |
+| Site publié regroupé (esbuild), Pages, `?modules=1` | fait (au moins aussi rapide que la v1 : 0,49 s / 2,87 s contre 0,49 s / 3,02 s) | `construction/construire.mjs`, `.github/workflows/pages.yml`, `tests/e2e/livraison-v2.spec.js`, `tests/perf/banc.mjs`, `docs/MESURES-V1-V2.md` | non testé (réglage Pages à faire) |
 | Hors ligne : service worker (page et workers gardés, versionnés) | fait | `construction/construire.mjs:serviceWorker`, `tests/e2e/livraison-v2.spec.js` | non testé |
 | Démarrage : dernière position (« position de HH:MM ») et dernier relief | fait | `src/app/demarrage.js`, `tests/e2e/demarrage-v2.spec.js` | non testé |
 | Aides « ? », résumés des sections, catégories de repères, section « Essais » | fait | `src/ui/aides.js`, `tests/e2e/interface-parite.spec.js` | non testé |

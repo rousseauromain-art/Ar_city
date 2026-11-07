@@ -17,6 +17,8 @@ const SORTIE = resolve(RACINE, process.argv[2] || 'dist');
 const A_COPIER = ['index.html', 'villes-horizon.html', 'config.js', 'v1', 'v2', 'debug', 'src'];
 /** Points d'entrée regroupés (chemins relatifs à src/). */
 const ENTREES = ['workers/masque-relief.js', 'workers/silhouette-batiments.js', 'workers/position-toits.js'];
+/** Modules chargés à la demande par la page (`import(new URL('./x.js', import.meta.url))`), regroupés à part dans b/ : hors du chemin de l'ouverture. */
+const A_LA_DEMANDE = ['ui/fiche-contenu.js'];
 /** Pages v2 qui chargent le fichier regroupé. */
 const PAGES = ['v2/ar.html'];
 
@@ -65,8 +67,8 @@ export async function construire(sortie = SORTIE) {
   rmSync(sortie, { recursive: true, force: true }); mkdirSync(sortie, { recursive: true });
   for (const f of A_COPIER) cpSync(join(RACINE, f), join(sortie, f), { recursive: true });
   writeFileSync(join(sortie, '.nojekyll'), '');
-  const commun = { bundle: true, minify: process.env.NOMS !== '1', minifyWhitespace: true, minifySyntax: true, sourcemap: true, format: /** @type {'esm'} */ ('esm'), target: ['chrome100', 'safari15'], logLevel: /** @type {'warning'} */ ('warning'), legalComments: /** @type {'none'} */ ('none') };
-  const workers = ENTREES.filter((e) => e.startsWith('workers/'));
+  const commun = { bundle: true, minify: process.env.NOMS !== '1', minifyWhitespace: true, minifySyntax: true, sourcemap: true, format: /** @type {'esm'} */ ('esm'), target: ['chrome100', 'safari15'], logLevel: /** @type {'warning'} */ ('warning'), legalComments: /** @type {'none'} */ ('none'), charset: /** @type {'utf8'} */ ('utf8') };
+  const workers = [...ENTREES.filter((e) => e.startsWith('workers/')), ...A_LA_DEMANDE];
   await build({ ...commun, entryPoints: workers.map((e) => join(RACINE, 'src', e)), outbase: join(RACINE, 'src'), outdir: join(sortie, 'b') });
   const page = await build({ ...commun, write: false, entryPoints: [join(RACINE, 'src/ui/page-ar.js')], outfile: join(sortie, 'b/ui/page-ar.js'), sourcemap: 'external',
     define: { 'import.meta.url': '__vhBase' }, banner: { js: GARDE_DEBUT }, footer: { js: GARDE_FIN } });

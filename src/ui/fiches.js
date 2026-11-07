@@ -6,7 +6,9 @@
  * Reçoit le contexte de la page (`c`).
  */
 import { hitBest, hitsDeScene } from '../scene/toucher.js';
-import { contenuFiche, dEsc } from './fiche-contenu.js';
+/** Contenu des fiches : chargé au premier toucher (il ne sert pas à l'ouverture de la page ; dans le site publié, c'est un fichier à part, b/ui/fiche-contenu.js). */
+let module = /** @type {Promise<typeof import('./fiche-contenu.js')> | null} */ (null);
+const contenu = () => module || (module = /** @type {Promise<typeof import('./fiche-contenu.js')>} */ (import(new URL('./fiche-contenu.js', import.meta.url).href)));
 
 /** @param {import('./contexte.js').Contexte} c */
 export function installerFiches(c) {
@@ -20,14 +22,15 @@ export function installerFiches(c) {
     const hits = hitsDeScene(ps.dernierBilan ? ps.dernierBilan.zones : null, ps.dernierRoulis || 0);
     const h = hitBest(x, y, [hits], ps.W, ps.H);
     if (!h) return false;
-    return afficher(h.t, h.g);
+    afficher(h.t, h.g);
+    return true;
   }
   /** Ouvre la fiche d'un élément connu (résultat d'une recherche, par exemple). @param {string} _type @param {any} element */
   const ouvrirElement = (_type, element) => afficher(element, null);
   /** @param {any} t @param {any[] | null} g */
-  function afficher(t, g) {
+  async function afficher(t, g) {
     try {
-      const f = contenuFiche(t, g, ctx());
+      const { contenuFiche } = await contenu(), f = contenuFiche(t, g, ctx());
       corps.innerHTML = f.html; titre.textContent = f.titre;
       panneau.classList.add('open');
       remplirModifsOsm();
@@ -39,7 +42,7 @@ export function installerFiches(c) {
     for (const el of /** @type {HTMLElement[]} */ ([...corps.querySelectorAll('.osmcs:not([data-done])')].slice(0, 8))) {
       el.dataset.done = '1'; const id = el.dataset.osm || '';
       try {
-        const d = await app.osmDerniereModif(id);
+        const d = await app.osmDerniereModif(id), { dEsc } = await contenu();
         el.innerHTML = (d.comment ? `« ${dEsc(d.comment)} »` : '(pas de commentaire)') + ` · ${dEsc(d.ts.slice(0, 10))}${d.user ? ' · ' + dEsc(d.user) : ''}`
           + (d.hint ? `<br>→ nom d'usage retenu : <b>${dEsc(d.hint)}</b> (déduit du commentaire, à vérifier)` : '');
       } catch (e) { el.textContent = 'indisponible : ' + (e instanceof Error ? e.message : String(e)); }

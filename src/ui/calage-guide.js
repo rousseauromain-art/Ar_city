@@ -87,6 +87,7 @@ export function installerCalageGuide(c, calage, ville) {
     const vitesse = Math.abs(ecartAngle(po.capDeg - session.capPrec)) / Math.max(0.05, (maintenant - session.tPrec) / 1000);
     session.capPrec = po.capDeg; session.tPrec = maintenant;
     const cb = cibleActuelle(c, ville.villeActuelle()), cs = consigne(cb, po, champsDeg(c));
+    if (cb.type !== 'rue' && boussoleDouteuse(c)) { terminer(''); return; } // la boussole devient douteuse (départ en voiture) : plus de consigne de rotation
     bandeau().hidden = false;
     if (cb.type === 'rue') { montrerRue(cs.texte); return; } // viser le point de fuite de la rue : le cap affiché ne dit pas si c'est fait, c'est l'utilisateur qui touche le bouton
     bandeau().textContent = cs.texte;
@@ -99,9 +100,9 @@ export function installerCalageGuide(c, calage, ville) {
     const ok = /^calé/.test(message);
     terminer(ok ? message : `${message} — visez autre chose (touchez de nouveau le bouton).`);
   }
-  /** Démarre le guidage (jamais quand la boussole est douteuse : la consigne « tournez de… » serait fausse). @returns {boolean} */
+  /** Démarre le guidage. Boussole douteuse : jamais de consigne « tournez de… » (elle serait fausse) ; seul le choix du sens de la rue, qui ne lit pas la boussole, reste proposé. @returns {boolean} */
   function guider() {
-    if (boussoleDouteuse(c)) return false;
+    if (boussoleDouteuse(c) && cibleActuelle(c, ville.villeActuelle()).type !== 'rue') return false;
     $('btnAlign').classList.add('on');
     const t = performance.now();
     session = { debut: t, capPrec: pose().capDeg, tPrec: t, stableDepuis: null, minuteur: window.setInterval(() => { pas(); }, PERIODE_MS), enCours: false };

@@ -39,6 +39,7 @@ import { CATEGORIES_REPERES } from '../donnees/categories-reperes.js';
 import { creerSourceBatiments } from '../donnees/bdtopo.js';
 import { creerSourceRues } from '../donnees/rues.js';
 import { creerSilhouetteWorker } from '../scene/silhouette-worker.js';
+import { profilBatiments, lisserCouches } from '../scene/silhouette-batiments.js';
 import { creerUrbain } from './urbain.js';
 import { creerDemarrage, reprendre } from './demarrage.js';
 import { creerModifsOsm } from './modifs-osm.js';
@@ -55,7 +56,20 @@ const STOCKAGE_V1 = /** @type {[string, string][]} */ ([['atlas', 'vh_atlas_v1']
 /** Worker de la silhouette des bâtiments (le calcul d'une grande ville prend plusieurs dizaines de ms) ; null : calcul sur le fil principal. @param {string | URL | undefined} url @param {{avert: (m: string, msg: string, d?: unknown) => unknown}} journal */
 function calculSilhouetteWorker(url, journal) {
   if (!url || typeof Worker === 'undefined') return null;
-  try { return creerSilhouetteWorker(url); } catch (e) { journal.avert('app', 'Worker de la silhouette indisponible : calcul sur le fil principal', e); return null; }
+  return auPremierUsage(() => creerSilhouetteWorker(url), /** @type {any} */ ((/** @type {any} */ b, /** @type {any} */ o, /** @type {boolean} */ l) => { const profil = profilBatiments(b, o); return Promise.resolve({ profil, ls: lisserCouches(profil.la, l) }); }), journal, 'de la silhouette');
+}
+
+/**
+ * Calcul confié à un Worker créé au PREMIER appel (l'ouverture de la page ne démarre aucun Worker) ; s'il ne peut pas être créé, le calcul se fait sur le fil principal (`repli`).
+ * @template {(...a: any[]) => any} F @param {() => F} creer @param {F} repli @param {{avert: (m: string, msg: string, d?: unknown) => unknown}} journal @param {string} quoi @returns {F}
+ */
+function auPremierUsage(creer, repli, journal, quoi) {
+  /** @type {F | null} */
+  let calcul = null;
+  return /** @type {F} */ ((...a) => {
+    if (!calcul) { try { calcul = creer(); } catch (e) { journal.avert('app', `Worker ${quoi} indisponible : calcul sur le fil principal`, e); calcul = repli; } }
+    return /** @type {F} */ (calcul)(...a);
+  });
 }
 
 /** Stockage de la v2 vu par les sources de données : `lire(nom, valeurParDefaut)`. @param {ReturnType<typeof import('../outils/stockage.js').creerStockage>} s */
@@ -107,7 +121,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   const modifsOsm = creerModifsOsm({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, stockage: st }), chargeurTuiles = creerChargeurTuiles({ reseau: /** @type {any} */ (reseauTuiles), decoder: decoderTuile });
   /** @type {import('../scene/masque.js').CalculMasque} */
   let masque = (b, c, o) => calculerMasque(b, c, o);
-  if (urlWorkerMasque && typeof Worker !== 'undefined') { try { masque = creerMasqueWorker(urlWorkerMasque); } catch (e) { journal.avert('app', 'Worker du masque indisponible : calcul sur le fil principal', e); } }
+  if (urlWorkerMasque && typeof Worker !== 'undefined') masque = auPremierUsage(() => creerMasqueWorker(urlWorkerMasque), masque, journal, 'du masque'); // créé au premier relief : l'ouverture ne démarre aucun Worker
 
   /** Ce qui est chargé, et d'où. */
   const D = /** @type {DonneesScene & {mobiles: any[]}} */ ({ pos: /** @type {any} */ (null), terrain: null, lieux: [], monuments: [], pylones: [], reperes: [], doublonsReperes: [], couchesPerso: [], mobiles: [], analysePhoto: null });

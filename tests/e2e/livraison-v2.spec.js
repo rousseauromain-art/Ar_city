@@ -35,7 +35,7 @@ async function ouvrir(browser,{url=`${BASE}/v2/ar.html`,pos={latitude:48.6459,lo
 test('version regroupée : code et style dans la page (une réponse, comme la v1), aucun module brut, relief calculé par le worker regroupé',async({browser})=>{
   const {ctx,page,erreurs,requetes}=await ouvrir(browser);
   expect(requetes.filter(p=>p.startsWith(`${BASE}/src/`))).toEqual([]);
-  expect(requetes.filter(p=>/\.(js|css)$/.test(p)).sort()).toEqual(['/b/workers/masque-relief.js','/b/workers/position-toits.js','/b/workers/silhouette-batiments.js','/config.js'].map(p=>BASE+p)); // le code et le style sont dans la page ; restent config.js et les 3 workers
+  expect(requetes.filter(p=>/\.(js|css)$/.test(p)).sort()).toEqual(['/config.js'].map(p=>BASE+p)); // le code et le style sont dans la page ; les workers ne démarrent qu'au premier calcul
   await page.click('#go');
   await expect.poll(()=>page.evaluate(()=>{ const d=window.__vh2.app.donnees(); return !!d.terrain&&typeof d.terrain.h0==='number'; }),{timeout:40000}).toBe(true);
   expect(requetes).toContain(`${BASE}/b/workers/masque-relief.js`);
