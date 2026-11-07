@@ -93,3 +93,22 @@ for(const sc of SCENES){
     await v2.ctx.close(); await v1.ctx.close();
   });
 }
+
+test('« Caler » à Cesson : la v2 ne met pas plus de temps que la v1 (même scène, en direct)',async({browser})=>{
+  const sc=SCENES.find(s=>s.id==='cesson-gallets');
+  ignorerSiAbsent(test,sc);
+  test.setTimeout(900000);
+  const v1=await ouvrirSceneReelle(browser,sc,{reglages:REGLAGES});
+  await v1.app.waitFor('!monBusy&&!towerBusy&&!telecomBusy&&!buildingsBusy',120000);
+  process.env.V2_DIRECT='1'; const v2=await ouvrirV2(browser,sc); delete process.env.V2_DIRECT;
+  const mediane=a=>a.slice().sort((x,y)=>x-y)[Math.floor(a.length/2)];
+  const d1=[], d2=[], m1=[], m2=[];
+  for(let i=0;i<5;i++){
+    const r1=await v1.app.ev(`(async()=>{ S.headOff=0; S.pitchOff=0; const t=performance.now(); const m=await runAutoAlign(); return {ms:performance.now()-t,m}; })()`);
+    const r2=await v2.page.evaluate(async()=>{ const v=window.__vh2; v.S.headOff=0; v.S.pitchOff=0; const t=performance.now(); const m=await v.calerAuto(); return {ms:performance.now()-t,m}; });
+    d1.push(r1.ms); d2.push(r2.ms); m1.push(r1.m); m2.push(r2.m);
+  }
+  console.log('Caler à Cesson : v1',Math.round(mediane(d1)),'ms («',m1[0],'») · v2',Math.round(mediane(d2)),'ms («',m2[0],'»)');
+  expect(mediane(d2),'durée médiane de « Caler » (ms)').toBeLessThanOrEqual(mediane(d1)*1.05+20);
+  await v2.ctx.close(); await v1.ctx.close();
+});

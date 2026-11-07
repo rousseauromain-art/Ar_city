@@ -25,7 +25,7 @@ import { cleSilhouette, SILHOUETTES, SILHOUETTES_DISTINCTES, SILHOUETTE_MIN_PX }
 /** @typedef {import('../noyau/projection.js').VueRendu} VueRendu */
 /** @typedef {import('./photo-silhouette.js').AnalysePhoto} AnalysePhoto */
 /** @typedef {Monument & {dist: number, brg: number, angH: number, far: boolean, roof: boolean, cap: boolean, near: boolean, occBy: string | null, photoHid: boolean, snapDB: number, rang: number | null,
- *   hidden: boolean, low: boolean, aG: number | null, aP: number | null, mask: number | null, dem?: number | null, dense?: boolean}} MonumentCalcule */
+ *   hidden: boolean, low: boolean, aG: number | null, aP: number | null, mask: number | null, demSol?: number | null, dense?: boolean}} MonumentCalcule */
 /** @typedef {{el: MonumentCalcule, etat: 'net' | 'transparent' | 'absent', raison: string | null}} MonumentClasse */
 
 /** Angle apparent minimal (°) pour qu'un monument soit visible d'ici ; seuil abaissé pour un monument très célèbre (jamais supprimé). */
@@ -87,7 +87,7 @@ export function classerMonuments(monuments, scene, reglages) {
     const roof = !far && dense && distKm > TOITS_DISTANCE_KM && (m.ht || 20) < HAUTEUR_TOITS_M + 5 && (m.links || 0) < MON_STAR_LINKS;
     if (roof) far = true;
     cs.push({ ...m, dist: distKm, brg: capDeg, angH, far, roof, cap: false, near: false, occBy: null, photoHid: false, snapDB: 0, rang: null,
-      hidden: v ? v.hidden : false, low: v ? v.low : false, aG: v ? v.aG : null, aP: v ? v.aP : null, mask: v ? v.mask : null, dem: v ? v.dem : null, dense });
+      hidden: v ? v.hidden : false, low: v ? v.low : false, aG: v ? v.aG : null, aP: v ? v.aP : null, mask: v ? v.mask : null, demSol: v ? v.dem : null, dense });
   }
   cs.sort(comparateurAffichage(dense));
   plafondEtProches(cs);

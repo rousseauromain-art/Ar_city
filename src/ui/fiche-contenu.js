@@ -94,7 +94,7 @@ export function monDiag(m, ctx) {
     ['rang parmi les monuments nets', rk === null || rk === undefined ? '—' : `${rk} (plafond ${eq ? EQUIP_MAX_SHOWN : MON_MAX_SHOWN})`],
     ['hauteur utilisée', `${f(m.ht, 0)} m${m.htWd ? ' (Wikidata)' : m.htOsm ? ' (OSM)' : ' (supposée)'}`], ['hauteur apparente', `${f(m.angH, 2)}°`],
     ['relief', rel && T ? `actif · source ${T.src || T.origine || '?'} · œil à ${f(T.h0, 1)} m` : S.relief ? 'activé mais pas encore calculé' : 'désactivé'],
-    ['altitude du sol sous le monument', m.dem === null || m.dem === undefined ? 'inconnue' : `${f(m.dem, 1)} m`], ['angle sol / sommet', `${f(m.aG, 2)}° / ${f(m.aP, 2)}°`],
+    ['altitude du sol sous le monument', (m.dem ?? m.demSol) === null || (m.dem ?? m.demSol) === undefined ? 'inconnue' : `${f(m.dem ?? m.demSol, 1)} m`], ['angle sol / sommet', `${f(m.aG, 2)}° / ${f(m.aP, 2)}°`],
     ['crête devant (relief)', `${f(m.mask, 2)}°`], ['marge de visibilité', margin === null ? '—' : `${f(margin, 2)}° (positif = visible ; tolérance ${tol}°)`],
     ['calque Tout voir (œil)', S.beyond ? 'oui' : 'non (les transparents sont masqués)']];
   return `<details class="dg" style="margin-top:12px"><summary class="dbgsec" style="cursor:pointer">Diagnostic d'affichage (debug)</summary><div class="dbgline" style="line-height:1.7">${rows.map(([k, v]) => `<b>${dEsc(k)}</b> : ${dEsc(v)}`).join('<br>')}</div></details>`;

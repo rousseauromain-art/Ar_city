@@ -178,5 +178,12 @@
   "v1": null,
   "v2": "boutons · libellé · Écran",
   "raison": "un libellé sous chaque icône de la colonne de boutons (étape 11d, demande du 28/10)"
+ },
+ {
+  "domaine": "calage",
+  "regle": "pointage-soleil-detecte",
+  "v1": "toucher près du soleil : correction d'après le point touché",
+  "v2": "toucher à moins de 8° du disque du soleil détecté : correction d'après le disque (même résultat que le calage sur le soleil)",
+  "raison": "évolution décidée le 1/11 (CLAUDE.md, « Calage soleil en direct ») : en voiture la boussole se trompe de 30 à 50°, le doigt ne vise pas au dixième de degré ; le disque détecté est exact"
  }
 ]

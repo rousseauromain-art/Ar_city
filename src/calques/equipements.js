@@ -18,7 +18,7 @@ import { operateurs } from '../donnees/telecom.js';
 
 /** @typedef {import('../donnees/monuments-wikidata.js').Monument} Monument */
 /** @typedef {import('../donnees/telecom.js').SiteTelecom} SiteTelecom */
-/** @typedef {Monument & {dist: number, brg: number, angH: number, far: boolean, cap: boolean, rang: number | null, hidden: boolean, low: boolean, aG: number | null, aP: number | null, mask: number | null, dem?: number | null, dense?: boolean}} EquipementCalcule */
+/** @typedef {Monument & {dist: number, brg: number, angH: number, far: boolean, cap: boolean, rang: number | null, hidden: boolean, low: boolean, aG: number | null, aP: number | null, mask: number | null, demSol?: number | null, dense?: boolean}} EquipementCalcule */
 /** @typedef {{el: EquipementCalcule, etat: 'net' | 'transparent' | 'absent', raison: string | null}} EquipementClasse */
 /** @typedef {{el: SiteTelecom & {dist: number, brg: number}, etat: 'net' | 'absent', raison: string | null}} PylonneClasse */
 /** @typedef {import('../rendu/bande.js').CoucheBande} CoucheBande */
@@ -78,7 +78,7 @@ export function classerEquipements(equipements, scene, reglages) {
     if (distKm > reglages.rayonKm) continue;
     const v = masque && terrain ? verdictRelief(masque, terrain.bands, { ...m, dist: distKm, brg: capDeg }) : null;
     cs.push({ ...m, dist: distKm, brg: capDeg, angH: Math.atan((m.ht || 0) / Math.max(50, distKm * 1000)) / RAD, far: distKm > (EQUIP_PORTEE_TYPE[m.type] || EQUIP_PORTEE_KM), cap: false, rang: null,
-      hidden: v ? v.hidden : false, low: v ? v.low : false, aG: v ? v.aG : null, aP: v ? v.aP : null, mask: v ? v.mask : null, dem: v ? v.dem : null, dense });
+      hidden: v ? v.hidden : false, low: v ? v.low : false, aG: v ? v.aG : null, aP: v ? v.aP : null, mask: v ? v.mask : null, demSol: v ? v.dem : null, dense });
   }
   cs.sort(comparateurAffichage(dense));
   let n = 0;

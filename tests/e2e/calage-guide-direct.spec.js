@@ -52,3 +52,28 @@ test('guidage : un second toucher sur le bouton annule',async({browser})=>{
   await expect(page.locator('#guideMsg')).toBeHidden(); await expect(page.locator('#note')).toContainText('annulé');
   expect(erreurs).toEqual([]); await ctx.close();
 });
+
+test('« Caler » cale tout de suite sur ce qui est devant (comme la v1), sans guidage ; un second toucher lance le guidage',async({browser})=>{
+  const {ctx,page,erreurs}=await ouvrir(browser,{erreurCompas:4}); // le soleil est dans le champ, la boussole se trompe de 4°
+  await page.evaluate(()=>document.getElementById('btnAlign').click());
+  await expect(page.locator('#note')).toContainText('calé sur le soleil',{timeout:9000});
+  await expect(page.locator('#guideMsg')).toBeHidden();
+  expect(await page.evaluate(()=>window.__vh2.S.headOff)).toBeCloseTo(-4,0); // la boussole lit 4° de trop : correction de −4°
+  await page.evaluate(()=>document.getElementById('btnAlign').click()); // second toucher : le guidage
+  await expect(page.locator('#guideMsg')).toBeVisible({timeout:3000});
+  await page.evaluate(()=>document.getElementById('btnAlign').click()); // et un troisième l'annule
+  await expect(page.locator('#guideMsg')).toBeHidden();
+  expect(erreurs).toEqual([]); await ctx.close();
+});
+
+test('boussole douteuse (en voiture) : jamais de guidage, ni après un échec ni au second toucher',async({browser})=>{
+  const {ctx,page,erreurs,sol}=await ouvrir(browser,{erreurCompas:0,vitesse:12});
+  await orienter(page,(sol.azDeg+150)%360); // le soleil n'est pas dans l'image : le calage échoue
+  await page.evaluate(()=>document.getElementById('btnAlign').click());
+  await expect.poll(()=>page.evaluate(()=>document.getElementById('btnAlign').classList.contains('on')),{timeout:20000}).toBe(false);
+  await expect(page.locator('#guideMsg')).toBeHidden();
+  await page.evaluate(()=>document.getElementById('btnAlign').click());
+  await expect.poll(()=>page.evaluate(()=>document.getElementById('btnAlign').classList.contains('on')),{timeout:20000}).toBe(false);
+  await expect(page.locator('#guideMsg')).toBeHidden();
+  expect(erreurs).toEqual([]); await ctx.close();
+});

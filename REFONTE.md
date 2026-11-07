@@ -36,7 +36,8 @@ On ne réécrit pas l'application d'un bloc. La v2 pousse à côté de la v1 fig
 3. **La parité se prouve par des tests de caractérisation :**
    - le même instantané est rejoué dans la v1 et dans la v2 : cache exporté, position, cap, inclinaison, champ, taille d'écran, Essentiel puis Tout voir ;
    - pour chaque calque, on compare la liste des éléments dessinés : nom, état (net, transparent, absent), raison, position, opacité ;
-   - un écart fait échouer le test, sauf s'il figure dans `tests/ecarts-acceptes.json` avec la décision de Romain.
+   - un écart fait échouer le test, sauf s'il figure dans `tests/ecarts-acceptes.json` avec la décision de Romain ;
+   - **la parité avec la v1 couvre tout ce que l'utilisateur voit ou touche : image, panneaux, aides, fiches, liens.**
 4. **Une PR par calque**, et la v2 affiche ce calque seul (les autres restent en v1) jusqu'à ce que tous soient extraits.
 5. **Après chaque PR,** Romain vérifie sur son téléphone, dans le lanceur, la v1 et la v2 côte à côte.
 

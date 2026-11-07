@@ -18,7 +18,7 @@ test('aiguillage comme la v1 (TAP_DETAIL) : monument, équipement, ANFR, avion, 
 });
 
 test('monument : diagnostic d\'affichage replié avec toutes les valeurs (verdict, rang, hauteurs, relief, œil, sol, angles, crête, marge)', () => {
-  const f = contenuFiche({ kind: 'monument', name: 'Château d\'eau', type: 'tour', dist: 1.8, brg: 80, links: 3, ht: 40, angH: 1.2, rang: 4, dem: 30, aG: 0.5, aP: 1.7, mask: 0.4, hidden: false }, null, ctx);
+  const f = contenuFiche({ kind: 'monument', name: 'Château d\'eau', type: 'tour', dist: 1.8, brg: 80, links: 3, ht: 40, angH: 1.2, rang: 4, demSol: 30, aG: 0.5, aP: 1.7, mask: 0.4, hidden: false }, null, ctx);
   const t = texte(f.html);
   for (const k of ['verdict', 'rang parmi les monuments nets', 'hauteur utilisée', 'hauteur apparente', 'relief : actif · source mapterhorn · œil à 12.0 m', 'altitude du sol sous le monument : 30.0 m', 'angle sol / sommet', 'crête devant', 'marge de visibilité']) assert.ok(t.includes(k), k);
   assert.match(f.html, /<details class="dg"/);
