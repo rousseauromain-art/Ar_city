@@ -43,6 +43,7 @@ test('KML puis KMZ : couche ajoutée, sites dans la bande, fiche au toucher, mé
   expect(await page.evaluate(()=>window.__vh2.app.couchesPerso()[1].pts.length)).toBe(2);
   // seule la 1re couche reste : on supprime la 2e
   page.on('dialog',d=>d.accept());
+  await expect(page.locator('[data-f="del"]')).toHaveCount(2); // la ligne de la 2e couche est dessinée (sous charge, elle arrive après le message)
   await page.evaluate(()=>{ const b=[...document.querySelectorAll('[data-f="del"]')][1]; b.click(); });
   await expect.poll(()=>page.evaluate(()=>window.__vh2.app.couchesPerso().length)).toBe(1);
   // les sites s'affichent dans la bande : cap vers le nord, une zone « bande » de la couche existe
