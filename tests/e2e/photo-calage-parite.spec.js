@@ -45,7 +45,7 @@ for(const sc of SCENES){
     await p2.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
     await p2.addInitScript(reseauCoupe);
     await p2.addInitScript(s=>{ try{ localStorage.setItem('vh2:reglages',JSON.stringify({v:1,d:s})); }catch(e){} },{...REGLAGES,radius:sc.radius,headOff:0,pitchOff:0});
-    await p2.goto('/v2/photo.html');
+    await p2.goto('/v2/ar.html?mode=photo');
     const urls=reliefUrls(v1.pos).tout, exp=readExports(fichiersExport());
     await seedCaches(p2,{entries:exp.entries.filter(e=>e.c==='dc'||urls.has(e.k))},{noms:{t:'vh2-terrain',dc:'vh2-donnees'}});
     await p2.setInputFiles('#photoFile',path.join(PHOTOS_DIR,sc.photo));

@@ -72,7 +72,7 @@ test('direct = photo : pour la même vue, les deux pages tracent la même scène
   const p2=await ctx2.newPage(), erreurs2=[]; p2.on('pageerror',e=>erreurs2.push(String(e)));
   await p2.addInitScript({path:path.join(__dirname,'../helpers/enregistreur.js')});
   await p2.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
-  await graine(p2); await p2.goto('/v2/photo.html');
+  await graine(p2); await p2.goto('/v2/ar.html?mode=photo');
   const exif=Buffer.from(jpegExif({dir:120,orient:1,lat:POS.latitude,lon:POS.longitude,f35:24,date:'2026:10:25 23:30:00',offset:'+02:00'}));
   const b64=await p2.evaluate(async({w,h})=>{ const c=document.createElement('canvas'); c.width=w; c.height=h; const x=c.getContext('2d'); x.fillStyle='#456'; x.fillRect(0,0,w,h); const b=await new Promise(r=>c.toBlob(r,'image/jpeg',.8)); const u=new Uint8Array(await b.arrayBuffer()); let s=''; for(const v of u) s+=String.fromCharCode(v); return btoa(s); },{w:flux.largeurPx,h:flux.hauteurPx});
   const jpg=Buffer.from(b64,'base64');

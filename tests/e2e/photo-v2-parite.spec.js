@@ -1,4 +1,4 @@
-// Parité de BOUT EN BOUT de la page photo v2 (v2/photo.html) avec la v1 : la même photo réelle, les mêmes caches rejoués (sous les noms vh- pour la v1, vh2- pour la v2), aucun réseau.
+// Parité de BOUT EN BOUT de la page photo v2 (v2/ar.html?mode=photo) avec la v1 : la même photo réelle, les mêmes caches rejoués (sous les noms vh- pour la v1, vh2- pour la v2), aucun réseau.
 // La v2 charge ELLE-MÊME ses données (lieux, relief en deux passes, monuments, tours, pylônes, repères hauts) : sa trame doit être celle de la v1 — chaque trait et chaque texte,
 // ruban de cap et bandeau compris — en Essentiel et en Tout voir, pour trois poses. Ignoré sans le dépôt privé Ar_city-photos (PHOTOS_DIR).
 const {test,expect}=require('@playwright/test');
@@ -54,7 +54,7 @@ for(const sc of SCENES){
     await p2.addInitScript(reseauCoupe);
     const S0={...REGLAGES,radius:sc.radius,headOff:0,pitchOff:0};
     await p2.addInitScript(s=>{ try{ localStorage.setItem('vh2:reglages',JSON.stringify({v:1,d:s})); }catch(e){} },S0);
-    await p2.goto('/v2/photo.html');
+    await p2.goto('/v2/ar.html?mode=photo');
     const pos=v1.pos, urls=reliefUrls(pos).tout, exp=readExports(fichiersExport());
     await seedCaches(p2,{entries:exp.entries.filter(e=>e.c==='dc'||urls.has(e.k))},{noms:NOMS_V2});
     await p2.setInputFiles('#start ~ input#photoFile, #photoFile',path.join(PHOTOS_DIR,sc.photo));

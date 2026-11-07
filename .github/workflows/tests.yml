@@ -22,6 +22,8 @@ jobs:
       - run: npm run lint
       - run: npm run types
       - run: npm run test:unit
+      - name: Construction du site publié (esbuild)
+        run: npm run build
 
   integration:
     name: Intégration (relief, lieux, monuments sur relief synthétique)

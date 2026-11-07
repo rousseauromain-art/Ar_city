@@ -1,4 +1,4 @@
-// v2/photo.html : parcours de bout en bout avec une photo synthétique (EXIF Pixel, Saint-Malo) et un réseau coupé : la page lit l'EXIF, se place, charge ce qu'elle peut
+// v2/ar.html?mode=photo : parcours de bout en bout avec une photo synthétique (EXIF Pixel, Saint-Malo) et un réseau coupé : la page lit l'EXIF, se place, charge ce qu'elle peut
 // (liste intégrée en secours), dessine le ruban de cap et les lieux, mémorise les réglages sous vh2:, et la sortie de la photo rétablit le calage.
 const {test,expect}=require('@playwright/test');
 
@@ -16,7 +16,7 @@ async function photoDeTest(page,{dir=120,orient=1}={}){
 async function ouvrir(page){
   const erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
-  await page.goto('/v2/photo.html');
+  await page.goto('/v2/ar.html?mode=photo');
   await expect(page.locator('#start')).toBeVisible();
   return erreurs;
 }
@@ -79,7 +79,7 @@ test('les lieux de l’atlas sont à l’écran tout de suite, avant la fin du c
   await page.addInitScript(a=>{ try{ localStorage.setItem('vh_atlas_v1',JSON.stringify(a)); }catch(e){} },atlas);
   const erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>{ if(/overpass|maps\.mail\.ru/.test(r.request().url())) return; /* jamais de réponse */ return r.abort(); });
-  await page.goto('/v2/photo.html');
+  await page.goto('/v2/ar.html?mode=photo');
   await page.setInputFiles('#photoFile',{name:'PXL_test.jpg',mimeType:'image/jpeg',buffer:await photoDeTest(page)});
   await expect(page.locator('#photoChip')).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>window.__vh2.app.donnees().lieux.some(l=>l.name==='Dinard'))).toBe(true);
@@ -116,10 +116,48 @@ test('visibilité d’après la photo : la case lit la silhouette du ciel (ciel 
 
 test('un libellé sous chaque icône de la colonne de boutons (photo et direct)',async({page})=>{
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
-  for(const url of ['/v2/photo.html','/v2/ar.html']){
+  for(const url of ['/v2/ar.html?mode=photo','/v2/ar.html']){
     await page.goto(url);
     const libelles=await page.evaluate(()=>[...document.querySelectorAll('#tools button')].map(b=>{ const l=b.querySelector('.lbl'), r=b.getBoundingClientRect(); return [l?l.textContent:'',Math.round(r.width)===Math.round(r.height)]; }));
     expect(libelles.map(x=>x[0]),url).toEqual(['Calques','Cherch.','Caler','Pointer','Relire','Écran']);
     expect(libelles.every(x=>x[1]),'les boutons restent carrés').toBe(true);
   }
+});
+
+test('une seule page : photo.html redirige vers ar.html?mode=photo, accueil de la photo sans texte périmé, aucune caméra demandée',async({page})=>{
+  const erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
+  await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
+  let camera=0; await page.exposeFunction('__camera',()=>{ camera++; });
+  await page.addInitScript(()=>{ const g=navigator.mediaDevices&&navigator.mediaDevices.getUserMedia; if(g) navigator.mediaDevices.getUserMedia=(...a)=>{ window.__camera(); return g.apply(navigator.mediaDevices,a); }; });
+  await page.goto('/v2/photo.html?debug=0');
+  await page.waitForURL(/\/v2\/ar\.html\?mode=photo&debug=0$/);
+  await expect.poll(()=>page.evaluate(()=>!!window.__vh2)).toBe(true);
+  expect((await page.locator('#go').innerText()).toLowerCase()).toBe('ouvrir une photo');
+  await expect(page.locator('#start')).toContainText('analyse d\'une photo');
+  await expect(page.locator('#start')).not.toContainText('À VENIR');
+  await expect(page.locator('#start')).not.toContainText('étape 10');
+  // mêmes éléments que la page en direct (comme la v1) : la ligne « Rejouer une photo » et le banc d'essai sont dans Réglages › Test et simulation
+  for(const id of ['btnPhoto','btnBench','photoInfo','simOn','btnAlign','btnAutoAlign','btnLayers','btnBeyond']) await expect(page.locator('#'+id)).toHaveCount(1);
+  const buffer=await photoDeTest(page);
+  await page.setInputFiles('#photoFile',{name:'PXL_test.jpg',mimeType:'image/jpeg',buffer});
+  await expect(page.locator('#photoChip')).toContainText('210°');
+  expect(camera).toBe(0);
+  expect(erreurs).toEqual([]);
+});
+
+test('direct : Réglages › Rejouer une photo ouvre la photo (même page, ?mode=photo) et « quitter » revient au direct',async({browser})=>{
+  const ctx=await browser.newContext({viewport:{width:915,height:412},hasTouch:true,locale:'fr-FR',baseURL:`http://127.0.0.1:${+(process.env.PORT||4173)}`,permissions:['camera']});
+  const page=await ctx.newPage(), erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
+  await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
+  await page.goto('/v2/ar.html');
+  expect((await page.locator('#go').innerText()).toLowerCase()).toBe('ouvrir la caméra');
+  const buffer=await photoDeTest(page);
+  await page.setInputFiles('#photoFile',{name:'PXL_test.jpg',mimeType:'image/jpeg',buffer});
+  await page.waitForURL(/\/v2\/ar\.html\?mode=photo&ouvrir=1$/);
+  await expect(page.locator('#photoChip')).toContainText('210°',{timeout:15000});
+  await expect(page.locator('#start')).toBeHidden();
+  await page.click('#photoChip');
+  await page.waitForURL(/\/v2\/ar\.html$/);
+  expect((await page.locator('#go').innerText()).toLowerCase()).toBe('ouvrir la caméra');
+  expect(erreurs).toEqual([]); await ctx.close();
 });

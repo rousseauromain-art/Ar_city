@@ -20,7 +20,7 @@ async function photoAvecSoleil(page,{nuit=false}={}){
 async function ouvrir(page,photo){
   const erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
-  await page.goto('/v2/photo.html');
+  await page.goto('/v2/ar.html?mode=photo');
   await page.setInputFiles('#photoFile',{name:'soleil.jpg',mimeType:'image/jpeg',buffer:photo.buffer});
   await expect(page.locator('#photoChip')).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>!!window.__vh2.app.donnees().pos)).toBe(true);

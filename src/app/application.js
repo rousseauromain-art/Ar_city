@@ -41,6 +41,7 @@ import { creerSourceBatiments } from '../donnees/bdtopo.js';
 import { creerSourceRues } from '../donnees/rues.js';
 import { creerSilhouetteWorker } from '../scene/silhouette-worker.js';
 import { creerUrbain } from './urbain.js';
+import { creerDemarrage, reprendre } from './demarrage.js';
 
 /** @typedef {import('../moteur/classement.js').DonneesScene} DonneesScene */
 /** @typedef {import('../moteur/reglages.js').Reglages} Reglages */
@@ -101,6 +102,8 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
   const sourceNavires = creerSourceNavires({ reseau: /** @type {any} */ (reseau), memoire: memoireDirect, relais, maintenant });
   const sourceBatiments = creerSourceBatiments({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, relais, journal });
   const sourceRues = creerSourceRues({ reseau: /** @type {any} */ (reseau), cache: cacheDonnees, openfreemap, overpass, journal });
+  const demarrage = creerDemarrage({ stockage: st, caches, maintenant, journal }); // dernière position et dernier relief, repris à l'ouverture
+  const garderPosition = (/** @type {Point} */ pos, /** @type {boolean} */ memoire) => { if (!memoire && trafic.mode === 'direct') demarrage.garderPosition(pos); }, garderRelief = (/** @type {Point} */ pos) => { const T = /** @type {any} */ (D.terrain); if (trafic.mode === 'direct' && T && !T.provisoire && encore(pos)) demarrage.garderRelief({ pos, h0: T.h0, solM: T.solM, origine: T.origine, pm: T.pm }); };
   const chargeurTuiles = creerChargeurTuiles({ reseau: /** @type {any} */ (reseauTuiles), decoder: decoderTuile });
   /** @type {import('../scene/masque.js').CalculMasque} */
   let masque = (b, c, o) => calculerMasque(b, c, o);
@@ -180,7 +183,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     try {
       await calculerTerrainAvecRepli({ pos, source: 'mapterhorn', chargeur: chargeurTuiles, masque, correctionOeilM: S.obsHeight || 0, maintenant,
         publier: (t) => { if (!encore(pos)) return; D.terrain = { h0: t.h0, pm: t.pm, bands: t.bands, solM: t.solM, origine: t.origine }; E.terrainCentre = { ...pos }; E.etatRelief = t.refining || t.partial ? 'calcul…' : 'ok'; change('relief'); urbain.recalculer(); } });
-      couvert.terrain = { ...pos }; E.etatRelief = 'ok'; recul.terrain.t = null; recul.terrain.ms = 30000;
+      couvert.terrain = { ...pos }; E.etatRelief = 'ok'; recul.terrain.t = null; recul.terrain.ms = 30000; garderRelief(pos);
     } catch (e) { E.etatRelief = 'indispo'; recul.terrain.t = maintenant(); recul.terrain.ms = reculSuivant(recul.terrain.ms); journal.erreur('app', 'relief', e); }
     occupe.terrain = false; change('relief');
   }
@@ -277,7 +280,7 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     trafic.minuteurRattrapage = setInterval(() => { if (++n > 20 || !D.pos) { clearInterval(trafic.minuteurRattrapage); return; } actualiser(false); }, 3000);
   }
 
-  return {
+  const api = {
     /** Le réseau unique (le carnet de calage s'en sert pour son envoi au relais). */
     reseau,
     /** Le relief affiché est-il périmé pour la position courante (absent, ou calculé à plus de 300 m) ? */
@@ -304,8 +307,9 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
       D.mobiles = r.mobiles;
       return D.mobiles;
     },
-    /** Nouvelle position (GPS, photo, simulation) : les chargements dont le seuil de déplacement est dépassé repartent. @param {Point} pos @param {{force?: boolean}} [o] */
-    definirPosition(pos, { force = false } = {}) {
+    /** Nouvelle position (GPS, photo, simulation) : les chargements dont le seuil de déplacement est dépassé repartent. En direct, la position est gardée pour le prochain démarrage (sauf `memoire` : c'est elle). @param {Point} pos @param {{force?: boolean, memoire?: boolean}} [o] */
+    definirPosition(pos, { force = false, memoire = false } = {}) {
+      garderPosition(pos, memoire);
       if (!force && estBruitGps(D.pos, pos)) return Promise.resolve([]); // un fix GPS à moins de 5 m n est que du bruit : rien ne change, rien ne se relance
       const saut = D.pos ? distanceEtCap(D.pos, pos).distKm : Infinity;
       D.pos = { lat: pos.lat, lon: pos.lon };
@@ -316,6 +320,8 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
       if (saut !== Infinity && saut > 3) rattraper();
       return actualiser(force || saut > 2);
     },
+    /** Démarrage (direct) : repart de la dernière position gardée et du dernier relief calculé à moins de 300 m (app/demarrage.js). @returns {Promise<{lat: number, lon: number, t: number} | null>} */
+    reprendreDemarrage: () => reprendre({ demarrage, D, definirPosition: (p) => api.definirPosition(p, { memoire: true }), avecRelief: reglages().calculRelief !== false, change, journal }),
     /** Après un changement de réglage (rayon, calques, relief…) : relance ce qui est nécessaire. @param {{lieux?: boolean, terrain?: boolean, monuments?: boolean, telecom?: boolean, reperes?: boolean, urbain?: boolean}} [quoi] */
     recharger(quoi = {}) {
       if (quoi.terrain) recul.terrain.t = null; // demande explicite : on oublie le recul
@@ -371,4 +377,5 @@ export function creerApplication({ reglages, journal, stockage, relais, urlWorke
     /** Vrai si un chargement est en cours. */
     occupe: () => Object.values(occupe).some(Boolean) || urbain.occupe(),
   };
+  return api;
 }

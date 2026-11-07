@@ -5,6 +5,25 @@
  */
 import { analyserPhoto, lirePositionTexte, texteInfoPhoto } from '../entrees/photo.js';
 
+/** Photo choisie dans la page en direct, transmise à la page photo (même page, ?mode=photo) par la Cache API de l'appareil : rien ne sort du téléphone. */
+const CACHE_PHOTO = 'vh2-photo-transmise', CLE_PHOTO = 'https://vh2.local/photo';
+/** Ouverte depuis le direct (Réglages › Rejouer une photo) : `?mode=photo&ouvrir=1`. */
+const depuisDirect = /[?&]ouvrir=1(&|$)/.test(location.search) && /[?&]mode=photo(&|$)/.test(location.search);
+
+/** Direct : garde la photo choisie et rouvre la page en mode photo (la v1 rejouait la photo dans la même page ; ici la caméra et les capteurs s'arrêtent proprement). @param {File} f @param {any} journal */
+async function passerEnPhoto(f, journal) {
+  try { await (await caches.open(CACHE_PHOTO)).put(CLE_PHOTO, new Response(f, { headers: { 'X-Nom': encodeURIComponent(f.name), 'Content-Type': f.type || 'image/jpeg' } })); } catch (e) { journal.erreur('photo', 'photo non transmise', e); return; }
+  location.assign('ar.html?mode=photo&ouvrir=1');
+}
+/** Page photo ouverte depuis le direct : relit la photo transmise, puis l'efface. @param {any} journal @returns {Promise<File | null>} */
+async function photoTransmise(journal) {
+  try {
+    const c = await caches.open(CACHE_PHOTO), r = await c.match(CLE_PHOTO); if (!r) return null;
+    const f = new File([await r.blob()], decodeURIComponent(r.headers.get('X-Nom') || 'photo.jpg'), { type: r.headers.get('Content-Type') || 'image/jpeg' });
+    await c.delete(CLE_PHOTO); return f;
+  } catch (e) { journal.erreur('photo', 'photo transmise illisible', e); return null; }
+}
+
 /** @param {import('./contexte.js').Contexte} c @param {ReturnType<typeof import('./calage.js').installerCalage>} calage */
 export function installerPhoto(c, calage) {
   const { S, app, journal, entree, memoires, direct, $, $f, note, sauver, synchroniser, redimensionner, ps, simulee } = c;
@@ -31,6 +50,7 @@ export function installerPhoto(c, calage) {
   }
   function quitterPhoto() {
     if (!ps.photoMode) return;
+    if (depuisDirect) { location.replace('ar.html'); return; } // ouverte depuis le direct (Réglages › Rejouer une photo) : on y revient, comme la v1
     Object.assign(S, ps.photoMode.backup); URL.revokeObjectURL(ps.photoMode.url); ps.photoMode = null; $f('btnBench').disabled = true; syncEpure();
     const img = $('photoBg'); img.hidden = true; img.removeAttribute('src'); $('photoChip').hidden = true; $f('photoInfo').textContent = '';
     synchroniser(); sauver(); $('start').style.display = '';
@@ -48,6 +68,7 @@ export function installerPhoto(c, calage) {
   /** Position simulée : le GPS est ignoré tant que la case est cochée ; décochée, la position revient à la prochaine mesure. */
   const appliquerSimulee = () => { const p = simulee() ? lirePositionTexte(S.simPos) : null; if (p && !ps.photoMode) { app.definirPosition(p); note(`Position simulée : ${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`); } };
   $('simOn').addEventListener('change', appliquerSimulee); $('simPos').addEventListener('change', appliquerSimulee);
-  $f('photoFile').addEventListener('change', (/** @type {any} */ e) => { const f = e.target.files[0]; e.target.value = ''; if (f) ouvrirPhoto(f); });
+  $f('photoFile').addEventListener('change', (/** @type {any} */ e) => { const f = e.target.files[0]; e.target.value = ''; if (f) (direct ? passerEnPhoto(f, journal) : ouvrirPhoto(f)); });
+  if (depuisDirect) photoTransmise(journal).then((f) => { if (f) ouvrirPhoto(f); else $('sheet').classList.add('open'); });
   return { ouvrirPhoto, quitterPhoto, syncEpure };
 }
