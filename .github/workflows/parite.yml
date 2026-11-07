@@ -1,6 +1,7 @@
 name: Parité avec la v1
 
-# Rejoue les scènes réelles (photos et caches du dépôt privé Ar_city-photos) dans la v1 figée et dans la v2, et compare les trames.
+# Rejoue les scènes réelles (photos et caches du dépôt privé Ar_city-photos) dans la v1 figée et dans la v3, toutes greffes éteintes, et compare les trames et les fiches
+# (v3/tests/*.spec.js qui lisent les scènes réelles). La parité v1/v2 (gelée) se relance en local : npx playwright test $(grep -l ignorerSiAbsent v2/tests/e2e/*.js).
 # Lancement manuel seulement (Actions › Parité avec la v1 › Run workflow, au choix sur la branche à tester) : plus de lancement de nuit.
 on:
   workflow_dispatch:
@@ -68,10 +69,10 @@ jobs:
       - name: Tests de parité (partie ${{ matrix.shard }}/4)
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: rapport-parite-${{ matrix.shard }}.json
-        run: npx playwright test $(grep -l ignorerSiAbsent tests/e2e/*.js) --shard=${{ matrix.shard }}/4 --reporter=list,json
+        run: npx playwright test $(grep -l ignorerSiAbsent v3/tests/*.js) --shard=${{ matrix.shard }}/4 --reporter=list,json
       - name: Aucun test ignoré (un test de parité sauté serait un faux vert)
         if: always()
-        run: node tests/helpers/verifier-sauts.mjs rapport-parite-${{ matrix.shard }}.json
+        run: node tests/commun/verifier-sauts.mjs rapport-parite-${{ matrix.shard }}.json
       - uses: actions/upload-artifact@v5
         if: always()
         with:
@@ -100,4 +101,4 @@ jobs:
         env:
           BRANCHE: ${{ github.ref_name }}
           COMMIT: ${{ github.sha }}
-        run: node tests/helpers/resumer-parite.mjs rapports 4 >> "$GITHUB_STEP_SUMMARY"
+        run: node tests/commun/resumer-parite.mjs rapports 4 >> "$GITHUB_STEP_SUMMARY"

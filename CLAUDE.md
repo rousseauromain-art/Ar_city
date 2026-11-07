@@ -1,174 +1,53 @@
 # Villes à l'horizon — contexte pour Claude
 
-Fichier lu au début de chaque session Claude Code. Le tenir à jour à chaque décision importante.
-
-**Toute la refonte (méthode, architecture cible, règles, plan par étapes) : voir `REFONTE.md`** (et `VEILLE-ANCRAGE.md`). **La parité avec la v1 couvre tout ce que l'utilisateur voit ou touche : image, panneaux, aides, fiches, liens.** La v1 figée est la version `2026-10-25 (j)` ; la branche `archive/avant-refonte-2026-10-27` (commit `f61db6e`) garde l'état de `main` d'avant (étiquette impossible à pousser depuis les sessions cloud).
+Lu au début de chaque session. **La spécification en vigueur est `docs/REFONTE-V3.md`** : elle prime sur `v2/REFONTE.md` et sur l'historique. Tenir ce fichier à jour à chaque décision importante.
 
 ## Le projet
-- Application web de réalité augmentée façon PeakFinder. Par-dessus l'image de la caméra, elle affiche :
-  - les noms des lieux et des monuments ;
-  - le relief ;
-  - les bateaux (AIS) et les avions ;
-  - les équipements télécom.
-- `v1/villes-horizon.html` : l'application, version `2026-10-25 (j)` FIGÉE (une seule page, environ 5 200 lignes ; seul changement : `../config.js`). Adresse : https://rousseauromain-art.github.io/Ar_city/v1/villes-horizon.html
-- `villes-horizon.html` (racine) : redirige vers `v1/villes-horizon.html` (anciens liens, raccourci du téléphone).
-- `config.js` (à la racine) : adresse du relais. Il est public et ne contient aucun secret.
-- `index.html` : le lanceur : la version 2 en premier (Réalité augmentée, Photo rejouée), puis les outils de diagnostic, puis la version 1 figée tout en bas.
-- `v2/ar.html` : LA page de la v2, deux entrées comme la v1 : direct (caméra, GPS, boussole/gyroscope, trafic) et `?mode=photo` (photo rejouée, mêmes éléments ; en direct, Réglages › Rejouer une photo rouvre la page en `?mode=photo&ouvrir=1`, « quitter » revient au direct). `v2/photo.html` redirige vers `ar.html?mode=photo`.
-- **Site publié (7/11) :** `construction/construire.mjs` (`npm run build`) construit `dist/` : code et style de la v2 regroupés, minifiés (esbuild) et écrits DANS `v2/ar.html` (une réponse, comme la v1 ; format ESM dans un bloc, jamais d'IIFE : V8 la compilerait d'un coup), workers dans `b/workers/` (trouvés par `new URL('../workers/x.js', import.meta.url)`, `import.meta.url` = l'ancienne adresse `b/ui/page-ar.js`), cartes de sources, service worker `v2/sw.js` versionné (page et workers gardés : l'appli s'ouvre sans réseau) ; v1, debug, outils et `src/` copiés tels quels. `?modules=1` charge les modules bruts. Publication : `.github/workflows/pages.yml` à chaque fusion sur `main` (réglage Pages › Source : « GitHub Actions », à faire par Romain). Banc : `tests/perf/banc.mjs`, chiffres dans `docs/MESURES-V1-V2.md`.
-- `v2/outils.html` + `src/` : fondations de la v2 (étape 1 de `REFONTE.md`) : journal, état, stockage `vh2:`, drapeaux, rapport, réseau unique, Eruda avec `?debug=1`. Rôle de chaque dossier : `docs/ARCHITECTURE.md`.
-- Pages de diagnostic, dans `debug/` (elles chargent `../config.js`) :
-  - `debug/debug-trafic.html` : AIS et avions ;
-  - `debug/debug-profondeur.html` : Depth Anything V2 et SegFormer, rejouer une photo, export JSON ;
-  - `debug/debug-lieux.html`.
-  - `debug/debug-cache.html` : export du cache de l'appareil (relief d'un lieu, données mémorisées) en fichiers de 20 Mo au plus, à déposer dans `Ar_city-photos` ; lit les caches de la v1 puis, en repli, ceux de la v2 (`vh2-terrain`, `vh2-donnees`), sans rien modifier.
-- Relais Cloudflare Worker `villes-horizon-relais` (rousseau-romain.workers.dev) :
-  - les clés AISStream et OpenSky sont stockées en secrets du Worker ;
-  - routes : /planes /ships /osm /telecom /geonames /geoapify /check /monuments /wdtile /ais-debug /calib /calib.csv ;
-  - Durable Objects : `AisHub` (écoute AIS continue par zone de 0,5°, migration v1) et `CalibLog` (SQLite, carnet de calage, migration v2).
-  - **La version la plus récente n'est pas encore dans ce dépôt : la placer dans `relais/` avec `wrangler.json`.**
+Réalité augmentée façon PeakFinder, dans le navigateur : par-dessus la caméra, noms des lieux et monuments, relief, bateaux (AIS), avions, équipements télécom.
+- **v3 = la version active** : `v3/villes-horizon.html`, copie de la v1 (j) + greffes venues de la v2, chacune derrière un interrupteur **éteint par défaut**.
+- **v1 = la référence**, figée : `v1/villes-horizon.html`, version `2026-10-25 (j)`. **Ne jamais la modifier.**
+- **v2 = gelée** (tag `v2-fin`, branche `archive/v2-fin`) : `v2/`. Source des greffes ; on n'y travaille plus. À retirer du dépôt quand la v3 aura remplacé la v1 sur le terrain.
+- Relais Cloudflare Worker `villes-horizon-relais` (`relais/`, ne pas déplacer) ; `config.js` (adresse du relais, public, sans secret) reste à la racine : la v1 et la v3 le lisent en `../config.js`.
+
+## Règles de la v3 (`docs/REFONTE-V3.md` §3)
+1. **Tout éteint = v1** : toutes greffes éteintes, même trame de dessin et même interface que la v1 sur les scènes réelles (`v3/tests/tout-eteint-v1.spec.js`).
+2. **Une greffe = un fichier `v3/greffes/<id>.js` + un interrupteur**, éteint par défaut, branchée par un point d'entrée court (`G.actif('lune')&&G.lune.caler()`). Son fichier n'est chargé que si elle est allumée. Elle recopie le code utile de la v2 ; **elle n'importe rien de `v2/`**.
+3. Deux types : *ajout* (une fonction en plus) ou *remplacement* (l'interrupteur choisit entre la v1 et la v2).
+4. Tests : chaque greffe seule, puis toutes allumées ; pas toutes les combinaisons.
+5. Validée : elle devient la règle (on retire l'interrupteur et l'ancien code). Rejetée : on supprime son fichier. **Seul Romain change l'état « terrain » de `docs/ETAT.md`.**
+6. Panneau « Greffes v2 » dans les Réglages (interrupteur, phrase, état) ; aussi par l'adresse : `?g=lune,permutation`, `?g=tout`. Les greffes allumées sont dans le Diagnostic et dans chaque mesure du carnet de calage.
+7. **Le code de la v1 n'est pas réécrit** dans la v3 : seuls les points d'entrée, les pierres tombales `tombe('id')` (§6 : compteurs de passage du code suspect, affichés dans le Diagnostic) et le correctif du glisser avec roulis (§5). Ni renommage, ni reformatage.
+8. La v3 reste une page unique ; les greffes se chargent à la demande.
+9. Données : la v3 partage les caches de la v1 (mêmes noms, même format) ; ses réglages sont sous `vh3_settings` (recopiés une fois depuis `vh_settings_v2`), les interrupteurs sous `vh3_greffes`, les pierres tombales sous `vh3_tombes`. Une greffe ne modifie jamais les réglages de la v1.
+
+## Où est quoi
+- `index.html` : page d'accueil, seule page à la racine (v3 en premier, v1 « référence », v2 « gelée »).
+- `v3/villes-horizon.html` (page), `v3/greffes.js` (registre, panneau, pierres tombales), `v3/greffes/` (une greffe par fichier ; `_astre.js`, `_geoide-egm96.js` : outils partagés, pas des greffes), `v3/tests/` (tests de la v3 et de la v1 de référence).
+- `v2/` : `ar.html`, `photo.html`, `outils.html`, `src/`, `construction/construire.mjs`, `tests/`, `docs/`, `REFONTE.md`, `eslint.config.mjs`, `tsconfig.json`.
+- `tests/commun/` : harnais partagé (serveur de test qui injecte le crochet `hook.js` dans v1 et v3, `app.js`, rejeu des caches `cache.js`, scènes réelles `scenes-reelles.js`, enregistreur des traces, banc de vitesse `banc.mjs`, écarts acceptés, caractérisation `dump-v1`).
+- `debug/` : outils (trafic, profondeur, lieux, export du cache `debug-cache.html`).
+- `docs/` : `REFONTE-V3.md`, `ETAT.md` (une ligne par sujet et par greffe), `VEILLE-ANCRAGE.md`, `decisions/`.
+- `.github/workflows/` : `tests.yml` (v3 à chaque envoi ; v2 seulement si `v2/` change), `pages.yml` (publication à chaque fusion sur `main`), `parite.yml` (à la main : v1 contre v3, greffes éteintes, sur les scènes réelles), `tag-v2-fin.yml` (pose le tag `v2-fin` une fois, à supprimer ensuite).
+
+## Tests
+- `npm run test:v3` (unitaires des greffes, rapides), `npx playwright test --project=v3` (v3 et v1 dans la page), `--project=v2` (v2 gelée). Lint, types, unitaires et intégration de la v2 : `npm run lint`, `types`, `test:unit`, `test:integration`.
+- Les tests sur scènes réelles lisent le dépôt privé `rousseauromain-art/Ar_city-photos` (`PHOTOS_DIR`, photos avec EXIF et exports du cache) ; ils sont ignorés sans lui, sauf avec `PARITE_OBLIGATOIRE=1`. Ne jamais committer photos ni exports dans `Ar_city`.
+- Réseau des sessions cloud limité aux registres et à GitHub : les tests simulent relief, Overpass, Wikidata et relais. Aucune livraison sans tests verts. Bug signalé : le reproduire d'abord avec la version d'avant.
 
 ## Romain, l'utilisateur
-- **Langue et ton :** français, réponses concises, livrables finis plutôt qu'un récit des étapes.
-- **Erreurs :** il les conteste fermement ; reconnaître les siennes sans détour.
-- **Code :** fonctions génériques et réutilisables. Une correction s'applique à tous les cas semblables, donc à tous les calques.
-- **Coût :** uniquement des solutions gratuites.
-- **Confidentialité :** les données réelles d'équipements TDF/ARCAD sont confidentielles. Ne jamais les demander.
-- **Matériel :** il travaille **uniquement sur son téléphone** (Google Pixel, Android, Chrome) : pas de PC, pas de terminal, pas de git en ligne de commande.
-- **Ne jamais lui demander de lancer une commande git ou un terminal.** Claude fait tous les commits, branches, envois et pull requests. Romain ne fait que : tester sur le téléphone, fusionner une PR (bouton « Merge » de GitHub dans le navigateur ou l'appli), déposer des fichiers via le site GitHub (« Add files via upload », par exemple dans `Ar_city-photos`). Toute consigne à son attention se donne en gestes sur le téléphone.
+- Français, réponses concises, livrables finis plutôt qu'un récit. Il conteste fermement les erreurs : reconnaître les siennes sans détour.
+- Fonctions génériques ; une correction s'applique à tous les cas semblables. Uniquement des solutions gratuites.
+- Données réelles d'équipements TDF/ARCAD confidentielles : ne jamais les demander.
+- **Il travaille uniquement sur son téléphone** (Pixel, Android, Chrome) : jamais de commande git ni de terminal à lui demander. Claude fait commits, branches, envois et PR ; Romain teste, fusionne (bouton « Merge ») et dépose des fichiers par le site GitHub. Consignes en gestes sur le téléphone.
 
 ## Règles de travail
-- **État des sujets :** `docs/ETAT.md` (une ligne par sujet : état, preuve, terrain). **Chaque PR met à jour `docs/ETAT.md`.**
-- **Branches :** `main` est la version en ligne. Une branche par sujet ; on relit le diff, puis on fusionne.
-- **Tests :** aucune livraison sans tests automatiques verts.
-- **Bug signalé :** le reproduire d'abord avec la version d'avant, puis vérifier qu'il disparaît.
-- **Version :** `APP_VERSION`, en début de script, prend la date et une lettre, suivies d'un résumé.
-- **Historique :** il va dans les messages de commit, plus dans des commentaires datés. Le fichier en contient environ 90, à alléger au nettoyage.
-- **Réseau des sessions cloud :** il est limité aux registres de paquets et à GitHub. Les tests simulent donc les tuiles de relief, Overpass, Wikidata et le relais.
+- Une branche par sujet, une PR par lot ; **chaque PR met à jour `docs/ETAT.md`**.
+- Historique dans les messages de commit, pas dans des commentaires datés.
+- Les sessions cloud ne peuvent pas pousser d'étiquette git : passer par un workflow (comme `tag-v2-fin.yml`).
 
-## Architecture : fonctions clés de villes-horizon.html
-- **Affichage, `draw()`** (30 images/s au plus) :
-  - `placed` : rectangles et polygones déjà réservés ;
-  - `rectHit` et `polysOverlap` : tests de chevauchement ;
-  - placement générique : `placeSlanted` (noms inclinés à 45°, mémoire `lblMem`) et `placeFlat` ;
-  - `uiObstacles()` : réserve la place des boutons du bas.
-- **Lieux, `visibleCities()` :**
-  - filtres : rayon, puis portée selon le type de lieu ;
-  - monuments : angle apparent d'au moins 0,12°, 40 noms nets au plus, les 15 plus proches toujours nets ;
-  - masquages : toits en ville dense, monuments entre eux, règle de la photo ;
-  - modes : Essentiel n'affiche que ce qui est visible ; Tout voir (bouton œil) ajoute le reste en transparence.
-- **Relief, `computeTerrain()` :**
-  - sources Mapterhorn : z13 fin (IGN en France) jusqu'à 5 km, puis z12, z11 et z8 (Copernicus 30 m) ;
-  - deux passes : le relief lointain est publié d'abord ;
-  - sous 300 m (`NEAR_KM`), on utilise la bande grossière.
-- **Hauteur d'œil :**
-  - le sol est relu dans le relief fin après la 2e passe (`fineGround`, correctif du 25/10/2026 pour les remparts de Saint-Malo) ;
-  - repli : 15e centile du modèle 30 m, mer exclue ;
-  - correction manuelle : `S.obsHeight`.
-  - Voir aussi `applyOcclusion` et `assessPlace`.
-- **Monuments :**
-  - Wikidata en tuiles, via le relais :
-    - `/wdtile` jusqu'à 15 km : au moins un article Wikipédia, ou monument historique ;
-    - `/monuments` au-delà de 15 km : au moins 80 langues ;
-  - tri par type avec `wdClassify` ;
-  - `applyMonuments` :
-    - plus de seuil de langues depuis la version (j) ;
-    - un monument peu connu, sans hauteur, est supposé faire 12 m ;
-    - plafond : 150 monuments, plus les 80 plus proches ;
-  - OpenStreetMap, par tuiles `otTile` (clé `ot2/n`) : tours télécom, bâtiments hauts, statues (`statueMonuments`, jusqu'à 800 m, 300 m en ville dense).
-- **Mobiles, `mobiles()` :**
-  - bateaux :
-    - noms à plat, en escalier sous l'horizon ;
-    - les plus proches sont nommés d'abord (`shipSel`) ;
-    - les autres sont regroupés en pastilles « +N », jamais « +1 » ;
-  - avions : `mobSpec` ;
-  - mémoire des positions : `liveRestore` et `liveSave` (cellules de 0,1°, 9 voisines lues).
-- **Calage :**
-  - `runAutoAlign0()`, dans cet ordre : soleil (`sunAlign`), puis relief (`cleanHorizonPts` et `fitHorizon`, avec garde-fous ville dense et écart > 3°), puis repères (`landmarkAlign`) ;
-  - `pointCalibrate` : toucher un repère, le soleil ou le sommet d'un monument ;
-  - boussole et gyroscope combinés par secteurs ;
-  - carnet de calage : `calRecord` et `calFlush`, envoyés au relais sur `/calib`.
-- **Rejouer une photo :**
-  - `readExif` lit le GPS, l'heure (avec OffsetTimeOriginal), la focale en équivalent 24×36 et la direction ;
-  - la direction est décalée de +90° sur Pixel en paysage, et peu fiable en portrait ;
-  - `photoBench()` ; les mobiles sont désactivés dans ce mode.
-- **Cache générique :** `dcFetch`, `dcRead` et `dcPut`, sur la Cache API. Il faut du http(s) : pas de `file://`.
-
-## Tests (`tests/`, lancés par `npm test` et par GitHub Actions à chaque envoi et pull request)
-- **Technique :**
-  - Playwright avec Chromium, page servie en http local (`tests/helpers/server.js`) ; le crochet n'est injecté que dans `/v1/villes-horizon.html` ;
-  - un crochet (`tests/helpers/hook.js`) injecté juste avant le dernier `})();` du script donne accès aux variables internes (`__vh.ev`) et capture les textes d'une image (`__vh.frame`) ;
-  - `loadTileData` (relief synthétique), `overpassQuery` et `fetch` sont remplacés par des simulations ; horloge figée ; aucun accès réseau réel (`tests/helpers/app.js`).
-- **Photos et caches de test, hors du dépôt public :** dépôt privé `rousseauromain-art/Ar_city-photos` (photos originales avec EXIF) ; exports du cache faits avec `debug/debug-cache.html` (le relief d'un lieu s'exporte lieu par lieu, après avoir ouvert l'appli ou rejoué la photo à cet endroit ; les données en une fois), à y déposer aussi, par paquets de 20 Mo au plus (`..._p1sur3.json`, tous à déposer) ; `tests/helpers/cache.js` (`readDump`, `readDumps` et `readExports` pour les paquets et plusieurs exports, `seedCaches`) rejoue un export dans la Cache API de la page : le vrai code relit relief, lieux et monuments comme sur le téléphone. Ne jamais committer photos ni exports dans `Ar_city`. **CI allégée (31/10, demande de Romain : les tests e2e bloquaient les fusions pour rien) :** `tests.yml` ne fait plus que lint, types et tests unitaires (rapides). Les tests e2e et la parité avec la v1 ne tournent plus à chaque envoi : Romain valide sur le téléphone ; Claude lance en session les tests ciblés utiles (`npm run test:e2e`, un fichier à la fois) mais ne bloque plus une livraison dessus. La parité reste lançable à la main : `.github/workflows/parite.yml` (Actions › « Parité avec la v1 » › Run workflow ; secret `PHOTOS_TOKEN` en lecture seule sur `Ar_city-photos`, résumé en tête avec la cause et la marche à suivre si l'accès échoue) ou en session (`PHOTOS_DIR=… PARITE_OBLIGATOIRE=1 npx playwright test $(grep -l ignorerSiAbsent tests/e2e/*.js)`). Les fichiers `.md` seuls ne lancent plus la CI.
-- **Commandes (CI à chaque envoi et pull request) :** `npm run lint` (ESLint sur `src/`, `tests/unit/` et `tests/integration/` ; erreurs : imports interdits d'après `docs/dependances.json`, `no-restricted-imports` ; avertissements : fonction > 40 lignes, complexité > 15, fichier > 300 lignes, avec un cliquet `--max-warnings=91` à ne jamais augmenter : c'est la liste de travail du découpage), `npm run types` (`tsc --noEmit`, JSDoc strict), `npm run test:unit` (`node:test`, `tests/unit/*.test.mjs`, rapides : environ 2 s) et `npm run test:integration` (`tests/integration/*.test.mjs` : relief, lieux, monuments et calage sur relief synthétique, environ 40 s ; job séparé en CI), `npm run test:e2e` (Playwright), `npm test` (tout) ; `npm run dump:v1` (harnais ci-dessous, local).
-- **Harnais de caractérisation (`tests/caracterisation/`) :** `npm run dump:v1` rejoue les scènes de `scenes.mjs` dans la v1 figée (vrai code, caches de `Ar_city-photos` rejoués) et écrit un JSON par scène et par mode (Essentiel / Tout voir) : par calque et par élément, `etat` (net / transparent / absent), `raison`, `rendu` (dessiné / hors champ / sans place), position et opacité. Dumps dans `Ar_city-photos/dumps/` (privé). Voir `tests/caracterisation/LISEZMOI.md`.
-- **Visent la v1 (j), lancés :** chargement et syntaxe de `v1/`, redirection racine, lanceur, pages de diagnostic, bloc WDCLASS identique, noms de lieux sans chevauchement, rempart de Saint-Malo (avec contrôle), port dense.
-- **Apports des 26–27/10 :** tous repris dans la v2 ou écartés (le dossier `tests/a-reprendre/` est supprimé depuis le nettoyage 3 ; la règle du « repli à plat » des lieux sans place n'est volontairement pas reprise : cause probable de régression).
-- **Contexte :** les 47 séries précédentes, écrites hors du dépôt, sont perdues.
-- **À couvrir en priorité :**
-  - **Relief :**
-    - les deux passes et le repli AWS ;
-    - la hauteur d'œil sur un rempart : la jetée ne doit pas cacher Dinard ;
-    - Turin : toits contre Alpes ;
-    - les crêtes.
-  - **Étiquettes :**
-    - aucun chevauchement ;
-    - port dense : les plus proches sont nommés, pastilles « +N », jamais « +1 » ;
-    - aucun nom sous les boutons du bas ;
-    - avions.
-  - **Monuments :** classement par type, plafonds, statues OSM, masquage entre monuments.
-  - **Calage :**
-    - soleil, sans se laisser piéger par les reflets ;
-    - relief et repères ;
-    - toucher un repère ;
-    - carnet de calage.
-  - **Photo rejouée :** EXIF, correction Pixel, rattrapage après un saut de position.
-  - **Autres :** caches (vivant, `dcFetch`, tuiles), trames AIS au format Blob, KMZ/KML, boutons et calques.
-
-## Faits établis sur le terrain
-- **Calage sur photos (26/10/2026) :** Ibiza, direction EXIF + 90° = 267° contre soleil calculé 267,1° (le recalage sur le soleil donne −2,3° de cap). Saint-Malo : la direction EXIF est fausse d'environ 14° (le recalage sur les repères, −14,4°, remet le fort du Petit Bé à sa place). Turin : le recalage (−19,4°, champ 71,5° → 58,5°) dégradait un cap EXIF juste ; cause : concordances fortuites de repères en ville dense (corrigé par un test de permutation dans `landmarkFit`, repris dans la v2 à l'étape 11b : Turin n'est plus recalé à tort). Le champ affiché à Turin (58,5°) n'est pas reproduit sans les données de Turin : voir l'export du cache.
-- **Pixel :** la direction EXIF est décalée de +90° en paysage (vérifié sur 3 photos).
-- **Boussole :** 30 à 40° d'erreur près du métal (port de Saint-Malo).
-- **Horizon :** les pieds des passants donnent un indice d'horizon.
-- **Photos de test :** les pièces jointes du chat perdent leurs EXIF. Déposer les originaux dans `tests/photos/<lieu>/`, avec un LISEZMOI : téléphone, ce qu'on voit, cap réel s'il est connu.
-- **Wikidata :** beaucoup de monuments de Saint-Malo n'ont pas de hauteur. Repli pour les lieux (étape 11l) : quand Overpass est en échec, les lieux viennent aussi de Wikidata.
-
-- **Relief en direct (31/10) :** un GPS de téléphone change de position de quelques mètres à chaque fix ; la v2 jetait alors tous les chargements en cours (`encore(pos)` exigeait la même position à la virgule près) : jamais de relief, lieux manquants. Corrigé : « même endroit » = à 300 m près, fix GPS à moins de 10 m ignoré (`src/app/position.js`), recul progressif après un échec du relief, bouton « Recalculer le relief » avec message d'état réel. Test : `tests/e2e/relief-direct-v2.spec.js` (GPS qui bouge, tuiles simulées).
-- **Terrain (31/10) :** puce « œil » : la rose des vents (svg) recouvrait la puce en portrait et avalait les touchers (`pointer-events:none`) ; calage sur le soleil en roulant (> 3 m/s, vitesse GPS) : la boussole est faussée par la carrosserie, le soleil est cherché dans toute l'image (mode « large ») ; mode hors ligne actif : « Télécharger cette zone (150 km) » (lieux dans l'atlas + tuiles de relief gardées) et « Supprimer » (`app.telechargerZone`, `infoZone`, `supprimerZone`).
-- **Altitude GPS d'Android (31/10) :** elle est mesurée au-dessus de l'ellipsoïde WGS84, pas du niveau de la mer : en Bretagne le recalage automatique de l'œil donnait +48 m (géoïde EGM96 = 49 m). `noyau/geoide.js` (grille EGM96 à 3°, `geoide-egm96.js`, erreur 1 à 2 m en Europe) est retranchée sur Android ; le détail de la puce affiche « altitude GPS − géoïde ». Puce œil : la règle `.chips.folded #eyePop{display:none}` cachait sa fenêtre quand le bandeau était replié.
-- **Calage soleil en direct (1/11) :** le câblage (bouton cible, réticule puis toucher) est couvert par `tests/e2e/calage-soleil-direct.spec.js` (vidéo synthétique avec un disque de soleil, boussole fausse). Pointage : un toucher à moins de 8° du disque du soleil DÉTECTÉ dans l'image vaut « voici le soleil » même si la boussole est fausse de plus de 12° (en voiture : 30 à 50°) ; la correction vient alors du disque, pas du doigt.
-- **Rotation d'écran (1/11) :** si la rotation automatique d'Android est coupée, l'écran reste en portrait alors que le téléphone est tenu en paysage (image et noms de travers). `entrees/rotation.js` (pur) : en direct, roulis > 50° pendant plus de 1,5 s avec `screen.orientation.type` en portrait → bandeau « Téléphone en paysage, écran en portrait : activez la rotation automatique (réglages rapides d'Android) » ; il disparaît dès que la condition cesse, au plus une fois toutes les 5 min ; une ligne « rotation » dans le Diagnostic.
-- **Bandeau de rotation stable (1/11) :** le bandeau « écran en portrait, téléphone en paysage » disparaissait au premier instant sous 50° de roulis (téléphone levé vers le ciel) puis n'avait plus le droit de revenir pendant 5 min. Maintenant : entrée à > 50° pendant > 1,5 s, maintien par hystérésis tant que le roulis dépasse 35°, sortie seulement après 2 s continues hors condition, pause de 5 min comptée depuis cette sortie ; un toucher sur le bandeau le ferme.
-- **Couches perso KMZ/KML en v2 (2/11) :** le code de lecture existait (`donnees/kml.js`, `couches-perso.js`, calque `kml`) mais RIEN ne l'appelait dans les pages. Branché : `app/couches.js` (mémoire sur l'appareil `vh2-couches-perso`, import, modification, suppression, recherche, distances recalculées à chaque position), panneau « Couches perso · importer un KMZ » dans Calques (`ui/couches-perso.js` + `ui/couches-perso-vue.js`) : ajouter un .kmz/.kml, nom, couleur, champ affiché, distance, visible, structure du fichier (sans valeurs), supprimer, recherche de sites en gras ; fiche au toucher d'un site (champs, description, liens). Lu dans le navigateur, jamais envoyé (test : aucune requête réseau). Test : `tests/e2e/kmz-v2.spec.js`. Au passage : les fiches des éléments de la bande recevaient l'élément de la bande au lieu de son objet d'origine (`source`) : corrigé dans `scene/toucher.js`.
-- **Ancrage, A (2/11, `VEILLE-ANCRAGE.md` §4) :** la règle de la v1 « désaccord boussole / gyroscope > 40° pendant 2 s → retour à la boussole et calage défait » (saut de 45° vu à Grenelle) est remplacée en v2 : retour à la boussole seulement sur un vrai saut du repère du gyroscope (saut instantané > 40° d'une mesure à l'autre, ou réouverture de l'appli/caméra : `signalerReouverture`) ; un désaccord sans saut = « boussole perturbée » (ignorée, le cap suit le gyroscope, le calage tient), de nouveau fiable après 2 s d'accord. Tests : `tests/unit/capteurs.test.mjs` (parité v1 gardée pour la rotation normale).
-- **Ancrage, C (3/11) :** recalage continu du cap sur le soleil et la lune (`calage/continu.js` pur, `ui/calage-continu.js`, réglage `calageContinu` décoché par défaut, direct seulement) : deux détections concordantes à 1° près sur 3 s, téléphone stable, écart plausible, un demi-pas toutes les 10 s au plus, cumul ±20°. Test : `tests/e2e/calage-continu-direct.spec.js`. Au passage : la case « Hauteur d'œil d'après l'altitude GPS » s'affichait cochée alors que le défaut est décoché depuis la PR 62.
-- **Ancrage, B (3/11) :** capteur d'orientation relatif à 60 Hz en essai (`entrees/capteurs.js` : `axesDepuisQuaternion`, `surQuaternion` ; `entrees/direct.js` : `RelativeOrientationSensor`, repli sur `deviceorientation`) ; réglage `capteurRelatif` décoché par défaut ; Diagnostic « source des rotations ». Test : équivalence avec `axesCamera` sur 200 orientations ; e2e avec un faux capteur. À valider sur le Pixel.
-- **Ancrage, E (3/11) :** prototype de suivi visuel WebXR (`entrees/webxr.js`, bouton dans les Réglages, `fusion.suiviExterne`) : essai, non mesuré sur un vrai téléphone. Conversion de repère testée (`tests/unit/webxr.test.mjs`), e2e avec un faux `navigator.xr`.
-
-- **Calage guidé (3/11) :** en direct, le bouton cible dit quoi viser (`calage/guide.js` pur, `ui/calage-guide.js`) : soleil de jour, lune de nuit, sinon relief/repères ; message « Visez le soleil : tournez de N° vers la droite/gauche » dans `#guideMsg`, puis calage automatique dès que la cible est dans le champ ; boussole douteuse → « Caler auto » d'abord ; un second toucher annule. Tests : `tests/unit/calage-guide.test.mjs`, `tests/e2e/calage-guide-direct.spec.js`.
-
-- **Remise au niveau de la v1 (7/11) :** fiches au toucher = fonctions de la v1 DÉPLACÉES (`scene/toucher.js:hitBest`, `ui/fiche-contenu.js` pur en HTML : showGroupSheet, monumentBlock, monDiag, telecomBlock, mobileBlock, userBlock ; `fillOsmEdits` → `app/modifs-osm.js`), panneau plein écran `#dbg` ; lieu : lien Wikipédia direct si tag wikidata/wikipedia (gardés par `donnees/overpass.js:liensWiki`), sinon « Rechercher sur Wikipédia » ; aides « ? », résumés des sections et cases des catégories de repères de la v1 (`ui/aides.js`) ; 6 options d'essai rangées dans « Essais » ; « Caler » cale tout de suite, le guidage vient au second toucher (15 s) ou en repli, jamais si la boussole est douteuse ; démarrage : dernière position (« position de HH:MM ») et dernier relief (provisoire, sans verdicts) (`app/demarrage.js`). Tests : `interface-parite`, `fiches-parite`, `affichage-reel-v2` (Paris, Cesson, aussi en direct), écarts dans `tests/ecarts-acceptes.json` (domaines interface, fiches, calage). Cesson (06/11) : v1 = v2 (31/10, 06/11, 7/11) sur les données exportées ; le relief de Cesson manque (227/262 tuiles) et l'export ne lisait pas les caches de la v2 (corrigé dans `debug/debug-cache.html`).
-- **Se caler en ville (5/11) :** `donnees/bdtopo.js` + `scene/silhouette-batiments.js` (+ Worker) + `calques/batiments.js` : silhouette des bâtiments de la v1, enfin portée (calque éteint ; identique à la v1 au bit près hors courbure terrestre : `tests/integration/silhouette-v1.test.mjs`) ; `donnees/rues.js` (OpenFreeMap z14, repli Overpass) ; `calage/rue.js` (cap sur l'axe de la rue : « visez le point où se rejoignent les bords de la rue », deux boutons si carrefour ou boussole douteuse) ; `scene/position.js` (GPS : médiane pondérée à l'arrêt, ramené hors des bâtiments chargés, puce « ± précision ») ; `calage/toits.js` (cap seulement, ±45°, bâtiments à plus de max(60 m, 8 × précision), test contre les silhouettes répétitives `calage/permutation.js`) ; `calage/position-toits.js` (essai, `positionToits` décochée) ; `calage/ombre.js` (bouton Ombre) ; `calage/adresse.js` (bouton Plaque, confirmation obligatoire) ; `scene/pas.js` (position corrigée qui avance de 0,7 m par pas ; le GPS la reprend après 20 s d'écart de plus de 2 × sa précision). Les bâtiments ne se chargent que si le calque est coché, si la position par les toits l'est, ou à la demande d'un calage en ville : pas de téléchargement automatique de 12 Mo. WebXR : fond transparent sur `<html>`, caméra libérée avant la session, `camera-access` demandé, calages sur l'image grisés sans lui. `docs/ETAT.md` : une ligne par sujet.
-
-## À faire (point du 25/10/2026)
-0. **Refonte :** étapes 0 à 8 faites, étape 9 terminée et étape 10 terminée (10a soleil + pointage, 10b analyse de la photo, 10c « Caler auto » (relief, repères), 10d carnet de calage, écart appris et banc d'essai ; à valider sur le terrain) ; étape 11 (évolutions) à lancer, voir la liste ci-dessous et `REFONTE.md` §9 ; pour mémoire 9a moteur de scène `src/moteur/` fait, 9b page photo `v2/photo.html` + `src/app/` + `src/ui/` + `src/entrees/photo.js` faite, 9c page direct `v2/ar.html` + `src/entrees/capteurs.js` et `direct.js` faite : étape 9 terminée, à valider sur le terrain) (v1 figée, lanceur, fondations v2, harnais, `src/noyau/`, `src/donnees/`, `src/scene/`, `src/rendu/`, calques `relief`, `photo-silhouette`, `lieux`, `monuments`, `equipements` (urbains et pylônes), `reperes` (repères hauts OSM), `kml`, `avions`, `bateaux` ; bande commune `rendu/bande.js` ; données du trafic en direct) ; la suite est dans `REFONTE.md` §9.
-1. **Dépôt propre :**
-   - relais dans `relais/` ;
-   - tests et GitHub Actions (socle en place, voir « Tests ») ;
-   - puis découpe en modules (sans outil de construction) ;
-   - puis suppression du code mort : ancien placement des bateaux, moteur de relief v1, ancien mode Wikidata, etc.
-2. **Hauteur d'œil à l'écran :** puce « œil » reprise dans la v2 (étape 11a). **Le GPS propose, il n'impose pas (1/11, comme la v1 ; `docs/decisions/003-hauteur-oeil-le-gps-propose.md`) :** par défaut l'œil est au sol du relief fin + 1,6 m + la correction à la main ; la fenêtre de la puce affiche « GPS : +X m (±Y m) » et « Appliquer » seulement si la médiane d'au moins 10 mesures sur 20 s s'écarte du sol d'au moins 10 m avec une précision ≤ 10 m (`scene/oeil-gps.js`, géoïde retranché sur Android) ; case `oeilGps` (décochée par défaut) = automatique : mêmes conditions, au plus toutes les 2 min, jamais sur le relief fin sous 15 m d'écart ; `obsHeightSrc` (`gps` / `main`) mémorise l'origine de la correction ; migration unique `migrationOeil` ; le Diagnostic donne altitude GPS, géoïde, sol et origine, dispersion des 10 dernières mesures. Bouton « Réestimer » : correction à 0.
-3. **Boutons et calage :**
-   - (fait à l'étape 11d : un libellé sous chaque icône de la colonne de boutons) ;
-   - un calage guidé en un seul bouton (« visez le soleil / la lune / ce repère ») ;
-   - (fait à l'étape 11i : l'échelle du champ calée avec 2 repères touchés, en direct ; mémorisée avec les réglages).
-4. **Calage de nuit sur la lune (étape 11h, validé sur 2 photos réelles) :** position calculée avec la parallaxe (`positionLune`, vérifiée contre une éphéméride à 0,4°), puis tache ronde et brillante près de la position prévue (même détection que le soleil) ; « Caler auto » l'essaie quand le soleil est couché. Éprouvé le 30/10 sur deux vraies photos (Bretagne 27/08 : correction +0,7° ; Ibiza 21/09 en mode nuit ultra grand angle : cap EXIF faux de 18°, retrouvé) : le symbole de la lune tombe sur le disque brillant (test local `photo-lune-reelle.spec.js`).
-5. **Caler auto :** réglage « le relief avant le soleil » ajouté à l'étape 11c (décoché par défaut). Mesure sur les 4 photos réelles : quand le soleil est visible, le relief seul se trompe jusqu'à 3° (Morgat : −4,3° contre −7,3° pour le soleil, et le champ change à tort) ; le soleil reste donc en premier par défaut. À rediscuter avec Romain.
-6. **Banc d'essai sur `tests/photos` :** cap EXIF comparé au soleil, par téléphone et par orientation, et écart de chaque méthode.
-7. **IA de profondeur :** à réévaluer avec le banc d'essai. Le résultat de Saint-Malo n'est pas concluant : 2 points seulement, sur une scène simple.
-8. **Rejouer une photo :** lire l'altitude EXIF comme indice de hauteur d'œil.
-9. **Relief séparé du masquage (fait à l'étape 10f, 30/10) :** « Calculer le relief » (`calculRelief`, ligne d'horizon, crêtes, calage ; la ligne est affichée par défaut) est indépendant de « Cacher ce qui est derrière le relief » (`relief`, masquage). Éteindre le calcul éteint le masquage ; cocher le masquage rallume le calcul.
-   **Masquage par le relief (retour de Romain, 29/10, Saint-Malo), reste à traiter à l'étape 11 :** l'option « masquer ce qui est caché par le relief » fait disparaître des bâtiments pourtant visibles (le fort du Petit Bé, visible, a été traité comme un caillou). But voulu : en ville, tous les bâtiments ; sur un paysage, plutôt les lieux que les bâtiments lointains ; mais un fort ou un monument visible reste affiché. À traiter à l'étape 11 : comparer le verdict du relief avec la silhouette lue sur la photo, et ne pas masquer ce que la photo montre.
-10. **Relais :**
-   - déployer AisHub et CalibLog (migrations v1 et v2) si ce n'est pas fait ;
-   - ajouter au CORS (`ALLOWED_ORIGIN`) les adresses de prévisualisation si l'on passe par Cloudflare Pages.
+## Faits établis sur le terrain (à garder)
+- Pixel : direction EXIF décalée de +90° en paysage, peu fiable en portrait. Saint-Malo : EXIF faux d'environ 14°. Boussole : 30 à 40° d'erreur près du métal, 30 à 50° en voiture.
+- Turin : concordances fortuites de repères en ville dense (cap −19,4° à tort) → greffe `permutation`.
+- Altitude GPS d'Android au-dessus de l'ellipsoïde (géoïde 49 m en Bretagne) → greffe `oeil`, qui le retranche.
+- Rotation automatique coupée : écran resté en portrait, téléphone en paysage → greffe `rotation` et correctif §5 du glisser.
+- Les pièces jointes du chat perdent leurs EXIF : déposer les originaux dans `Ar_city-photos`.
