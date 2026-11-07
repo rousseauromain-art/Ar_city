@@ -1,4 +1,4 @@
-// Ouverture d'une SCÈNE RÉELLE dans la v1 figée (photos et caches du dépôt privé Ar_city-photos) : le vrai code relit les caches rejoués,
+// Ouverture d'une SCÈNE RÉELLE dans la v1 figée (ou la v3 : opts.url, opts.greffes) (photos et caches du dépôt privé Ar_city-photos) : le vrai code relit les caches rejoués,
 // rien n'est simulé. Sert aux tests de parité v1/v2. Ignorer le test si le dépôt privé est absent (CI sans jeton, REFONTE.md §9).
 const fs=require('fs'), path=require('path');
 const {openApp}=require('./app.js');
@@ -36,7 +36,7 @@ async function attendreStable(app,minMs=3000){
 }
 
 /**
- * sc : { id, photo?, pos?, capDeg?, radius, heure? (ISO), ecran? }. opts.reglages : réglages de la v1 en plus des réglages de base.
+ * sc : { id, photo?, pos?, capDeg?, radius, heure? (ISO), ecran? }. opts.reglages : réglages de la v1 en plus des réglages de base ; opts.url, opts.greffes : page (v3) et greffes allumées.
  * Retourne { app, page, ctx, pos, erreurs, cap0 } ; après l'appel le relief est complet et les altitudes des lieux relues.
  */
 async function ouvrirSceneReelle(browser,sc,opts={}){
@@ -48,7 +48,7 @@ async function ouvrirSceneReelle(browser,sc,opts={}){
   const page=await ctx.newPage(), erreurs=[]; page.on('pageerror',e=>erreurs.push(String(e)));
   await page.addInitScript({path:path.join(__dirname,'enregistreur.js')});
   const settings={radius:sc.radius,headOff:sc.capDeg||0,pitchOff:0,...(opts.reglages||{})};
-  const app=await openApp(page,{reel:true,start:false,time:sc.heure?new Date(sc.heure):undefined,settings,pos});
+  const app=await openApp(page,{reel:true,start:false,time:sc.heure?new Date(sc.heure):undefined,settings,pos,url:opts.url,greffes:opts.greffes});
   const urls=reliefUrls(pos).tout;
   await seedCaches(page,{entries:exportsCache().entries.filter(e=>e.c==='dc'||urls.has(e.k))});
   await page.click('#go');

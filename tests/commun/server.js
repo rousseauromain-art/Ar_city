@@ -1,4 +1,4 @@
-// Serveur http local des tests : sert le depot tel quel (comme GitHub Pages) et, pour v1/villes-horizon.html seulement,
+// Serveur http local des tests : sert le depot tel quel (comme GitHub Pages) et, pour v1/villes-horizon.html et v3/villes-horizon.html seulement,
 // injecte le crochet de test (hook.js) juste avant le dernier "})();" du script principal.
 const http=require('http'), fs=require('fs'), path=require('path');
 // SITE_DIR : sert le site construit (dist/, v2/construction/construire.mjs) au lieu du dépôt brut.
@@ -9,7 +9,7 @@ const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=
 
 function injectHook(html){
   const i=html.lastIndexOf('})();');
-  if(i<0) throw new Error('crochet de test : "})();" introuvable dans v1/villes-horizon.html');
+  if(i<0) throw new Error('crochet de test : "})();" introuvable dans la page');
   return html.slice(0,i)+'\n/*__VH_TEST_HOOK__*/\n'+HOOK+'\n'+html.slice(i);
 }
 
@@ -22,7 +22,7 @@ function start(port){
     fs.readFile(f,(err,buf)=>{
       if(err){ res.writeHead(404,{'Content-Type':'text/plain'}); return res.end('404'); }
       let body=buf;
-      if(p==='/v1/villes-horizon.html'&&u.searchParams.get('nohook')==null) body=injectHook(buf.toString('utf8'));
+      if((p==='/v1/villes-horizon.html'||p==='/v3/villes-horizon.html')&&u.searchParams.get('nohook')==null) body=injectHook(buf.toString('utf8'));
       res.writeHead(200,{'Content-Type':TYPES[path.extname(f).toLowerCase()]||'application/octet-stream','Cache-Control':'no-store'});
       res.end(body);
     });

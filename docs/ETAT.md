@@ -1,10 +1,37 @@
 # État des sujets
 
-Une ligne par sujet (chemins de la v2 relatifs à `v2/` depuis le rangement). **Chaque PR met à jour ce fichier.** La colonne « Terrain » reste à « non testé » tant que Romain n'a pas vérifié sur son téléphone ; seule une vérification sur le terrain la change (avec la date).
+Une ligne par sujet. **Chaque PR met à jour ce fichier.** La colonne « Terrain » ne change qu'après une vérification de Romain sur son téléphone (avec la date) : **seul Romain la change.**
+
+## v3 — greffes (toutes éteintes par défaut : Réglages › Greffes v2, ou `?g=…`)
+
+Décision par greffe (`docs/REFONTE-V3.md` §3, règle 5) : validée → elle devient la règle, on retire l'interrupteur et l'ancien code ; rejetée → on supprime son fichier.
+
+| Greffe | Terrain | Preuve (fichier, test) |
+|---|---|---|
+| `soleil2` · remplacement : toucher le soleil retrouve le disque vu dans l’image, même boussole fausse de plus de 12° | non testé | `v3/greffes/soleil2.js`, `v3/tests/greffes.spec.js` (boussole fausse de 20°) |
+| `lune` · ajout : « Caler auto » de nuit sur la lune, symbole de la lune | non testé | `v3/greffes/lune.js`, `v3/greffes/_astre.js:positionLune` (éphéméride à 0,6°), `v3/tests/greffes.spec.js` |
+| `permutation` · ajout : « Caler auto » refuse les concordances fortuites de repères | non testé | `v3/greffes/permutation.js`, `v3/tests/greffes.test.mjs` (scènes au hasard : v1 120/120 acceptées, greffe 8/120) |
+| `echelle2` · ajout : deux références touchées (soleil, lune, monument, lieu) donnent le cap et le champ | non testé | `v3/greffes/echelle2.js:resoudre`, `v3/tests/greffes.test.mjs`, `v3/tests/greffes.spec.js` |
+| `oeil` · ajout : puce œil sous le rayon (détail, Réestimer, étage, proposition du GPS) | non testé | `v3/greffes/oeil.js`, `v3/tests/greffes.spec.js` |
+| `icones` · remplacement : un libellé sous chaque bouton, aides « ? » de la v1 gardées | non testé | `v3/greffes/icones.js`, `v3/tests/greffes.spec.js` |
+| `rotation` · ajout : message « écran en portrait, téléphone en paysage » | non testé | `v3/greffes/rotation.js:evaluer`, `v3/tests/greffes.test.mjs`, `v3/tests/greffes.spec.js` |
+| `lieuxWikidata` · ajout : repli Wikidata pour les lieux quand Overpass échoue | non testé | `v3/greffes/lieuxWikidata.js`, `v3/tests/greffes.spec.js` (Overpass en panne simulée) |
+| `boussoleA` · remplacement : la boussole ne défait plus un calage (retour seulement sur un vrai saut du gyroscope) | non testé | `v3/greffes/boussoleA.js:evaluer`, `v3/tests/greffes.test.mjs`, `v3/tests/greffes.spec.js` |
+
+## v3 — socle
+
+| Sujet | État | Preuve | Terrain |
+|---|---|---|---|
+| Tout éteint = v1 (trame de dessin, fiches, interface) | fait | `v3/tests/tout-eteint-v1.spec.js` (scènes réelles du dépôt privé ; interface sans lui) | non testé |
+| Correctif du glisser avec roulis (écran resté en portrait, §5) ; le toucher des noms compensait déjà le roulis dans la v1 | fait | `v3/villes-horizon.html` (pointermove), `v3/tests/roulis.spec.js` (−70° : la v1 déplace l'horizon, la v3 le cap) | non testé |
+| Pierres tombales (99 fonctions suspectes + 3 blocs connus), Diagnostic | fait | `v3/greffes.js:tombe`, `v3/tests/chargement.spec.js` | en cours (2 à 3 semaines d'usage, puis suppression des blocs restés à 0) |
+| Réglages propres (`vh3_settings`, recopiés une fois depuis la v1) | fait | `v3/tests/chargement.spec.js` | non testé |
+| Rangement : un dossier par version (v2 dans `v2/`, harnais dans `tests/commun/`, documents dans `docs/`), `villes-horizon.html` de la racine supprimé | fait | site construit comparé avant/après (seuls changent les chemins `v2/src`, `v2/b` et les cartes de sources), tests de la v2 verts (lint, types, 326 unitaires, 59 intégration, 152 e2e avec les scènes réelles) | — |
+
+## v2 — gelée (pour mémoire ; chemins relatifs à `v2/`)
 
 | Sujet | État | Preuve (fichier:fonction, test, PR) | Terrain |
 |---|---|---|---|
-| Rangement : un dossier par version (v2 dans `v2/`, harnais dans `tests/commun/`, documents dans `docs/`), `villes-horizon.html` de la racine supprimé | fait | site construit comparé avant/après (seuls changent les chemins `v2/src`, `v2/b` et les cartes de sources), tests de la v2 verts (lint, types, 326 unitaires, 59 intégration, 152 e2e avec les scènes réelles) | — |
 | Page photo rejouée : même page que le direct (v2/ar.html?mode=photo ; photo.html redirige ; Réglages › Rejouer une photo en direct) | fait | `src/ui/page-ar.js`, `src/ui/photo.js:passerEnPhoto`, `tests/e2e/photo-v2.spec.js` | validé 29/10 (avant la page unique) ; non testé depuis |
 | Page direct (v2/ar.html) | fait | `src/entrees/direct.js:creerEntreeDirecte`, `tests/e2e/direct-v2.spec.js` | validé 29/10 |
 | Moteur de scène (calques, bande, étiquettes) | fait | `src/moteur/scene.js:composerScene`, parité v1 `tests/e2e/*-parite.spec.js` | validé 29/10 |

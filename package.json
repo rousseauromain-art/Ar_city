@@ -1,14 +1,16 @@
 {
   "name": "villes-horizon",
   "private": true,
-  "description": "Villes à l'horizon : tests automatiques et construction du site publié (esbuild, v2/construction/construire.mjs)",
+  "description": "Villes à l'horizon : tests automatiques (v3 active, v2 gelée) et construction du site publié (esbuild, v2/construction/construire.mjs)",
   "scripts": {
+    "test:v3": "node --test \"v3/tests/*.test.mjs\"",
+    "test:e2e:v3": "playwright test --project=v3",
     "lint": "cd v2 && eslint src tests/unit tests/integration --max-warnings=91",
     "types": "tsc --noEmit -p v2/tsconfig.json",
     "test:unit": "node --test \"v2/tests/unit/*.test.mjs\"",
     "test:integration": "node --test \"v2/tests/integration/*.test.mjs\"",
     "test:e2e": "playwright test",
-    "test": "npm run lint && npm run types && npm run test:unit && npm run test:integration && npm run test:e2e",
+    "test": "npm run test:v3 && npm run lint && npm run types && npm run test:unit && npm run test:integration && npm run test:e2e",
     "dump:v1": "node tests/commun/caracterisation/dump-v1.mjs",
     "serve": "node tests/commun/server.js",
     "build": "node v2/construction/construire.mjs",

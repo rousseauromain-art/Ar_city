@@ -5,7 +5,7 @@ const NIGHT=new Date('2026-10-26T23:30:00Z'); // soleil couche a Saint-Malo : pa
 
 function initScript(cfg){
   window.__VH_TEST=cfg.test;
-  try{ localStorage.setItem('vh_settings_v2',JSON.stringify(cfg.settings)); }catch(e){}
+  try{ localStorage.setItem('vh_settings_v2',JSON.stringify(cfg.settings)); localStorage.setItem('vh3_settings',JSON.stringify(cfg.settings)); }catch(e){} // v1 et v3 (réglages propres)
   const realFetch=window.fetch.bind(window);
   window.__VH_NET=[];
   window.fetch=async(input,init)=>{
@@ -23,7 +23,8 @@ function initScript(cfg){
 }
 
 // opts : pos {lat,lon}, settings (fusionnes aux reglages par defaut des tests), terrain, places (elements Overpass),
-//        fetch [{match (regexp), body, status}], beforeStart (expression evaluee dans le script avant "Ouvrir la camera"), start
+//        fetch [{match (regexp), body, status}], beforeStart (expression evaluee dans le script avant "Ouvrir la camera"), start,
+//        url (page, defaut /v1/villes-horizon.html ; /v3/villes-horizon.html pour la v3), greffes (v3 : liste des greffes allumees, ?g=…)
 async function openApp(page,opts={}){
   const app={errors:[],blocked:[]};
   page.on('pageerror',e=>app.errors.push(String(e&&e.stack||e)));
@@ -35,8 +36,10 @@ async function openApp(page,opts={}){
     await page.context().grantPermissions(['geolocation']);
     await page.context().setGeolocation({latitude:opts.pos.lat,longitude:opts.pos.lon,accuracy:5});
   }
-  await page.goto('/v1/villes-horizon.html');
+  const url=opts.url||'/v1/villes-horizon.html', g=opts.greffes?`${url.includes('?')?'&':'?'}g=${opts.greffes.join(',')||'aucune'}`:'';
+  await page.goto(url+g);
   await page.waitForFunction(()=>!!window.__vh);
+  if(/\/v3\//.test(url)) app.greffes=await page.evaluate(()=>window.G?window.G.pret():null); // v3 : greffes allumees chargees et demarrees
   app.ev=expr=>page.evaluate(s=>window.__vh.ev(s),expr);
   app.frame=()=>page.evaluate(()=>window.__vh.frame());
   app.waitFor=(expr,timeout=30000)=>page.waitForFunction(s=>{ try{ return !!window.__vh.ev(s); }catch(e){ return false; } },expr,{timeout});
