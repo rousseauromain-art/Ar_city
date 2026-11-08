@@ -3316,7 +3316,7 @@ function draw(ts){
   const monAng=c=>{ const hid=useRelief&&c.hidden, lift=monLift(c), aGnd=(useRelief&&c.aG!=null?c.aG:0)+lift;
     let aA=(useRelief&&c.aP!=null?(hid?c.aG:c.aP):(useRelief&&c.aG!=null?c.aG:0)+(c.angH||0))+lift;
     const yg=H/2+fh*Math.tan((pitch-aGnd)*D), yt=H/2+fh*Math.tan((pitch-aA)*D), mx=Math.min(SPR_MAX_PX,H*SPR_MAX_FRAC);
-    if(isFinite(yg)&&isFinite(yt)&&yg<=H*1.15&&yg-yt>mx) aA=pitch-Math.atan((yg-mx-H/2)/fh)/D;
+    if(!G.actif('tailleReelle')&&isFinite(yg)&&isFinite(yt)&&yg<=H*1.15&&yg-yt>mx) aA=pitch-Math.atan((yg-mx-H/2)/fh)/D; // greffe tailleReelle : sans plafond
     return {aGnd,aA}; };
   const monGH=c=>{ if(c.cat==='equip') return 15; const t=Math.max(0,Math.min(1,Math.log(Math.max(c.dist||.3,.05)/.3)/Math.log(15/.3))); // plus loin = plus petit (profondeur)
     return Math.round(((c.links||0)>=MON_STAR_LINKS?22:18)*(1-.28*t)); };
@@ -3398,12 +3398,13 @@ function draw(ts){
     let lx=null, ly=null;
     const totalLen=nw+(dtxt?dw+7:0)+4, padTop=size+2, padBot=3;
     const base=mon?ay-4:ay; // monument : le nom part A COTE de son icone, pas au-dessus (plus de place pour monter)
-    const ps=placeSlanted({x,base,off:mon?gH/2+4:10,lift:mon?gH*0.5:18,len:totalLen,padTop,padBot,side:sgn,own:c,memKey:c.name+'|'+c.kind});
+    const TR=mon&&G.actif('tailleReelle')?G.tailleReelle.ancre(ay,size):null; // greffe tailleReelle : sommet hors de l'écran → nom à plat au bord haut
+    const ps=TR?null:placeSlanted({x,base,off:mon?gH/2+4:10,lift:mon?gH*0.5:18,len:totalLen,padTop,padBot,side:sgn,own:c,memKey:c.name+'|'+c.kind});
     let got=!!ps; if(ps){ lx=ps.lx; ly=ps.ly; sgn=ps.side; }
     // monument sans place pour un nom incline (frequent en paysage : pose a son sommet reel, il
     // part deja haut) : repli sur un nom HORIZONTAL a cote de son icone, plus compact en hauteur
     let flat=null;
-    if(!got&&mon){ flat=placeFlat({x,y0:ay-gH-2,halfW:gH/2,w:nw+(dtxt?dw+7:0),size,own:c,dir:-1}); if(flat) got=true; }
+    if(!got&&mon){ flat=TR?G.tailleReelle.poser(placeFlat,{x,y0:TR.y,halfW:gH/2,w:nw+(dtxt?dw+7:0),size,own:c,dir:1}):placeFlat({x,y0:ay-gH-2,halfW:gH/2,w:nw+(dtxt?dw+7:0),size,own:c,dir:-1}); if(!flat&&!TR&&G.actif('tailleReelle')) flat=G.tailleReelle.poser(placeFlat,{x,y0:G.tailleReelle.sous(ay,size),halfW:gH/2,w:nw+(dtxt?dw+7:0),size,own:c,dir:1}); if(flat) got=true; }
     // un monument garde toujours son icone, meme sans place pour son nom
     if(!got&&!mon){ dNoRoom++; continue; }
     if(mon&&!got) dNoRoom++;

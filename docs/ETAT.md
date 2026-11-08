@@ -17,6 +17,7 @@ Décision par greffe (`docs/REFONTE-V3.md` §3, règle 5) : validée → elle de
 | `rotation` · ajout : message « écran en portrait, téléphone en paysage » | non testé | `v3/greffes/rotation.js:evaluer`, `v3/tests/greffes.test.mjs`, `v3/tests/greffes.spec.js` |
 | `lieuxWikidata` · ajout : repli Wikidata pour les lieux quand Overpass échoue | non testé | `v3/greffes/lieuxWikidata.js`, `v3/tests/greffes.spec.js` (Overpass en panne simulée) |
 | `boussoleA` · remplacement : la boussole ne défait plus un calage (retour seulement sur un vrai saut du gyroscope) | non testé | `v3/greffes/boussoleA.js:evaluer`, `v3/tests/greffes.test.mjs`, `v3/tests/greffes.spec.js` |
+| `tailleReelle` · ajout : silhouette des monuments toujours à taille réelle (plus de plafond quand le pied est à l'écran), nom au sommet ou au bord haut sous les puces | non testé | `v3/greffes/tailleReelle.js`, `v3/villes-horizon.html:monAng`, `v3/tests/greffes.spec.js` (même hauteur en degrés à 0° et 27° d'inclinaison ; éteinte : plafond de 240 px pied à l'écran) |
 
 ## v3 — socle
 
