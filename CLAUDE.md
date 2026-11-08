@@ -19,7 +19,13 @@ Réalité augmentée façon PeakFinder, dans le navigateur : par-dessus la camé
 7. **Le code de la v1 n'est pas réécrit** dans la v3 : seuls les points d'entrée, les pierres tombales `tombe('id')` (§6 : compteurs de passage du code suspect, affichés dans le Diagnostic) et le correctif du glisser avec roulis (§5). Ni renommage, ni reformatage.
 8. La v3 reste une page unique ; les greffes se chargent à la demande.
 9. Données : la v3 partage les caches de la v1 (mêmes noms, même format) ; ses réglages sont sous `vh3_settings` (recopiés une fois depuis `vh_settings_v2`), les interrupteurs sous `vh3_greffes`, les pierres tombales sous `vh3_tombes`. Une greffe ne modifie jamais les réglages de la v1.
-10. **Greffe nouvelle ou modifiée** : lancer seulement ses propres tests et le test « tout éteint = v1 ». Pas de suite complète, sauf si une ligne de la v1 hors des points d'entrée change. Toujours créer une nouvelle branche et ouvrir la PR soi-même, puis s'arrêter.
+10. **Règle de travail — toute greffe ajoutée ou modifiée :**
+    1. Une nouvelle branche par demande.
+    2. En local, seulement la vérification de syntaxe et le test propre à la greffe. Pas de suite complète, pas de scènes réelles.
+    3. Claude ouvre la PR. La CI GitHub (`tests.yml`) lance « tout éteint = v1 » et les tests de la v3.
+    4. CI verte : Claude fusionne la PR (squash), vérifie que la publication Pages est verte, et donne en une ligne le nom de l'interrupteur à allumer.
+    5. CI rouge : Claude corrige, sans demander.
+    6. Exception : si une ligne de la v1 change hors des points d'entrée, s'arrêter et demander à Romain avant de fusionner.
 
 ## Où est quoi
 - `index.html` : page d'accueil, seule page à la racine (v3 en premier, v1 « référence », v2 « gelée »).
