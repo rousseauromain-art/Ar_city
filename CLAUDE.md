@@ -49,5 +49,6 @@ Réalité augmentée façon PeakFinder, dans le navigateur : par-dessus la camé
 - Pixel : direction EXIF décalée de +90° en paysage, peu fiable en portrait. Saint-Malo : EXIF faux d'environ 14°. Boussole : 30 à 40° d'erreur près du métal, 30 à 50° en voiture.
 - Turin : concordances fortuites de repères en ville dense (cap −19,4° à tort) → greffe `permutation`.
 - Altitude GPS d'Android au-dessus de l'ellipsoïde (géoïde 49 m en Bretagne) → greffe `oeil`, qui le retranche.
+- Silhouettes proches (Les Horizons, 0,3 km) : le plafond de taille de la v1 ne joue que pied à l'écran → la silhouette rétrécit quand on baisse le téléphone → greffe `tailleReelle`.
 - Rotation automatique coupée : écran resté en portrait, téléphone en paysage → greffe `rotation` et correctif §5 du glisser.
 - Les pièces jointes du chat perdent leurs EXIF : déposer les originaux dans `Ar_city-photos`.

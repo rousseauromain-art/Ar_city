@@ -59,9 +59,11 @@ export default {
     c.$('g3EyeRe').addEventListener('click',()=>{ regler(0); c.note('Hauteur d’œil réestimée d’après le relief',4000); refermer(); majPuce(); });
     c.$('g3EyeGps').addEventListener('click',()=>{ const p=propositionIci(); if(!p||!p.proposee){ c.note('Aucune proposition du GPS pour l’instant',4000); return; }
       regler(p.correction); c.note(`Hauteur d’œil recalée sur le GPS : correction ${fmt(p.correction)} (±${Math.round(p.prec)} m)`,5000); refermer(); majPuce(); });
-    if(navigator.geolocation) navigator.geolocation.watchPosition(p=>{ const t=Date.now(); mesures.push({t,alt:p.coords.altitude,prec:p.coords.altitudeAccuracy});
-      while(mesures.length&&t-mesures[0].t>HISTORIQUE_MS) mesures.shift(); },()=>{},{enableHighAccuracy:true,maximumAge:5000,timeout:20000});
-    setInterval(majPuce,1000); majPuce();
+    // altitude GPS : son propre suivi, ouvert seulement APRÈS la première position reçue par la v1 (ouvert avant, il privait celui de la v1 de positions)
+    let suivi=false; const suivre=()=>{ if(suivi||!c.pos||c.photoMode||!navigator.geolocation) return; suivi=true;
+      navigator.geolocation.watchPosition(p=>{ const t=Date.now(); mesures.push({t,alt:p.coords.altitude,prec:p.coords.altitudeAccuracy});
+        while(mesures.length&&t-mesures[0].t>HISTORIQUE_MS) mesures.shift(); },()=>{},{enableHighAccuracy:true,maximumAge:5000,timeout:20000}); };
+    setInterval(()=>{ suivre(); majPuce(); },1000); majPuce();
   },
   mesures, proposer:propositionIci,
 };

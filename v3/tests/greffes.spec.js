@@ -2,7 +2,7 @@
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
 const {ouvrir,capteurs,videoSynthetique}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA'];
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';
@@ -75,7 +75,7 @@ for(const g of MODES('oeil')) test(`oeil (${nom(g)}) : puce près du rayon, dét
   const chip=page.locator('#g3Eye'); await expect(chip).toBeVisible(); await expect(chip).toContainText('œil +12 m');
   await chip.click(); await expect(page.locator('#g3EyeT')).toContainText('Sol estimé'); await expect(page.locator('#g3EyeT')).toContainText('correction +12 m');
   await page.fill('#g3EyeEt','3'); await page.locator('#g3EyeEt').dispatchEvent('change'); expect(await app.ev('S.obsHeight')).toBe(10);
-  await page.click('#g3EyeRe'); expect(await app.ev('S.obsHeight')).toBe(0); expect(await app.ev("$('obsH').value")).toBe('0');
+  await page.locator('#g3EyeRe').dispatchEvent('click'); expect(await app.ev('S.obsHeight')).toBe(0); // la fenêtre se referme seule après 8 s : clic direct expect(await app.ev("$('obsH').value")).toBe('0');
   expect(app.errors).toEqual([]);
 });
 test('oeil éteinte : pas de puce',async({page})=>{ await ouvrir(page,{pos:POS,greffes:[]}); await expect(page.locator('#g3Eye')).toHaveCount(0); });
@@ -128,4 +128,35 @@ for(const g of MODES('boussoleA')) test(`boussoleA (${nom(g)}) : une boussole pe
     else { expect(r.gyroResets).toBe(1); expect(r.pause).toBe(false); }
     expect(app.errors).toEqual([]);
   }
+});
+
+// tailleReelle : un monument proche (gratte-ciel à 0,2 km, comme Les Horizons vus de près ; 60 m supposés : 16,7° vus d'ici, plus que le plafond) mesuré à deux inclinaisons. Hauteur dessinée de la silhouette, en degrés
+// (sol → sommet, d'après les ordonnées passées à drawSprite). Éteinte : le plafond de la v1 (30 % de l'écran, 240 px) ne joue que pied à l'écran.
+async function silhouette(page,greffes,inclinaisons){
+  const app=await ouvrir(page,{pos:POS,greffes,settings:{relief:false,cross:false}});
+  const m=require('../../tests/commun/app').offset(POS,0.2,30);
+  await app.ev(`applyMonuments([{name:'Les Horizons',lat:${m.lat},lon:${m.lon},links:20,types:'gratte-ciel',qid:'Q3W',htWd:100,prot:true}],'test',[],false,30,1); true`);
+  await app.waitFor("monumentSites.some(c=>c.name==='Les Horizons'&&c.dist!=null)");
+  await app.ev("window.__spr=[]; const _d=drawSprite; drawSprite=(k,x,yT,yB,...r)=>{ window.__spr.push([yT,yB]); return _d(k,x,yT,yB,...r); }; true");
+  const res=[];
+  for(const incl of inclinaisons){
+    await capteurs(app,{cap:34,incl}); await app.ev('window.__spr.length=0; true'); const f=await app.frame(); // monument 4° à gauche : place pour son nom à droite
+    const r=await app.ev("(()=>{ const s=window.__spr[window.__spr.length-1]; if(!s) return null; const fh=(W/2)/Math.tan(vFov()/2*D), P=pose(), a=y=>P.pitch-Math.atan((y-H/2)/fh)/D; return {deg:a(s[0])-a(s[1]),px:s[1]-s[0],yTop:s[0],yBase:s[1],H,mx:Math.min(240,H*0.3),vraie:monumentSites.find(c=>c.name==='Les Horizons').angH}; })()");
+    const nom=f.find(t=>t.text==='Les Horizons'); res.push({incl,...r,nomY:nom?(nom.m[1]*nom.x+nom.m[3]*nom.y+nom.m[5])/nom.dpr:null,nomVu:!!nom});
+  }
+  expect(app.errors).toEqual([]); return {res};
+}
+for(const g of MODES('tailleReelle')) test(`tailleReelle (${nom(g)}) : même hauteur en degrés pied à l'écran et téléphone levé ; éteinte, le plafond de la v1`,async({page})=>{
+  const on=(await silhouette(page,g,[0,27])).res, vraie=on[0].vraie; console.log('greffe',JSON.stringify(on)); // hauteur réelle vue d'ici (sol → sommet, sans relief)
+  for(const r of on){ expect(r,'silhouette dessinée').not.toBeNull(); expect(Math.abs(r.deg-vraie)).toBeLessThan(0.6); expect(r.nomVu,`nom dessiné (incl ${r.incl})`).toBe(true); expect(r.nomY).toBeGreaterThan(70); }
+  expect(Math.abs(on[0].deg-on[1].deg)).toBeLessThan(0.3);
+  const off=(await silhouette(page,[],[0,27])).res; console.log('éteinte',JSON.stringify(off));
+  expect(Math.abs(off[0].px-off[0].mx)).toBeLessThan(0.5); expect(off[0].deg).toBeLessThan(vraie-3); // pied à l'écran : plafonnée
+  expect(Math.abs(off[1].deg-vraie)).toBeLessThan(0.6); // pied hors de l'écran : taille réelle (l'incohérence constatée)
+});
+test('tailleReelle : sommet hors de l’écran (téléphone baissé) → nom au bord haut, sous la ligne des puces ; silhouette toujours à taille réelle',async({page})=>{
+  const {res}=await silhouette(page,['tailleReelle'],[-14]), r=res[0], lim=await page.evaluate(()=>window.G.tailleReelle.limiteHaute());
+  console.log(JSON.stringify(r),'limite',lim);
+  expect(r.yTop).toBeLessThan(lim); expect(Math.abs(r.deg-r.vraie)).toBeLessThan(0.6);
+  expect(r.nomVu,'le nom est dessiné').toBe(true); expect(r.nomY).toBeGreaterThan(lim); expect(r.nomY).toBeLessThan(lim+80);
 });

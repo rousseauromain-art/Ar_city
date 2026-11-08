@@ -101,6 +101,7 @@ docs/                 REFONTE-V3.md, ETAT.md, VEILLE-ANCRAGE.md
 | `rotation` | Message « Téléphone en paysage, écran en portrait : activez la rotation automatique » | ajout | `entrees/rotation.js` |
 | `lieuxWikidata` | Repli Wikidata pour les lieux quand OSM échoue | ajout | `donnees/wikidata-lieux.js` |
 | `boussoleA` | Ne jamais laisser la boussole défaire un calage (correctif A de `VEILLE-ANCRAGE.md`), à comparer à la v1 sur le terrain | remplacement | `entrees/capteurs.js` |
+| `tailleReelle` | Monuments à taille réelle : plus de plafond SPR_MAX_FRAC / SPR_MAX_PX (il ne jouait que pied à l'écran : Les Horizons à 0,3 km rétrécissaient quand on baissait le téléphone) ; nom au sommet, ou au bord haut sous les puces si le sommet sort | ajout | aucun (correction de la v1, `monAng`) |
 
 **Non repris :**
 - WebXR, capteur relatif, recalage continu, calage guidé ;
