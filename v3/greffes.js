@@ -4,7 +4,7 @@
 // Réglage : panneau des Réglages (mémorisé sous la clé `vh3_greffes`) ou adresse de la page : ?g=lune,permutation (« tout », « aucune »), qui prime sans rien mémoriser.
 (function(){
   'use strict';
-  const VERSION='2026-11-08 (a) · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle)';
+  const VERSION='2026-11-09 (a) · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu)';
   // etat : 'non testé' | 'validé' | 'rejeté' (seul Romain le change sur le terrain : docs/ETAT.md)
   const LISTE=[
     {id:'soleil2',type:'remplacement',etat:'non testé',titre:'Soleil (v2)',phrase:'Toucher le soleil : le disque vu dans l’image est retrouvé, même téléphone penché ou boussole fausse de plus de 12°.'},
@@ -17,6 +17,9 @@
     {id:'lieuxWikidata',type:'ajout',etat:'non testé',titre:'Lieux : repli Wikidata',phrase:'Quand OpenStreetMap (Overpass) échoue, les villes et villages viennent aussi de Wikidata.'},
     {id:'boussoleA',type:'remplacement',etat:'non testé',titre:'Boussole : ne défait plus un calage',phrase:'Retour à la boussole seulement sur un vrai saut du gyroscope ; un désaccord sans saut = boussole perturbée, ignorée (à comparer à la v1).'},
     {id:'tailleReelle',type:'ajout',etat:'non testé',titre:'Monuments à taille réelle',phrase:'Plus de plafond de taille : la silhouette d’un monument proche garde sa taille réelle quelle que soit l’inclinaison ; si son sommet sort de l’écran, son nom reste au bord haut.'},
+    {id:'plaque',type:'ajout',etat:'non testé',titre:'Lire une plaque de rue',phrase:'Bouton en tête des Réglages : la plaque filmée est lue, l’adresse trouvée (Base Adresse Nationale) corrige la position après confirmation ; elle suit ensuite vos pas.'},
+    {id:'capteurRelatif',type:'remplacement',etat:'non testé',titre:'Anti-dérive : capteur relatif 60 Hz',phrase:'Le capteur d’orientation relatif (quaternion, 60 Hz) remplace le gyroscope de deviceorientation : suivi plus stable, la boussole ne sert que de nord.'},
+    {id:'recalageContinu',type:'ajout',etat:'non testé',titre:'Anti-dérive : recalage continu',phrase:'Soleil ou lune dans l’image : le cap se corrige seul par petits pas (deux détections concordantes, téléphone stable, au plus ±20°).'},
   ];
   const IDS=LISTE.map(g=>g.id), CLE='vh3_greffes', CLE_TOMBES='vh3_tombes';
   const lire=k=>{ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } };

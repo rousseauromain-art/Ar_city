@@ -103,9 +103,13 @@ docs/                 REFONTE-V3.md, ETAT.md, VEILLE-ANCRAGE.md
 | `boussoleA` | Ne jamais laisser la boussole défaire un calage (correctif A de `VEILLE-ANCRAGE.md`), à comparer à la v1 sur le terrain | remplacement | `entrees/capteurs.js` |
 | `tailleReelle` | Monuments à taille réelle : plus de plafond SPR_MAX_FRAC / SPR_MAX_PX (il ne jouait que pied à l'écran : Les Horizons à 0,3 km rétrécissaient quand on baissait le téléphone) ; nom au sommet, ou au bord haut sous les puces si le sommet sort | ajout | aucun (correction de la v1, `monAng`) |
 
+| `plaque` | Lire une plaque de rue : OCR dans le navigateur, Base Adresse Nationale, position corrigée après confirmation, puis suivie au pas (le GPS ne reprend la main qu'après 20 s d'écart) | ajout | `ui/lire-plaque.js`, `calage/adresse.js`, `donnees/adresse.js`, `ui/position-propre.js`, `scene/pas.js` |
+| `capteurRelatif` | Anti-dérive : capteur d'orientation relatif à 60 Hz (quaternions) à la place du gyroscope de `deviceorientation` (action B de `VEILLE-ANCRAGE.md`) | remplacement | `entrees/capteurs.js` (`axesDepuisQuaternion`), `entrees/direct.js` |
+| `recalageContinu` | Anti-dérive : recalage continu du cap sur le soleil et la lune (action C de `VEILLE-ANCRAGE.md`) | ajout | `calage/continu.js`, `ui/calage-continu.js` |
+
 **Non repris :**
-- WebXR, capteur relatif, recalage continu, calage guidé ;
-- rue, ombres, plaques, toits, compteur de pas, GPS nettoyé ;
+- WebXR, calage guidé ;
+- rue, ombres, toits, GPS nettoyé (le compteur de pas est repris dans `plaque`) ;
 - silhouette des bâtiments de la v2 (la v1 a la sienne) ;
 - fiches de la v2 (la v1 garde les siennes) ;
 - découpage en modules.

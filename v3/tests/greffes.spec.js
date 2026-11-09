@@ -2,7 +2,7 @@
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
 const {ouvrir,capteurs,videoSynthetique}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle'];
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';
@@ -159,4 +159,54 @@ test('tailleReelle : sommet hors de l’écran (téléphone baissé) → nom au 
   console.log(JSON.stringify(r),'limite',lim);
   expect(r.yTop).toBeLessThan(lim); expect(Math.abs(r.deg-r.vraie)).toBeLessThan(0.6);
   expect(r.nomVu,'le nom est dessiné').toBe(true); expect(r.nomY).toBeGreaterThan(lim); expect(r.nomY).toBeLessThan(lim+80);
+});
+
+for(const g of MODES('plaque')) test(`plaque (${nom(g)}) : plaque filmée → adresse → position corrigée après « Appliquer », tenue contre le GPS ; éteinte, pas de bouton`,async({page})=>{
+  const cible={lat:POS.lat+30/111320,lon:POS.lon}; // le numéro lu est à 30 m au nord du GPS
+  const fetch=[{match:'data\\.geopf\\.fr/geocodage/search',body:{features:[{geometry:{coordinates:[cible.lon,cible.lat]},properties:{type:'housenumber',label:'12 Rue de Dinan 35400 Saint-Malo',housenumber:'12',street:'Rue de Dinan'}}]}}];
+  await page.addInitScript(()=>{ window.__vhOcr=async()=>'12 RUE DE DINAN\n35400 SAINT-MALO'; });
+  for(const greffes of [g,[]]){
+    const app=await ouvrir(page,{pos:POS,greffes,fetch,settings:{relief:false}});
+    if(!greffes.length){ await expect(page.locator('#g3PlaqueBtn')).toHaveCount(0); expect(app.errors).toEqual([]); continue; }
+    await videoSynthetique(page,'x.fillStyle="#246"; x.fillRect(0,0,W,H);');
+    await page.click('#btnSet'); await page.click('#g3PlaqueBtn');
+    await expect(page.locator('#g3PlaqueMsg')).toContainText('Plaque lue : « 12 rue de dinan »',{timeout:30000});
+    await expect(page.locator('#g3PlaqueMsg')).toContainText('corrigée de 30 m');
+    expect((await app.ev('(window.__VH_NET||[]).filter(u=>/geocodage/.test(u))'))[0]).toMatch(/q=12%20rue%20de%20dinan&lat=48\.649300&lon=-2\.025700/);
+    await page.click('#g3PlaqueOui');
+    const d=await app.ev(`distBrg(pos,${JSON.stringify(cible)}).dist*1000`); expect(d).toBeLessThan(0.5);
+    expect(await app.ev(`G.plaque.garder(${POS.lat},${POS.lon},10)`)).toBe(true); // le GPS à 30 m pour ± 10 m : la position corrigée tient (20 s)
+    expect(await app.ev(`distBrg(pos,${JSON.stringify(cible)}).dist*1000`)).toBeLessThan(0.5);
+    expect(app.errors).toEqual([]);
+  }
+});
+
+for(const g of MODES('capteurRelatif')) test(`capteurRelatif (${nom(g)}) : les quaternions du capteur relatif remplacent le gyroscope de deviceorientation ; éteinte, deviceorientation`,async({page})=>{
+  const {quaternionDepuisAngles}=await import('../greffes/capteurRelatif.js'), q=quaternionDepuisAngles(30,90,0);
+  await page.addInitScript(()=>{ window.RelativeOrientationSensor=class{ constructor(o){ this.o=o; this.l={}; window.__ros=this; } addEventListener(t,f){ (this.l[t]=this.l[t]||[]).push(f); } start(){} stop(){}
+    lire(q){ this.quaternion=q; for(const f of this.l.reading||[]) f(); } }; });
+  for(const greffes of [g,[]]){
+    const app=await ouvrir(page,{pos:POS,greffes});
+    await page.evaluate(q=>{ if(window.__ros) window.__ros.lire(q); window.dispatchEvent(new DeviceOrientationEvent('deviceorientation',{alpha:200,beta:90,gamma:0,absolute:false})); },q);
+    const r=await app.ev('({cap:yawOf(svRel),q:yawOf(camAxes(30,90,0).v),o:yawOf(camAxes(200,90,0).v)})');
+    if(greffes.length){ expect(Math.abs(r.cap-r.q)).toBeLessThan(0.01); expect(await app.ev('G.capteurRelatif.enService()')).toBe(true); expect(await app.ev('G.capteurRelatif.etat().total')).toBe(1); }
+    else { expect(Math.abs(r.cap-r.o)).toBeLessThan(0.01); expect(await page.evaluate(()=>window.__ros)).toBeUndefined(); }
+    expect(app.errors).toEqual([]);
+  }
+});
+
+for(const g of MODES('recalageContinu')) test(`recalageContinu (${nom(g)}) : le soleil dans l’image, cap faux de 4° → corrigé seul par demi-pas, pas plus d’un pas en 10 s ; éteinte, rien`,async({page})=>{
+  for(const greffes of [g,[]]){
+    const app=await ouvrir(page,{pos:POS,greffes,time:new Date('2026-10-25T13:00:00Z'),settings:{relief:false,headOff:4}});
+    const sol=await app.ev('sunNow()'); await capteurs(app,{cap:sol.az,incl:sol.el}); await videoSynthetique(page,disque);
+    if(!greffes.length){ expect(await page.evaluate(()=>window.G.recalageContinu)).toBeUndefined(); expect(await app.ev('S.headOff')).toBe(4); continue; }
+    const pas=async ts=>page.evaluate(ts=>{ for(const t of ts) window.G.recalageContinu.tick(t); return window.G.recalageContinu.etat(); },ts);
+    const T=1e9;
+    await pas([T,T+3000]); const h1=await app.ev('S.headOff'); expect(Math.abs(h1-2)).toBeLessThan(0.3);
+    await expect(page.locator('#note')).toContainText('Cap recalé sur le soleil');
+    await capteurs(app,{cap:sol.az,incl:sol.el});
+    await pas([T+6000,T+9000]); expect(await app.ev('S.headOff')).toBe(h1); // pause de 10 s entre deux pas
+    const e=await pas([T+13000,T+16000]); expect(Math.abs(await app.ev('S.headOff')-1)).toBeLessThan(0.3); expect(e.pas).toBe(2);
+    expect(app.errors).toEqual([]);
+  }
 });

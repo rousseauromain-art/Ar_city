@@ -18,6 +18,9 @@ Décision par greffe (`docs/REFONTE-V3.md` §3, règle 5) : validée → elle de
 | `lieuxWikidata` · ajout : repli Wikidata pour les lieux quand Overpass échoue | non testé | `v3/greffes/lieuxWikidata.js`, `v3/tests/greffes.spec.js` (Overpass en panne simulée) |
 | `boussoleA` · remplacement : la boussole ne défait plus un calage (retour seulement sur un vrai saut du gyroscope) | non testé | `v3/greffes/boussoleA.js:evaluer`, `v3/tests/greffes.test.mjs`, `v3/tests/greffes.spec.js` |
 | `tailleReelle` · ajout : silhouette des monuments toujours à taille réelle (plus de plafond quand le pied est à l'écran), nom au sommet ou au bord haut sous les puces | non testé | `v3/greffes/tailleReelle.js`, `v3/villes-horizon.html:monAng`, `v3/tests/greffes.spec.js` (même hauteur en degrés à 0° et 27° d'inclinaison ; éteinte : plafond de 240 px pied à l'écran) |
+| `plaque` · ajout : bouton « Lire une plaque de rue » (Réglages) : OCR, Base Adresse Nationale, position corrigée après « Appliquer », suivie au pas ; le GPS reprend après 20 s d'écart > 2 × sa précision | non testé | `v3/greffes/plaque.js`, `v3/tests/greffes.test.mjs` (lecture, trottoir, pas, reprise GPS), `v3/tests/greffes.spec.js` (plaque simulée → 30 m corrigés, tenus contre le GPS) |
+| `capteurRelatif` · remplacement : anti-dérive, `RelativeOrientationSensor` 60 Hz à la place du gyroscope de `deviceorientation` ; repli sur `deviceorientation` | non testé | `v3/greffes/capteurRelatif.js:axesDepuisQuaternion`, `v3/tests/greffes.test.mjs` (mêmes axes que la v1, 200 orientations × 4 rotations d'écran), `v3/tests/greffes.spec.js` |
+| `recalageContinu` · ajout : anti-dérive, le cap se corrige seul sur le soleil ou la lune vus dans l'image (demi-pas, 10 s entre deux pas, ±20° au plus) | non testé | `v3/greffes/recalageContinu.js:decisionCalageContinu`, `v3/tests/greffes.test.mjs`, `v3/tests/greffes.spec.js` (cap faux de 4° → 2° → 1°) |
 
 ## v3 — socle
 
