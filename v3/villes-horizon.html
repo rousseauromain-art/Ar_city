@@ -635,7 +635,7 @@ function onOrient(e,abs){
   const k=0.18, sm=(p,n)=>p?p.map((q,i)=>q+(n[i]-q)*k):n;
   const ios=typeof e.webkitCompassHeading==='number'&&!isNaN(e.webkitCompassHeading);
   if(ios||abs){ const A=camAxes(ios?360-e.webkitCompassHeading:e.alpha,e.beta,e.gamma); svAbs=sm(svAbs,A.v); srAbs=sm(srAbs,A.r); gotAbs=true; }
-  if(ios||!abs){ const R=camAxes(e.alpha,e.beta,e.gamma); svRel=sm(svRel,R.v); srRel=sm(srRel,R.r); relT=Date.now(); } // iOS : alpha brut = gyroscope
+  if((ios||!abs)&&!(G.actif('capteurRelatif')&&G.capteurRelatif.enService())){ const R=camAxes(e.alpha,e.beta,e.gamma); svRel=sm(svRel,R.v); srRel=sm(srRel,R.r); relT=Date.now(); } // iOS : alpha brut = gyroscope
   sv=svAbs||svRel; sr=svAbs?srAbs:srRel; sensor=true;
   gyroLearn();
 }
@@ -5200,7 +5200,7 @@ $('go').onclick=async()=>{
   await startCamera();
   if(navigator.geolocation){
     if(S.simOn&&parseLatLon(S.simPos)) applySimPos();
-    navigator.geolocation.watchPosition(p=>{ lastGps=[p.coords.latitude,p.coords.longitude,p.coords.accuracy]; if(photoMode||(S.simOn&&parseLatLon(S.simPos))) return; onNewPos(p.coords.latitude,p.coords.longitude,p.coords.accuracy); },
+    navigator.geolocation.watchPosition(p=>{ lastGps=[p.coords.latitude,p.coords.longitude,p.coords.accuracy]; if(photoMode||(S.simOn&&parseLatLon(S.simPos))) return; if(G.actif('plaque')&&G.plaque.garder(p.coords.latitude,p.coords.longitude,p.coords.accuracy)) return; /* greffe plaque : position corrigée */ onNewPos(p.coords.latitude,p.coords.longitude,p.coords.accuracy); },
       err=>{ setStatus('GPS refusé : '+err.message); }, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
   } else setStatus('GPS indisponible');
   startTraffic();
@@ -5210,7 +5210,9 @@ $('go').onclick=async()=>{
 };
 // v3 : les greffes allumées reçoivent l'accès aux variables du script (lecture seule, sauf les réglages S) ; panneau « Greffes v2 » des Réglages
 G.lier({S,D,$,wrap,note,pose,vFov,vFovFor,showFov,sunNow,sunTime,saveSettings,noteCalib,calRecord,logNet,fetchT,grabFrameRGB,camReady,photoPeaks,landmarksForCal,monName,distBrg,friendlyErr,
-  AC:{WIN:AC_WIN,VTOL:AC_VTOL,AGREE:AC_AGREE}, bumpCities:()=>{ citiesVer++; },
+  AC:{WIN:AC_WIN,VTOL:AC_VTOL,AGREE:AC_AGREE}, bumpCities:()=>{ citiesVer++; }, onNewPos, overpassQuery,
+  relatif:(R,reinit)=>{ if(reinit){ gyroK=null; magBins.fill(null); svRel=srRel=null; } if(!R) return; const k=0.18, sm=(p,n)=>p?p.map((q,i)=>q+(n[i]-q)*k):n; // greffe capteurRelatif : mesure relative (quaternion), comme onOrient
+    svRel=sm(svRel,R.v); srRel=sm(srRel,R.r); relT=Date.now(); sv=svAbs||svRel; sr=svAbs?srAbs:srRel; sensor=true; gyroLearn(); },
   get W(){ return W; }, get H(){ return H; }, get pos(){ return pos; }, get acc(){ return acc; }, get terrain(){ return terrain; }, get photoMode(){ return photoMode; }, get sensor(){ return sensor; },
   get obsGround(){ return obsGround; }, get obsGroundSrc(){ return obsGroundSrc; }, get obsElev(){ return obsElev; } });
 G.monterPanneau($('sheet'));

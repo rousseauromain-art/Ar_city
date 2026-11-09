@@ -16,10 +16,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 10 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 13 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -121,4 +121,73 @@ test('disque : une tache blanche ronde est trouvée là où elle est, roulis com
 });
 test('icones : un libellé pour chacun des 6 boutons de la colonne de la v1', () => {
   for (const id of Object.keys(LIBELLES)) assert.ok(V1.includes(`<button id="${id}"`), id);
+});
+
+// ---------- plaque, capteurRelatif, recalageContinu ----------
+import { lireTexteAdresse, choisirAdresse, positionDepuisAdresse, lireReponseBAN, motsCles, detecterPas, etatPasInitial, surGps, avancer, distanceM, TROTTOIR_M } from '../greffes/plaque.js';
+import { axesDepuisQuaternion, quaternionDepuisAngles } from '../greffes/capteurRelatif.js';
+import { decisionCalageContinu } from '../greffes/recalageContinu.js';
+const PP = { lat: 48.8566, lon: 2.3522 }, kLon = 111320 * Math.cos(PP.lat * Math.PI / 180), pt = (N, E) => ({ lat: PP.lat + N / 111320, lon: PP.lon + E / kLon });
+
+test('plaque : lecture du texte (bruit d’OCR toléré), mots clés, choix du résultat', () => {
+  assert.deepEqual(lireTexteAdresse('12 RUE DE SEINE'), { numero: '12', rue: 'rue de seine', requete: '12 rue de seine' });
+  assert.equal(lireTexteAdresse('RUE DE SEINE\n75006 PARIS').numero, '');
+  assert.equal(lireTexteAdresse('L2 rue de Seine').numero, '12');
+  assert.equal(lireTexteAdresse('14 bis, Avenue des Champs-Élysées').requete, '14 bis avenue des champs-elysees');
+  assert.equal(lireTexteAdresse('Bd. Saint-Germain').rue, 'boulevard saint-germain');
+  assert.equal(lireTexteAdresse('|||  ~~ 3 ~~'), null); assert.equal(lireTexteAdresse('RUE'), null);
+  assert.deepEqual(motsCles('Avenue des Champs-Élysées'), ['champs', 'elysees']);
+  const adr = (type, numero, point) => ({ type, libelle: `${numero} Rue de Rivoli`, point, numero, rue: 'Rue de Rivoli', distM: 0 });
+  const l = [adr('rue', '', pt(0, 0)), adr('numero', '12', pt(10, 5)), adr('numero', '14', pt(10, 25))];
+  assert.equal(choisirAdresse(l, { numero: '14', rue: 'rue de rivoli' }).numero, '14');
+  assert.equal(choisirAdresse(l, { numero: '99', rue: 'rue de rivoli' }).type, 'rue');
+});
+
+test('plaque : numéro → trottoir (4 m de l’axe, du bon côté) ; rue seule → projection sur la rue ; Base Adresse filtrée à 300 m', () => {
+  const rivoli = { nom: 'Rue de Rivoli', points: [pt(0, -200), pt(0, 200)] }, adr = (type, numero, point) => ({ type, libelle: 'x', point, numero, rue: 'Rue de Rivoli', distM: 0 });
+  const a = positionDepuisAdresse({ adresse: adr('numero', '12', pt(12, 60)), rues: [rivoli], pos: PP });
+  assert.ok(Math.abs((a.pos.lat - PP.lat) * 111320 - TROTTOIR_M) < 0.05); assert.ok(Math.abs((a.pos.lon - PP.lon) * kLon - 60) < 0.05);
+  assert.ok(distanceM(positionDepuisAdresse({ adresse: adr('numero', '9', pt(30, 40)), rues: [], pos: PP }).pos, pt(30, 40)) < 0.01, 'sans géométrie : le point d’adresse');
+  const r = positionDepuisAdresse({ adresse: adr('rue', '', pt(0, 0)), rues: [rivoli], pos: pt(15, 37) });
+  assert.ok(distanceM(r.pos, pt(0, 37)) < 0.05); assert.ok(Math.abs(r.ecartM - 15) < 0.05);
+  assert.match(positionDepuisAdresse({ adresse: adr('rue', '', pt(0, 0)), rues: [], pos: PP }).raison, /lisez un numéro/);
+  const f = (p, props) => ({ geometry: { coordinates: [p.lon, p.lat] }, properties: props });
+  const b = lireReponseBAN({ features: [f(pt(0, 400), { type: 'housenumber', label: 'loin', housenumber: '1', street: 'Rue Loin' }), f(pt(40, 40), { type: 'housenumber', label: '12', housenumber: '12', street: 'Rue de Rivoli' }), f(pt(5, 5), { type: 'street', label: 'Rivoli', name: 'Rue de Rivoli' })] }, PP);
+  assert.deepEqual(b.map((x) => x.type), ['rue', 'numero']);
+});
+
+test('plaque : les pas font avancer la position corrigée ; le GPS ne reprend la main qu’après 20 s à plus de 2 × sa précision', () => {
+  let e = etatPasInitial(), n = 0;
+  for (let t = 0; t < 10000; t += 20) { const r = detecterPas(e, { x: 0, y: 0, z: 9.81 + 3 * Math.max(0, Math.sin(2 * Math.PI * 2 * t / 1000)), t }); e = r.etat; if (r.pas) n++; }
+  assert.ok(n >= 18 && n <= 21, `${n} pas en 10 s à 2 pas/s`);
+  assert.ok(Math.abs(distanceM(PP, avancer(PP, 90, 0.7, 10)) - 7) < 0.01);
+  let c = { pos: PP, ecartDepuisMs: null, pas: 0 };
+  assert.equal(surGps(c, { pos: pt(15, 0), precisionM: 10, t: 0 }).reprise, false, 'à 15 m pour ± 10 m : tient');
+  c = surGps(c, { pos: pt(50, 0), precisionM: 10, t: 0 }).corr; assert.equal(surGps(c, { pos: pt(50, 0), precisionM: 10, t: 19000 }).reprise, false);
+  assert.equal(surGps(c, { pos: pt(50, 0), precisionM: 10, t: 20000 }).reprise, true);
+});
+
+test('capteurRelatif : le quaternion donne les mêmes axes que camAxes de la v1 (200 orientations, 4 rotations d’écran, 1e-9)', () => {
+  const D = Math.PI / 180;
+  const camAxes = (alpha, beta, gamma, ang) => { const a = alpha * D, b = beta * D, g = gamma * D, cA = Math.cos(a), sA = Math.sin(a), cB = Math.cos(b), sB = Math.sin(b), cG = Math.cos(g), sG = Math.sin(g);
+    const x = [cA * cG - sA * sB * sG, cG * sA + cA * sB * sG, -cB * sG], y = [-cB * sA, cA * cB, sB], z = [cG * sA * sB + cA * sG, sA * sG - cA * cG * sB, cB * cG];
+    return { v: [-z[0], -z[1], -z[2]], r: ang === 90 ? y : ang === 270 ? y.map((k) => -k) : ang === 180 ? x.map((k) => -k) : x }; };
+  assert.ok(V1.includes('const z=[cG*sA*sB+cA*sG, sA*sG-cA*cG*sB, cB*cG];'), 'formule recopiée de la v1');
+  let s = 1; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 200; i++) { const a = rnd() * 360, b = rnd() * 360 - 180, g = rnd() * 180 - 90;
+    for (const ang of [0, 90, 180, 270]) { const A = camAxes(a, b, g, ang), Q = axesDepuisQuaternion(quaternionDepuisAngles(a, b, g), ang);
+      for (const k of ['v', 'r']) for (let j = 0; j < 3; j++) assert.ok(Math.abs(A[k][j] - Q[k][j]) < 1e-9, `${k}[${j}] ${a},${b},${g},${ang}`); } }
+});
+
+test('recalageContinu : deux détections concordantes sur 3 s → demi-pas ; mouvement, désaccord, reflet, pause et cumul de 20° bloquent', () => {
+  const d = (t, dh, dp = 0) => ({ t, dh, dp }), base = { derniereMs: -Infinity, maintenantMs: 3000, cumulDeg: 0, rotationDegS: 0 };
+  assert.deepEqual(decisionCalageContinu({ ...base, historique: [d(0, -4), d(3000, -4.2)] }).pas, { dh: -2.05, dp: 0 });
+  assert.equal(decisionCalageContinu({ ...base, historique: [d(0, -4), d(3000, -4)], rotationDegS: 30 }).pas, null);
+  assert.equal(decisionCalageContinu({ ...base, historique: [d(0, -4), d(3000, -6)] }).pas, null, 'désaccord de 2°');
+  assert.equal(decisionCalageContinu({ ...base, historique: [d(1000, -4), d(3000, -4)] }).pas, null, 'accord de 2 s seulement');
+  assert.match(decisionCalageContinu({ ...base, historique: [d(0, 30), d(3000, 30)] }).raison, /reflet/);
+  assert.equal(decisionCalageContinu({ ...base, historique: [d(0, -4), d(3000, -4)], derniereMs: -5000 }).pas, null, 'pause de 10 s');
+  assert.equal(decisionCalageContinu({ ...base, historique: [d(0, 0.1), d(3000, 0.1)] }).raison, 'convergé');
+  assert.equal(decisionCalageContinu({ ...base, historique: [d(0, 4), d(3000, 4)], cumulDeg: 19 }).pas.dh, 1);
+  assert.match(decisionCalageContinu({ ...base, historique: [d(0, 4), d(3000, 4)], cumulDeg: 20 }).raison, /cumul/);
 });
