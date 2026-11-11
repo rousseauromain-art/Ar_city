@@ -4,7 +4,7 @@
 // Réglage : panneau des Réglages (mémorisé sous la clé `vh3_greffes`) ou adresse de la page : ?g=lune,permutation (« tout », « aucune »), qui prime sans rien mémoriser.
 (function(){
   'use strict';
-  const VERSION='2026-11-09 (a) · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu)';
+  const VERSION='2026-11-11 (a) · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu, montagne)';
   // etat : 'non testé' | 'validé' | 'rejeté' (seul Romain le change sur le terrain : docs/ETAT.md)
   const LISTE=[
     {id:'soleil2',type:'remplacement',etat:'non testé',titre:'Soleil (v2)',phrase:'Toucher le soleil : le disque vu dans l’image est retrouvé, même téléphone penché ou boussole fausse de plus de 12°.'},
@@ -20,6 +20,7 @@
     {id:'plaque',type:'ajout',etat:'non testé',titre:'Lire une plaque de rue',phrase:'Bouton en tête des Réglages : la plaque filmée est lue, l’adresse trouvée (Base Adresse Nationale) corrige la position après confirmation ; elle suit ensuite vos pas.'},
     {id:'capteurRelatif',type:'remplacement',etat:'non testé',titre:'Anti-dérive : capteur relatif 60 Hz',phrase:'Le capteur d’orientation relatif (quaternion, 60 Hz) remplace le gyroscope de deviceorientation : suivi plus stable, la boussole ne sert que de nord.'},
     {id:'recalageContinu',type:'ajout',etat:'non testé',titre:'Anti-dérive : recalage continu',phrase:'Soleil ou lune dans l’image : le cap se corrige seul par petits pas (deux détections concordantes, téléphone stable, au plus ±20°).'},
+    {id:'montagne',type:'ajout',etat:'non testé',titre:'Montagne : noms des sommets',phrase:'Tous les sommets nommés d’OpenStreetMap à moins de 120 km, les plus dominants (au plus 300), affichés seulement s’ils se voient d’ici (relief).'},
   ];
   const IDS=LISTE.map(g=>g.id), CLE='vh3_greffes', CLE_TOMBES='vh3_tombes';
   const lire=k=>{ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } };
