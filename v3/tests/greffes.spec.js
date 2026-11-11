@@ -2,7 +2,7 @@
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
 const {ouvrir,capteurs,videoSynthetique}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne'];
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','nommer'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';
@@ -250,4 +250,75 @@ test('montagne : calque « Sommets » (les retire, les remet) ; Diagnostic : som
   await app.ev("$('btnDbg').onclick(); true");
   await expect(page.locator('#dbgBody')).toContainText('est DÉCOCHÉ (Réglages) : tous les noms sont posés sur la ligne d’horizon');
   expect(app.errors).toEqual([]);
+});
+
+/** Pincement à deux doigts au milieu de l'écran : les doigts passent d'un écart `de` à un écart `a` (px). */
+async function pincer(page,de,a){
+  const cdp=await page.context().newCDPSession(page), v=page.viewportSize(), y=Math.round(v.height*0.45), cx=v.width/2, pts=d=>[{x:Math.round(cx-d/2),y,id:1},{x:Math.round(cx+d/2),y,id:2}];
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:pts(de)});
+  for(const k of [1,2,3]) await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:pts(de+(a-de)*k/3)});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]}); await cdp.detach();
+}
+// l'estimation elle-même (gyroscope + image) est prouvée dans greffes.test.mjs sur une caméra simulée ; ici : ce que la page en fait
+const mesureFaite='(()=>{ window.G.champAuto.suivi().etat=()=>({ok:true,champ:68.3,n:15,rms:0.41,retard:90,rotation:104,paires:15,dernier:""}); window.G.champAuto.conclure(); return true; })()';
+for(const g of MODES('champAuto')) test(`champAuto (${nom(g)}) : le champ mesuré est appliqué, gardé pour cette caméra, le pincement ne le change plus ; déréglé, un bouton le reprend`,async({page})=>{
+  let app=await ouvrir(page,{pos:POS,greffes:g,settings:{camFov:44}});
+  await page.waitForFunction(()=>window.G.champAuto.etat().camera);
+  await pincer(page,120,200); const avant=await app.ev('S.camFov'); expect(avant).toBeLessThan(44); // pas encore mesuré : le pincement règle le champ, comme la v1
+  await page.evaluate(mesureFaite);
+  expect(await app.ev('S.camFov')).toBe(68.5); expect(await page.locator('#fov').inputValue()).toBe('68.5');
+  await expect(page.locator('#note')).toContainText(`Champ de la caméra mesuré : 68.5° (il était réglé à ${avant}°)`);
+  const garde=await page.evaluate(()=>JSON.parse(localStorage.getItem('vh3_champAuto'))), cam=Object.keys(garde); expect(cam.length).toBe(1); expect(garde[cam[0]]).toMatchObject({champ:68.5,n:15});
+  await pincer(page,120,200); expect(await app.ev('S.camFov')).toBe(68.5); await expect(page.locator('#note')).toContainText('le pincement ne le change plus');
+  await expect(page.locator('#g3ChampV')).toHaveText('68.5°');
+  await app.ev("$('btnDbg').onclick(); true"); await expect(page.locator('#dbgBody')).toContainText('champAuto : champ mesuré 68.5° (15 mesures, 104° de rotation');
+  expect(app.errors).toEqual([]);
+  // page rouverte avec un champ déréglé : la mesure de cette caméra est retrouvée, signalée, reprise d'un bouton
+  app=await ouvrir(page,{pos:POS,greffes:g,settings:{camFov:44}});
+  await page.waitForFunction(()=>window.G.champAuto.etat().mesure);
+  await expect(page.locator('#note')).toContainText('Champ réglé à 44°, mesuré à 68.5°'); await expect(page.locator('#g3ChampBtn')).toHaveText('Reprendre la mesure');
+  await page.evaluate(()=>document.getElementById('g3ChampBtn').click()); expect(await app.ev('S.camFov')).toBe(68.5); await expect(page.locator('#g3ChampBtn')).toHaveText('Remesurer');
+  expect(app.errors).toEqual([]);
+});
+test('champAuto éteinte : pas de ligne dans les Réglages, le pincement règle le champ comme dans la v1',async({page})=>{
+  const app=await ouvrir(page,{pos:POS,greffes:[],settings:{camFov:60}});
+  await expect(page.locator('#g3ChampRow')).toHaveCount(0);
+  await pincer(page,120,200); expect(await app.ev('S.camFov')).toBeLessThan(60); expect(app.errors).toEqual([]);
+});
+
+for(const g of MODES('nettete')) test(`nettete (${nom(g)}) : à l'ouverture de la caméra, la mise au point est fixée au plus loin ; éteinte, rien n'est demandé`,async({page})=>{
+  const beforeStart=`(()=>{ const o=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices); navigator.mediaDevices.getUserMedia=async k=>{ const st=await o(k), tr=st.getVideoTracks()[0];
+    tr.getCapabilities=()=>({focusMode:['continuous','manual'],focusDistance:{min:0.1,max:12.5,step:0.01}}); tr.applyConstraints=async q=>{ (window.__mise=window.__mise||[]).push(q); }; return st; }; return true; })()`;
+  for(const greffes of [g,[]]){
+    const app=await ouvrir(page,{pos:POS,greffes,beforeStart});
+    if(!greffes.length){ await app.frame(); expect(await page.evaluate(()=>window.__mise)).toBeUndefined(); continue; }
+    await page.waitForFunction(()=>window.G.nettete.etat().mode==='infini');
+    expect(await page.evaluate(()=>window.__mise)).toEqual([{advanced:[{focusMode:'manual',focusDistance:12.5}]}]);
+    await app.ev("$('btnDbg').onclick(); true"); await expect(page.locator('#dbgBody')).toContainText('nettete : mise au point fixée à l’infini');
+    expect(app.errors).toEqual([]);
+  }
+});
+
+for(const g of MODES('nommer')) test(`nommer (${nom(g)}) : toucher le relief ouvre sa fiche (distance, altitude), le nom vient d'OpenStreetMap, une épingle le garde à l'écran ; éteinte, rien`,async({page})=>{
+  const {offset}=require('../../tests/commun/app'), mont=offset(POS,2,90), v=page.viewportSize();
+  const EL=[{type:'node',id:7,lat:mont.lat,lon:mont.lon,tags:{natural:'peak',name:'Mont Essai',ele:'300',wikipedia:'fr:Mont Essai'}},{type:'node',id:8,...offset(POS,1.75,90),tags:{place:'locality',name:'Le Pré Haut'}},
+    {type:'area',id:9,tags:{boundary:'administrative',admin_level:'8',name:'Saint-Essai'}}];
+  const beforeStart=`overpassQuery=(o=>async(q,ms,p)=>/mountain_pass/.test(q)?p({elements:${JSON.stringify(EL)}}):o(q,ms,p))(overpassQuery); true`;
+  for(const greffes of [g,[]]){
+    const app=await ouvrir(page,{pos:POS,greffes,beforeStart,terrain:{features:[{lat:mont.lat,lon:mont.lon,r:300,h:300}]}}); // colline de 300 m à 2 km à l'est
+    await app.waitFor('terrain&&!terrain.refining',60000);
+    await capteurs(app,{cap:90,incl:4}); await app.frame();
+    await page.mouse.click(v.width/2,v.height/2); // 4° au-dessus de l'horizon, plein est : le flanc de la colline
+    if(!greffes.length){ await app.frame(); expect(await page.evaluate(()=>document.getElementById('dbg').classList.contains('open'))).toBe(false); continue; }
+    await expect(page.locator('#dbgTitle')).toHaveText('Relief touché');
+    const corps=page.locator('#dbgBody');
+    await expect(corps).toContainText('Mont Essai'); await expect(corps).toContainText(/sommet · 300 m · à 1,7 km d’ici · direction 90°/);
+    await expect(corps).toContainText(/Point touché.*relief à 1,7 km, (29\d|30\d) m/); await expect(corps).toContainText('Le Pré Haut — lieu-dit'); await expect(corps).toContainText('Saint-Essai (commune)');
+    await expect(corps.locator('a',{hasText:'Wikipédia'})).toHaveAttribute('href','https://fr.wikipedia.org/wiki/Mont_Essai');
+    await page.click('#dbgClose');
+    expect((await app.frame()).map(o=>o.text)).toContain('Mont Essai 300 m · 1,7 km');
+    await page.mouse.click(v.width/2,v.height*0.2); await expect(page.locator('#note')).toContainText('C’est le ciel'); // bien au-dessus de la silhouette
+    await app.ev("$('btnDbg').onclick(); true"); await expect(page.locator('#dbgBody')).toContainText(/nommer : 1 relief\(s\) touché\(s\) · dernier : ciel/);
+    expect(app.errors).toEqual([]);
+  }
 });

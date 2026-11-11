@@ -10,16 +10,19 @@ import { proposer, ondulationGeoide } from '../greffes/oeil.js';
 import { evaluer as evaluerBoussole, mesureRelative } from '../greffes/boussoleA.js';
 import { positionLune, detecterTaches, candidats, meilleur } from '../greffes/_astre.js';
 import { LIBELLES } from '../greffes/icones.js';
+import { creerSuivi, axes as axesChamp, GRAND_COTE } from '../greffes/champAuto.js';
+import { choisir as choisirNettete } from '../greffes/nettete.js';
+import { viser, lireNoms, requete as requeteNoms, nature, rayonKm, ficheHtml } from '../greffes/nommer.js';
 
 const D = Math.PI / 180;
 const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url), 'utf8');
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 14 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 17 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -206,4 +209,98 @@ test('montagne : dominance — loin, un sommet doit être le plus haut sur d/30 
   assert.equal(selectionner(s, O, { nMax: 1 }).length, 1);
   const f = fusionner(selectionner(s, O), [{ name: 'près', ...at(3.1, 0) }]);
   assert.deepEqual(f.map((p) => p.name).sort(), ['Haut', 'Près2']); assert.ok(f.every((p) => p.farPeak && p.kind === 'peak'));
+});
+
+// ---- champAuto : une caméra simulée de champ connu filme un paysage simulé ; le gyroscope (arrondi à 0,1°) et l'image (en retard) donnent le champ ----
+const paysage = (graine) => { // luminosité d'une direction (cap, hauteur, radians) : montagnes sombres sous une crête, ciel clair, détails de toutes tailles
+  const r = alea(graine), T = Array.from({ length: 16 }, () => ({ a: 8 + 30 * r(), w: (0.15 + 2.2 * r()) * 12, p: 6.28 * r(), n: (0.2 + 2.5 * r()) * 14, q: 6.28 * r() })), C = Array.from({ length: 8 }, () => ({ a: (1.5 + 3 * r()) * 0.4 * D, w: 2 + 25 * r(), p: 6.28 * r() }));
+  return (az, el) => { let cr = 4 * D; for (const c of C) cr += c.a * Math.sin(c.w * az + c.p); const bas = el < cr; let L = bas ? 60 : 170; for (const t of T) L += t.a * Math.sin(t.w * az + t.p) * Math.cos(t.n * el + t.q) * (bas ? 1 : 0.35); return Math.max(0, Math.min(255, L)); };
+};
+const axesDe = (cap, incl, roulis) => { const c = cap * D, i = incl * D, r = roulis * D, h = [Math.cos(c), -Math.sin(c), 0], u = [-Math.sin(c) * Math.sin(i), -Math.cos(c) * Math.sin(i), Math.cos(i)]; return { v: [Math.sin(c) * Math.cos(i), Math.cos(c) * Math.cos(i), Math.sin(i)], r: h.map((k, j) => k * Math.cos(r) + u[j] * Math.sin(r)) }; };
+function filmer(L, A, f, w, h) { // sténopé exact, indépendant du code de la greffe
+  const { v, r } = A, u = [r[1] * v[2] - r[2] * v[1], r[2] * v[0] - r[0] * v[2], r[0] * v[1] - r[1] * v[0]], out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const a = x - w / 2 + 0.5, b = -(y - h / 2 + 0.5), d = [v[0] * f + r[0] * a + u[0] * b, v[1] * f + r[1] * a + u[1] * b, v[2] * f + r[2] * a + u[2] * b]; out[y * w + x] = L(Math.atan2(d[0], d[1]), Math.asin(d[2] / Math.hypot(...d))); }
+  return out;
+}
+/** Mesure jusqu'au premier « prêt » (comme la page). `proche` : la moitié basse de l'image est à `proche` mètres, le téléphone tourne au bout du bras. */
+function mesurerChamp({ champ, pose, portrait = false, retard = 90, graine = 1, duree = 20000, proche = 0 }) {
+  const w = portrait ? 108 : GRAND_COTE, h = portrait ? GRAND_COTE : 108, f = GRAND_COTE / 2 / Math.tan(champ / 2 * D), L = paysage(graine), S = creerSuivi(), ar = (x) => Math.round(x * 10) / 10, ev = [];
+  for (let t = 0; t <= duree; t += 1000 / 60) ev.push({ t, o: true });
+  for (let t = 200; t <= duree - 200; t += 1000 / 15) ev.push({ t: t + retard, tc: t });
+  ev.sort((a, b) => a.t - b.t);
+  const Lp = proche ? (cap) => (az, el) => el < 0 ? L(az + 0.35 * cap * D / proche * Math.cos(az - cap * D), el) : L(az, el) : () => L;
+  for (const e of ev) {
+    if (e.o) { const p = pose(e.t); S.orientation(e.t, axesDe(ar(p[0]), ar(p[1]), ar(p[2]))); }
+    else { const p = pose(e.tc); if (S.image(e.t, filmer(Lp(p[0]), axesDe(...p), f, w, h), w, h) && S.etat().ok) return { ...S.etat(), t: e.t }; }
+  }
+  return { ...S.etat(), t: null };
+}
+const balayage = (t) => [45 * Math.sin(2 * Math.PI * t / 5000), 2 + 2 * Math.sin(t / 700), 1.5 * Math.sin(t / 1100)];
+test('champAuto : le champ d’une caméra simulée est retrouvé à 1 % près, en paysage et en portrait, avec le retard de l’image', () => {
+  for (const [o, tol] of [[{ champ: 68, pose: balayage }, 0.01], [{ champ: 44, pose: balayage, graine: 3, retard: 160 }, 0.015], [{ champ: 74, pose: balayage, portrait: true, graine: 6, retard: 0 }, 0.01]]) {
+    const e = mesurerChamp(o);
+    console.log(`champAuto : champ ${o.champ}° → ${e.champ.toFixed(2)}° à ${e.t / 1000} s (${e.n} mesures, ${Math.round(e.rotation)}° de rotation, écart ${e.rms.toFixed(2)} px, retard trouvé ${e.retard} ms pour ${o.retard ?? 90})`);
+    assert.ok(e.t !== null, `pas de mesure : ${e.raison}`); assert.ok(Math.abs(e.champ / o.champ - 1) < tol, `${e.champ.toFixed(2)}° pour ${o.champ}°`);
+    assert.ok(Math.abs(e.retard - (o.retard ?? 90)) <= 40, `retard ${e.retard} ms`); assert.ok(e.n >= 14 && e.rotation >= 90);
+  }
+});
+test('champAuto : téléphone immobile → aucune mesure ; premier plan à 1,5 m (parallaxe) → refusé, pas de champ faux', () => {
+  const fixe = mesurerChamp({ champ: 68, pose: (t) => [10 + 0.3 * Math.sin(t / 400), 2, 0], duree: 6000 });
+  assert.equal(fixe.t, null); assert.equal(fixe.paires, 0);
+  const pres = mesurerChamp({ champ: 68, pose: balayage, proche: 1.5, duree: 9000 });
+  console.log(`champAuto : premier plan à 1,5 m → ${pres.paires} paire(s) gardée(s) en 9 s (${pres.raison})`);
+  assert.equal(pres.t, null, `champ faux accepté : ${pres.champ}`); assert.ok(pres.paires < 14, 'les bandes discordantes écartent presque toutes les paires');
+});
+test('champAuto : mêmes axes que camAxes de la v1 (200 orientations, 4 rotations d’écran)', () => {
+  const r = alea(11);
+  for (const angle of [0, 90, 180, 270]) { const camAxes = new Function('D', 'screen', 'window', `return ${fonctionV1('camAxes')}`)(D, { orientation: { angle } }, {});
+    for (let k = 0; k < 50; k++) { const a = 360 * r(), b = -180 + 360 * r(), g = -90 + 180 * r(), V = camAxes(a, b, g), A = axesChamp(a, b, g, angle); for (let i = 0; i < 3; i++) { assert.ok(Math.abs(V.v[i] - A.v[i]) < 1e-12); assert.ok(Math.abs(V.r[i] - A.r[i]) < 1e-12); } } }
+});
+
+test('nettete : à l’infini si la caméra le permet, sinon mise au point continue, sinon rien', () => {
+  const inf = choisirNettete({ focusMode: ['continuous', 'manual'], focusDistance: { min: 0.1, max: 12.5, step: 0.01 } });
+  assert.equal(inf.mode, 'infini'); assert.deepEqual(inf.contraintes, { advanced: [{ focusMode: 'manual', focusDistance: 12.5 }] });
+  assert.equal(choisirNettete({ focusMode: ['continuous', 'single-shot'] }).mode, 'continu');
+  assert.equal(choisirNettete({ focusMode: ['manual', 'continuous'], focusDistance: { min: 0, max: 0 } }).mode, 'continu', 'plage de mise au point vide');
+  assert.equal(choisirNettete({ width: { max: 1920 } }), null); assert.equal(choisirNettete(undefined), null);
+});
+
+// ---- nommer : relief synthétique au format de la v1 (pm : hauteur maximale cumulée par cap et par distance ; pm.raw : hauteur de chaque point) ----
+const K = { TDIST: new Function('RELIEF_MAX_KM', `return ${/const TDIST=(\(\(\)=>\{.*?\}\)\(\));/.exec(V1)[1]}`)(200), BSTEP: 0.5, NB: 720, REFF: 6371000 * 1.13 };
+function reliefSynthetique(profil, h0 = 1000) { // profil(dKm) → altitude, le même dans toutes les directions
+  const raw = Float32Array.from(K.TDIST, (d) => Math.atan2(profil(d) - h0 - (d * 1000) ** 2 / (2 * K.REFF), d * 1000) / D), row = new Float32Array(raw.length); let mx = -90;
+  raw.forEach((a, k) => { if (a > mx) mx = a; row[k] = mx; });
+  const pm = Array.from({ length: K.NB }, () => row); pm.raw = Array.from({ length: K.NB }, () => raw);
+  return { c: { lat: 45, lon: 5.5 }, h0, pm };
+}
+// plateau à 1 000 m, versant de 4 à 6 km (crête à 1 600 m), creux, puis montagne de 2 600 m à 12 km (elle dépasse la première crête : c'est la silhouette)
+const profilTest = (d) => d < 4 ? 1000 : d < 6 ? 1000 + (d - 4) * 300 : d < 7 ? 1600 - (d - 6) * 400 : d < 12 ? 1200 + (d - 7) * 280 : Math.max(0, 2600 - (d - 12) * 500);
+test('nommer : le rayon touche le premier versant, donne sa crête ; au-dessus de la silhouette (≤ 3°) il vise la silhouette ; plus haut, c’est le ciel', () => {
+  const T = reliefSynthetique(profilTest), el = Math.atan2(300, 5000) / D, V = viser(T, K, 90, el);
+  assert.ok(Math.abs(V.d - 5) < 0.15, `d ${V.d}`); assert.ok(Math.abs(V.alt - 1300) < 40, `alt ${V.alt}`); assert.equal(V.surSilhouette, false);
+  assert.ok(Math.abs(V.crete.d - 6) < 0.15 && Math.abs(V.crete.alt - 1600) < 40, JSON.stringify(V.crete));
+  assert.ok(Math.abs(V.lon - (5.5 + V.d / (111.32 * Math.cos(45 * D)))) < 1e-6 && Math.abs(V.lat - 45) < 1e-6, 'plein est');
+  const ciel = T.pm[0][K.TDIST.length - 1], S1 = viser(T, K, 90, ciel + 1.5);
+  assert.equal(S1.surSilhouette, true); assert.ok(Math.abs(S1.d - 12) < 0.3 && Math.abs(S1.alt - 2600) < 60, JSON.stringify(S1));
+  assert.deepEqual(viser(T, K, 90, ciel + 5), { ciel: true, ecart: 5 }); assert.deepEqual(viser(T, K, 90, -25), { proche: true }); assert.equal(viser(null, K, 90, 0), null);
+});
+test('nommer : le sommet de la crête visée passe devant un lieu-dit plus proche ; hors rayon écarté ; même nom fusionné ; massif et commune à part', () => {
+  const T = reliefSynthetique(profilTest), V = viser(T, K, 90, Math.atan2(300, 5000) / D), R = rayonKm(V.d), auLarge = (p, kmE, kmN = 0) => ({ lat: p.lat + kmN / 111.32, lon: p.lon + kmE / (111.32 * Math.cos(45 * D)) });
+  assert.equal(R, 0.5); assert.equal(rayonKm(40), 2); assert.equal(rayonKm(300), 4);
+  const j = { elements: [
+    { type: 'node', id: 1, ...auLarge(V, 0.1), tags: { place: 'locality', name: 'Les Prés' } },
+    { type: 'node', id: 2, ...auLarge(V.crete, 0, 0.05), tags: { natural: 'peak', name: 'Grand Sommet', ele: '1 602 m', wikipedia: 'fr:Grand Sommet' } },
+    { type: 'way', id: 3, center: auLarge(V, 0, 0.3), tags: { natural: 'saddle', name: 'Col Voisin' } },
+    { type: 'node', id: 4, ...auLarge(V, 0, 3), tags: { place: 'hamlet', name: 'Trop Loin' } },
+    { type: 'node', id: 5, ...auLarge(V, 0.2), tags: { natural: 'peak' } },
+    { type: 'area', id: 6, tags: { boundary: 'administrative', admin_level: '8', name: 'Saint-Test' } }, { type: 'area', id: 7, tags: { natural: 'mountain_range', name: 'Massif du Test' } }] };
+  const N = lireNoms(j, V, [{ name: 'Grand sommet', lat: V.crete.lat, lon: V.crete.lon, ele: 1600 }]);
+  assert.deepEqual(N.noms.map((o) => [o.name, o.type, o.ou]), [['Grand Sommet', 'sommet', 'crête'], ['Les Prés', 'lieu-dit', 'point'], ['Col Voisin', 'col', 'point']]);
+  assert.equal(N.noms[0].ele, 1602); assert.equal(N.noms[0].osm, 'node/2'); assert.equal(N.noms[0].wikipedia, 'fr:Grand Sommet');
+  assert.deepEqual(N.autour, [{ name: 'Massif du Test', type: 'massif' }, { name: 'Saint-Test', type: 'commune' }]);
+  assert.deepEqual(lireNoms(null, V, []).noms, []); assert.deepEqual(nature({ mountain_pass: 'yes' }), ['col', 0.35]); assert.ok(nature({ place: 'locality', name: 'Plateau d’Herbouilly' })[1] > nature({ place: 'locality', name: 'Les Prés' })[1]); assert.equal(nature({ natural: 'plateau' })[0], 'plateau');
+  const q = requeteNoms([V, V.crete], R);
+  assert.match(q, /nwr\["name"\]\["natural"~"\^\(peak\|[^"]*plateau[^"]*\)\$"\]\(around:500,45\.0\d+,5\.5\d+\);/); assert.equal(q.split('(around:500,').length - 1, 10, '5 sélecteurs × 2 centres'); assert.match(q, /is_in\(45\.0\d+,5\.5\d+\)->\.a;/);
+  const html = ficheHtml(V, N); assert.match(html, /Grand Sommet<\/div><div class="dbgline">sommet · 1[\s ]602 m · à 5,0 km d’ici · direction 90°/); assert.match(html, /fr\.wikipedia\.org\/wiki\/Grand_Sommet/);
+  assert.match(ficheHtml(V, lireNoms({ elements: [] }, V, [])), /Relief à 5,0 km.*Rien de nommé dans OpenStreetMap à moins de 0,5 km/s); assert.match(ficheHtml(V, lireNoms(null, V, []), { enCours: true }), /Recherche du nom/);
 });
