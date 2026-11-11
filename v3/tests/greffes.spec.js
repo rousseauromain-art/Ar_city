@@ -228,3 +228,26 @@ for(const g of MODES('montagne')) test(`montagne (${nom(g)}) : les sommets OSM d
     expect(app.errors).toEqual([]);
   }
 });
+
+test('montagne : calque « Sommets » (les retire, les remet) ; Diagnostic : sommets du champ et raison ; masquage du relief décoché → message et alerte',async({page})=>{
+  const at=(dKm,brg)=>({lat:POS.lat+dKm*Math.cos(brg*Math.PI/180)/111.2,lon:POS.lon+dKm*Math.sin(brg*Math.PI/180)/(111.2*Math.cos(POS.lat*Math.PI/180))});
+  const EL=[{type:'node',id:1,...at(50,90),tags:{natural:'peak',name:'Pic Haut',ele:'2500'}}];
+  const beforeStart=`overpassQuery=(o=>async(q,ms,p)=>/natural"="peak"\\]\\["name"\\]\\["ele"\\]/.test(q)?p({elements:${JSON.stringify(EL)}}):o(q,ms,p))(overpassQuery); true`;
+  let app=await ouvrir(page,{pos:POS,greffes:['montagne'],beforeStart});
+  await app.waitFor('terrain&&!terrain.refining',60000); await app.waitFor("G.montagne.etat().msg==='ok'",30000);
+  await capteurs(app,{cap:90,incl:0});
+  await app.ev("$('btnDbg').onclick(); true");
+  await expect(page.locator('#dbgBody')).toContainText('ancrage des noms : sur le relief');
+  await expect(page.locator('#dbgBody')).toContainText(/sommets dans le champ .* Pic Haut 2500 m 50\.0 km → net/);
+  await page.click('#dbgClose'); await page.click('#btnLayers'); const cb=page.locator('#lyMtg'); await expect(cb).toBeChecked();
+  await cb.uncheck(); expect(await app.ev('farPeaks.some(c=>c.montagne)')).toBe(false);
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('vh3_montagne')))).toEqual({calque:false});
+  await cb.check(); await app.waitFor("farPeaks.some(c=>c.name==='Pic Haut')",30000);
+  // masquage du relief décoché : la v1 pose les noms sur l'horizon et ne charge aucun sommet lointain ; la greffe le dit
+  app=await ouvrir(page,{pos:POS,greffes:['montagne'],beforeStart,settings:{relief:false,skyline:true}});
+  await app.waitFor('terrain&&!terrain.refining',60000); await app.waitFor("G.montagne.etat().msg==='ok'",30000);
+  await expect(page.locator('#note')).toContainText('Masquer ce qui est caché par le relief');
+  await app.ev("$('btnDbg').onclick(); true");
+  await expect(page.locator('#dbgBody')).toContainText('est DÉCOCHÉ (Réglages) : tous les noms sont posés sur la ligne d’horizon');
+  expect(app.errors).toEqual([]);
+});

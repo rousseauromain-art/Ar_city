@@ -68,7 +68,9 @@
       const d=v=>v?new Date(v).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
       return `<div class="dbgsec">Greffes v2 (v3)</div><div class="dbgline">${esc(VERSION)}</div>`
         +`<div class="dbgline">allumées : ${on.length?esc(on.join(', ')):'aucune (v3 = v1)'}${parAdresse?' · choisies par l’adresse (?g=)':''}</div>`
-        +allumees.filter(id=>inits[id]&&mods[id].statut).map(id=>{ let t; try{ t=mods[id].statut(); }catch(e){ t=id+' : '+e.message; } return `<div class="dbgline">${esc(t)}</div>`; }).join('')
+        // ancrage des noms : sans « Masquer ce qui est caché par le relief », la v1 pose tous les noms sur la ligne d'horizon et ne charge aucun sommet lointain
+        +(ctx&&ctx.S?`<div class="dbgline"${ctx.S.relief?'':' style="color:#E08787"'}>ancrage des noms : ${ctx.S.relief?(ctx.terrain?'sur le relief (masquage actif)':'relief en attente : noms sur la ligne d’horizon pour l’instant'):'« Masquer ce qui est caché par le relief » est DÉCOCHÉ (Réglages) : tous les noms sont posés sur la ligne d’horizon pointillée, rien n’est masqué, aucun sommet lointain n’est chargé'}</div>`:'')
+        +allumees.filter(id=>inits[id]&&mods[id].statut).map(id=>{ let t; try{ t=mods[id].statut(); }catch(e){ t=id+' : '+e.message; } return (Array.isArray(t)?t:[t]).map(l=>`<div class="dbgline">${esc(l)}</div>`).join(''); }).join('')
         +(G.erreurs.length?`<div class="dbgline" style="color:#E08787">${esc(G.erreurs.join(' · '))}</div>`:'')
         +`<div class="dbgsec">Pierres tombales (code suspect, ${t.length} bloc(s) passé(s) au moins une fois)</div>`
         +`<div class="dbgline">${t.map(([id,v])=>`${esc(id)} : <b>${v.n}</b> (dernier ${d(v.t)})`).join('<br>')||'aucun passage enregistré'}</div>`;
