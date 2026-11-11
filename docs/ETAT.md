@@ -31,6 +31,7 @@ Décision par greffe (`docs/REFONTE-V3.md` §3, règle 5) : validée → elle de
 | Correctif du glisser avec roulis (écran resté en portrait, §5) ; le toucher des noms compensait déjà le roulis dans la v1 | fait | `v3/villes-horizon.html` (pointermove), `v3/tests/roulis.spec.js` (−70° : la v1 déplace l'horizon, la v3 le cap) | non testé |
 | Pierres tombales (99 fonctions suspectes + 3 blocs connus), Diagnostic | fait | `v3/greffes.js:tombe`, `v3/tests/chargement.spec.js` | en cours (2 à 3 semaines d'usage, puis suppression des blocs restés à 0) |
 | Réglages propres (`vh3_settings`, recopiés une fois depuis la v1) | fait | `v3/tests/chargement.spec.js` | non testé |
+| CI : installation de Chromium robuste à une panne du miroir Ubuntu (repli sans dépendances système) | fait | `.github/workflows/tests.yml` | — |
 | Règle de travail des greffes : une branche par demande, en local syntaxe + test de la greffe, CI pour « tout éteint = v1 », fusion par Claude si verte (arrêt si la v1 change hors points d'entrée) | fait | `CLAUDE.md` (règles de la v3, n° 10) | — |
 | Rangement : un dossier par version (v2 dans `v2/`, harnais dans `tests/commun/`, documents dans `docs/`), `villes-horizon.html` de la racine supprimé | fait | site construit comparé avant/après (seuls changent les chemins `v2/src`, `v2/b` et les cartes de sources), tests de la v2 verts (lint, types, 326 unitaires, 59 intégration, 152 e2e avec les scènes réelles) | — |
 
