@@ -3740,6 +3740,7 @@ function draw(ts){
         ctx.font=`600 11px ${FM}`; ctx.textAlign='left'; ctx.lineWidth=3; ctx.strokeStyle='rgba(14,26,43,.9)'; const t=`soleil ${sp.az.toFixed(1)}° · ${sp.el.toFixed(1)}°`;
         ctx.strokeText(t,x+22,y+4); ctx.fillStyle='#FFD23F'; ctx.fillText(t,x+22,y+4); ctx.restore(); } } } }
   if(G.actif('lune')) G.lune.dessiner(ctx,{heading,pitch,fh,FOVH,W,H,FM}); // greffe lune : symbole de la lune
+  if(G.actif('nommer')) G.nommer.dessiner(ctx,{heading,pitch,fh,W,H,FM}); // greffe nommer : épingle sur le relief touché
   ctx.restore();
 
   // --- ruban de cap (repère écran) : hauteur réduite, sans pastilles de lieux ---
@@ -4063,7 +4064,7 @@ ov.addEventListener('pointerdown',e=>{ ptrs.set(e.pointerId,{x:e.clientX,y:e.cli
   drag={x:e.clientX,y:e.clientY,t:Date.now(),h:S.headOff,p:S.pitchOff,moved:false,r:pose().roll}; });
 ov.addEventListener('pointermove',e=>{
   if(ptrs.has(e.pointerId)) ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pinch&&ptrs.size>=2){ const [a,b]=[...ptrs.values()]; const r=(Math.hypot(a.x-b.x,a.y-b.y)||1)/pinch.d0;
+  if(pinch&&ptrs.size>=2){ if(G.actif('champAuto')&&G.champAuto.verrou()) return; /* greffe champAuto : champ mesuré, le pincement ne le change plus */ const [a,b]=[...ptrs.values()]; const r=(Math.hypot(a.x-b.x,a.y-b.y)||1)/pinch.d0;
     S.camFov=Math.round(Math.max(FOV_MIN,Math.min(FOV_MAX,2*Math.atan(pinch.t0/r)/D))*2)/2; $('fov').value=S.camFov; showFov(); note(`Champ de vision ${S.camFov}° (affiché ${Math.round(vFov())}°)`,1200); return; }
   if(!drag) return; const fh=(W/2)/Math.tan(vFov()/2*D);
   if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>8) drag.moved=true;
@@ -4259,7 +4260,7 @@ function telecomBlock(t){
 const TAP_DETAIL={ monument:(t,g)=>showMonumentDetail(t,g), telecom:(t,g)=>showTelecomSheet(t,g), user:(t,g)=>showUserSheet(t,g),
   ship:(t,g)=>showMobileSheet(t,g), plane:(t,g)=>showMobileSheet(t,g) };
 function showTelecomDetail(px,py){
-  const h=hitBest(px,py,[telecomHits,monHits,mobHits]); if(!h) return;
+  const h=hitBest(px,py,[telecomHits,monHits,mobHits]); if(!h){ if(G.actif('nommer')) G.nommer.toucher(px,py); return; } // greffe nommer : nom du relief touché
   (TAP_DETAIL[h.t.kind]||TAP_DETAIL.telecom)(h.t,lastHitGrp);
 }
 // fiche d'un navire ou d'un avion (ou d'un groupe d'icones) : ce que dit l'AIS / ADS-B, et les liens vers les sites de suivi
@@ -5177,6 +5178,7 @@ async function startCamera(){
     stopCamera();
     const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false});
     camStream=st; video.srcObject=st; await video.play(); camOK=true; camErr='';
+    if(G.actif('nettete')) G.nettete.regler(st); // greffe nettete : mise au point fixée à l'infini
     const tr=st.getVideoTracks()[0];
     if(tr) tr.addEventListener('ended',()=>{ if(appStarted&&!document.hidden&&camStream===st) startCamera(); });
   }catch(e){ camErr='Caméra refusée ou indisponible'; }
@@ -5215,7 +5217,8 @@ G.lier({S,D,$,wrap,note,pose,vFov,vFovFor,showFov,sunNow,sunTime,saveSettings,no
   relatif:(R,reinit)=>{ if(reinit){ gyroK=null; magBins.fill(null); svRel=srRel=null; } if(!R) return; const k=0.18, sm=(p,n)=>p?p.map((q,i)=>q+(n[i]-q)*k):n; // greffe capteurRelatif : mesure relative (quaternion), comme onOrient
     svRel=sm(svRel,R.v); srRel=sm(srRel,R.r); relT=Date.now(); sv=svAbs||svRel; sr=svAbs?srAbs:srRel; sensor=true; gyroLearn(); },
   get W(){ return W; }, get H(){ return H; }, get pos(){ return pos; }, get acc(){ return acc; }, get terrain(){ return terrain; }, get photoMode(){ return photoMode; }, get sensor(){ return sensor; }, get farPeaks(){ return farPeaks; }, get cities(){ return cities; }, axisStatus,
-  get obsGround(){ return obsGround; }, get obsGroundSrc(){ return obsGroundSrc; }, get obsElev(){ return obsElev; } });
+  get obsGround(){ return obsGround; }, get obsGroundSrc(){ return obsGroundSrc; }, get obsElev(){ return obsElev; },
+  relief:{TDIST,BSTEP,NB,REFF}, fiche:(titre,html)=>{ $('dbgBody').innerHTML=html; $('dbgTitle').textContent=titre; $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null; } }); // greffe nommer : relief de la v1, fiche
 G.monterPanneau($('sheet'));
 userLoad();
 resize();

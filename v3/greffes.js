@@ -4,7 +4,7 @@
 // Réglage : panneau des Réglages (mémorisé sous la clé `vh3_greffes`) ou adresse de la page : ?g=lune,permutation (« tout », « aucune »), qui prime sans rien mémoriser.
 (function(){
   'use strict';
-  const VERSION='2026-11-11 (a) · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu, montagne)';
+  const VERSION='2026-11-11 (b) · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu, montagne, champAuto, nettete, nommer)';
   // etat : 'non testé' | 'validé' | 'rejeté' (seul Romain le change sur le terrain : docs/ETAT.md)
   const LISTE=[
     {id:'soleil2',type:'remplacement',etat:'non testé',titre:'Soleil (v2)',phrase:'Toucher le soleil : le disque vu dans l’image est retrouvé, même téléphone penché ou boussole fausse de plus de 12°.'},
@@ -21,6 +21,9 @@
     {id:'capteurRelatif',type:'remplacement',etat:'non testé',titre:'Anti-dérive : capteur relatif 60 Hz',phrase:'Le capteur d’orientation relatif (quaternion, 60 Hz) remplace le gyroscope de deviceorientation : suivi plus stable, la boussole ne sert que de nord.'},
     {id:'recalageContinu',type:'ajout',etat:'non testé',titre:'Anti-dérive : recalage continu',phrase:'Soleil ou lune dans l’image : le cap se corrige seul par petits pas (deux détections concordantes, téléphone stable, au plus ±20°).'},
     {id:'montagne',type:'ajout',etat:'non testé',titre:'Montagne : noms des sommets',phrase:'Tous les sommets nommés d’OpenStreetMap à moins de 120 km, les plus dominants (au plus 300), affichés seulement s’ils se voient d’ici (relief).'},
+    {id:'champAuto',type:'ajout',etat:'non testé',titre:'Champ de la caméra mesuré',phrase:'Le champ (zoom) est mesuré tout seul quand vous tournez, dehors, face à un paysage lointain : gyroscope comparé au déplacement de l’image. Une fois mesuré, le pincement ne le change plus.'},
+    {id:'nettete',type:'ajout',etat:'non testé',titre:'Mise au point à l’infini',phrase:'La mise au point de la caméra est fixée au plus loin : plus de flou sur le paysage après avoir visé le soleil.'},
+    {id:'nommer',type:'ajout',etat:'non testé',titre:'Nommer le relief touché',phrase:'Toucher une montagne, une crête ou un plateau : son nom (sommet, col, lieu-dit… d’OpenStreetMap), sa distance et son altitude ; une épingle reste une minute.'},
   ];
   const IDS=LISTE.map(g=>g.id), CLE='vh3_greffes', CLE_TOMBES='vh3_tombes';
   const lire=k=>{ try{ return JSON.parse(localStorage.getItem(k)||'null'); }catch(e){ return null; } };

@@ -3,7 +3,12 @@ const {openApp}=require('../../../tests/commun/app');
 const V1='/v1/villes-horizon.html', V3='/v3/villes-horizon.html';
 /** Ouvre la v3 (greffes : liste, ['tout'] ou [] = toutes éteintes) ou la v1 (version:'v1'). */
 async function ouvrir(page,{version='v3',greffes=[],...opts}={}){
-  return openApp(page,{...opts,url:version==='v1'?V1:V3,greffes:version==='v1'?undefined:greffes});
+  const app=await openApp(page,{...opts,url:version==='v1'?V1:V3,greffes:version==='v1'?undefined:greffes});
+  // greffe montagne sans masquage du relief : son avertissement arrive après la position, à un instant variable, et remplaçait parfois le message
+  // qu'un test attend juste après (soleil2 toutes allumées, 1 fois sur 8) → on attend qu'il soit passé avant de rendre la main
+  if(version!=='v1'&&opts.start!==false&&opts.pos&&opts.settings&&opts.settings.relief===false&&(greffes.includes('tout')||greffes.includes('montagne')))
+    await app.waitFor("G.montagne.etat().msg!=='en attente du relief'",8000).catch(()=>{});
+  return app;
 }
 /** Capteurs simulés : axe de la caméra au cap `cap`, inclinaison `incl`, roulis `roulis` (°) ; la boussole seule (pas de gyroscope). */
 async function capteurs(app,{cap=0,incl=0,roulis=0}){

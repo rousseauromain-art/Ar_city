@@ -58,4 +58,5 @@ Réalité augmentée façon PeakFinder, dans le navigateur : par-dessus la camé
 - Altitude GPS d'Android au-dessus de l'ellipsoïde (géoïde 49 m en Bretagne) → greffe `oeil`, qui le retranche.
 - Silhouettes proches (Les Horizons, 0,3 km) : le plafond de taille de la v1 ne joue que pied à l'écran → la silhouette rétrécit quand on baisse le téléphone → greffe `tailleReelle`.
 - Rotation automatique coupée : écran resté en portrait, téléphone en paysage → greffe `rotation` et correctif §5 du glisser.
+- Vercors (11/11) : champ réglé à 45° pour une caméra d'environ 62° (réglée ensuite à l'œil) → le tracé glisse dès qu'on tourne (ce n'est pas le gyroscope) → greffe `champAuto`. Image floue après avoir visé le soleil → greffe `nettete`. La projection de la v1 est approchée hors du centre (environ 1° aux bords en montagne) : `docs/VEILLE-ANCRAGE.md` §5, à corriger avec l'accord de Romain.
 - Les pièces jointes du chat perdent leurs EXIF : déposer les originaux dans `Ar_city-photos`.

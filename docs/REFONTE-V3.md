@@ -107,6 +107,9 @@ docs/                 REFONTE-V3.md, ETAT.md, VEILLE-ANCRAGE.md
 | `capteurRelatif` | Anti-dérive : capteur d'orientation relatif à 60 Hz (quaternions) à la place du gyroscope de `deviceorientation` (action B de `VEILLE-ANCRAGE.md`) | remplacement | `entrees/capteurs.js` (`axesDepuisQuaternion`), `entrees/direct.js` |
 | `recalageContinu` | Anti-dérive : recalage continu du cap sur le soleil et la lune (action C de `VEILLE-ANCRAGE.md`) | ajout | `calage/continu.js`, `ui/calage-continu.js` |
 | `montagne` | Noms des sommets façon PeakFinder : tous les sommets nommés d'OpenStreetMap (`natural=peak`, altitude) à moins de 120 km, triés par dominance (au plus 300), affichés seulement s'ils se voient d'ici | ajout | aucun (nouvelle source ; la v1 n'avait que 30 sommets proches et les grands sommets de plus de 1 500 m) |
+| `champAuto` | Champ de la caméra mesuré : gyroscope comparé au déplacement de l'image quand on tourne ; mesure gardée par caméra ; mesuré, le pincement ne le change plus | ajout | aucun (une appli native lit le champ dans le système ; une page web doit le mesurer) |
+| `nettete` | Mise au point fixée au plus loin à l'ouverture de la caméra (flou après avoir visé le soleil) | ajout | aucun |
+| `nommer` | Toucher le relief donne son nom : rayon suivi dans le relief déjà chargé, noms d'OpenStreetMap autour du point et de sa crête, fiche et épingle | ajout | aucun (demande du 11/11/2026) |
 
 **Non repris :**
 - WebXR, calage guidé ;
