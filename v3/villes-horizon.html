@@ -970,7 +970,7 @@ async function loadFromOpenFreeMap(p,rKm,hamlets){
 const FAR_PEAK_Z=7, FAR_PEAK_MIN_KM=35, FAR_PEAK_MIN_ELE=1500;
 let farPeaks=[], farPeaksAt=null, farPeaksBusy=false, farPeaksMsg='';
 async function loadFarPeaks(force){
-  if(!pos||farPeaksBusy||!S.relief) return;
+  if(!pos||farPeaksBusy||!S.relief){ if(pos&&!S.relief&&G.actif('montagne')) G.montagne.charger({...pos}); return; } // greffe montagne : chargée même sans masquage (elle le signale)
   if(!force&&farPeaksAt&&distBrg(pos,farPeaksAt).dist<25) return;
   farPeaksBusy=true; const here={...pos};
   try{
@@ -5214,7 +5214,7 @@ G.lier({S,D,$,wrap,note,pose,vFov,vFovFor,showFov,sunNow,sunTime,saveSettings,no
   AC:{WIN:AC_WIN,VTOL:AC_VTOL,AGREE:AC_AGREE}, bumpCities:()=>{ citiesVer++; }, onNewPos, overpassQuery:(...a)=>overpassQuery(...a), dcFetch:(...a)=>dcFetch(...a), setFarPeaks:l=>{ farPeaks=l; recompute(); },
   relatif:(R,reinit)=>{ if(reinit){ gyroK=null; magBins.fill(null); svRel=srRel=null; } if(!R) return; const k=0.18, sm=(p,n)=>p?p.map((q,i)=>q+(n[i]-q)*k):n; // greffe capteurRelatif : mesure relative (quaternion), comme onOrient
     svRel=sm(svRel,R.v); srRel=sm(srRel,R.r); relT=Date.now(); sv=svAbs||svRel; sr=svAbs?srAbs:srRel; sensor=true; gyroLearn(); },
-  get W(){ return W; }, get H(){ return H; }, get pos(){ return pos; }, get acc(){ return acc; }, get terrain(){ return terrain; }, get photoMode(){ return photoMode; }, get sensor(){ return sensor; }, get farPeaks(){ return farPeaks; }, get cities(){ return cities; },
+  get W(){ return W; }, get H(){ return H; }, get pos(){ return pos; }, get acc(){ return acc; }, get terrain(){ return terrain; }, get photoMode(){ return photoMode; }, get sensor(){ return sensor; }, get farPeaks(){ return farPeaks; }, get cities(){ return cities; }, axisStatus,
   get obsGround(){ return obsGround; }, get obsGroundSrc(){ return obsGroundSrc; }, get obsElev(){ return obsElev; } });
 G.monterPanneau($('sheet'));
 userLoad();
