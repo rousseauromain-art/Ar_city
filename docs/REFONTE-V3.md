@@ -106,6 +106,7 @@ docs/                 REFONTE-V3.md, ETAT.md, VEILLE-ANCRAGE.md
 | `plaque` | Lire une plaque de rue : OCR dans le navigateur, Base Adresse Nationale, position corrigée après confirmation, puis suivie au pas (le GPS ne reprend la main qu'après 20 s d'écart) | ajout | `ui/lire-plaque.js`, `calage/adresse.js`, `donnees/adresse.js`, `ui/position-propre.js`, `scene/pas.js` |
 | `capteurRelatif` | Anti-dérive : capteur d'orientation relatif à 60 Hz (quaternions) à la place du gyroscope de `deviceorientation` (action B de `VEILLE-ANCRAGE.md`) | remplacement | `entrees/capteurs.js` (`axesDepuisQuaternion`), `entrees/direct.js` |
 | `recalageContinu` | Anti-dérive : recalage continu du cap sur le soleil et la lune (action C de `VEILLE-ANCRAGE.md`) | ajout | `calage/continu.js`, `ui/calage-continu.js` |
+| `montagne` | Noms des sommets façon PeakFinder : tous les sommets nommés d'OpenStreetMap (`natural=peak`, altitude) à moins de 120 km, triés par dominance (au plus 300), affichés seulement s'ils se voient d'ici | ajout | aucun (nouvelle source ; la v1 n'avait que 30 sommets proches et les grands sommets de plus de 1 500 m) |
 
 **Non repris :**
 - WebXR, calage guidé ;

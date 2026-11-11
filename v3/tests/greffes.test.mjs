@@ -16,10 +16,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 13 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 14 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -190,4 +190,20 @@ test('recalageContinu : deux détections concordantes sur 3 s → demi-pas ; mou
   assert.equal(decisionCalageContinu({ ...base, historique: [d(0, 0.1), d(3000, 0.1)] }).raison, 'convergé');
   assert.equal(decisionCalageContinu({ ...base, historique: [d(0, 4), d(3000, 4)], cumulDeg: 19 }).pas.dh, 1);
   assert.match(decisionCalageContinu({ ...base, historique: [d(0, 4), d(3000, 4)], cumulDeg: 20 }).raison, /cumul/);
+});
+
+// ---------- montagne ----------
+import { lireAltitude, lireSommets, selectionner, fusionner, isolementMin } from '../greffes/montagne.js';
+test('montagne : altitudes OSM lues (« 1 234,5 m »), sommets sans nom ou sans altitude écartés', () => {
+  assert.equal(lireAltitude('1234'), 1234); assert.equal(lireAltitude('1 234,5 m'), 1234.5); assert.equal(lireAltitude('~4810'), 4810); assert.equal(lireAltitude('haut'), null); assert.equal(lireAltitude(null), null);
+  assert.deepEqual(lireSommets({ elements: [{ lat: 45, lon: 6, tags: { name: 'A', ele: '3000' } }, { lat: 45, lon: 6, tags: { ele: '2000' } }, { lat: 45, lon: 6, tags: { name: 'C' } }, { lat: 45, lon: 6, tags: { name: 'D', 'name:fr': 'Dé', ele: '1 500 m' } }] }).map((p) => p.name), ['A', 'Dé']);
+});
+test('montagne : dominance — loin, un sommet doit être le plus haut sur d/30 km ; près, 0,3 km suffit ; au plus N sommets, les plus dominants d’abord', () => {
+  const O = { lat: 45, lon: 6 }, at = (dKm, brg) => ({ lat: O.lat + dKm * Math.cos(brg * Math.PI / 180) / 111.2, lon: O.lon + dKm * Math.sin(brg * Math.PI / 180) / (111.2 * Math.cos(O.lat * Math.PI / 180)) });
+  assert.equal(isolementMin(3), 0.3); assert.equal(isolementMin(60), 2);
+  const s = [{ name: 'Haut', ele: 2500, ...at(60, 90) }, { name: 'Voisin', ele: 2400, ...at(61, 90) }, { name: 'Près', ele: 600, ...at(3, 0) }, { name: 'Près2', ele: 590, ...at(3.5, 0) }, { name: 'Hors', ele: 4000, ...at(130, 0) }];
+  assert.deepEqual(selectionner(s, O).map((p) => p.name).sort(), ['Haut', 'Près', 'Près2']);
+  assert.equal(selectionner(s, O, { nMax: 1 }).length, 1);
+  const f = fusionner(selectionner(s, O), [{ name: 'près', ...at(3.1, 0) }]);
+  assert.deepEqual(f.map((p) => p.name).sort(), ['Haut', 'Près2']); assert.ok(f.every((p) => p.farPeak && p.kind === 'peak'));
 });

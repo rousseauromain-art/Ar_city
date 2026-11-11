@@ -21,6 +21,7 @@ Décision par greffe (`docs/REFONTE-V3.md` §3, règle 5) : validée → elle de
 | `plaque` · ajout : bouton « Lire une plaque de rue » (Réglages) : OCR, Base Adresse Nationale, position corrigée après « Appliquer », suivie au pas ; le GPS reprend après 20 s d'écart > 2 × sa précision | non testé | `v3/greffes/plaque.js`, `v3/tests/greffes.test.mjs` (lecture, trottoir, pas, reprise GPS), `v3/tests/greffes.spec.js` (plaque simulée → 30 m corrigés, tenus contre le GPS) |
 | `capteurRelatif` · remplacement : anti-dérive, `RelativeOrientationSensor` 60 Hz à la place du gyroscope de `deviceorientation` ; repli sur `deviceorientation` | non testé | `v3/greffes/capteurRelatif.js:axesDepuisQuaternion`, `v3/tests/greffes.test.mjs` (mêmes axes que la v1, 200 orientations × 4 rotations d'écran), `v3/tests/greffes.spec.js` |
 | `recalageContinu` · ajout : anti-dérive, le cap se corrige seul sur le soleil ou la lune vus dans l'image (demi-pas, 10 s entre deux pas, ±20° au plus) | non testé | `v3/greffes/recalageContinu.js:decisionCalageContinu`, `v3/tests/greffes.test.mjs`, `v3/tests/greffes.spec.js` (cap faux de 4° → 2° → 1°) |
+| `montagne` · ajout : tous les sommets nommés d'OSM à moins de 120 km, les plus dominants (un sommet loin doit être le plus haut sur d/30 km), au plus 300, ajoutés aux sommets lointains de la v1 (affichés seulement s'ils se voient) | non testé | `v3/greffes/montagne.js:selectionner`, `v3/tests/greffes.test.mjs` (altitudes, dominance), `v3/tests/greffes.spec.js` (sommet dominant affiché, voisin non dominant écarté, au-delà de 120 km écarté) |
 
 ## v3 — socle
 
@@ -30,6 +31,7 @@ Décision par greffe (`docs/REFONTE-V3.md` §3, règle 5) : validée → elle de
 | Correctif du glisser avec roulis (écran resté en portrait, §5) ; le toucher des noms compensait déjà le roulis dans la v1 | fait | `v3/villes-horizon.html` (pointermove), `v3/tests/roulis.spec.js` (−70° : la v1 déplace l'horizon, la v3 le cap) | non testé |
 | Pierres tombales (99 fonctions suspectes + 3 blocs connus), Diagnostic | fait | `v3/greffes.js:tombe`, `v3/tests/chargement.spec.js` | en cours (2 à 3 semaines d'usage, puis suppression des blocs restés à 0) |
 | Réglages propres (`vh3_settings`, recopiés une fois depuis la v1) | fait | `v3/tests/chargement.spec.js` | non testé |
+| CI : installation de Chromium robuste à une panne du miroir Ubuntu (repli sans dépendances système) | fait | `.github/workflows/tests.yml` | — |
 | Règle de travail des greffes : une branche par demande, en local syntaxe + test de la greffe, CI pour « tout éteint = v1 », fusion par Claude si verte (arrêt si la v1 change hors points d'entrée) | fait | `CLAUDE.md` (règles de la v3, n° 10) | — |
 | Rangement : un dossier par version (v2 dans `v2/`, harnais dans `tests/commun/`, documents dans `docs/`), `villes-horizon.html` de la racine supprimé | fait | site construit comparé avant/après (seuls changent les chemins `v2/src`, `v2/b` et les cartes de sources), tests de la v2 verts (lint, types, 326 unitaires, 59 intégration, 152 e2e avec les scènes réelles) | — |
 

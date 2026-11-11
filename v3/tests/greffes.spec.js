@@ -2,7 +2,7 @@
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
 const {ouvrir,capteurs,videoSynthetique}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu'];
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';
@@ -207,6 +207,24 @@ for(const g of MODES('recalageContinu')) test(`recalageContinu (${nom(g)}) : le 
     await capteurs(app,{cap:sol.az,incl:sol.el});
     await pas([T+6000,T+9000]); expect(await app.ev('S.headOff')).toBe(h1); // pause de 10 s entre deux pas
     const e=await pas([T+13000,T+16000]); expect(Math.abs(await app.ev('S.headOff')-1)).toBeLessThan(0.3); expect(e.pas).toBe(2);
+    expect(app.errors).toEqual([]);
+  }
+});
+
+for(const g of MODES('montagne')) test(`montagne (${nom(g)}) : les sommets OSM dominants à moins de 120 km s’affichent (ceux qui ne dominent pas leurs voisins non) ; éteinte, rien`,async({page})=>{
+  const at=(dKm,brg)=>({lat:POS.lat+dKm*Math.cos(brg*Math.PI/180)/111.2,lon:POS.lon+dKm*Math.sin(brg*Math.PI/180)/(111.2*Math.cos(POS.lat*Math.PI/180))});
+  const el=(id,name,ele,p)=>({type:'node',id,lat:p.lat,lon:p.lon,tags:{natural:'peak',name,ele:String(ele)}});
+  const EL=[el(1,'Pic Haut',2500,at(50,90)),el(2,'Pic Voisin',2400,at(50.8,90)),el(3,'Petit Mont',300,at(5,92)),el(4,'Mont Loin',1800,at(150,90))];
+  const beforeStart=`overpassQuery=(o=>async(q,ms,p)=>/natural"="peak"\\]\\["name"\\]\\["ele"\\]/.test(q)?p({elements:${JSON.stringify(EL)}}):o(q,ms,p))(overpassQuery); true`;
+  for(const greffes of [g,[]]){
+    const app=await ouvrir(page,{pos:POS,greffes,beforeStart});
+    await app.waitFor('terrain&&!terrain.refining',60000);
+    if(greffes.length) await app.waitFor("G.montagne.etat().msg==='ok'",30000);
+    await capteurs(app,{cap:90,incl:0}); await app.frame();
+    const textes=(await app.frame()).map(o=>o.text).join(' | '), noms=await app.ev('farPeaks.map(c=>c.name)');
+    if(greffes.length){ expect(noms).toEqual(expect.arrayContaining(['Pic Haut','Petit Mont'])); expect(noms).not.toContain('Pic Voisin'); expect(noms).not.toContain('Mont Loin');
+      expect(textes).toContain('Pic Haut'); expect(textes).toContain('Petit Mont'); }
+    else { expect(noms).toEqual([]); expect(textes).not.toContain('Pic Haut'); }
     expect(app.errors).toEqual([]);
   }
 });

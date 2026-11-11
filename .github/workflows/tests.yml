@@ -36,7 +36,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:v3
-      - run: npx playwright install --with-deps chromium
+      # miroir Ubuntu parfois injoignable (11/11/2026 : polices seules à installer, échec DNS) : Chromium seul en repli, ses bibliothèques sont déjà sur le serveur
+      - run: npx playwright install --with-deps chromium || npx playwright install chromium
       - name: Pages v1 et v3 (greffes seules, toutes allumées, tout éteint = v1, roulis)
         env:
           PARITE_OBLIGATOIRE: ${{ steps.photos.outputs.ok == 'true' && '1' || '' }}
