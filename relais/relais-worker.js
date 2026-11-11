@@ -8,6 +8,8 @@
      - GEOAPIFY_KEY           : cle Geoapify Places (villes/sommets/POI, source supplementaire)
      - GEONAMES_USER          : identifiant GeoNames (pas une cle : un nom de compte, service web
                                 a activer sur la page du compte geonames.org)
+     - CALIB_TOKEN            : (facultatif) jeton pour relire TOUT le carnet de calage (/calib?jeton=...) ;
+                                sans lui, seul ?dev=<identifiant d'un appareil> est accepte
    Variable (non secrete) :
      - ALLOWED_ORIGIN         : site autorise, ex. https://rousseauromain-art.github.io
 
@@ -382,6 +384,15 @@ export default {
       if (origin && !allowed.includes(origin)) return json({ error: 'origine non autorisee : ' + origin }, 403);
       if (!env.CALIB_LOG) return json({ error: 'stockage absent : binding CALIB_LOG (wrangler.json) puis wrangler deploy' }, 503);
       if (req.method !== 'GET' && req.method !== 'POST') return json({ error: 'methode non autorisee' }, 405);
+      // LECTURE (11/11/2026) : le carnet contient des positions (a 11 m pres), des dates et le modele du telephone. Il etait lisible par
+      // n'importe qui (une adresse ouverte dans un navigateur n'envoie pas d'origine). Desormais : un appareil relit SES mesures avec son
+      // identifiant (?dev=..., tire au hasard, connu de lui seul : lien « mes mesures » du Diagnostic) ; tout le carnet, tous appareils
+      // confondus, demande le secret CALIB_TOKEN du relais (?jeton=...). Sans ce secret, la lecture complete est fermee.
+      if (req.method === 'GET') {
+        const dev = url.searchParams.get('dev') || '', jeton = url.searchParams.get('jeton') || '';
+        if (dev.length < 8 && !(env.CALIB_TOKEN && jeton === env.CALIB_TOKEN))
+          return json({ error: 'lecture du carnet : ?dev=<identifiant de votre appareil> (lien « mes mesures » du Diagnostic), ou ?jeton=<secret CALIB_TOKEN du relais> pour tous les appareils' }, 403);
+      }
       const stub = env.CALIB_LOG.get(env.CALIB_LOG.idFromName('carnet'));
       const r = await stub.fetch(new Request('https://calib' + url.pathname + url.search, { method: req.method, body: req.method === 'POST' ? await req.text() : undefined }));
       return new Response(r.body, { status: r.status, headers: { ...cors, 'Content-Type': r.headers.get('content-type') || 'application/json', 'Cache-Control': 'no-store',
@@ -396,6 +407,7 @@ export default {
         opensky: !!(env.OPENSKY_CLIENT_ID && env.OPENSKY_CLIENT_SECRET),
         geoapify: !!env.GEOAPIFY_KEY,
         geonames: !!env.GEONAMES_USER,
+        carnet_complet: env.CALIB_TOKEN ? 'jeton' : 'ferme',
         origines: allowed,
       });
     }
