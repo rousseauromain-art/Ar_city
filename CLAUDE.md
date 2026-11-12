@@ -3,7 +3,7 @@
 Lu au début de chaque session. **La spécification en vigueur est `docs/REFONTE-V3.md`** : elle prime sur `v2/REFONTE.md` et sur l'historique. Tenir ce fichier à jour à chaque décision importante.
 
 ## Le projet
-Réalité augmentée façon PeakFinder, dans le navigateur : par-dessus la caméra, noms des lieux et monuments, relief, bateaux (AIS), avions, équipements télécom.
+Réalité augmentée dans le navigateur, comme une table d'orientation : par-dessus la caméra, noms des lieux et monuments, relief, bateaux (AIS), avions, équipements télécom.
 - **v3 = la version active** : `v3/villes-horizon.html`, copie de la v1 (j) + greffes venues de la v2, chacune derrière un interrupteur **éteint par défaut**.
 - **v1 = la référence**, figée : `v1/villes-horizon.html`, version `2026-10-25 (j)`. **Ne jamais la modifier.**
 - **v2 = gelée** (tag `v2-fin`, branche `archive/v2-fin`) : `v2/`. Source des greffes ; on n'y travaille plus. À retirer du dépôt quand la v3 aura remplacé la v1 sur le terrain.

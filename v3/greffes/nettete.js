@@ -3,7 +3,7 @@
 // contraste) et ne revient pas sur un paysage lointain et peu contrasté. Tout ce que l'appli regarde est à plus de quelques dizaines de mètres :
 // la mise au point n'a pas à bouger. La greffe la règle au plus loin (`focusMode: manual`, `focusDistance` au maximum), à chaque ouverture de la
 // caméra ; si le téléphone ne le permet pas, elle relance la mise au point continue ; sinon elle ne touche à rien et le dit dans le Diagnostic.
-// PeakFinder laisse la mise au point continue du système (lu dans son APK) ; une page web peut faire mieux pour un paysage.
+// La mise au point continue du système convient à tout ; pour un paysage, la fixer au plus loin convient mieux.
 // Point d'entrée : startCamera (après l'ouverture du flux).
 export const ESSAIS_MS=[0,700,2000]; // Chrome ne donne parfois les réglages de la caméra qu'un instant après l'ouverture
 /** Réglage à demander d'après ce que la caméra permet (`MediaStreamTrack.getCapabilities()`) ; null si elle ne permet rien. Pure. */
