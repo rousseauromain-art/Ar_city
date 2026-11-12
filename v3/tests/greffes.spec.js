@@ -2,7 +2,7 @@
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
 const {ouvrir,capteurs,videoSynthetique}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','nommer'];
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','nommer'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';
@@ -265,7 +265,8 @@ for(const g of MODES('champAuto')) test(`champAuto (${nom(g)}) : le champ mesur�
   let app=await ouvrir(page,{pos:POS,greffes:g,settings:{camFov:44}});
   await page.waitForFunction(()=>window.G.champAuto.etat().camera);
   await pincer(page,120,200); const avant=await app.ev('S.camFov'); expect(avant).toBeLessThan(44); // pas encore mesuré : le pincement règle le champ, comme la v1
-  await page.evaluate(mesureFaite);
+  await page.evaluate(()=>window.G.champAuto.demarrer()); await expect(page.locator('#g3Champ')).toHaveText('champ : mesure 0 % · tournez-vous lentement'); // la mesure se voit
+  await page.evaluate(mesureFaite); await expect(page.locator('#g3Champ')).toHaveText('champ 68.5° mesuré');
   expect(await app.ev('S.camFov')).toBe(68.5); expect(await page.locator('#fov').inputValue()).toBe('68.5');
   await expect(page.locator('#note')).toContainText(`Champ de la caméra mesuré : 68.5° (il était réglé à ${avant}°)`);
   const garde=await page.evaluate(()=>JSON.parse(localStorage.getItem('vh3_champAuto'))), cam=Object.keys(garde); expect(cam.length).toBe(1); expect(garde[cam[0]]).toMatchObject({champ:68.5,n:15});
@@ -280,9 +281,9 @@ for(const g of MODES('champAuto')) test(`champAuto (${nom(g)}) : le champ mesur�
   await page.evaluate(()=>document.getElementById('g3ChampBtn').click()); expect(await app.ev('S.camFov')).toBe(68.5); await expect(page.locator('#g3ChampBtn')).toHaveText('Remesurer');
   expect(app.errors).toEqual([]);
 });
-test('champAuto éteinte : pas de ligne dans les Réglages, le pincement règle le champ comme dans la v1',async({page})=>{
+test('champAuto éteinte : ni ligne dans les Réglages ni puce, le pincement règle le champ comme dans la v1',async({page})=>{
   const app=await ouvrir(page,{pos:POS,greffes:[],settings:{camFov:60}});
-  await expect(page.locator('#g3ChampRow')).toHaveCount(0);
+  await expect(page.locator('#g3ChampRow')).toHaveCount(0); await expect(page.locator('#g3Champ')).toHaveCount(0);
   await pincer(page,120,200); expect(await app.ev('S.camFov')).toBeLessThan(60); expect(app.errors).toEqual([]);
 });
 
@@ -319,6 +320,30 @@ for(const g of MODES('nommer')) test(`nommer (${nom(g)}) : toucher le relief ouv
     expect((await app.frame()).map(o=>o.text)).toContain('Mont Essai 300 m · 1,7 km');
     await page.mouse.click(v.width/2,v.height*0.2); await expect(page.locator('#note')).toContainText('C’est le ciel'); // bien au-dessus de la silhouette
     await app.ev("$('btnDbg').onclick(); true"); await expect(page.locator('#dbgBody')).toContainText(/nommer : 1 relief\(s\) touché\(s\) · dernier : ciel/);
+    expect(app.errors).toEqual([]);
+  }
+});
+
+for(const g of MODES('projection')) test(`projection (${nom(g)}) : le soleil est dessiné là où une caméra le voit (la v1 : 30 px plus bas, à 26° du centre) ; le toucher là le trouve ; éteinte, la v1`,async({page})=>{
+  await page.setViewportSize({width:915,height:412}); // téléphone en paysage : l'écart grandit avec la largeur du champ
+  const R=Math.PI/180, dz=26;
+  for(const greffes of [g,[]]){
+    const app=await ouvrir(page,{pos:POS,greffes,time:new Date('2026-10-25T13:00:00Z'),settings:{relief:false}});
+    const sol=await app.ev('sunNow()'), incl=sol.el-7; await capteurs(app,{cap:sol.az-dz,incl}); await app.frame();
+    const t=(await app.frame()).find(o=>/^soleil /.test(o.text)); expect(t).toBeTruthy();
+    const {W,H,fh}=await app.ev('({W,H,fh:(W/2)/Math.tan(vFov()/2*D)})');
+    const xv=W/2+fh*Math.tan(dz*R), yv=H/2+fh*Math.tan((incl-sol.el)*R); // la v1
+    const X=Math.cos(sol.el*R)*Math.sin(dz*R), Z=Math.cos(sol.el*R)*Math.cos(dz*R)*Math.cos(incl*R)+Math.sin(sol.el*R)*Math.sin(incl*R), Y=-Math.cos(sol.el*R)*Math.cos(dz*R)*Math.sin(incl*R)+Math.sin(sol.el*R)*Math.cos(incl*R);
+    const xs=W/2+fh*X/Z, ys=H/2-fh*Y/Z; // la caméra
+    expect(yv-ys).toBeGreaterThan(15);
+    if(!greffes.length){ expect(Math.abs(t.x-(xv+22))).toBeLessThan(0.01); expect(Math.abs(t.y-(yv+4))).toBeLessThan(0.01); }
+    else { expect(Math.abs(t.x-(xs+22))).toBeLessThan(6); expect(Math.abs(t.y-(ys+4))).toBeLessThan(6); // le libellé suit son symbole, à 22 px (déplacé d'un bloc depuis son propre ancrage)
+      const q=await page.evaluate(([x,y])=>window.G.projection.inverse(x,y),[xs,ys]); expect(Math.abs(q[0]-xv)).toBeLessThan(0.05); expect(Math.abs(q[1]-yv)).toBeLessThan(0.05); }
+    // calage au doigt : toucher le soleil là où la caméra le voit. Greffe allumée : rien à corriger ; v1 : elle « corrige » l'horizon de son propre écart
+    await page.click('#btnPoint'); await page.mouse.click(xs,ys); await expect(page.locator('#note')).toContainText('calé sur le soleil');
+    const dp=Math.abs(await app.ev('S.pitchOff')), dh=Math.abs(await app.ev('((S.headOff+540)%360)-180'));
+    if(greffes.length){ expect(dp).toBeLessThan(0.15); expect(dh).toBeLessThan(0.15); } else expect(dp).toBeGreaterThan(0.8);
+    if(greffes.length){ await app.ev("$('btnDbg').onclick(); true"); await expect(page.locator('#dbgBody')).toContainText('projection : exacte · inclinaison'); }
     expect(app.errors).toEqual([]);
   }
 });

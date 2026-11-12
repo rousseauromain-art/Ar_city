@@ -10,8 +10,9 @@ import { proposer, ondulationGeoide } from '../greffes/oeil.js';
 import { evaluer as evaluerBoussole, mesureRelative } from '../greffes/boussoleA.js';
 import { positionLune, detecterTaches, candidats, meilleur } from '../greffes/_astre.js';
 import { LIBELLES } from '../greffes/icones.js';
-import { creerSuivi, axes as axesChamp, GRAND_COTE } from '../greffes/champAuto.js';
+import { creerSuivi, axes as axesChamp, GRAND_COTE, textePuce, instantImage } from '../greffes/champAuto.js';
 import { choisir as choisirNettete } from '../greffes/nettete.js';
+import { exact as projExacte, inverse as projInverse } from '../greffes/projection.js';
 import { viser, lireNoms, requete as requeteNoms, nature, rayonKm, ficheHtml } from '../greffes/nommer.js';
 
 const D = Math.PI / 180;
@@ -19,10 +20,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 17 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 18 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -216,45 +217,64 @@ const paysage = (graine) => { // luminosité d'une direction (cap, hauteur, radi
   const r = alea(graine), T = Array.from({ length: 16 }, () => ({ a: 8 + 30 * r(), w: (0.15 + 2.2 * r()) * 12, p: 6.28 * r(), n: (0.2 + 2.5 * r()) * 14, q: 6.28 * r() })), C = Array.from({ length: 8 }, () => ({ a: (1.5 + 3 * r()) * 0.4 * D, w: 2 + 25 * r(), p: 6.28 * r() }));
   return (az, el) => { let cr = 4 * D; for (const c of C) cr += c.a * Math.sin(c.w * az + c.p); const bas = el < cr; let L = bas ? 60 : 170; for (const t of T) L += t.a * Math.sin(t.w * az + t.p) * Math.cos(t.n * el + t.q) * (bas ? 1 : 0.35); return Math.max(0, Math.min(255, L)); };
 };
+const brume = (graine, contraste) => { // temps brumeux : deux crêtes douces sur un ciel uni, aucun détail fin ; contraste 0,03 : brouillard
+  const r = alea(graine), C1 = Array.from({ length: 7 }, () => ({ a: (2 + 4 * r()) * D, w: 1.5 + 6 * r(), p: 6.28 * r() })), C2 = Array.from({ length: 5 }, () => ({ a: (1 + 2 * r()) * D, w: 2 + 7 * r(), p: 6.28 * r() })), s = (x) => 1 / (1 + Math.exp(-x / (0.4 * D)));
+  return (az, el) => { let c1 = 5 * D, c2 = 1 * D; for (const c of C1) c1 += c.a * 0.5 * Math.sin(c.w * az + c.p); for (const c of C2) c2 += c.a * 0.5 * Math.sin(c.w * az + c.p); return 150 - contraste * (20 * s(c1 - el) + 25 * s(c2 - el)) + 3 * contraste * Math.sin(3 * az) * Math.cos(5 * el); };
+};
 const axesDe = (cap, incl, roulis) => { const c = cap * D, i = incl * D, r = roulis * D, h = [Math.cos(c), -Math.sin(c), 0], u = [-Math.sin(c) * Math.sin(i), -Math.cos(c) * Math.sin(i), Math.cos(i)]; return { v: [Math.sin(c) * Math.cos(i), Math.cos(c) * Math.cos(i), Math.sin(i)], r: h.map((k, j) => k * Math.cos(r) + u[j] * Math.sin(r)) }; };
-function filmer(L, A, f, w, h) { // sténopé exact, indépendant du code de la greffe
+function filmer(L, A, f, w, h, bruit) { // sténopé exact, indépendant du code de la greffe
   const { v, r } = A, u = [r[1] * v[2] - r[2] * v[1], r[2] * v[0] - r[0] * v[2], r[0] * v[1] - r[1] * v[0]], out = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const a = x - w / 2 + 0.5, b = -(y - h / 2 + 0.5), d = [v[0] * f + r[0] * a + u[0] * b, v[1] * f + r[1] * a + u[1] * b, v[2] * f + r[2] * a + u[2] * b]; out[y * w + x] = L(Math.atan2(d[0], d[1]), Math.asin(d[2] / Math.hypot(...d))); }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const a = x - w / 2 + 0.5, b = -(y - h / 2 + 0.5), d = [v[0] * f + r[0] * a + u[0] * b, v[1] * f + r[1] * a + u[1] * b, v[2] * f + r[2] * a + u[2] * b]; out[y * w + x] = Math.max(0, Math.min(255, L(Math.atan2(d[0], d[1]), Math.asin(d[2] / Math.hypot(...d))) + (bruit ? bruit() : 0))); }
   return out;
 }
-/** Mesure jusqu'au premier « prêt » (comme la page). `proche` : la moitié basse de l'image est à `proche` mètres, le téléphone tourne au bout du bras. */
-function mesurerChamp({ champ, pose, portrait = false, retard = 90, graine = 1, duree = 20000, proche = 0 }) {
-  const w = portrait ? 108 : GRAND_COTE, h = portrait ? GRAND_COTE : 108, f = GRAND_COTE / 2 / Math.tan(champ / 2 * D), L = paysage(graine), S = creerSuivi(), ar = (x) => Math.round(x * 10) / 10, ev = [];
+/** Mesure jusqu'au premier « prêt » (comme la page : une image n'est lue que s'il le faut). `proche` : la moitié basse de l'image est à `proche` mètres, le téléphone tourne au bout du bras. */
+function mesurerChamp({ champ, pose, L = paysage(1), portrait = false, retard = 90, duree = 20000, proche = 0 }) {
+  const w = portrait ? 108 : GRAND_COTE, h = portrait ? GRAND_COTE : 108, f = GRAND_COTE / 2 / Math.tan(champ / 2 * D), S = creerSuivi(), ar = (x) => Math.round(x * 10) / 10, ev = [], rb = alea(99), bruit = () => (rb() - 0.5) * 4;
   for (let t = 0; t <= duree; t += 1000 / 60) ev.push({ t, o: true });
   for (let t = 200; t <= duree - 200; t += 1000 / 15) ev.push({ t: t + retard, tc: t });
   ev.sort((a, b) => a.t - b.t);
   const Lp = proche ? (cap) => (az, el) => el < 0 ? L(az + 0.35 * cap * D / proche * Math.cos(az - cap * D), el) : L(az, el) : () => L;
   for (const e of ev) {
     if (e.o) { const p = pose(e.t); S.orientation(e.t, axesDe(ar(p[0]), ar(p[1]), ar(p[2]))); }
-    else { const p = pose(e.tc); if (S.image(e.t, filmer(Lp(p[0]), axesDe(...p), f, w, h), w, h) && S.etat().ok) return { ...S.etat(), t: e.t }; }
+    else if (S.besoin(e.t)) { const p = pose(e.tc); if (S.image(e.t, filmer(Lp(p[0]), axesDe(...p), f, w, h, bruit), w, h) && S.etat().ok) return { ...S.etat(), t: e.t }; }
   }
   return { ...S.etat(), t: null };
 }
-const balayage = (t) => [45 * Math.sin(2 * Math.PI * t / 5000), 2 + 2 * Math.sin(t / 700), 1.5 * Math.sin(t / 1100)];
-test('champAuto : le champ d’une caméra simulée est retrouvé à 1 % près, en paysage et en portrait, avec le retard de l’image', () => {
-  for (const [o, tol] of [[{ champ: 68, pose: balayage }, 0.01], [{ champ: 44, pose: balayage, graine: 3, retard: 160 }, 0.015], [{ champ: 74, pose: balayage, portrait: true, graine: 6, retard: 0 }, 0.01]]) {
-    const e = mesurerChamp(o);
-    console.log(`champAuto : champ ${o.champ}° → ${e.champ.toFixed(2)}° à ${e.t / 1000} s (${e.n} mesures, ${Math.round(e.rotation)}° de rotation, écart ${e.rms.toFixed(2)} px, retard trouvé ${e.retard} ms pour ${o.retard ?? 90})`);
-    assert.ok(e.t !== null, `pas de mesure : ${e.raison}`); assert.ok(Math.abs(e.champ / o.champ - 1) < tol, `${e.champ.toFixed(2)}° pour ${o.champ}°`);
-    assert.ok(Math.abs(e.retard - (o.retard ?? 90)) <= 40, `retard ${e.retard} ms`); assert.ok(e.n >= 14 && e.rotation >= 90);
+const balayage = (incl = 2) => (t) => [45 * Math.sin(2 * Math.PI * t / 5000), incl + 2 * Math.sin(t / 700), 1.5 * Math.sin(t / 1100)];
+const ligne = (nom, o, e) => console.log(`champAuto : ${nom} — champ ${o.champ}° → ${e.champ ? e.champ.toFixed(2) + '°' : '—'}${e.t ? ` à ${(e.t / 1000).toFixed(1)} s` : ' (pas de mesure : ' + e.raison + ')'} (${e.n} mesures, ${Math.round(e.rotation)}° de rotation, écart ${e.rms ? e.rms.toFixed(2) : '—'} px, retard trouvé ${e.retard} ms)`);
+test('champAuto : le champ d’une caméra simulée est retrouvé à 1 % près — paysage, portrait, téléphone incliné de 15°, avec le retard de l’image', () => {
+  for (const [nom, o] of [['paysage', { champ: 68, pose: balayage() }], ['champ étroit, retard 160 ms', { champ: 44, pose: balayage(), L: paysage(3), retard: 160 }],
+    ['portrait, retard nul', { champ: 74, pose: balayage(), portrait: true, L: paysage(6), retard: 0 }], ['portrait incliné de 15°', { champ: 62, pose: balayage(15), portrait: true, L: paysage(2) }]]) {
+    const e = mesurerChamp(o); ligne(nom, o, e);
+    assert.ok(e.t !== null, `pas de mesure : ${e.raison}`); assert.ok(Math.abs(e.champ / o.champ - 1) < 0.01, `${e.champ.toFixed(2)}° pour ${o.champ}°`);
+    assert.ok(Math.abs(e.retard - (o.retard ?? 90)) <= 40, `retard ${e.retard} ms`); assert.ok(e.n >= 10 && e.rotation >= 60);
   }
 });
-test('champAuto : téléphone immobile → aucune mesure ; premier plan à 1,5 m (parallaxe) → refusé, pas de champ faux', () => {
+test('champAuto : temps brumeux (des crêtes douces, aucun détail fin) → mesuré quand même, à 1,5 % près ; brouillard → « image sans détail », aucune mesure', () => {
+  const o = { champ: 62, pose: (t) => [40 * Math.sin(2 * Math.PI * t / 7000), 5 + 1.5 * Math.sin(t / 700), 1.5 * Math.sin(t / 1100)], L: brume(1, 1), duree: 30000 }, e = mesurerChamp(o); ligne('brumeux', o, e);
+  assert.ok(e.t !== null, `pas de mesure : ${e.raison}`); assert.ok(Math.abs(e.champ / o.champ - 1) < 0.015, `${e.champ.toFixed(2)}° pour ${o.champ}°`);
+  const b = mesurerChamp({ ...o, L: brume(4, 0.03), duree: 8000 }); assert.equal(b.t, null); assert.equal(b.paires, 0); assert.equal(b.dernier, 'image sans détail');
+});
+test('champAuto : téléphone immobile → aucune mesure ; premier plan à 1,5 m dans le bas de l’image → ses blocs sont écartés, le champ reste juste', () => {
   const fixe = mesurerChamp({ champ: 68, pose: (t) => [10 + 0.3 * Math.sin(t / 400), 2, 0], duree: 6000 });
-  assert.equal(fixe.t, null); assert.equal(fixe.paires, 0);
-  const pres = mesurerChamp({ champ: 68, pose: balayage, proche: 1.5, duree: 9000 });
-  console.log(`champAuto : premier plan à 1,5 m → ${pres.paires} paire(s) gardée(s) en 9 s (${pres.raison})`);
-  assert.equal(pres.t, null, `champ faux accepté : ${pres.champ}`); assert.ok(pres.paires < 14, 'les bandes discordantes écartent presque toutes les paires');
+  assert.equal(fixe.t, null); assert.equal(fixe.paires, 0); assert.equal(fixe.dernier, 'en attente d’une rotation');
+  const o = { champ: 68, pose: balayage(), proche: 1.5 }, pres = mesurerChamp(o); ligne('premier plan à 1,5 m', o, pres);
+  assert.ok(pres.t !== null, pres.raison); assert.ok(Math.abs(pres.champ / 68 - 1) < 0.015, `${pres.champ}`); assert.ok(pres.part < 0.95, `blocs écartés : part ${pres.part}`);
 });
 test('champAuto : mêmes axes que camAxes de la v1 (200 orientations, 4 rotations d’écran)', () => {
   const r = alea(11);
   for (const angle of [0, 90, 180, 270]) { const camAxes = new Function('D', 'screen', 'window', `return ${fonctionV1('camAxes')}`)(D, { orientation: { angle } }, {});
     for (let k = 0; k < 50; k++) { const a = 360 * r(), b = -180 + 360 * r(), g = -90 + 180 * r(), V = camAxes(a, b, g), A = axesChamp(a, b, g, angle); for (let i = 0; i < 3; i++) { assert.ok(Math.abs(V.v[i] - A.v[i]) < 1e-12); assert.ok(Math.abs(V.r[i] - A.r[i]) < 1e-12); } } }
+});
+test('champAuto : la puce dit l’avancement, ce qui manque, puis le résultat pendant 10 s ; l’instant d’une image n’est celui de sa prise de vue que s’il est plausible', () => {
+  const e = (o) => ({ n: 0, rotation: 0, precision: 1, paires: 0, dernier: 'en attente d’une rotation', ...o });
+  assert.equal(textePuce({ actif: true, mesure: null, etat: e({}) }), 'champ : mesure 0 % · tournez-vous lentement');
+  assert.equal(textePuce({ actif: true, mesure: null, etat: e({ dernier: 'image sans détail' }) }), 'champ : mesure 0 % · image sans détail (brouillard, nuit ?)');
+  assert.equal(textePuce({ actif: true, mesure: null, etat: e({ n: 5, rotation: 45, precision: 0.004, paires: 5, champ: 62.4, dernier: 'mesure en cours' }) }), 'champ : mesure 50 % (≈ 62°)');
+  assert.equal(textePuce({ actif: true, mesure: null, etat: e({ n: 12, rotation: 90, precision: 0.012, paires: 12, champ: 62.4, dernier: 'mesure en cours', raison: 'image peu détaillée : il faut tourner davantage' }) }), 'champ : mesure 50 % (≈ 62°) · image peu détaillée : il faut tourner davantage');
+  assert.equal(textePuce({ actif: true, mesure: { champ: 62.5 }, etat: e({}), finT: 1000, maintenant: 9000 }), 'champ 62.5° mesuré'); assert.equal(textePuce({ actif: false, mesure: { champ: 62.5 }, etat: e({}), finT: 1000, maintenant: 12000 }), '');
+  assert.equal(instantImage(5000, { captureTime: 4900, presentationTime: 4990 }), 4900); assert.equal(instantImage(5000, { captureTime: 1.7e12, presentationTime: 4990 }), 4990, 'autre horloge : écartée');
+  assert.equal(instantImage(5000, { captureTime: 2000 }), 5000, 'trop ancienne'); assert.equal(instantImage(5000, undefined), 5000);
 });
 
 test('nettete : à l’infini si la caméra le permet, sinon mise au point continue, sinon rien', () => {
@@ -303,4 +323,24 @@ test('nommer : le sommet de la crête visée passe devant un lieu-dit plus proch
   assert.match(q, /nwr\["name"\]\["natural"~"\^\(peak\|[^"]*plateau[^"]*\)\$"\]\(around:500,45\.0\d+,5\.5\d+\);/); assert.equal(q.split('(around:500,').length - 1, 10, '5 sélecteurs × 2 centres'); assert.match(q, /is_in\(45\.0\d+,5\.5\d+\)->\.a;/);
   const html = ficheHtml(V, N); assert.match(html, /Grand Sommet<\/div><div class="dbgline">sommet · 1[\s ]602 m · à 5,0 km d’ici · direction 90°/); assert.match(html, /fr\.wikipedia\.org\/wiki\/Grand_Sommet/);
   assert.match(ficheHtml(V, lireNoms({ elements: [] }, V, [])), /Relief à 5,0 km.*Rien de nommé dans OpenStreetMap à moins de 0,5 km/s); assert.match(ficheHtml(V, lireNoms(null, V, []), { enCours: true }), /Recherche du nom/);
+});
+
+// ---- projection : comparée à une caméra (sténopé) calculée à part, avec des axes ----
+test('projection : un point placé par les formules de la v1 est envoyé là où une vraie caméra le voit (500 directions) ; l’inverse le ramène', () => {
+  const r = alea(21), W = 915, H = 412; let ecartMax = 0;
+  for (let k = 0; k < 500; k++) {
+    const f = (W / 2) / Math.tan((40 + 50 * r()) / 2 * D), p = -25 + 50 * r(), dz = -38 + 76 * r(), el = -20 + 45 * r(), P = { f, W, H, p: p * D };
+    const xv = W / 2 + f * Math.tan(dz * D), yv = H / 2 + f * Math.tan((p - el) * D); // la v1
+    const A = axesDe(0, p, 0), u = [A.r[1] * A.v[2] - A.r[2] * A.v[1], A.r[2] * A.v[0] - A.r[0] * A.v[2], A.r[0] * A.v[1] - A.r[1] * A.v[0]], d = [Math.cos(el * D) * Math.sin(dz * D), Math.cos(el * D) * Math.cos(dz * D), Math.sin(el * D)];
+    const sc = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], z = sc(d, A.v); if (z < 0.25) continue;
+    const xs = W / 2 + f * sc(d, A.r) / z, ys = H / 2 - f * sc(d, u) / z, e = projExacte(xv, yv, P); // la caméra
+    assert.ok(Math.abs(e[0] - xs) < 1e-6 && Math.abs(e[1] - ys) < 1e-6, `(${dz.toFixed(1)}°, ${el.toFixed(1)}°, inclinaison ${p.toFixed(1)}°) : ${e} au lieu de ${[xs, ys]}`);
+    const q = projInverse(xs, ys, P); assert.ok(Math.abs(q[0] - xv) < 1e-6 && Math.abs(q[1] - yv) < 1e-6, `inverse : ${q} au lieu de ${[xv, yv]}`);
+    ecartMax = Math.max(ecartMax, Math.hypot(xs - xv, ys - yv));
+  }
+  assert.ok(ecartMax > 40, 'la v1 et la caméra diffèrent nettement loin du centre');
+  const P = { f: 720, W, H, p: 3 * D }, hy = H / 2 + 720 * Math.tan(3 * D);
+  assert.deepEqual(projExacte(W / 2, H / 2, P), [W / 2, H / 2]); assert.ok(Math.abs(projExacte(W, hy, P)[1] - hy) < 1e-9, 'l’horizon reste une droite, à la même hauteur');
+  // la mesure du document : crête à 6° au-dessus de l'horizon, téléphone incliné de 3°, à 30° du centre → 0,9° d'écart
+  const xv = W / 2 + 720 * Math.tan(30 * D), yv = H / 2 + 720 * Math.tan(-3 * D), e = projExacte(xv, yv, P); assert.ok(Math.abs(Math.atan(Math.abs(e[1] - yv) / 720) / D - 0.92) < 0.03);
 });

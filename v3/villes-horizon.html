@@ -3041,6 +3041,7 @@ function draw(ts){
   // --- scène (repère redressé du roulis) ---
   ctx.save();
   ctx.translate(W/2,H/2); ctx.rotate(roll*D); ctx.translate(-W/2,-H/2);
+  if(G.actif('projection')) G.projection.debut(ctx,{pitch,fh,W,H}); // greffe projection : projection exacte de la caméra pour toute la scène
   const hy=Math.max(-H,Math.min(2*H,H/2+fh*Math.tan(Math.max(-80,Math.min(80,pitch))*D)));
   ctx.setLineDash([3,7]); ctx.strokeStyle='rgba(255,255,255,.75)'; ctx.lineWidth=1;
   ctx.beginPath(); ctx.moveTo(-W,hy); ctx.lineTo(2*W,hy); ctx.stroke(); ctx.setLineDash([]);
@@ -3741,6 +3742,7 @@ function draw(ts){
         ctx.strokeText(t,x+22,y+4); ctx.fillStyle='#FFD23F'; ctx.fillText(t,x+22,y+4); ctx.restore(); } } } }
   if(G.actif('lune')) G.lune.dessiner(ctx,{heading,pitch,fh,FOVH,W,H,FM}); // greffe lune : symbole de la lune
   if(G.actif('nommer')) G.nommer.dessiner(ctx,{heading,pitch,fh,W,H,FM}); // greffe nommer : épingle sur le relief touché
+  if(G.actif('projection')) G.projection.fin(); // greffe projection : fin de la scène
   ctx.restore();
 
   // --- ruban de cap (repère écran) : hauteur réduite, sans pastilles de lieux ---
@@ -4102,7 +4104,7 @@ $('btnPoint').onclick=()=>setPointMode(!pointMode);
 // la note donne la hauteur que le point touche implique (utile pour verifier ou completer la donnee).
 function pointCalibrate(px,py){
   const before={h:S.headOff,p:S.pitchOff}, P=pose(), fh=(W/2)/Math.tan(vFov()/2*D), cx=W/2, cy=H/2, dx=px-cx, dy=py-cy, r=P.roll*D;
-  const lx=cx+dx*Math.cos(r)+dy*Math.sin(r), ly=cy-dx*Math.sin(r)+dy*Math.cos(r); // repere compense du roulis, comme le rendu (voir draw())
+  const [lx,ly]=hitLocal(px,py,P); // repere compense du roulis, comme le rendu (voir draw()) ; greffe projection : par hitLocal
   const brgTap=(P.heading+Math.atan((lx-cx)/fh)/D+360)%360, elTap=P.pitch-Math.atan((ly-cy)/fh)/D, eye=1.6+(S.obsHeight||0);
   const topOf=c=>c.aP!=null&&S.relief&&terrain?c.aP:Math.atan2((c.ht||20)-eye,Math.max(30,c.dist*1000))/D;
   let best=null, bestS=1e9;
@@ -4132,7 +4134,7 @@ function pointCalibrate(px,py){
 // testees ensemble, d'abord franchement DANS la zone, puis avec 6 px de marge ; s'il y en a plusieurs, celle dont le centre est
 // le plus proche du doigt l'emporte (avant : les monuments etaient testes en premier, avec marge, et masquaient les pylones voisins).
 let lastHitGrp=null; // elements regroupes sous l'etiquette ou l'icone touchee (ex. "13 toits-terrasses")
-function hitLocal(px,py,h){ const cx=W/2, cy=H/2, dx=px-cx, dy=py-cy, r=h.roll*D; return [cx+dx*Math.cos(r)+dy*Math.sin(r), cy-dx*Math.sin(r)+dy*Math.cos(r)]; } // repere compense du roulis
+function hitLocal(px,py,h){ const cx=W/2, cy=H/2, dx=px-cx, dy=py-cy, r=h.roll*D, q=[cx+dx*Math.cos(r)+dy*Math.sin(r), cy-dx*Math.sin(r)+dy*Math.cos(r)]; return G.actif('projection')?G.projection.inverse(q[0],q[1]):q; } // repere compense du roulis ; greffe projection : ramené dans le repère de la v1
 function hitIn(px,py,h,mg){
   const [lx,ly]=hitLocal(px,py,h);
   if(h.icon){ const ic=h.icon; if(lx>=ic[0]-mg&&lx<=ic[1]+mg&&ly>=ic[2]-mg&&ly<=ic[3]+mg) return true; return !!(h.poly&&inQuad(h.poly,lx,ly,mg)); }
