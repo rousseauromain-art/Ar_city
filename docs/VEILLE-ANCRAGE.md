@@ -62,7 +62,7 @@
 | D | Échelle du champ calée avec 2 points | Faite (étape 11i). |
 | E | Prototype « RA stable » WebXR | **Prototype en essai (3/11)** : bouton « Démarrer le suivi visuel » dans les Réglages (visible seulement si `immersive-ar` est pris en charge). Session `immersive-ar` avec superposition HTML ; la pose du suivi visuel (quaternion, repère WebXR → Est/Nord/Haut : `quaternionXrVersEnu`) alimente la même fusion que le capteur relatif ; le nord arbitraire du suivi est posé UNE fois par la boussole (puis soleil, lune, recalage continu). Pendant la session c'est le suivi qui cadence l'affichage ; la vidéo de la page est masquée (le navigateur compose l'image de la caméra). Repli et message si indisponible. Testé avec un faux `navigator.xr` (conversion de repère prouvée : cap, inclinaison, composition) ; **le vrai suivi ARCore n'est pas testable depuis la session : à mesurer de jour et de nuit sur le Pixel**. |
 
-## 5. Vercors, 11/11/2026 : « le calage ne tient pas dès que je tourne », et ce que fait PeakFinder
+## 5. Vercors, 11/11/2026 : « le calage ne tient pas dès que je tourne »
 
 ### Ce que montrent les deux captures (17:04 et 17:05)
 - Le ruban de cap donne le champ affiché : 5° tous les 195 px à 17:04, tous les 141 px à 17:05, pour un écran de 1 753 px. Soit **45° à 17:04, puis 62° à 17:05** (réglé à l'œil par Romain entre les deux).
@@ -75,18 +75,17 @@
 - Sur un horizon plat (Bretagne), l'écart est nul. Pour une crête à 6° au-dessus de l'horizon, téléphone incliné de 3° : **0,9° d'écart à 30° du centre**, 0,2° à 15°. À 15° de hauteur : 2,3° à 30° du centre.
 - Une quarantaine de lignes de `draw()` et du toucher portent ces formules. **Greffe `projection` (12/11, accord de Romain) :** plutôt que de réécrire ces lignes, elle déplace, pendant le dessin de la scène, chaque point tracé par la v1 de sa position « v1 » à sa position exacte, et ramène le point touché dans le repère de la v1. Formule exacte avec les mêmes grandeurs : `h' = atan(tan(hauteur)/cos(Δcap))`, `y = H/2 + f·tan(inclinaison − h')`, `x = W/2 + f·tan(Δcap)·cos(h')/cos(h' − inclinaison)`.
 
-### PeakFinder (APK 4.10.4, partie Java lue le 11/11/2026 ; le moteur 3D natif n'était pas dans le fichier)
-| Sujet | Ce que fait PeakFinder | Chez nous |
+### Ce qu'une application native a de plus qu'une page web
+| Sujet | Application native | Chez nous |
 |---|---|---|
-| Champ de la caméra | Lu dans le système : focale et taille du capteur (Camera2), ou paramètres de l'image donnés par ARCore. Un écran « correction du champ » pour l'ajuster à la main. | Une page web n'a pas accès à ces valeurs → greffe `champAuto`, qui le mesure. |
-| Zoom | Le pincement agrandit l'image et le tracé ensemble (zoom de la caméra). Il ne les désaccorde jamais. | Le pincement de la v1 ne change que le tracé → sans effet une fois le champ mesuré (`champAuto`). |
-| Orientation | Capteur d'orientation fusionné d'Android (gyroscope + accéléromètre + boussole), lissé sur une courte fenêtre. Repli accéléromètre + boussole sans gyroscope. | La v1 fait sa propre fusion : gyroscope pour tourner, boussole pour le nord (niveau 1 du §2). |
-| Suivi visuel | **ARCore quand le téléphone le permet** : la rotation vient du suivi caméra + gyroscope tant qu'il tient ; retour à la caméra simple sinon. | WebXR (le même ARCore, vu du web) essayé en v2 : trop lent, abandonné. |
-| Boussole | Fenêtre « calibrer la boussole » ; l'utilisateur recale le cap en glissant. | Calage sur le soleil, la lune, les repères, le relief : mieux que la boussole. |
+| Champ de la caméra | Lu dans le système : focale et taille du capteur. | Une page web n'a pas accès à ces valeurs → greffe `champAuto`, qui le mesure. |
+| Zoom | Le pincement agrandit l'image et le tracé ensemble : il ne les désaccorde jamais. | Le pincement de la v1 ne change que le tracé → sans effet une fois le champ mesuré (`champAuto`). |
+| Orientation | Capteur d'orientation fusionné du système (gyroscope + accéléromètre + boussole). | La v1 fait sa propre fusion : gyroscope pour tourner, boussole pour le nord (niveau 1 du §2). |
+| Suivi visuel | ARCore quand le téléphone le permet : la rotation vient du suivi caméra + gyroscope. | WebXR (le même ARCore, vu du web) essayé en v2 : trop lent, abandonné. |
 | Mise au point | Continue (réglage du système). | Greffe `nettete` : fixée au plus loin. |
-| Rendu | Moteur 3D : projection exacte. | Projection approchée de la v1 (ci-dessus). |
+| Rendu | Moteur 3D : projection exacte. | Greffe `projection`. |
 
-**Conclusion :** la tenue de PeakFinder vient de trois choses — un champ exact, une projection exacte, ARCore. Les deux premières sont à notre portée dans le navigateur ; la troisième ne l'est pas sans WebXR.
+**Conclusion :** la tenue d'une application native vient de trois choses — un champ exact, une projection exacte, le suivi visuel. Les deux premières sont à notre portée dans le navigateur ; la troisième ne l'est pas sans WebXR.
 
 ## Sources
 - Android, capteurs de position (game rotation vector) : https://developer.android.com/develop/sensors-and-location/sensors/sensors_position

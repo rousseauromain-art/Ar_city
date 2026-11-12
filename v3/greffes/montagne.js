@@ -1,5 +1,5 @@
-// Greffe « montagne » (ajout, éteinte par défaut) : les noms des sommets, façon PeakFinder. Source : OpenStreetMap (`natural=peak` nommés, avec
-// altitude), la base libre la plus complète des sommets ; PeakFinder a ses propres données, fermées. La v1 n'en montre que peu : les 30 plus proches
+// Greffe « montagne » (ajout, éteinte par défaut) : les noms des sommets. Source : OpenStreetMap (`natural=peak` nommés, avec
+// altitude), la base libre la plus complète des sommets. La v1 n'en montre que peu : les 30 plus proches
 // (Overpass, catégorie « Pointes, caps et sommets ») et, au loin, les grands sommets de plus de 1 500 m des tuiles OpenFreeMap de zoom 7.
 // Greffe : tous les sommets nommés à moins de 120 km (une requête Overpass, gardée 30 jours sur l'appareil, rechargée après 25 km), triés par
 // DOMINANCE : un sommet n'est gardé que si aucun sommet plus haut n'est à moins de max(0,3 km, d/30) — plus il est loin, plus il doit dominer

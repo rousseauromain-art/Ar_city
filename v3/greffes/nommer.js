@@ -1,5 +1,5 @@
-// Greffe « nommer » (ajout, éteinte par défaut) : toucher le relief donne son nom (sommet, col, crête, plateau, lieu-dit…), à la façon des
-// jumelles de PeakFinder. Demande du 11/11/2026 (Vercors).
+// Greffe « nommer » (ajout, éteinte par défaut) : toucher le relief donne son nom (sommet, col, crête, plateau, lieu-dit…).
+// Demande du 11/11/2026 (Vercors).
 //  1. Le point touché devient une direction (cap, hauteur), avec la même formule que le calage au doigt de la v1 (roulis compris).
 //  2. Le rayon est suivi dans le relief DÉJÀ chargé (masque par cap de la v1, aucun téléchargement) : premier point du sol atteint, et la crête
 //     de ce versant juste au-dessus. Un toucher dans le ciel à moins de 3° au-dessus de la silhouette vise la silhouette.
