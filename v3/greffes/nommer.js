@@ -125,7 +125,8 @@ async function chercher(V){
 async function toucher(px,py){
   const T=c.terrain; if(!T){ c.note('Relief pas encore chargé : touchez de nouveau dans un instant',4000); return null; }
   const P=c.pose(), fh=(c.W/2)/Math.tan(c.vFov()/2*RAD), cx=c.W/2, cy=c.H/2, dx=px-cx, dy=py-cy, r=P.roll*RAD;
-  const lx=cx+dx*Math.cos(r)+dy*Math.sin(r), ly=cy-dx*Math.sin(r)+dy*Math.cos(r); // repère compensé du roulis, comme le rendu et le calage au doigt
+  let lx=cx+dx*Math.cos(r)+dy*Math.sin(r), ly=cy-dx*Math.sin(r)+dy*Math.cos(r); // repère compensé du roulis, comme le rendu et le calage au doigt
+  if(window.G&&window.G.actif('projection')) [lx,ly]=window.G.projection.inverse(lx,ly); // greffe projection allumée : le point touché est ramené dans le repère de la v1
   const V=viser(T,c.relief,(P.heading+Math.atan((lx-cx)/fh)/RAD+360)%360,P.pitch-Math.atan((ly-cy)/fh)/RAD);
   if(!V||V.ciel||V.proche){ etat.dernier=!V?'relief indisponible':V.ciel?'ciel':'sol à vos pieds'; if(V&&V.ciel) c.note('C’est le ciel : touchez le relief, ou juste au-dessus de sa silhouette',3500); return V; }
   const moi=++demande; etat.touchers++; etat.erreur=''; etat.dernier=`relief à ${km(V.d)} km, ${altTxt(V.alt)}`;

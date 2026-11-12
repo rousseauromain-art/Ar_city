@@ -73,7 +73,7 @@
 - La v1 place un point par deux formules indépendantes : `x = W/2 + f·tan(Δcap)` et `y = H/2 + f·tan(inclinaison − hauteur)`.
 - La vraie projection d'une caméra divise la hauteur par `cos(Δcap)` et couple les deux axes quand le téléphone est incliné.
 - Sur un horizon plat (Bretagne), l'écart est nul. Pour une crête à 6° au-dessus de l'horizon, téléphone incliné de 3° : **0,9° d'écart à 30° du centre**, 0,2° à 15°. À 15° de hauteur : 2,3° à 30° du centre.
-- Une quarantaine de lignes de `draw()` et du toucher portent ces formules. Les corriger réécrit des lignes de la v1 : à faire seulement avec l'accord de Romain (greffe de remplacement « projection », une fonction commune choisie par l'interrupteur).
+- Une quarantaine de lignes de `draw()` et du toucher portent ces formules. **Greffe `projection` (12/11, accord de Romain) :** plutôt que de réécrire ces lignes, elle déplace, pendant le dessin de la scène, chaque point tracé par la v1 de sa position « v1 » à sa position exacte, et ramène le point touché dans le repère de la v1. Formule exacte avec les mêmes grandeurs : `h' = atan(tan(hauteur)/cos(Δcap))`, `y = H/2 + f·tan(inclinaison − h')`, `x = W/2 + f·tan(Δcap)·cos(h')/cos(h' − inclinaison)`.
 
 ### PeakFinder (APK 4.10.4, partie Java lue le 11/11/2026 ; le moteur 3D natif n'était pas dans le fichier)
 | Sujet | Ce que fait PeakFinder | Chez nous |
