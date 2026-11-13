@@ -205,7 +205,7 @@ export function textePuce({actif,mesure,etat,finT=0,maintenant=0}){
   return '';
 }
 function majLigne(){
-  const puce=c.$('g3Champ'); if(puce){ const t=textePuce({actif,mesure,etat:suivi.etat(),finT,maintenant:Date.now()}); puce.textContent=t; puce.hidden=!t; }
+  const puce=c.$('g3Champ'); if(puce){ const t=c.photoMode?'':textePuce({actif,mesure,etat:suivi.etat(),finT,maintenant:Date.now()}); puce.textContent=t; puce.hidden=!t; } // photo rejouée : son champ vient du fichier, rien à mesurer
   const v=c.$('g3ChampV'), b=c.$('g3ChampBtn'); if(!v||!b) return;
   v.textContent=mesure?`${mesure.champ}°${c.S.camFov!==mesure.champ?` (réglé à ${c.S.camFov}°)`:''}`:actif?'mesure…':'—';
   b.textContent=actif&&!mesure?'Arrêter la mesure':mesure&&c.S.camFov!==mesure.champ?'Reprendre la mesure':'Remesurer';
@@ -278,7 +278,8 @@ export default {
     setInterval(veille,1000);
   },
   /** Point d'entrée du pincement : vrai quand le champ est mesuré (le pincement ne le change plus). */
-  verrou(){ if(!mesure) return false; const t=Date.now(); if(t-noteT>3000){ noteT=t; c.note(`Champ mesuré automatiquement (${mesure.champ}°) : le pincement ne le change plus — curseur dans Réglages › Calage et capteurs`,4000); } return true; },
+  verrou(){ if(!mesure||c.photoMode) return false; // photo rejouée : le champ est celui de la photo, le pincement l'ajuste comme dans la v1
+    const t=Date.now(); if(t-noteT>3000){ noteT=t; c.note(`Champ mesuré automatiquement (${mesure.champ}°) : le pincement ne le change plus — curseur dans Réglages › Calage et capteurs`,4000); } return true; },
   preparer, grossier, bloc, blocs, axes, axesA, modele, estimer, creerSuivi, avancement, textePuce, instantImage,
   /** Tests : accès au suivi en cours. */
   suivi:()=>suivi, conclure, demarrer:()=>demarrer(true),

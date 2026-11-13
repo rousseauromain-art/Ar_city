@@ -2444,7 +2444,7 @@ function tallMonuments(){
   tallKey=key; tallMons=[];
   if(!pos||!S.layers.monuments) return tallMons;
   for(const T of tallCandidates()){
-    const M=monBase.find(m=>m.cat!=='equip'&&Math.abs(m.lat-T.lat)<0.0015&&Math.abs(m.lon-T.lon)<0.002&&distBrg(m,T).dist<TALL_MERGE_KM);
+    const M=G.actif('hauteurs')?G.hauteurs.associer(monBase,T,TALL_MERGE_KM):monBase.find(m=>m.cat!=='equip'&&Math.abs(m.lat-T.lat)<0.0015&&Math.abs(m.lon-T.lon)<0.002&&distBrg(m,T).dist<TALL_MERGE_KM); // greffe hauteurs : le monument compatible le plus proche
     if(M){ if(T.h&&!M.htWd){ M.ht=T.h; M.htOsm=T.h; } if(T.kind==='clocher'&&/^(musee|maison|edifice)$/.test(M.type)) M.type='clocher'; M.osmTall=T.id; continue; }
     const loc=nearestLocality(T), base=T.kind==='clocher'?'Clocher':T.kind==='immeuble'?'Immeuble':'Tour';
     const name=T.name||`${base}${T.h?` (${Math.round(T.h)} m)`:''}${loc?' · '+loc:''}`;
@@ -2459,7 +2459,7 @@ function statueMonuments(){
   statueKey=[statueRaw,monBase]; statueMons=[];
   const near=(a,b)=>Math.abs(a.lat-b.lat)<0.001&&Math.abs(a.lon-b.lon)<0.0015&&distBrg(a,b).dist<0.06;
   for(const e of statueRaw){ const t=e.tags||{}, nm=(t['name:fr']||t.name||'').trim(); if(!nm) continue;
-    if(monBase.some(m=>m.cat!=='equip'&&near(m,e))) continue; // deja connu de Wikidata
+    if(monBase.some(m=>m.cat!=='equip'&&near(m,e))){ if(G.actif('hauteurs')) G.hauteurs.statue(monBase,e,near); continue; } // deja connu de Wikidata ; greffe hauteurs : sa hauteur OSM lui est donnée
     const sub=t.historic==='monument'?'monument':(t.memorial||t.artwork_type||'statue'), h=parseFloat(t.height), hOk=isFinite(h)&&h>0&&h<120;
     const what=sub==='bust'?'buste':sub==='obelisk'?'obélisque':sub==='column'?'colonne':sub==='monument'?'monument':sub==='sculpture'?'sculpture':'statue';
     const name=new RegExp(what,'i').test(nm)?nm:`${nm} (${what})`;

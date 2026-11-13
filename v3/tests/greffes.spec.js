@@ -2,7 +2,7 @@
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
 const {ouvrir,capteurs,videoSynthetique}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','nommer'];
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','nommer'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';
@@ -346,4 +346,39 @@ for(const g of MODES('projection')) test(`projection (${nom(g)}) : le soleil est
     if(greffes.length){ await app.ev("$('btnDbg').onclick(); true"); await expect(page.locator('#dbgBody')).toContainText('projection : exacte · inclinaison'); }
     expect(app.errors).toEqual([]);
   }
+});
+
+/** Petite photo JPEG sans EXIF, ouverte par le champ de fichier de la page (position simulée faute de position dans le fichier). */
+async function rejouerPhoto(page,app){
+  await app.ev("S.simPos='48.6493, -2.0257'; true");
+  const b64=await page.evaluate(()=>{ const c=document.createElement('canvas'); c.width=64; c.height=48; const x=c.getContext('2d'); x.fillStyle='#7aa'; x.fillRect(0,0,64,48); return c.toDataURL('image/jpeg').split(',')[1]; });
+  await page.setInputFiles('#photoFile',{name:'photo.jpg',mimeType:'image/jpeg',buffer:Buffer.from(b64,'base64')}); await app.waitFor('photoMode&&pos');
+}
+for(const g of MODES('degage')) test(`degage (${nom(g)}) : ÉCRAN masque puces, boutons et barre du bas (plus d'obstacle pour les noms), ⤡ les ramène ; en photo le bandeau est replié ; éteinte, la v1`,async({page})=>{
+  for(const greffes of [g,[]]){
+    const app=await ouvrir(page,{pos:POS,greffes});
+    await app.frame(); expect(await app.ev('uiObstacles().length')).toBeGreaterThan(0);
+    await page.click('#btnFs');
+    if(!greffes.length){ await expect(page.locator('#chips')).toBeVisible(); await expect(page.locator('#bar')).toBeVisible(); await expect(page.locator('#g3Retour')).toHaveCount(0); }
+    else { for(const s of ['#chips','#tools','#bar']) await expect(page.locator(s)).toBeHidden();
+      await app.frame(); expect(await app.ev('uiObstacles().length')).toBe(0); // les noms peuvent descendre jusqu'en bas
+      await page.click('#g3Retour'); for(const s of ['#chips','#tools','#bar']) await expect(page.locator(s)).toBeVisible(); await expect(page.locator('#g3Retour')).toBeHidden();
+      await page.evaluate(()=>window.G.degage.regler(true)); await page.evaluate(()=>document.dispatchEvent(new Event('fullscreenchange'))); await expect(page.locator('#chips')).toBeVisible(); } // geste « retour » : tout revient
+    await page.evaluate(()=>{ if(document.fullscreenElement) return document.exitFullscreen(); });
+    await rejouerPhoto(page,app);
+    if(!greffes.length){ await expect(page.locator('#photoChip')).toBeVisible(); await expect(page.locator('#g3Photo')).toHaveCount(0); }
+    else { await expect(page.locator('#photoChip')).toBeHidden(); await expect(page.locator('#g3Photo')).toHaveText('📷 photo · détails');
+      await page.click('#g3Photo'); await expect(page.locator('#photoChip')).toBeVisible(); await expect(page.locator('#photoChip')).toContainText('quitter');
+      await page.click('#g3Photo'); await expect(page.locator('#photoChip')).toBeHidden(); }
+    expect(app.errors).toEqual([]);
+  }
+});
+test('champAuto : en photo rejouée, pas de puce « champ » (son champ vient du fichier) et le pincement règle le champ comme dans la v1',async({page})=>{
+  const app=await ouvrir(page,{pos:POS,greffes:['champAuto'],settings:{camFov:60}});
+  await page.waitForFunction(()=>window.G.champAuto.etat().camera);
+  await page.evaluate(()=>window.G.champAuto.demarrer()); await expect(page.locator('#g3Champ')).toBeVisible();
+  await page.evaluate(mesureFaite); expect(await app.ev('S.camFov')).toBe(68.5);
+  await rejouerPhoto(page,app); await expect(page.locator('#g3Champ')).toBeHidden();
+  await pincer(page,120,200); expect(await app.ev('S.camFov')).toBeLessThan(68.5);
+  expect(app.errors).toEqual([]);
 });
