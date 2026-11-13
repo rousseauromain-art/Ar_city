@@ -5198,18 +5198,26 @@ document.addEventListener('visibilitychange',()=>{
 window.addEventListener('pageshow',e=>{ if(appStarted&&e.persisted&&!cameraAlive()) startCamera(); });
 window.addEventListener('focus',()=>{ if(appStarted&&!document.hidden&&!cameraAlive()) startCamera(); });
 
+// v3, « Analyse d'une photo » (page d'accueil, ?mode=photo) : le départ ouvre le choix d'une photo, jamais la caméra. Le sélecteur s'ouvre dans le geste
+// (sinon Chrome le bloque) ; la photo passe par le onchange de #photoFile (enterPhoto). Annulé ou photo refusée : l'écran de départ reste, avec la raison.
+const modePhoto=(()=>{ try{ return new URLSearchParams(location.search).get('mode')==='photo'; }catch(e){ return false; } })();
+let photoLance=false;
+if(modePhoto){ $('go').textContent='Choisir une photo';
+  new MutationObserver(()=>{ if($('start').style.display==='none') return; if(photoMode) $('start').style.display='none'; else if($('photoInfo').textContent) $('start').querySelector('small').textContent=$('photoInfo').textContent; })
+    .observe($('photoInfo'),{childList:true,characterData:true,subtree:true}); }
 $('go').onclick=async()=>{
+  if(modePhoto){ $('photoFile').click(); if(photoLance) return; photoLance=true; } // l'appli ne démarre qu'une fois, même si le choix a été annulé
   try{ if(window.DeviceOrientationEvent&&typeof DeviceOrientationEvent.requestPermission==='function') await DeviceOrientationEvent.requestPermission(); }catch(e){}
   resize();
-  appStarted=true;
-  await startCamera();
+  appStarted=!modePhoto; // mode photo : ni la caméra, ni sa relance au retour du sélecteur (visibilitychange, focus, pageshow)
+  if(!modePhoto) await startCamera();
   if(navigator.geolocation){
     if(S.simOn&&parseLatLon(S.simPos)) applySimPos();
     navigator.geolocation.watchPosition(p=>{ lastGps=[p.coords.latitude,p.coords.longitude,p.coords.accuracy]; if(photoMode||(S.simOn&&parseLatLon(S.simPos))) return; if(G.actif('plaque')&&G.plaque.garder(p.coords.latitude,p.coords.longitude,p.coords.accuracy)) return; /* greffe plaque : position corrigée */ onNewPos(p.coords.latitude,p.coords.longitude,p.coords.accuracy); },
       err=>{ setStatus('GPS refusé : '+err.message); }, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
   } else setStatus('GPS indisponible');
   startTraffic();
-  $('start').style.display='none';
+  if(!modePhoto) $('start').style.display='none'; // mode photo : l'écran de départ reste jusqu'à ce que la photo soit chargée
   try{ await document.fonts.ready; }catch(e){}
   resize(); requestAnimationFrame(draw);
 };

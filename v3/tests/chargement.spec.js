@@ -20,7 +20,7 @@ test('v1/villes-horizon.html se charge et demarre sans erreur JavaScript',async(
 test('page d’accueil : la v3 en premier, les outils de diagnostic, la v1 « référence », la v2 « gelée » tout en bas',async({page})=>{
   await page.route(/^(?!http:\/\/127\.0\.0\.1[:/])/,r=>r.abort());
   await page.goto('/index.html');
-  await expect(page.locator('#v3ar')).toHaveAttribute('href','v3/villes-horizon.html'); await expect(page.locator('#v3photo')).toHaveAttribute('href','v3/villes-horizon.html');
+  await expect(page.locator('#v3ar')).toHaveAttribute('href','v3/villes-horizon.html'); await expect(page.locator('#v3photo')).toHaveAttribute('href','v3/villes-horizon.html?mode=photo');
   await expect(page.locator('#ar')).toHaveAttribute('href','v1/villes-horizon.html'); await expect(page.locator('#photo')).toHaveAttribute('href','v1/villes-horizon.html');
   await expect(page.locator('#v2ar')).toHaveAttribute('href','v2/ar.html'); await expect(page.locator('#v2photo')).toHaveAttribute('href','v2/ar.html?mode=photo');
   await expect(page.locator('#photoNote')).toContainText('Rejouer une photo'); await expect(page.locator('#v3Note')).toContainText('Greffes v2');
