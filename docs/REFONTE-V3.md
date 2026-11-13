@@ -111,6 +111,8 @@ docs/                 REFONTE-V3.md, ETAT.md, VEILLE-ANCRAGE.md
 | `projection` | Projection exacte de la caméra : en montagne, le relief et les noms ne s'écartent plus de l'image vers les bords (la v1 : environ 1° à 30° du centre). Les points tracés par la v1 sont déplacés pendant le dessin ; aucune ligne de dessin de la v1 n'est réécrite | remplacement | aucun (accord de Romain du 12/11/2026) |
 | `nettete` | Mise au point fixée au plus loin à l'ouverture de la caméra (flou après avoir visé le soleil) | ajout | aucun |
 | `nommer` | Toucher le relief donne son nom : rayon suivi dans le relief déjà chargé, noms d'OpenStreetMap autour du point et de sa crête, fiche et épingle | ajout | aucun (demande du 11/11/2026) |
+| `degage` | Écran dégagé : le bouton ÉCRAN masque aussi puces, boutons et barre du bas (un quart de l'écran en paysage) ; bandeau de la photo replié en une puce | ajout | aucun (demande du 13/11/2026) |
+| `hauteurs` | Hauteurs des monuments : la hauteur d'une tour d'OpenStreetMap va au monument compatible le plus proche (la v1 : au premier de la liste à moins de 120 m, une statue comprise) ; hauteur des statues lue dans leur fiche OpenStreetMap | remplacement | aucun (photo de Turin du 13/11/2026) |
 
 **Non repris :**
 - WebXR, calage guidé ;

@@ -13,6 +13,7 @@ import { LIBELLES } from '../greffes/icones.js';
 import { creerSuivi, axes as axesChamp, GRAND_COTE, textePuce, instantImage } from '../greffes/champAuto.js';
 import { choisir as choisirNettete } from '../greffes/nettete.js';
 import { exact as projExacte, inverse as projInverse } from '../greffes/projection.js';
+import { associer as associerHauteur, statue as statueHauteur } from '../greffes/hauteurs.js';
 import { viser, lireNoms, requete as requeteNoms, nature, rayonKm, ficheHtml } from '../greffes/nommer.js';
 
 const D = Math.PI / 180;
@@ -20,10 +21,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 18 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 20 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -343,4 +344,23 @@ test('projection : un point placé par les formules de la v1 est envoyé là où
   assert.deepEqual(projExacte(W / 2, H / 2, P), [W / 2, H / 2]); assert.ok(Math.abs(projExacte(W, hy, P)[1] - hy) < 1e-9, 'l’horizon reste une droite, à la même hauteur');
   // la mesure du document : crête à 6° au-dessus de l'horizon, téléphone incliné de 3°, à 30° du centre → 0,9° d'écart
   const xv = W / 2 + 720 * Math.tan(30 * D), yv = H / 2 + 720 * Math.tan(-3 * D), e = projExacte(xv, yv, P); assert.ok(Math.abs(Math.atan(Math.abs(e[1] - yv) / 720) / D - 0.92) < 0.03);
+});
+
+// ---- hauteurs : Turin, piazza San Carlo (positions réelles) — un clocher de 40 m sans nom à 115 m d'une statue de 4,4 m ----
+test('hauteurs : le clocher donne sa hauteur à l’église la plus proche, jamais à la statue ; la statue reçoit les 4,4 m de sa fiche OpenStreetMap', () => {
+  const base = () => [
+    { name: 'statue équestre', qid: 'Q3663864', type: 'colonne', cat: 'monument', lat: 45.0677, lon: 7.68258, htWd: null, ht: 25 },
+    { name: 'Piazza San Carlo', qid: 'Q1', type: 'place', cat: 'equip', lat: 45.0677, lon: 7.6826, htWd: null, ht: 0 },
+    { name: 'Santa Cristina', qid: 'Q2', type: 'clocher', cat: 'monument', lat: 45.06688, lon: 7.68218, htWd: null, ht: 45 },
+    { name: 'San Carlo Borromeo', qid: 'Q3', type: 'clocher', cat: 'monument', lat: 45.06678, lon: 7.68165, htWd: null, ht: 45 }];
+  const clocher = { lat: 45.0668173, lon: 7.6818087, h: 40, kind: 'clocher' }, B = base();
+  assert.equal(B.find((m) => m.cat !== 'equip').name, 'statue équestre', 'la v1 prend le premier de la liste : la statue');
+  assert.equal(associerHauteur(B, clocher, 0.12).name, 'San Carlo Borromeo'); // le plus proche des compatibles (13 m), pas le premier
+  assert.equal(associerHauteur(B.filter((m) => m.type !== 'clocher'), clocher, 0.12), undefined, 'aucun monument compatible : la tour reste à part');
+  assert.equal(associerHauteur(B, { ...clocher, lat: 45.08 }, 0.12), undefined, 'trop loin');
+  const proche = (a, b) => Math.abs(a.lat - b.lat) < 0.001 && Math.abs(a.lon - b.lon) < 0.0015, osm = { lat: 45.0677383, lon: 7.6825849, tags: { name: 'Monumento a Emanuele Filiberto', height: '4.4', wikidata: 'Q3663864', memorial: 'statue' } };
+  const M = statueHauteur(B, osm, proche); assert.equal(M.name, 'statue équestre'); assert.equal(M.ht, 4.4); assert.equal(M.htOsm, 4.4);
+  const B2 = base(); assert.equal(statueHauteur(B2, { ...osm, tags: { ...osm.tags, wikidata: undefined } }, proche).name, 'statue équestre', 'sans identifiant : la statue la plus proche');
+  const B3 = base(); B3[0].htWd = 5; assert.equal(statueHauteur(B3, osm, proche), null, 'Wikidata donne déjà une hauteur'); assert.equal(B3[0].ht, 25);
+  assert.equal(statueHauteur(base(), { ...osm, tags: { ...osm.tags, height: 'haute' } }, proche), null);
 });
