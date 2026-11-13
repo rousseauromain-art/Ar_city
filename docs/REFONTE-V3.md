@@ -114,6 +114,7 @@ docs/                 REFONTE-V3.md, ETAT.md, VEILLE-ANCRAGE.md
 | `degage` | Écran dégagé : le bouton ÉCRAN masque aussi puces, boutons et barre du bas (un quart de l'écran en paysage) ; bandeau de la photo replié en une puce | ajout | aucun (demande du 13/11/2026) |
 | `hauteurs` | Hauteurs des monuments : la hauteur d'une tour d'OpenStreetMap va au monument compatible le plus proche (la v1 : au premier de la liste à moins de 120 m, une statue comprise) ; hauteur des statues lue dans leur fiche OpenStreetMap | remplacement | aucun (photo de Turin du 13/11/2026) |
 | `oeilLieu` | Hauteur d'œil du lieu : la correction réglée à la main vaut pour l'endroit où elle a été réglée (la v1 : une seule valeur partout, photos comprises) ; sur une photo, hauteur déduite de l'altitude de la photo et du sol du modèle | ajout | `scene/oeil-gps.js` (géoïde retranché) ; le reste est nouveau (photo de Turin du 13/11/2026) |
+| `horizonPhoto` | Horizon de la photo : inclinaison de l'appareil lue dans la convergence des arêtes verticales des bâtiments (la v1 : horizon au milieu de l'image, à rattraper au doigt) ; rien sans bâtiments | ajout | aucun (photo de Turin du 13/11/2026) |
 
 **Non repris :**
 - WebXR, calage guidé ;

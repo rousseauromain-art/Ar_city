@@ -13,6 +13,8 @@ import { LIBELLES } from '../greffes/icones.js';
 import { creerSuivi, axes as axesChamp, GRAND_COTE, textePuce, instantImage } from '../greffes/champAuto.js';
 import { choisir as choisirNettete } from '../greffes/nettete.js';
 import { exact as projExacte, inverse as projInverse } from '../greffes/projection.js';
+import { aretes, aplomb } from '../greffes/horizonPhoto.js';
+import { rue } from './aide/ville-synthetique.mjs';
 import { lieuProche, noter, deciderPhoto, distanceM as distanceLieuM, RAYON_LIEU_M, SEUIL_PHOTO_M } from '../greffes/oeilLieu.js';
 import { associer as associerHauteur, statue as statueHauteur } from '../greffes/hauteurs.js';
 import { viser, lireNoms, requete as requeteNoms, nature, rayonKm, ficheHtml } from '../greffes/nommer.js';
@@ -22,10 +24,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 21 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 22 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -389,4 +391,24 @@ test('oeilLieu : les quatre photos d’essai sont prises du sol (altitude de la 
   assert.equal(deciderPhoto({ alt: 30 + 49 + 1.6 + 9, make: 'samsung' }, 49, 30).correction, 0, '9 m : dans l’erreur d’altitude d’un téléphone');
   assert.equal(deciderPhoto({ alt: 5000, make: 'Google' }, 49, 30).correction, 250, 'borné au curseur');
   assert.equal(deciderPhoto({ make: 'Google' }, 49, 30).source, 'sans altitude'); assert.equal(deciderPhoto({ alt: 80 }, 49, null).correction, 0);
+});
+
+// ---- horizonPhoto : inclinaison et roulis de l'appareil lus dans les arêtes verticales des bâtiments ----
+test('horizonPhoto : sur une rue synthétique, l’inclinaison et le roulis sont retrouvés à 0,4° près, malgré les traits obliques et le bruit', () => {
+  for (const [inclinaison, roulis, graine] of [[0, 0, 1], [10, 0, 2], [8, 2, 3], [-6, -3, 4], [20, 1, 5]]) {
+    const im = rue({ w: 1280, h: 964, inclinaison, roulis, graine, obliques: 14, bruit: 4 }), segs = aretes(im.g, im.w, im.h), r = aplomb(segs, { f: im.f, cx: im.w / 2, cy: im.h / 2, h: im.h });
+    assert.ok(r.sur, `${inclinaison}/${roulis} : ${r.raison}`);
+    assert.ok(Math.abs(r.inclinaison - inclinaison) < 0.4 && Math.abs(r.roulis - roulis) < 0.4, `${inclinaison}/${roulis} → ${r.inclinaison.toFixed(2)}/${r.roulis.toFixed(2)}`);
+    assert.ok(r.part > 0.6 && r.n >= 40, `${r.part} ${r.n}`);
+  }
+});
+test('horizonPhoto : le champ compte — la même image lue avec un champ plus étroit donne un appareil plus incliné ; sans bâtiments, pas de réponse', () => {
+  const im = rue({ w: 1280, h: 964, inclinaison: 9, roulis: 0, graine: 6 }), segs = aretes(im.g, im.w, im.h), cam = { cx: im.w / 2, cy: im.h / 2, h: im.h };
+  const juste = aplomb(segs, { ...cam, f: im.f }), etroit = aplomb(segs, { ...cam, f: im.f * 1.12 });
+  assert.ok(Math.abs(juste.inclinaison - 9) < 0.4); assert.ok(etroit.sur && Math.abs(etroit.inclinaison - Math.atan(Math.tan(9 * Math.PI / 180) * 1.12) * 180 / Math.PI) < 0.4, String(etroit.inclinaison));
+  const nature = rue({ w: 1280, h: 964, inclinaison: 5, graine: 7, facades: false, obliques: 30 }), rn = aplomb(aretes(nature.g, nature.w, nature.h), { f: nature.f, cx: 640, cy: 482, h: 964 });
+  assert.equal(rn.sur, false); assert.ok(rn.raison.length > 0);
+  assert.equal(aplomb([], { f: 900, cx: 640, cy: 482, h: 964 }).sur, false);
+  // une seule rangée de façades, d'un seul côté : l'écartement des arêtes ne suffit pas à mesurer la convergence → pas de réponse hasardeuse
+  const moitie = segs.filter((s) => s.x > 1000), rm = aplomb(moitie, { ...cam, f: im.f }); assert.ok(!rm.sur || Math.abs(rm.inclinaison - 9) < 1, `${rm.sur} ${rm.inclinaison}`);
 });
