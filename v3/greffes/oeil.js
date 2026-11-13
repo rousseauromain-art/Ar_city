@@ -3,13 +3,9 @@
 // SIMPLE PROPOSITION (« GPS : +X m (±Y m) » et « Appliquer ») si la médiane d'au moins 10 mesures sur 20 s s'écarte du sol d'au moins 10 m avec une précision
 // de 10 m au plus ; le géoïde EGM96 est retranché sur Android (altitude au-dessus de l'ellipsoïde). Jamais appliqué tout seul.
 // Tout passe par les commandes de la v1 (curseur #obsH, étage #floorN des Réglages) : même calcul, même mémoire. Aucun point d'entrée dans le code de la v1.
-import {PAS_DEG,LIGNES,COLONNES,GRILLE_DM} from './_geoide-egm96.js';
+import {ondulationGeoide} from './_geoide-egm96.js';
+export {ondulationGeoide};
 export const MESURES_MIN=10, ECHANTILLON_MIN_MS=20000, PRECISION_MAX_M=10, ECART_PROPOSITION_M=10, HISTORIQUE_MS=60000;
-export function ondulationGeoide(lat,lon){
-  const la=Math.max(-90,Math.min(90,lat)), lo=((((lon+180)%360)+360)%360)-180, fy=(la+90)/PAS_DEG, fx=(lo+180)/PAS_DEG;
-  const y0=Math.min(LIGNES-2,Math.floor(fy)), x0=Math.min(COLONNES-2,Math.floor(fx)), ty=fy-y0, tx=fx-x0, v=(y,x)=>GRILLE_DM[y*COLONNES+x]/10;
-  return (v(y0,x0)*(1-tx)+v(y0,x0+1)*tx)*(1-ty)+(v(y0+1,x0)*(1-tx)+v(y0+1,x0+1)*tx)*ty;
-}
 const mediane=v=>{ if(!v.length) return null; const s=v.slice().sort((a,b)=>a-b), m=s.length>>1; return s.length%2?s[m]:(s[m-1]+s[m])/2; };
 /** Pur (v2/src/scene/oeil-gps.js) : proposition de correction d'après les mesures {t, alt, prec} et le sol. */
 export function proposer(mesures,solM,ondulationM=0){

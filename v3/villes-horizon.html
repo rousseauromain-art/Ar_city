@@ -5067,6 +5067,7 @@ function exifTiff(v,t){
   if(a&&off){ r.utc=Date.UTC(a[0],a[1]-1,a[2],a[3],a[4],a[5])-(off[1]==='-'?-1:1)*(+off[2]*60+ +off[3])*60000; r.timeSrc='heure de prise de vue + décalage horaire'; }
   else if(r.gpsUtc){ r.utc=r.gpsUtc; r.timeSrc='heure GPS (dernier point GPS, peut être ancienne)'; }
   else if(a){ r.utc=new Date(a[0],a[1]-1,a[2],a[3],a[4],a[5]).getTime(); r.timeSrc='heure locale (fuseau du téléphone supposé)'; }
+  G.actif('oeilLieu')&&G.oeilLieu.exif(r,gps); // greffe oeilLieu : altitude de la photo
   return r; }
 let lastGps=null;
 async function enterPhoto(f){
@@ -5227,7 +5228,7 @@ G.lier({S,D,$,wrap,note,pose,vFov,vFovFor,showFov,sunNow,sunTime,saveSettings,no
   relatif:(R,reinit)=>{ if(reinit){ gyroK=null; magBins.fill(null); svRel=srRel=null; } if(!R) return; const k=0.18, sm=(p,n)=>p?p.map((q,i)=>q+(n[i]-q)*k):n; // greffe capteurRelatif : mesure relative (quaternion), comme onOrient
     svRel=sm(svRel,R.v); srRel=sm(srRel,R.r); relT=Date.now(); sv=svAbs||svRel; sr=svAbs?srAbs:srRel; sensor=true; gyroLearn(); },
   get W(){ return W; }, get H(){ return H; }, get pos(){ return pos; }, get acc(){ return acc; }, get terrain(){ return terrain; }, get photoMode(){ return photoMode; }, get sensor(){ return sensor; }, get farPeaks(){ return farPeaks; }, get cities(){ return cities; }, axisStatus,
-  get obsGround(){ return obsGround; }, get obsGroundSrc(){ return obsGroundSrc; }, get obsElev(){ return obsElev; },
+  get obsGround(){ return obsGround; }, get obsGroundSrc(){ return obsGroundSrc; }, get obsElev(){ return obsElev; }, get terrainBusy(){ return terrainBusy; },
   relief:{TDIST,BSTEP,NB,REFF}, fiche:(titre,html)=>{ $('dbgBody').innerHTML=html; $('dbgTitle').textContent=titre; $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null; } }); // greffe nommer : relief de la v1, fiche
 G.monterPanneau($('sheet'));
 userLoad();

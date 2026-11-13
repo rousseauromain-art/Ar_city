@@ -4,7 +4,7 @@
 // Réglage : panneau des Réglages (mémorisé sous la clé `vh3_greffes`) ou adresse de la page : ?g=lune,permutation (« tout », « aucune »), qui prime sans rien mémoriser.
 (function(){
   'use strict';
-  const VERSION='2026-11-13 (a) · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu, montagne, champAuto, nettete, nommer, projection, degage, hauteurs)';
+  const VERSION='2026-11-13 (a) · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu, montagne, champAuto, nettete, nommer, projection, degage, hauteurs, oeilLieu)';
   // etat : 'non testé' | 'validé' | 'rejeté' (seul Romain le change sur le terrain : docs/ETAT.md)
   const LISTE=[
     {id:'soleil2',type:'remplacement',etat:'non testé',titre:'Soleil (v2)',phrase:'Toucher le soleil : le disque vu dans l’image est retrouvé, même téléphone penché ou boussole fausse de plus de 12°.'},
@@ -26,6 +26,7 @@
     {id:'projection',type:'remplacement',etat:'non testé',titre:'Projection exacte (montagne)',phrase:'Le relief et les noms sont placés comme une vraie caméra les voit : en montagne, ils ne s’écartent plus de l’image vers les bords de l’écran (environ 1° d’écart dans la v1).'},
     {id:'degage',type:'ajout',etat:'non testé',titre:'Écran dégagé',phrase:'Le bouton ÉCRAN masque aussi les puces, les boutons et la barre du bas : plus de place pour les noms (bouton ⤡ en haut à droite pour tout retrouver). En photo, le bandeau est replié en une petite puce.'},
     {id:'hauteurs',type:'remplacement',etat:'non testé',titre:'Hauteurs des monuments',phrase:'Une tour ne donne sa hauteur qu’au monument compatible le plus proche (plus de statue à 40 m), et une statue reçoit la hauteur de sa fiche OpenStreetMap.'},
+    {id:'oeilLieu',type:'ajout',etat:'non testé',titre:'Hauteur d’œil du lieu',phrase:'La hauteur d’œil réglée à la main reste attachée au lieu où elle a été réglée : ailleurs elle revient à 0, de retour elle est reprise. Sur une photo, elle est déduite de l’altitude enregistrée dans la photo (au sol, ou en hauteur à partir de 10 m d’écart).'},
     {id:'nommer',type:'ajout',etat:'non testé',titre:'Nommer le relief touché',phrase:'Toucher une montagne, une crête ou un plateau : son nom (sommet, col, lieu-dit… d’OpenStreetMap), sa distance et son altitude ; une épingle reste une minute.'},
   ];
   const IDS=LISTE.map(g=>g.id), CLE='vh3_greffes', CLE_TOMBES='vh3_tombes';

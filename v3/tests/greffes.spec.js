@@ -1,8 +1,8 @@
 // Greffes de la v3 dans la page (docs/REFONTE-V3.md §3, règle 4) : chaque greffe seule, puis toutes allumées (?g=tout) ; pour chacune, son effet,
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
-const {ouvrir,capteurs,videoSynthetique}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','nommer'];
+const {ouvrir,capteurs,videoSynthetique,photoExif}=require('./aide/v3');
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','nommer'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';
@@ -71,7 +71,8 @@ for(const g of MODES('echelle2')) test(`echelle2 (${nom(g)}) : deux lieux touch�
 
 for(const g of MODES('oeil')) test(`oeil (${nom(g)}) : puce près du rayon, détail au toucher, étage et « Réestimer » passent par les réglages de la v1`,async({page})=>{
   const app=await ouvrir(page,{pos:POS,greffes:g,settings:{obsHeight:12}});
-  await app.waitFor('terrain&&!terrain.refining&&obsGround!=null');
+  if(g[0]==='tout'){ await app.waitFor('S.obsHeight===0'); await reglerOeil(page,12); } // greffe oeilLieu : 12 m d'on ne sait où ne sont pas gardés ; réglés ici, ils le sont
+  await app.waitFor('!terrainBusy&&terrain&&!terrain.refining&&obsGround!=null');
   const chip=page.locator('#g3Eye'); await expect(chip).toBeVisible(); await expect(chip).toContainText('œil +12 m');
   await chip.click(); await expect(page.locator('#g3EyeT')).toContainText('Sol estimé'); await expect(page.locator('#g3EyeT')).toContainText('correction +12 m');
   await page.fill('#g3EyeEt','3'); await page.locator('#g3EyeEt').dispatchEvent('change'); expect(await app.ev('S.obsHeight')).toBe(10);
@@ -380,5 +381,40 @@ test('champAuto : en photo rejouée, pas de puce « champ » (son champ vient du
   await page.evaluate(mesureFaite); expect(await app.ev('S.camFov')).toBe(68.5);
   await rejouerPhoto(page,app); await expect(page.locator('#g3Champ')).toBeHidden();
   await pincer(page,120,200); expect(await app.ev('S.camFov')).toBeLessThan(68.5);
+  expect(app.errors).toEqual([]);
+});
+
+/** Curseur de la hauteur d'œil réglé comme au doigt. */
+const reglerOeil=(page,v)=>page.evaluate(v=>{ const s=document.getElementById('obsH'); s.value=String(v); s.dispatchEvent(new Event('input')); s.dispatchEvent(new Event('change')); },v);
+for(const g of MODES('oeilLieu')) test(`oeilLieu (${nom(g)}) : en direct, une hauteur d'œil réglée ailleurs revient à 0, celle réglée ici est gardée à 150 m près et reprise au retour`,async({page})=>{
+  const app=await ouvrir(page,{pos:POS,greffes:g,settings:{obsHeight:13}});
+  await app.waitFor('S.obsHeight===0'); await expect(page.locator('#note')).toContainText('remise à 0'); // 13 m d'on ne sait où : pas gardée
+  expect(await page.evaluate(()=>window.G.oeilLieu.etat().lieux)).toEqual([]);
+  await reglerOeil(page,20); expect((await page.evaluate(()=>window.G.oeilLieu.etat().lieux)).map(l=>l.h)).toEqual([20]);
+  await app.ev(`onNewPos(${POS.lat+0.0009},${POS.lon},5); true`); await page.evaluate(()=>window.G.oeilLieu.suivre()); expect(await app.ev('S.obsHeight')).toBe(20); // 100 m : même lieu
+  await app.ev(`onNewPos(${POS.lat+0.01},${POS.lon},5); true`); await page.evaluate(()=>window.G.oeilLieu.suivre()); expect(await app.ev('S.obsHeight')).toBe(0); // 1,1 km : au sol
+  expect(await page.evaluate(()=>window.G.oeilLieu.statut())).toContain('à 1.1 km d’ici');
+  await app.ev(`onNewPos(${POS.lat},${POS.lon},5); true`); await page.evaluate(()=>window.G.oeilLieu.suivre()); expect(await app.ev('S.obsHeight')).toBe(20); // retour : reprise
+  await expect(page.locator('#note')).toContainText('reprise'); expect(await page.inputValue('#obsH')).toBe('20');
+  expect(JSON.parse(await page.evaluate(()=>localStorage.getItem('vh3_oeilLieu'))).length).toBe(1);
+  expect(app.errors).toEqual([]);
+});
+test('oeilLieu : sur une photo, la hauteur d’œil vient de l’altitude de la photo (en hauteur à partir de 10 m au-dessus du sol du modèle, sinon au sol) ; corrigée à la main, elle est gardée pour l’endroit de la photo ; photo quittée, retour à la hauteur du lieu',async({page})=>{
+  const LIEU={lat:POS.lat+0.05,lon:POS.lon}, N=49.1; // plateau à 100 m sous la photo ; géoïde de Saint-Malo
+  const app=await ouvrir(page,{pos:POS,greffes:['oeilLieu'],terrain:{features:[{lat:LIEU.lat,lon:LIEU.lon,r:1500,h:100}]}});
+  await reglerOeil(page,7); // hauteur du lieu où l'on est : ne doit pas servir à la photo
+  const b64=await page.evaluate(()=>{ const c=document.createElement('canvas'); c.width=64; c.height=48; const x=c.getContext('2d'); x.fillStyle='#7aa'; x.fillRect(0,0,64,48); return c.toDataURL('image/jpeg').split(',')[1]; });
+  const photo=alt=>({name:'photo.jpg',mimeType:'image/jpeg',buffer:photoExif(Buffer.from(b64,'base64'),{...LIEU,alt})});
+  const decision=()=>page.evaluate(()=>{ const e=window.G.oeilLieu.etat(); return e.photo&&e.photo.decision; });
+  await page.setInputFiles('#photoFile',photo(100+N+1.6+25)); await app.waitFor('photoMode&&pos');
+  expect(await app.ev('Math.abs(pos.lat-'+LIEU.lat+')<1e-4&&Math.abs(photoMode.alt-'+(100+N+1.6+25)+')<0.01')).toBe(true);
+  await expect.poll(decision,{timeout:30000}).toBeTruthy();
+  let d=await decision(); expect(d.source).toBe('altitude'); expect(Math.abs(d.correction-25)).toBeLessThanOrEqual(1); expect(await app.ev('S.obsHeight')).toBe(d.correction);
+  await expect(page.locator('#note')).toContainText('Photo prise en hauteur'); expect(await app.ev('Math.round(obsGround)')).toBe(100);
+  await page.setInputFiles('#photoFile',photo(100+N+1.6+4)); await expect.poll(async()=>{ const x=await decision(); return x&&x.correction; },{timeout:30000}).toBe(0); // 4 m : au sol
+  expect(await app.ev('S.obsHeight')).toBe(0); expect((await decision()).texte).toMatch(/^au sol/);
+  await reglerOeil(page,5); expect((await decision()).source).toBe('main'); // corrigée à la main : gardée pour cet endroit
+  await page.setInputFiles('#photoFile',photo(100+N+1.6+40)); await expect.poll(async()=>{ const x=await decision(); return x&&x.source+x.correction; },{timeout:30000}).toBe('main5'); expect(await app.ev('S.obsHeight')).toBe(5);
+  await page.evaluate(()=>document.getElementById('photoChip').click()); await app.waitFor('!photoMode&&S.obsHeight===7'); // photo quittée : hauteur du lieu
   expect(app.errors).toEqual([]);
 });
