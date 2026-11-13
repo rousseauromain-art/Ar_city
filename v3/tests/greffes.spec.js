@@ -2,7 +2,7 @@
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
 const {ouvrir,capteurs,videoSynthetique,photoExif}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','nommer'];
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','nommer'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';
@@ -417,4 +417,33 @@ test('oeilLieu : sur une photo, la hauteur d’œil vient de l’altitude de la 
   await page.setInputFiles('#photoFile',photo(100+N+1.6+40)); await expect.poll(async()=>{ const x=await decision(); return x&&x.source+x.correction; },{timeout:30000}).toBe('main5'); expect(await app.ev('S.obsHeight')).toBe(5);
   await page.evaluate(()=>document.getElementById('photoChip').click()); await app.waitFor('!photoMode&&S.obsHeight===7'); // photo quittée : hauteur du lieu
   expect(app.errors).toEqual([]);
+});
+
+/** Photo JPEG d'une rue synthétique (appareil levé de `inclinaison`°, penché de `roulis`°), avec une position EXIF ; champ 71,5° comme le réglage de la page. */
+async function photoRue(page,{inclinaison,roulis=0,graine=3}){
+  const {rue}=await import('./aide/ville-synthetique.mjs'), im=rue({w:1280,h:964,champ:71.5,inclinaison,roulis,graine});
+  const b64=await page.evaluate(({g,w,h})=>{ const o=Uint8Array.from(atob(g),ch=>ch.charCodeAt(0)), c=document.createElement('canvas'); c.width=w; c.height=h; const x=c.getContext('2d'), d=x.createImageData(w,h);
+    for(let i=0;i<w*h;i++){ d.data[4*i]=d.data[4*i+1]=d.data[4*i+2]=o[i]; d.data[4*i+3]=255; } x.putImageData(d,0,0); return c.toDataURL('image/jpeg',0.9).split(',')[1]; },{g:Buffer.from(im.g).toString('base64'),w:im.w,h:im.h});
+  return {name:'rue.jpg',mimeType:'image/jpeg',buffer:photoExif(Buffer.from(b64,'base64'),{...POS,alt:60})};
+}
+for(const g of MODES('horizonPhoto')) test(`horizonPhoto (${nom(g)}) : sur une photo de rue, l'horizon est réglé d'après les verticales des bâtiments ; il suit le champ s'il est corrigé, jamais un horizon réglé à la main ; éteinte, l'horizon reste au milieu`,async({page})=>{
+  test.setTimeout(90000);
+  for(const greffes of [g,[]]){
+    const app=await ouvrir(page,{pos:POS,greffes,settings:{camFov:71.5}});
+    await page.setInputFiles('#photoFile',await photoRue(page,{inclinaison:9,roulis:1})); await app.waitFor('photoMode&&pos');
+    if(!greffes.length){ await page.waitForTimeout(800); expect(await app.ev('S.pitchOff')).toBe(0); continue; } // la v1 : horizon au milieu de l'image
+    await app.waitFor('S.pitchOff!==0'); const e=await page.evaluate(()=>window.G.horizonPhoto.etat());
+    expect(e.applique).toBe(true); expect(Math.abs(await app.ev('S.pitchOff')-9)).toBeLessThan(0.6); expect(Math.abs(e.res.roulis-1)).toBeLessThan(0.6);
+    expect(await page.evaluate(()=>window.G.horizonPhoto.statut())).toContain('appareil levé de');
+    // la ligne d'horizon de l'écran passe là où la rue synthétique a son horizon : f·tan(9°) sous le milieu de l'image
+    expect(await app.ev('Math.abs(pose().pitch-9)<0.6&&photoMode.w===1280')).toBe(true);
+    // champ corrigé (plus étroit) : la même convergence veut dire un appareil plus incliné
+    await app.ev('S.camFov=64; showFov(); true'); await app.waitFor('S.pitchOff>9.6'); expect(Math.abs(await app.ev('S.pitchOff')-Math.atan(Math.tan(9*Math.PI/180)*Math.tan(71.5/2*Math.PI/180)/Math.tan(32*Math.PI/180))*180/Math.PI)).toBeLessThan(0.7);
+    // horizon réglé à la main : la greffe n'y touche plus, même si le champ change encore
+    await app.ev('S.pitchOff=3; S.camFov=71.5; true'); await page.evaluate(()=>window.G.horizonPhoto.suivre()); await page.waitForTimeout(700); expect(await app.ev('S.pitchOff')).toBe(3);
+    // photo sans bâtiments : rien ne change
+    await page.evaluate(()=>document.getElementById('photoChip').click()); await app.waitFor('!photoMode');
+    await rejouerPhoto(page,app); await page.waitForTimeout(700); expect(await app.ev('S.pitchOff')).toBe(0); expect(await page.evaluate(()=>window.G.horizonPhoto.statut())).toContain('laissé tel quel');
+    expect(app.errors).toEqual([]);
+  }
 });
