@@ -17,3 +17,20 @@ test('Turin, piazza San Carlo : la statue équestre fait 4,4 m (greffe hauteurs)
   expect(g.a40.length).toBeGreaterThan(0); for(const n of g.a40) expect(n).toMatch(/\((clocher|tour|dome)\)$/);
   expect(o.erreurs).toEqual([]);
 });
+
+// Vérité donnée par Romain (13/11) : Saint-Malo sur le rempart, Turin debout sur la place, Ibiza assis au bord de la plage, Morgat sur le remblai
+// de la plage. Aucune photo prise d'un étage : la hauteur d'œil réglée un autre jour (+13 m) ne doit pas servir, et l'altitude de la photo doit
+// donner « au sol » (le rempart de Saint-Malo est déjà dans le sol du modèle de terrain fin).
+for(const id of ['saint-malo-rempart','turin-san-carlo','ibiza-coucher','morgat-plage'])
+  test(`${id} : la hauteur d'œil de la photo est « au sol » d'après son altitude (greffe oeilLieu), et non les +13 m réglés ailleurs`,async({browser})=>{
+    test.setTimeout(240000);
+    const {parId,reglages}=await scenes(), sc=parId[id]; ignorerSiAbsent(test,sc);
+    const o=await ouvrirSceneReelle(browser,sc,{url:V3,greffes:['oeilLieu'],reglages:{...reglages,obsHeight:13}});
+    const decision=()=>o.page.evaluate(()=>{ const e=window.G.oeilLieu.etat(); return e.photo&&e.photo.decision; });
+    await expect.poll(decision,{timeout:60000}).toBeTruthy();
+    const d=await decision(), sol=await o.app.ev('[obsGround,obsGroundSrc,S.obsHeight,terrain.h0]');
+    console.log(`${id} · oeilLieu : ${d.texte} · sol ${sol[0].toFixed(1)} m (${sol[1]})`);
+    expect(d.source).toBe('altitude'); expect(d.correction).toBe(0); expect(Math.abs(d.exces)).toBeLessThan(8);
+    expect(sol[2]).toBe(0); await o.app.waitFor('!terrainBusy&&Math.abs(terrain.h0-Math.max(1,obsGround+1.6))<0.01'); // relief recalculé pour un œil au sol
+    await o.ctx.close(); expect(o.erreurs).toEqual([]);
+  });

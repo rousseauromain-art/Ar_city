@@ -25,4 +25,18 @@ async function videoSynthetique(page,peindre,args={}){
   },{src:peindre,args});
   await page.waitForFunction(()=>{ const v=document.getElementById('cam'); return v.videoWidth>0&&!v.paused; },null,{timeout:10000});
 }
-module.exports={ouvrir,capteurs,videoSynthetique,V1,V3};
+/** Petite photo JPEG avec un EXIF minimal (marque, position, altitude GPS) : `jpeg` = image sans EXIF (Buffer), le bloc EXIF est inséré en tête. */
+function photoExif(jpeg,{lat,lon,alt,make='Google'}){
+  const t=Buffer.alloc(8+2+2*12+4+8+2+6*12+4+24+24+8), w16=(o,v)=>t.writeUInt16LE(v,o), w32=(o,v)=>t.writeUInt32LE(v,o);
+  const entree=(o,tag,type,n,val)=>{ w16(o,tag); w16(o+2,type); w32(o+4,n); if(typeof val==='string') t.write(val,o+8,'latin1'); else w32(o+8,val); };
+  t.write('II',0,'latin1'); w16(2,42); w32(4,8);
+  const oMarque=8+2+24+4, oGps=oMarque+8, oLat=oGps+2+72+4, oLon=oLat+24, oAlt=oLon+24;
+  w16(8,2); entree(10,0x010F,2,make.length+1,oMarque); entree(22,0x8825,4,1,oGps); t.write(make.slice(0,7),oMarque,'latin1');
+  const dms=(o,v)=>{ const a=Math.abs(v), d=Math.floor(a), m=Math.floor((a-d)*60), s=Math.round(((a-d)*60-m)*60*1000); [[d,1],[m,1],[s,1000]].forEach(([n,q],i)=>{ w32(o+8*i,n); w32(o+8*i+4,q); }); };
+  w16(oGps,6); let e=oGps+2;
+  entree(e,1,2,2,lat<0?'S':'N'); entree(e+12,2,5,3,oLat); entree(e+24,3,2,2,lon<0?'W':'E'); entree(e+36,4,5,3,oLon); entree(e+48,5,1,1,alt<0?1:0); entree(e+60,6,5,1,oAlt);
+  dms(oLat,lat); dms(oLon,lon); w32(oAlt,Math.round(Math.abs(alt)*100)); w32(oAlt+4,100);
+  const seg=Buffer.concat([Buffer.from([0xFF,0xE1,0,0]),Buffer.from('Exif\0\0','latin1'),t]); seg.writeUInt16BE(seg.length-2,2);
+  return Buffer.concat([jpeg.subarray(0,2),seg,jpeg.subarray(2)]);
+}
+module.exports={ouvrir,capteurs,videoSynthetique,photoExif,V1,V3};

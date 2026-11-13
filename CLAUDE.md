@@ -55,7 +55,7 @@ Réalité augmentée dans le navigateur, comme une table d'orientation : par-des
 ## Faits établis sur le terrain (à garder)
 - Pixel : direction EXIF décalée de +90° en paysage, peu fiable en portrait. Saint-Malo : EXIF faux d'environ 14°. Boussole : 30 à 40° d'erreur près du métal, 30 à 50° en voiture.
 - Turin : concordances fortuites de repères en ville dense (cap −19,4° à tort) → greffe `permutation`.
-- Altitude GPS d'Android au-dessus de l'ellipsoïde (géoïde 49 m en Bretagne) → greffe `oeil`, qui le retranche.
+- Altitude GPS d'Android au-dessus de l'ellipsoïde (géoïde 49 m en Bretagne) → greffe `oeil`, qui le retranche. Altitude des photos du Pixel (EXIF), géoïde retranché : à −6…+3 m du sol réel sur les quatre photos d'essai (Saint-Malo sur le rempart, Turin debout, Ibiza assis au bord de la plage, Morgat sur le remblai) ; la hauteur d'œil de la v1 est une seule valeur pour tous les lieux et toutes les photos (+13 m restés à Turin) → greffe `oeilLieu`.
 - Silhouettes proches (Les Horizons, 0,3 km) : le plafond de taille de la v1 ne joue que pied à l'écran → la silhouette rétrécit quand on baisse le téléphone → greffe `tailleReelle`.
 - Rotation automatique coupée : écran resté en portrait, téléphone en paysage → greffe `rotation` et correctif §5 du glisser.
 - Vercors (11/11) : champ réglé à 45° pour une caméra d'environ 62° (réglée ensuite à l'œil) → le tracé glisse dès qu'on tourne (ce n'est pas le gyroscope) → greffe `champAuto`. Image floue après avoir visé le soleil → greffe `nettete`. La projection de la v1 est approchée hors du centre (environ 1° aux bords en montagne) : `docs/VEILLE-ANCRAGE.md` §5 → greffe `projection` (accord de Romain du 12/11 : elle déplace les points pendant le dessin, sans réécrire les lignes de la v1).

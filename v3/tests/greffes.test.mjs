@@ -13,6 +13,7 @@ import { LIBELLES } from '../greffes/icones.js';
 import { creerSuivi, axes as axesChamp, GRAND_COTE, textePuce, instantImage } from '../greffes/champAuto.js';
 import { choisir as choisirNettete } from '../greffes/nettete.js';
 import { exact as projExacte, inverse as projInverse } from '../greffes/projection.js';
+import { lieuProche, noter, deciderPhoto, distanceM as distanceLieuM, RAYON_LIEU_M, SEUIL_PHOTO_M } from '../greffes/oeilLieu.js';
 import { associer as associerHauteur, statue as statueHauteur } from '../greffes/hauteurs.js';
 import { viser, lireNoms, requete as requeteNoms, nature, rayonKm, ficheHtml } from '../greffes/nommer.js';
 
@@ -21,10 +22,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 20 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 21 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -363,4 +364,29 @@ test('hauteurs : le clocher donne sa hauteur à l’église la plus proche, jama
   const B2 = base(); assert.equal(statueHauteur(B2, { ...osm, tags: { ...osm.tags, wikidata: undefined } }, proche).name, 'statue équestre', 'sans identifiant : la statue la plus proche');
   const B3 = base(); B3[0].htWd = 5; assert.equal(statueHauteur(B3, osm, proche), null, 'Wikidata donne déjà une hauteur'); assert.equal(B3[0].ht, 25);
   assert.equal(statueHauteur(base(), { ...osm, tags: { ...osm.tags, height: 'haute' } }, proche), null);
+});
+
+// ---- oeilLieu : la hauteur d'œil appartient au lieu ; sur une photo, elle vient de l'altitude de la photo ----
+test('oeilLieu : une hauteur réglée à la main vaut à 150 m près, le réglage suivant au même endroit la remplace, 30 lieux gardés', () => {
+  const ici = { lat: 48.6493, lon: -2.0257 }, a100 = { lat: 48.6502, lon: -2.0257 }, a300 = { lat: 48.6520, lon: -2.0257 };
+  assert.ok(Math.abs(distanceLieuM(ici, a100) - 100) < 1 && Math.abs(distanceLieuM(ici, a300) - 300) < 2);
+  let l = noter([], ici, 13, 1);
+  assert.equal(lieuProche(l, a100).h, 13); assert.equal(lieuProche(l, a300), null); assert.equal(lieuProche([], ici), null);
+  l = noter(l, a100, 6, 2); assert.equal(l.length, 1, 'même endroit : remplacé'); assert.equal(lieuProche(l, ici).h, 6);
+  l = noter(l, a300, 0, 3); assert.equal(l.length, 2); assert.equal(lieuProche(l, a300).h, 0, '« ici, au sol » est gardé aussi');
+  assert.equal(lieuProche(noter(noter([], ici, 13), a100, 20), { lat: 48.6498, lon: -2.0257 }).h, 20); // le plus proche l'emporte
+  let n = []; for (let i = 0; i < 40; i++) n = noter(n, { lat: 40 + i * 0.01, lon: 2 }, i, i);
+  assert.equal(n.length, 30); assert.equal(n[0].h, 10); assert.equal(RAYON_LIEU_M, 150);
+});
+test('oeilLieu : les quatre photos d’essai sont prises du sol (altitude de la photo − géoïde, à moins de 10 m du sol du modèle) ; un 6e étage est reconnu', () => {
+  // altitude EXIF, ondulation du géoïde et sol du modèle relevés sur les photos de Saint-Malo (rempart), Turin (debout), Ibiza (assis, plage), Morgat (remblai)
+  for (const [nom, alt, geoide, sol] of [['Saint-Malo', 62.68, 48.9, 12.5], ['Turin', 289.0, 46.2, 238.5], ['Ibiza', 54.29, 48.6, 2.0], ['Morgat', 53.70, 51.1, 7.0]]) {
+    const d = deciderPhoto({ alt, make: 'Google' }, geoide, sol);
+    assert.equal(d.correction, 0, nom); assert.equal(d.source, 'altitude'); assert.ok(Math.abs(d.exces) < SEUIL_PHOTO_M - 3, `${nom} : ${d.exces}`); assert.match(d.texte, /^au sol/);
+  }
+  const balcon = deciderPhoto({ alt: 30 + 49 + 1.6 + 19, make: 'Google' }, 49, 30); assert.equal(balcon.correction, 19); assert.match(balcon.texte, /^en hauteur, œil à \+19 m/);
+  assert.equal(deciderPhoto({ alt: 30 + 1.6 + 19, make: 'Apple' }, 49, 30).correction, 19, 'iPhone : altitude déjà au-dessus du niveau de la mer');
+  assert.equal(deciderPhoto({ alt: 30 + 49 + 1.6 + 9, make: 'samsung' }, 49, 30).correction, 0, '9 m : dans l’erreur d’altitude d’un téléphone');
+  assert.equal(deciderPhoto({ alt: 5000, make: 'Google' }, 49, 30).correction, 250, 'borné au curseur');
+  assert.equal(deciderPhoto({ make: 'Google' }, 49, 30).source, 'sans altitude'); assert.equal(deciderPhoto({ alt: 80 }, 49, null).correction, 0);
 });
