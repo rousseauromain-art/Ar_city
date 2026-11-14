@@ -4,7 +4,7 @@
 // Réglage : panneau des Réglages (mémorisé sous la clé `vh3_greffes`) ou adresse de la page : ?g=lune,permutation (« tout », « aucune »), qui prime sans rien mémoriser.
 (function(){
   'use strict';
-  const VERSION='2026-11-13 (a) · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu, montagne, champAuto, nettete, nommer, projection, degage, hauteurs, oeilLieu, horizonPhoto)';
+  const VERSION='2026-11-14 (a) · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu, montagne, champAuto, nettete, nommer, projection, degage, hauteurs, oeilLieu, horizonPhoto, champPhoto)';
   // etat : 'non testé' | 'validé' | 'rejeté' (seul Romain le change sur le terrain : docs/ETAT.md)
   const LISTE=[
     {id:'soleil2',type:'remplacement',etat:'non testé',titre:'Soleil (v2)',phrase:'Toucher le soleil : le disque vu dans l’image est retrouvé, même téléphone penché ou boussole fausse de plus de 12°.'},
@@ -28,6 +28,7 @@
     {id:'hauteurs',type:'remplacement',etat:'non testé',titre:'Hauteurs des monuments',phrase:'Une tour ne donne sa hauteur qu’au monument compatible le plus proche (plus de statue à 40 m), et une statue reçoit la hauteur de sa fiche OpenStreetMap.'},
     {id:'oeilLieu',type:'ajout',etat:'non testé',titre:'Hauteur d’œil du lieu',phrase:'La hauteur d’œil réglée à la main reste attachée au lieu où elle a été réglée : ailleurs elle revient à 0, de retour elle est reprise. Sur une photo, elle est déduite de l’altitude enregistrée dans la photo (au sol, ou en hauteur à partir de 10 m d’écart).'},
     {id:'horizonPhoto',type:'ajout',etat:'non testé',titre:'Horizon de la photo',phrase:'Sur une photo de ville, l’horizon est réglé tout seul d’après les arêtes verticales des bâtiments (elles convergent quand l’appareil est levé ou baissé). Sans bâtiments, rien ne change : « Caler auto » règle l’horizon sur le relief.'},
+    {id:'champPhoto',type:'ajout',etat:'non testé',titre:'Champ réel des photos',phrase:'Le champ écrit dans une photo est une valeur nominale (Pixel 9 : 71,5° écrits, 63,5° mesurés). Quand « Caler auto » réussit sur le relief d’une photo, le champ réel de l’appareil est retenu et repris pour ses photos suivantes.'},
     {id:'nommer',type:'ajout',etat:'non testé',titre:'Nommer le relief touché',phrase:'Toucher une montagne, une crête ou un plateau : son nom (sommet, col, lieu-dit… d’OpenStreetMap), sa distance et son altitude ; une épingle reste une minute.'},
   ];
   const IDS=LISTE.map(g=>g.id), CLE='vh3_greffes', CLE_TOMBES='vh3_tombes';

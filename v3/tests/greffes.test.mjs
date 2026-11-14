@@ -13,6 +13,7 @@ import { LIBELLES } from '../greffes/icones.js';
 import { creerSuivi, axes as axesChamp, GRAND_COTE, textePuce, instantImage } from '../greffes/champAuto.js';
 import { choisir as choisirNettete } from '../greffes/nettete.js';
 import { exact as projExacte, inverse as projInverse } from '../greffes/projection.js';
+import { champExif, rapport as rapportChamp, corriger as corrigerChamp, apprendre as apprendreChamp, cleAppareil } from '../greffes/champPhoto.js';
 import { aretes, aplomb } from '../greffes/horizonPhoto.js';
 import { rue } from './aide/ville-synthetique.mjs';
 import { lieuProche, noter, deciderPhoto, distanceM as distanceLieuM, RAYON_LIEU_M, SEUIL_PHOTO_M } from '../greffes/oeilLieu.js';
@@ -24,10 +25,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 22 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 23 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -226,13 +227,13 @@ const brume = (graine, contraste) => { // temps brumeux : deux crêtes douces su
   return (az, el) => { let c1 = 5 * D, c2 = 1 * D; for (const c of C1) c1 += c.a * 0.5 * Math.sin(c.w * az + c.p); for (const c of C2) c2 += c.a * 0.5 * Math.sin(c.w * az + c.p); return 150 - contraste * (20 * s(c1 - el) + 25 * s(c2 - el)) + 3 * contraste * Math.sin(3 * az) * Math.cos(5 * el); };
 };
 const axesDe = (cap, incl, roulis) => { const c = cap * D, i = incl * D, r = roulis * D, h = [Math.cos(c), -Math.sin(c), 0], u = [-Math.sin(c) * Math.sin(i), -Math.cos(c) * Math.sin(i), Math.cos(i)]; return { v: [Math.sin(c) * Math.cos(i), Math.cos(c) * Math.cos(i), Math.sin(i)], r: h.map((k, j) => k * Math.cos(r) + u[j] * Math.sin(r)) }; };
-function filmer(L, A, f, w, h, bruit) { // sténopé exact, indépendant du code de la greffe
+function filmer(L, A, f, w, h, bruit, colle) { // sténopé exact, indépendant du code de la greffe ; `colle(x/w, y/h)` : ce qui reste collé à l'objectif (reflet, cadre), ou null
   const { v, r } = A, u = [r[1] * v[2] - r[2] * v[1], r[2] * v[0] - r[0] * v[2], r[0] * v[1] - r[1] * v[0]], out = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const a = x - w / 2 + 0.5, b = -(y - h / 2 + 0.5), d = [v[0] * f + r[0] * a + u[0] * b, v[1] * f + r[1] * a + u[1] * b, v[2] * f + r[2] * a + u[2] * b]; out[y * w + x] = Math.max(0, Math.min(255, L(Math.atan2(d[0], d[1]), Math.asin(d[2] / Math.hypot(...d))) + (bruit ? bruit() : 0))); }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const a = x - w / 2 + 0.5, b = -(y - h / 2 + 0.5), d = [v[0] * f + r[0] * a + u[0] * b, v[1] * f + r[1] * a + u[1] * b, v[2] * f + r[2] * a + u[2] * b]; const fixe = colle ? colle((x + 0.5) / w, (y + 0.5) / h) : null; out[y * w + x] = Math.max(0, Math.min(255, (fixe != null ? fixe : L(Math.atan2(d[0], d[1]), Math.asin(d[2] / Math.hypot(...d)))) + (bruit ? bruit() : 0))); }
   return out;
 }
 /** Mesure jusqu'au premier « prêt » (comme la page : une image n'est lue que s'il le faut). `proche` : la moitié basse de l'image est à `proche` mètres, le téléphone tourne au bout du bras. */
-function mesurerChamp({ champ, pose, L = paysage(1), portrait = false, retard = 90, duree = 20000, proche = 0 }) {
+function mesurerChamp({ champ, pose, L = paysage(1), portrait = false, retard = 90, duree = 20000, proche = 0, colle = null, puces = null }) {
   const w = portrait ? 108 : GRAND_COTE, h = portrait ? GRAND_COTE : 108, f = GRAND_COTE / 2 / Math.tan(champ / 2 * D), S = creerSuivi(), ar = (x) => Math.round(x * 10) / 10, ev = [], rb = alea(99), bruit = () => (rb() - 0.5) * 4;
   for (let t = 0; t <= duree; t += 1000 / 60) ev.push({ t, o: true });
   for (let t = 200; t <= duree - 200; t += 1000 / 15) ev.push({ t: t + retard, tc: t });
@@ -240,7 +241,9 @@ function mesurerChamp({ champ, pose, L = paysage(1), portrait = false, retard = 
   const Lp = proche ? (cap) => (az, el) => el < 0 ? L(az + 0.35 * cap * D / proche * Math.cos(az - cap * D), el) : L(az, el) : () => L;
   for (const e of ev) {
     if (e.o) { const p = pose(e.t); S.orientation(e.t, axesDe(ar(p[0]), ar(p[1]), ar(p[2]))); }
-    else if (S.besoin(e.t)) { const p = pose(e.tc); if (S.image(e.t, filmer(Lp(p[0]), axesDe(...p), f, w, h, bruit), w, h) && S.etat().ok) return { ...S.etat(), t: e.t }; }
+    else if (S.besoin(e.t)) { const p = pose(e.tc), r = S.image(e.t, filmer(Lp(p[0]), axesDe(...p), f, w, h, bruit, colle), w, h);
+      if (puces) puces.push(textePuce({ actif: true, mesure: null, etat: S.etat() })); // comme la page : la puce relit l'état à chaque image
+      if (r && S.etat().ok) return { ...S.etat(), t: e.t }; }
   }
   return { ...S.etat(), t: null };
 }
@@ -264,6 +267,21 @@ test('champAuto : téléphone immobile → aucune mesure ; premier plan à 1,5 m
   assert.equal(fixe.t, null); assert.equal(fixe.paires, 0); assert.equal(fixe.dernier, 'en attente d’une rotation');
   const o = { champ: 68, pose: balayage(), proche: 1.5 }, pres = mesurerChamp(o); ligne('premier plan à 1,5 m', o, pres);
   assert.ok(pres.t !== null, pres.raison); assert.ok(Math.abs(pres.champ / 68 - 1) < 0.015, `${pres.champ}`); assert.ok(pres.part < 0.95, `blocs écartés : part ${pres.part}`);
+});
+test('champAuto : un reflet collé à l’objectif (soleil dans le champ, vitre) ne donne plus de champ absurde — petit reflet : mesuré quand même ; grand : refusé, avec la raison', () => {
+  // Vercors, 13/11 : puce « champ : mesure 24 % (≈ 152°) », mesure jamais finie. Reproduit : paysage brumeux + tache claire qui ne bouge pas dans l'image.
+  const pose = (t) => [40 * Math.sin(2 * Math.PI * t / 7000), 5 + 1.5 * Math.sin(t / 700), 1.5 * Math.sin(t / 1100)];
+  const petit = (fx, fy) => { const d = Math.hypot(fx - 0.3, (fy - 0.3) * 0.6); return d < 0.05 ? 235 - 900 * d : null; }, puces = [];
+  const o = { champ: 62, pose, L: brume(1, 1), duree: 30000, colle: petit, puces }, e = mesurerChamp(o); ligne('brumeux + reflet du soleil', o, e);
+  assert.ok(e.t !== null, `pas de mesure : ${e.raison}`); assert.ok(Math.abs(e.champ / 62 - 1) < 0.025, `${e.champ}`); assert.ok(e.figees > 0 && e.figees < 0.2, `mesures immobiles écartées : ${e.figees}`);
+  const affiches = puces.map((t) => /≈ (\d+)°/.exec(t)).filter(Boolean).map((m) => +m[1]); assert.ok(affiches.length > 5 && Math.min(...affiches) >= 55 && Math.max(...affiches) <= 70, `valeurs provisoires affichées : ${Math.min(...affiches)} à ${Math.max(...affiches)}°`);
+  // grand cadre texturé sur le tiers gauche + tache au centre : trop de mesures immobiles, les autres sont faussées → aucune mesure plutôt qu'une mesure fausse
+  const grand = (fx, fy) => { if (fx < 0.34) return 120 + 70 * Math.sin(60 * fx) * Math.cos(45 * fy); const d = Math.hypot(fx - 0.55, (fy - 0.45) * 0.6); return d < 0.09 ? 235 - 600 * d : null; }, p2 = [];
+  const g = mesurerChamp({ champ: 62, pose: balayage(), colle: grand, puces: p2 });
+  assert.equal(g.t, null); assert.match(g.raison, /ne suit pas la rotation/); assert.ok(p2.some((t) => /ne suit pas la rotation \(reflet, vitre, image figée \?\)/.test(t)), 'la puce dit pourquoi');
+  for (const t of p2) { const m = /≈ (\d+)°/.exec(t); assert.ok(!m || (+m[1] >= 35 && +m[1] <= 100), t); }
+  const etat = { n: 4, rotation: 30, precision: 0.02, paires: 6, champ: 152, dernier: 'mesure en cours' };
+  assert.equal(textePuce({ actif: true, mesure: null, etat }), 'champ : mesure 30 %', 'une valeur hors de 35 à 100° n’est jamais affichée');
 });
 test('champAuto : mêmes axes que camAxes de la v1 (200 orientations, 4 rotations d’écran)', () => {
   const r = alea(11);
@@ -411,4 +429,25 @@ test('horizonPhoto : le champ compte — la même image lue avec un champ plus �
   assert.equal(aplomb([], { f: 900, cx: 640, cy: 482, h: 964 }).sur, false);
   // une seule rangée de façades, d'un seul côté : l'écartement des arêtes ne suffit pas à mesurer la convergence → pas de réponse hasardeuse
   const moitie = segs.filter((s) => s.x > 1000), rm = aplomb(moitie, { ...cam, f: im.f }); assert.ok(!rm.sur || Math.abs(rm.inclinaison - 9) < 1, `${rm.sur} ${rm.inclinaison}`);
+});
+
+// ---- champPhoto : le champ réel des photos d'un appareil, appris d'un calage sur le relief ----
+test('champPhoto : Pixel 9, 24 mm — 71,5° écrits, 63,5° trouvés sur le relief de Morgat → focale × 1,16, reprise pour la photo suivante ; calage imprécis ou champ en butée : rien n’est retenu', () => {
+  const exif = champExif(24, 4080, 3072); assert.ok(Math.abs(exif - 71.6) < 0.1, String(exif)); assert.equal(Math.round(exif * 2) / 2, 71.5, 'la valeur de la v1');
+  assert.ok(Math.abs(champExif(12, 4080, 3072) - 110.6) < 0.2);
+  const cle = cleAppareil({ model: 'Google Pixel 9', f35: 24 }); assert.equal(cle, 'Google Pixel 9 · 24 mm');
+  const morgat = { champ: 63.5, depart: 71.5, exif, cout: 0.21, photo: 'morgat', t: 1 };
+  let t = apprendreChamp({}, cle, morgat); assert.ok(Math.abs(t[cle].rapport - 1.165) < 0.005, String(t[cle].rapport)); assert.equal(corrigerChamp(exif, t[cle].rapport), 63.5);
+  assert.ok(Math.abs(rapportChamp(63.5, exif) * Math.tan(63.5 / 2 * Math.PI / 180) - Math.tan(exif / 2 * Math.PI / 180)) < 1e-9);
+  // Turin, en ville : « calé » mais champ resté en butée de la recherche (71,5 → 58,5 ; 67,5 → 54,5 ; 75,5 → 62,5) et écart de 0,56° : pas une mesure
+  assert.equal(apprendreChamp({}, cle, { champ: 58.5, depart: 71.5, exif, cout: 0.21, photo: 'turin', t: 2 })[cle], undefined, 'champ en butée');
+  assert.equal(apprendreChamp({}, cle, { ...morgat, cout: 0.56 })[cle], undefined, 'calage imprécis');
+  assert.equal(apprendreChamp({}, cle, { ...morgat, champ: 71.5 })[cle], undefined, 'champ non ajusté');
+  assert.equal(apprendreChamp({}, cle, { champ: 40, depart: 45, exif, cout: 0.2, photo: 'x', t: 3 })[cle], undefined, 'rapport invraisemblable');
+  // une seconde photo calée : moyenne pondérée par la précision ; la même photo recalée remplace sa mesure ; huit mesures gardées
+  const t2 = apprendreChamp(t, cle, { champ: 65.5, depart: 63.5, exif, cout: 0.42 / 2, photo: 'autre', t: 4 }); assert.equal(t2[cle].mesures.length, 2);
+  assert.ok(t2[cle].rapport < t[cle].rapport && t2[cle].rapport > rapportChamp(65.5, exif), String(t2[cle].rapport));
+  assert.equal(apprendreChamp(t2, cle, { ...morgat, champ: 64, t: 5 })[cle].mesures.length, 2, 'même photo : remplacée');
+  let n = {}; for (let i = 0; i < 12; i++) n = apprendreChamp(n, cle, { ...morgat, photo: 'p' + i, t: i }); assert.equal(n[cle].mesures.length, 8);
+  assert.equal(apprendreChamp(t, 'Autre appareil · 28 mm', { champ: 60, depart: 65, exif: 65, cout: 0.2, photo: 'y', t: 6 })[cle].rapport, t[cle].rapport, 'un autre appareil ne change pas celui-ci');
 });
