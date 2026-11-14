@@ -29,7 +29,7 @@ test('page d’accueil : la v3 en premier, les outils de diagnostic, la v1 « r�
   // ordre vertical : v3, outils de diagnostic, v1, v2
   const y=async(sel)=>(await page.locator(sel).boundingBox()).y, yOutils=(await page.getByRole('link',{name:/Trafic/}).boundingBox()).y;
   expect(await y('#v3ar')).toBeLessThan(await y('#v3photo')); expect(await y('#v3photo')).toBeLessThan(yOutils); expect(yOutils).toBeLessThan(await y('#ar')); expect(await y('#photo')).toBeLessThan(await y('#v2ar'));
-  for(const [nom,href] of [[/Trafic/,'debug/debug-trafic.html'],[/Profondeur/,'debug/debug-profondeur.html'],[/Lieux et monuments/,'debug/debug-lieux.html'],[/Export du cache/,'debug/debug-cache.html'],[/Outils v2/,'v2/outils.html']])
+  for(const [nom,href] of [[/Trafic/,'debug/debug-trafic.html'],[/Profondeur/,'debug/debug-profondeur.html'],[/Lieux et monuments/,'debug/debug-lieux.html'],[/Export du cache/,'debug/debug-cache.html'],[/Déposer des fichiers/,'debug/deposer.html'],[/Outils v2/,'v2/outils.html']])
     await expect(page.getByRole('link',{name:nom})).toHaveAttribute('href',href);
   for(const l of await page.getByRole('link').all()){ const b=await l.boundingBox(); expect(b.height,'zone de toucher >= 44 px').toBeGreaterThanOrEqual(44); }
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);   // pas de defilement horizontal

@@ -32,7 +32,7 @@ Réalité augmentée dans le navigateur, comme une table d'orientation : par-des
 - `v3/villes-horizon.html` (page), `v3/greffes.js` (registre, panneau, pierres tombales), `v3/greffes/` (une greffe par fichier ; `_astre.js`, `_geoide-egm96.js` : outils partagés, pas des greffes), `v3/tests/` (tests de la v3 et de la v1 de référence).
 - `v2/` : `ar.html`, `photo.html`, `outils.html`, `src/`, `construction/construire.mjs`, `tests/`, `docs/`, `REFONTE.md`, `eslint.config.mjs`, `tsconfig.json`.
 - `tests/commun/` : harnais partagé (serveur de test qui injecte le crochet `hook.js` dans v1 et v3, `app.js`, rejeu des caches `cache.js`, scènes réelles `scenes-reelles.js`, enregistreur des traces, banc de vitesse `banc.mjs`, écarts acceptés, caractérisation `dump-v1`).
-- `debug/` : outils (trafic, profondeur, lieux, export du cache `debug-cache.html`).
+- `debug/` : outils (trafic, profondeur, lieux, export du cache `debug-cache.html`, dépôt de fichiers du téléphone dans un dépôt privé `deposer.html` : un commit par fichier, jeton personnel de Romain).
 - `docs/` : `REFONTE-V3.md`, `ETAT.md` (une ligne par sujet et par greffe), `VEILLE-ANCRAGE.md`, `decisions/`.
 - `.github/workflows/` : `tests.yml` (v3 à chaque envoi ; v2 seulement si `v2/` change), `pages.yml` (publication à chaque fusion sur `main`), `parite.yml` (à la main : v1 contre v3, greffes éteintes, sur les scènes réelles), `tag-v2-fin.yml` (pose le tag `v2-fin` une fois, à supprimer ensuite).
 
@@ -45,7 +45,7 @@ Réalité augmentée dans le navigateur, comme une table d'orientation : par-des
 - Français, réponses concises, livrables finis plutôt qu'un récit. Il conteste fermement les erreurs : reconnaître les siennes sans détour.
 - Fonctions génériques ; une correction s'applique à tous les cas semblables. Uniquement des solutions gratuites.
 - Données réelles d'équipements TDF/ARCAD confidentielles : ne jamais les demander.
-- **Il travaille uniquement sur son téléphone** (Pixel, Android, Chrome) : jamais de commande git ni de terminal à lui demander. Claude fait commits, branches, envois et PR ; Romain teste, fusionne (bouton « Merge ») et dépose des fichiers par le site GitHub. Consignes en gestes sur le téléphone.
+- **Il travaille uniquement sur son téléphone** (Pixel, Android, Chrome) : jamais de commande git ni de terminal à lui demander. Claude fait commits, branches, envois et PR ; Romain teste, fusionne (bouton « Merge ») et dépose des fichiers par la page `debug/deposer.html` (ou le site GitHub). Consignes en gestes sur le téléphone.
 
 ## Règles de travail
 - Une branche par sujet, une PR par lot ; **chaque PR met à jour `docs/ETAT.md`**.
