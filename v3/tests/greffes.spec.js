@@ -2,7 +2,7 @@
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
 const {ouvrir,capteurs,videoSynthetique,photoExif}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','champPhoto','nommer'];
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','champPhoto','soleilReflet','nommer'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';
@@ -468,6 +468,20 @@ for(const g of MODES('champPhoto')) test(`champPhoto (${nom(g)}) : le champ trou
     await page.reload(); await page.waitForFunction(()=>!!window.__vh&&!!window.G); await page.evaluate(()=>window.G.pret()); // la table est gardée d'une visite à l'autre
     expect(Object.keys(await table())).toEqual(['Google Pixel 9 · 24 mm']);
     await page.evaluate(()=>document.getElementById('g3ChampPhotoOubli').click()); expect(await table()).toEqual({}); expect(await page.evaluate(()=>localStorage.getItem('vh3_champPhoto'))).toBe('{}');
+    expect(app.errors).toEqual([]);
+  }
+});
+
+// soleil au centre de l'image, un petit éclat de nuage blanc 3° au-dessus, dans la même colonne (comme à Morgat)
+const soleilSousNuage='x.fillStyle="rgb(120,160,220)"; x.fillRect(0,0,W,H); x.fillStyle="#fff"; x.beginPath(); x.arc(W/2,H/2,8,0,7); x.fill(); x.fillRect(W/2-2,H/2-30,4,4);';
+for(const g of MODES('soleilReflet')) test(`soleilReflet (${nom(g)}) : « Caler » avec un éclat de nuage au-dessus du soleil — le soleil est retenu (cap et horizon justes) ; éteinte, la v1 le prend pour un reflet et cale sur le nuage`,async({page})=>{
+  for(const greffes of [g,[]]){
+    const app=await ouvrir(page,{pos:POS,greffes,time:new Date('2026-10-25T13:00:00Z'),settings:{relief:false,headOff:3,pitchOff:0}});
+    const sol=await app.ev('sunNow()'); await capteurs(app,{cap:sol.az,incl:sol.el}); await videoSynthetique(page,soleilSousNuage);
+    await app.ev('window.__fini=0; autoAlign().then(()=>{window.__fini=1}); true'); await page.waitForFunction(()=>window.__fini,null,{timeout:30000});
+    const r=await app.ev('({h:S.headOff,p:S.pitchOff})'); await expect(page.locator('#note')).toContainText('calé sur le soleil');
+    if(greffes.length){ expect(Math.abs(r.h)).toBeLessThan(0.5); expect(Math.abs(r.p)).toBeLessThan(0.5); expect(await page.evaluate(()=>window.G.soleilReflet.statut())).toContain('dernier soleil vu'); }
+    else expect(r.p).toBeLessThan(-2); // la v1 : le nuage, 3° plus haut, pris pour le soleil
     expect(app.errors).toEqual([]);
   }
 });

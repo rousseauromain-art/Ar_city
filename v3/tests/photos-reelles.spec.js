@@ -69,3 +69,25 @@ test('Morgat puis Turin : le champ appris sur le relief de Morgat (≈ 63,5°) e
   expect(turin.champ).toBe(champ); expect(turin.incl).toBeGreaterThan(8.5); expect(turin.incl).toBeLessThan(10);
   await o.ctx.close(); expect(o.erreurs).toEqual([]);
 });
+
+// « Caler » sur le soleil, à l'heure réelle des photos. Morgat (24/08, soleil à 12,4° sous des nuages éclairés) : la v1 écarte le vrai soleil comme
+// « reflet » et cale l'horizon 4 à 5° trop bas ; le bon calage, celui que Romain a fait à la main (cap 249°), est cap −1,9°, horizon 0°.
+// Ibiza (27/09, coucher, le cas de la règle du 25/10) : même réponse que la v1. Toucher le soleil avec la greffe soleil2 : même règle.
+for(const [id,attendu] of [['morgat-plage',{dh:-1.9,dp:0,tol:0.5}],['ibiza-coucher',null]])
+  test(`${id} : « Caler » sur le soleil à l'heure de la photo — ${attendu?'cap −1,9° et horizon 0° avec soleilReflet (la v1 : horizon faux de 4 à 5°)':'même réponse avec soleilReflet que dans la v1'} ; toucher le soleil avec soleil2 aussi`,async({browser})=>{
+    test.setTimeout(300000);
+    const {parId,reglages}=await scenes(), sc={...parId[id],heureReelle:true}; ignorerSiAbsent(test,sc);
+    const caler=async(greffes)=>{ const o=await ouvrirSceneReelle(browser,sc,{url:V3,greffes,reglages}), c0=await o.app.ev('({h:S.headOff,p:S.pitchOff})');
+      await o.app.ev('window.__fini=0; autoAlign().then(()=>{window.__fini=1}); true'); await o.page.waitForFunction(()=>window.__fini,null,{timeout:120000});
+      const r=await o.app.ev('({h:S.headOff,p:S.pitchOff})'), note=await o.page.evaluate(()=>document.getElementById('note').textContent);
+      let toucher=null;
+      if(greffes.includes('soleil2')){ const pt=await o.app.ev('(()=>{ const s=window.G.soleilReflet&&window.G.soleilReflet.etat(); return s&&s.ok?{x:W/2+((W/2)/Math.tan(vFov()/2*D))*Math.tan((s.az-'+c0.h+')*D),y:H/2-((W/2)/Math.tan(vFov()/2*D))*Math.tan((s.el-'+c0.p+')*D)}:null; })()');
+        await o.app.ev(`S.headOff=${c0.h}; S.pitchOff=${c0.p}; true`); if(pt){ await o.page.click('#btnPoint'); await o.page.mouse.click(pt.x+3,pt.y+2); toucher=await o.app.ev('({h:S.headOff,p:S.pitchOff})'); } }
+      await o.ctx.close(); expect(o.erreurs).toEqual([]); return {dh:r.h-c0.h,dp:r.p-c0.p,note,toucher:toucher&&{dh:toucher.h-c0.h,dp:toucher.p-c0.p}}; };
+    const v1=await caler([]), g=await caler(['soleilReflet','soleil2']);
+    console.log(`${id} · v1 : cap ${v1.dh.toFixed(2)}°, horizon ${v1.dp.toFixed(2)}° · soleilReflet : cap ${g.dh.toFixed(2)}°, horizon ${g.dp.toFixed(2)}° · toucher (soleil2) : ${g.toucher?`cap ${g.toucher.dh.toFixed(2)}°, horizon ${g.toucher.dp.toFixed(2)}°`:'—'}`);
+    expect(g.note).toContain('calé sur le soleil');
+    if(attendu){ expect(Math.abs(v1.dp)).toBeGreaterThan(3); // le défaut de la v1, reproduit
+      for(const r of [g,g.toucher]){ expect(r).toBeTruthy(); expect(Math.abs(r.dh-attendu.dh)).toBeLessThan(attendu.tol); expect(Math.abs(r.dp-attendu.dp)).toBeLessThan(attendu.tol); } }
+    else { expect(Math.abs(g.dh-v1.dh)).toBeLessThan(0.2); expect(Math.abs(g.dp-v1.dp)).toBeLessThan(0.2); expect(g.toucher).toBeTruthy(); expect(Math.abs(g.toucher.dp-v1.dp)).toBeLessThan(0.3); }
+  });
