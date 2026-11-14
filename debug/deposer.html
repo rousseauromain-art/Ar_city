@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0E1A2B">
+<!-- La page ne parle qu'à l'interface de GitHub : aucun autre site, aucun script extérieur (le jeton ne peut partir ailleurs). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://api.github.com; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+<title>Déposer des fichiers — Villes à l'horizon</title>
+<style>
+:root{--ink:#0E1A2B;--panel:#16263B;--cream:#F3E9D2;--ochre:#E0A526;--mute:#8E9AAB;--ok:#6FCF97;--bad:#E85A5A}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ink);color:var(--cream);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:620px;margin:0 auto;padding:max(18px,env(safe-area-inset-top)) 16px 40px}
+h1{margin:4px 0 4px;font-size:26px}
+h2{margin:26px 0 8px;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--ochre)}
+p,li{margin:6px 0;color:var(--mute);font-size:15px}
+ol{margin:6px 0;padding-left:22px}
+a{color:var(--ochre)}
+button,.fichier{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;min-height:56px;margin:0 0 10px;padding:12px 16px;border-radius:12px;border:1px solid rgba(224,165,38,.55);background:var(--panel);color:var(--cream);font:600 16px/1.3 system-ui,sans-serif;text-align:left}
+button{cursor:pointer}button:active{background:#1d3350}button:disabled{opacity:.5}
+button.sec{border-color:rgba(243,233,210,.25);font-weight:500}
+.fichier{font-weight:400;border-color:rgba(243,233,210,.2);font-size:15px;min-height:48px;overflow-wrap:anywhere}
+.fichier span:last-child{flex:none;font-size:14px}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.mute{color:var(--mute)}
+label{display:block;margin:8px 0 4px;color:var(--cream);font-size:15px}
+input[type=text],input[type=password]{width:100%;min-height:48px;margin:0 0 6px;padding:10px 14px;border-radius:10px;border:1px solid rgba(243,233,210,.3);background:var(--ink);color:var(--cream);font-family:inherit;font-size:17px}
+.puces{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 8px}
+.puces button{display:inline-flex;width:auto;min-height:44px;margin:0;padding:8px 12px;font-weight:500;font-size:15px;border-color:rgba(243,233,210,.25)}
+.case{display:flex;align-items:center;gap:10px;min-height:44px;color:var(--cream);font-size:15px}
+.case input{width:22px;height:22px}
+#etat,#bilan{min-height:1.5em;margin:8px 0;color:var(--cream);font-size:15px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<main>
+  <p><a href="../index.html">‹ Retour au lanceur</a></p>
+  <h1>Déposer des fichiers</h1>
+  <p>Choisissez des fichiers sur le téléphone (photos, exports du cache…) : chacun est déposé dans le dossier choisi du dépôt <b>privé</b> (par exemple Dump_20261114_pontenroyan), un commit par fichier. Un fichier déjà présent sous le même nom n'est pas renvoyé.</p>
+
+  <h2>1 · Jeton GitHub</h2>
+  <p>Une seule fois, dans Chrome (pas l'application GitHub) :</p>
+  <ol>
+    <li>ouvrez <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com › créer un jeton</a> ;</li>
+    <li>nom : « dépôt téléphone », expiration : 90 jours ;</li>
+    <li><i>Repository access</i> : <i>Only select repositories</i> › <b>Ar_city-photos</b> ;</li>
+    <li><i>Permissions</i> › <i>Repository permissions</i> › <i>Contents</i> : <b>Read and write</b> ;</li>
+    <li><i>Generate token</i>, copiez-le et collez-le ci-dessous.</li>
+  </ol>
+  <label for="jeton">Jeton</label>
+  <input type="password" id="jeton" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+  <div class="case"><input type="checkbox" id="garder" checked><label for="garder" style="margin:0">Garder le jeton sur ce téléphone</label></div>
+  <p>Il ne donne accès qu'au dépôt choisi à sa création, et seulement à ses fichiers. « Oublier » l'efface de ce téléphone ; on peut aussi le supprimer sur GitHub.</p>
+  <button type="button" id="btnVerifier">Vérifier le jeton et la destination</button>
+  <button type="button" class="sec" id="btnOublier">Oublier le jeton</button>
+  <div id="etat"></div>
+
+  <h2>2 · Destination</h2>
+  <label for="depot">Dépôt (privé)</label>
+  <input type="text" id="depot" autocomplete="off" spellcheck="false" value="rousseauromain-art/Ar_city-photos">
+  <label for="dossier">Dossier</label>
+  <input type="text" id="dossier" autocomplete="off" spellcheck="false">
+  <p>Un dossier par sortie : <b>Dump_</b>, la date, puis le lieu (par exemple Dump_20261114_pontenroyan) ; il est créé au premier fichier. Pour compléter un dossier existant, touchez-le :</p>
+  <div id="dossiers"></div>
+
+  <h2>3 · Fichiers</h2>
+  <!-- sans « accept » : le gestionnaire de fichiers s'ouvre, et les photos gardent leur position (EXIF) -->
+  <input type="file" id="fichiers" multiple hidden>
+  <button type="button" id="btnChoisir">Choisir des fichiers</button>
+  <div id="liste"></div>
+  <button type="button" id="btnDeposer" disabled>Déposer</button>
+  <div id="bilan"></div>
+</main>
+<script>
+(function(){
+  'use strict';
+  const API='https://api.github.com', CLE='vh_depot', MAX_OCTETS=50*1024*1024;
+  const $=id=>document.getElementById(id);
+  let choisis=[], enCours=false;
+
+  // ---- réglages gardés sur le téléphone (le jeton seulement si « Garder » est coché) ----
+  function lire(){ try{ return JSON.parse(localStorage.getItem(CLE)||'{}')||{}; }catch(e){ return {}; } }
+  function ecrire(){ const r={depot:$('depot').value.trim(),dossier:$('dossier').value.trim(),garder:$('garder').checked};
+    if(r.garder&&$('jeton').value.trim()) r.jeton=$('jeton').value.trim();
+    try{ localStorage.setItem(CLE,JSON.stringify(r)); }catch(e){} }
+  // dossier : « Dump_ » + date du jour + lieu ; le dossier gardé n'est repris que le jour même
+  const aujourdhui=()=>{ const d=new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; };
+  const PREFIXE='Dump_'+aujourdhui()+'_';
+  { const r=lire(); if(r.jeton) $('jeton').value=r.jeton; if(r.depot) $('depot').value=r.depot; if(r.garder===false) $('garder').checked=false;
+    $('dossier').value=typeof r.dossier==='string'&&r.dossier.startsWith(PREFIXE)&&r.dossier.length>PREFIXE.length?r.dossier:PREFIXE; }
+  for(const id of ['jeton','depot','dossier','garder']) $(id).addEventListener('change',ecrire);
+
+  const etat=(t,cl)=>{ const e=$('etat'); e.textContent=t; e.className=cl||''; };
+  const taille=o=>o<1024?o+' o':o<1048576?(o/1024).toFixed(0)+' Ko':(o/1048576).toFixed(1)+' Mo';
+  const segments=s=>s.split('/').map(x=>x.trim()).filter(Boolean);
+  const chemin=(...parts)=>parts.flatMap(segments).map(encodeURIComponent).join('/');
+
+  /** Appel à l'interface de GitHub avec le jeton. → {status, j (réponse JSON ou null)} */
+  async function api(route,opts={}){
+    const jeton=$('jeton').value.trim();
+    const r=await fetch(API+route,{method:opts.method||'GET',headers:{'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Authorization':'Bearer '+jeton,...(opts.body?{'Content-Type':'application/json'}:{})},body:opts.body?JSON.stringify(opts.body):undefined});
+    let j=null; try{ j=await r.json(); }catch(e){}
+    return {status:r.status,j};
+  }
+
+  /** Vérifie le jeton et la destination. → {ok, msg, depot, branche, dossier, presents:Set|null (null : trop de fichiers pour une liste)} */
+  async function destination(){
+    if(!$('jeton').value.trim()) return {ok:false,msg:'Collez d’abord votre jeton (étape 1).'};
+    const d=segments($('depot').value); if(d.length!==2) return {ok:false,msg:'Dépôt : écrivez « propriétaire/nom », par exemple rousseauromain-art/Ar_city-photos.'};
+    const depot=d.join('/'), dossier=segments($('dossier').value).join('/');
+    let r; try{ r=await api('/repos/'+chemin(depot)); }catch(e){ return {ok:false,msg:'GitHub injoignable (réseau ?) : '+(e&&e.message||e)}; }
+    if(r.status===401) return {ok:false,msg:'Jeton refusé par GitHub (expiré ou mal copié ?).'};
+    if(r.status===404||r.status===403) return {ok:false,msg:`Dépôt « ${depot} » introuvable avec ce jeton : vérifiez son nom, et que le jeton y a accès (Repository access).`};
+    if(r.status!==200||!r.j) return {ok:false,msg:'Réponse inattendue de GitHub ('+r.status+').'};
+    if(r.j.private!==true) return {ok:false,msg:`Refusé : « ${depot} » est un dépôt PUBLIC. Photos et exports ne vont que dans un dépôt privé.`};
+    const branche=r.j.default_branch||'main';
+    await dossiersDump(depot,branche);
+    if(!dossier) return {ok:false,msg:'Choisissez un dossier (étape 2).'};
+    if(/_$/.test(dossier)) return {ok:false,msg:`Complétez le nom du dossier avec le lieu, par exemple ${PREFIXE}pontenroyan, ou touchez un dossier existant (étape 2).`};
+    const l=await api('/repos/'+chemin(depot)+'/contents/'+chemin(dossier)+'?ref='+encodeURIComponent(branche));
+    let presents=new Set();
+    if(l.status===200&&Array.isArray(l.j)){ presents=new Set(l.j.filter(x=>x.type==='file').map(x=>x.name)); if(l.j.length>=1000) presents=null; } // plus de 1000 : vérification fichier par fichier
+    else if(l.status===200) return {ok:false,msg:`« ${dossier} » est un fichier, pas un dossier.`};
+    else if(l.status!==404) return {ok:false,msg:'Lecture du dossier impossible ('+l.status+').'};
+    return {ok:true,depot,branche,dossier,presents,msg:`Jeton accepté · dépôt privé ${depot} · branche ${branche} · dossier ${dossier||'(racine)'} : ${presents?presents.size+' fichier(s) déjà présent(s)':'plus de 1000 fichiers'}${l.status===404?' (dossier créé au premier dépôt)':''}`};
+  }
+
+  /** Dossiers « Dump_… » déjà dans le dépôt (à la racine), les plus récents d'abord : un toucher les choisit. */
+  async function dossiersDump(depot,branche){
+    const r=await api('/repos/'+chemin(depot)+'/contents?ref='+encodeURIComponent(branche)), D=$('dossiers'); D.textContent='';
+    if(r.status!==200||!Array.isArray(r.j)) return;
+    const noms=r.j.filter(x=>x.type==='dir'&&/^dump_/i.test(x.name)).map(x=>x.name).sort().reverse().slice(0,12);
+    if(!noms.length) return; D.className='puces';
+    for(const n of noms){ const b=document.createElement('button'); b.type='button'; b.textContent=n; b.onclick=()=>{ $('dossier').value=n; ecrire(); etat('Dossier choisi : '+n,'ok'); }; D.append(b); }
+  }
+  // jeton gardé : les dossiers existants sont proposés dès l'ouverture, sans rien envoyer
+  if($('jeton').value.trim()){ const d=segments($('depot').value); if(d.length===2) api('/repos/'+chemin(d.join('/'))).then(r=>{ if(r.status===200&&r.j&&r.j.private===true) dossiersDump(d.join('/'),r.j.default_branch||'main'); }).catch(()=>{}); }
+  $('btnVerifier').onclick=async()=>{ ecrire(); etat('Vérification…'); const d=await destination(); etat(d.msg,d.ok?'ok':'bad'); };
+  $('btnOublier').onclick=()=>{ $('jeton').value=''; const r=lire(); delete r.jeton; try{ localStorage.setItem(CLE,JSON.stringify(r)); }catch(e){} etat('Jeton effacé de ce téléphone.'); };
+
+  // ---- choix des fichiers et liste ----
+  function ligne(i){ return $('liste').children[i].lastElementChild; }
+  function marquer(i,texte,cl){ const s=ligne(i); s.textContent=texte; s.className=cl||'mute'; }
+  $('btnChoisir').onclick=()=>$('fichiers').click();
+  $('fichiers').onchange=e=>{
+    if(enCours) return;
+    choisis=Array.from(e.target.files||[]); e.target.value=''; $('bilan').textContent='';
+    const L=$('liste'); L.textContent='';
+    for(const f of choisis){ const d=document.createElement('div'); d.className='fichier'; const a=document.createElement('span'); a.textContent=`${f.name} · ${taille(f.size)}`; const b=document.createElement('span'); b.className='mute'; b.textContent='à déposer'; d.append(a,b); L.append(d); }
+    $('btnDeposer').disabled=!choisis.length;
+  };
+  const base64=f=>new Promise((ok,ko)=>{ const r=new FileReader(); r.onload=()=>ok(String(r.result).slice(String(r.result).indexOf(',')+1)); r.onerror=()=>ko(r.error); r.readAsDataURL(f); });
+  const pause=ms=>new Promise(r=>setTimeout(r,ms));
+
+  // ---- dépôt : un fichier après l'autre, un commit chacun ----
+  $('btnDeposer').onclick=async()=>{
+    if(enCours||!choisis.length) return; enCours=true; $('btnDeposer').disabled=true; $('btnChoisir').disabled=true; ecrire();
+    const n={depose:0,present:0,erreur:0};
+    try{
+      etat('Vérification…'); const d=await destination(); etat(d.msg,d.ok?'ok':'bad'); if(!d.ok) return;
+      for(let i=0;i<choisis.length;i++){
+        const f=choisis[i], route='/repos/'+chemin(d.depot)+'/contents/'+chemin(d.dossier,f.name);
+        let present=d.presents?d.presents.has(f.name):false;
+        if(!d.presents){ const r=await api(route+'?ref='+encodeURIComponent(d.branche)); present=r.status===200; }
+        if(present){ marquer(i,'déjà présent','mute'); n.present++; continue; }
+        if(f.size>MAX_OCTETS){ marquer(i,'trop gros (plus de 50 Mo)','bad'); n.erreur++; continue; }
+        marquer(i,'envoi…','');
+        let r=null;
+        for(let essai=0;essai<3;essai++){ // 409 : la branche a bougé pendant l'envoi → nouvel essai
+          try{ r=await api(route,{method:'PUT',body:{message:`Dépôt depuis le téléphone : ${f.name}`,content:await base64(f),branch:d.branche}}); }
+          catch(e){ r={status:0,j:{message:String(e&&e.message||e)}}; }
+          if(r.status!==409) break; await pause(1500);
+        }
+        if(r.status===201||r.status===200){ marquer(i,'déposé ✓','ok'); n.depose++; if(d.presents) d.presents.add(f.name); }
+        else if(r.status===422){ marquer(i,'déjà présent','mute'); n.present++; if(d.presents) d.presents.add(f.name); } // GitHub : le fichier existe déjà
+        else if(r.status===403||r.status===401){ marquer(i,'refusé','bad'); n.erreur++;
+          etat('GitHub refuse l’écriture : le jeton doit avoir Contents : « Read and write » sur ce dépôt (étape 1).','bad');
+          for(let k=i+1;k<choisis.length;k++) marquer(k,'non envoyé','mute'); break; }
+        else { marquer(i,'erreur '+(r.status||'réseau'),'bad'); n.erreur++; }
+      }
+    } finally {
+      $('bilan').textContent=`${n.depose} déposé(s) · ${n.present} déjà présent(s)${n.erreur?` · ${n.erreur} en erreur`:''}`;
+      enCours=false; $('btnChoisir').disabled=false; $('btnDeposer').disabled=!choisis.length;
+    }
+  };
+})();
+</script>
+</body>
+</html>
