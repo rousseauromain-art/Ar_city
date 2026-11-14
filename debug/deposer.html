@@ -25,6 +25,8 @@ button.sec{border-color:rgba(243,233,210,.25);font-weight:500}
 .ok{color:var(--ok)}.bad{color:var(--bad)}.mute{color:var(--mute)}
 label{display:block;margin:8px 0 4px;color:var(--cream);font-size:15px}
 input[type=text],input[type=password]{width:100%;min-height:48px;margin:0 0 6px;padding:10px 14px;border-radius:10px;border:1px solid rgba(243,233,210,.3);background:var(--ink);color:var(--cream);font-family:inherit;font-size:17px}
+.puces{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 8px}
+.puces button{display:inline-flex;width:auto;min-height:44px;margin:0;padding:8px 12px;font-weight:500;font-size:15px;border-color:rgba(243,233,210,.25)}
 .case{display:flex;align-items:center;gap:10px;min-height:44px;color:var(--cream);font-size:15px}
 .case input{width:22px;height:22px}
 #etat,#bilan{min-height:1.5em;margin:8px 0;color:var(--cream);font-size:15px;white-space:pre-wrap}
@@ -34,7 +36,7 @@ input[type=text],input[type=password]{width:100%;min-height:48px;margin:0 0 6px;
 <main>
   <p><a href="../index.html">‹ Retour au lanceur</a></p>
   <h1>Déposer des fichiers</h1>
-  <p>Choisissez des fichiers sur le téléphone (photos, exports du cache…) : chacun est déposé dans le dossier choisi du dépôt <b>privé</b>, un commit par fichier. Un fichier déjà présent sous le même nom n'est pas renvoyé.</p>
+  <p>Choisissez des fichiers sur le téléphone (photos, exports du cache…) : chacun est déposé dans le dossier choisi du dépôt <b>privé</b> (par exemple Dump_20261114_pontenroyan), un commit par fichier. Un fichier déjà présent sous le même nom n'est pas renvoyé.</p>
 
   <h2>1 · Jeton GitHub</h2>
   <p>Une seule fois, dans Chrome (pas l'application GitHub) :</p>
@@ -57,7 +59,9 @@ input[type=text],input[type=password]{width:100%;min-height:48px;margin:0 0 6px;
   <label for="depot">Dépôt (privé)</label>
   <input type="text" id="depot" autocomplete="off" spellcheck="false" value="rousseauromain-art/Ar_city-photos">
   <label for="dossier">Dossier</label>
-  <input type="text" id="dossier" autocomplete="off" spellcheck="false" value="dumps">
+  <input type="text" id="dossier" autocomplete="off" spellcheck="false">
+  <p>Un dossier par sortie : <b>Dump_</b>, la date, puis le lieu (par exemple Dump_20261114_pontenroyan) ; il est créé au premier fichier. Pour compléter un dossier existant, touchez-le :</p>
+  <div id="dossiers"></div>
 
   <h2>3 · Fichiers</h2>
   <!-- sans « accept » : le gestionnaire de fichiers s'ouvre, et les photos gardent leur position (EXIF) -->
@@ -79,7 +83,11 @@ input[type=text],input[type=password]{width:100%;min-height:48px;margin:0 0 6px;
   function ecrire(){ const r={depot:$('depot').value.trim(),dossier:$('dossier').value.trim(),garder:$('garder').checked};
     if(r.garder&&$('jeton').value.trim()) r.jeton=$('jeton').value.trim();
     try{ localStorage.setItem(CLE,JSON.stringify(r)); }catch(e){} }
-  { const r=lire(); if(r.jeton) $('jeton').value=r.jeton; if(r.depot) $('depot').value=r.depot; if(typeof r.dossier==='string') $('dossier').value=r.dossier; if(r.garder===false) $('garder').checked=false; }
+  // dossier : « Dump_ » + date du jour + lieu ; le dossier gardé n'est repris que le jour même
+  const aujourdhui=()=>{ const d=new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; };
+  const PREFIXE='Dump_'+aujourdhui()+'_';
+  { const r=lire(); if(r.jeton) $('jeton').value=r.jeton; if(r.depot) $('depot').value=r.depot; if(r.garder===false) $('garder').checked=false;
+    $('dossier').value=typeof r.dossier==='string'&&r.dossier.startsWith(PREFIXE)&&r.dossier.length>PREFIXE.length?r.dossier:PREFIXE; }
   for(const id of ['jeton','depot','dossier','garder']) $(id).addEventListener('change',ecrire);
 
   const etat=(t,cl)=>{ const e=$('etat'); e.textContent=t; e.className=cl||''; };
@@ -106,6 +114,9 @@ input[type=text],input[type=password]{width:100%;min-height:48px;margin:0 0 6px;
     if(r.status!==200||!r.j) return {ok:false,msg:'Réponse inattendue de GitHub ('+r.status+').'};
     if(r.j.private!==true) return {ok:false,msg:`Refusé : « ${depot} » est un dépôt PUBLIC. Photos et exports ne vont que dans un dépôt privé.`};
     const branche=r.j.default_branch||'main';
+    await dossiersDump(depot,branche);
+    if(!dossier) return {ok:false,msg:'Choisissez un dossier (étape 2).'};
+    if(/_$/.test(dossier)) return {ok:false,msg:`Complétez le nom du dossier avec le lieu, par exemple ${PREFIXE}pontenroyan, ou touchez un dossier existant (étape 2).`};
     const l=await api('/repos/'+chemin(depot)+'/contents/'+chemin(dossier)+'?ref='+encodeURIComponent(branche));
     let presents=new Set();
     if(l.status===200&&Array.isArray(l.j)){ presents=new Set(l.j.filter(x=>x.type==='file').map(x=>x.name)); if(l.j.length>=1000) presents=null; } // plus de 1000 : vérification fichier par fichier
@@ -114,6 +125,16 @@ input[type=text],input[type=password]{width:100%;min-height:48px;margin:0 0 6px;
     return {ok:true,depot,branche,dossier,presents,msg:`Jeton accepté · dépôt privé ${depot} · branche ${branche} · dossier ${dossier||'(racine)'} : ${presents?presents.size+' fichier(s) déjà présent(s)':'plus de 1000 fichiers'}${l.status===404?' (dossier créé au premier dépôt)':''}`};
   }
 
+  /** Dossiers « Dump_… » déjà dans le dépôt (à la racine), les plus récents d'abord : un toucher les choisit. */
+  async function dossiersDump(depot,branche){
+    const r=await api('/repos/'+chemin(depot)+'/contents?ref='+encodeURIComponent(branche)), D=$('dossiers'); D.textContent='';
+    if(r.status!==200||!Array.isArray(r.j)) return;
+    const noms=r.j.filter(x=>x.type==='dir'&&/^dump_/i.test(x.name)).map(x=>x.name).sort().reverse().slice(0,12);
+    if(!noms.length) return; D.className='puces';
+    for(const n of noms){ const b=document.createElement('button'); b.type='button'; b.textContent=n; b.onclick=()=>{ $('dossier').value=n; ecrire(); etat('Dossier choisi : '+n,'ok'); }; D.append(b); }
+  }
+  // jeton gardé : les dossiers existants sont proposés dès l'ouverture, sans rien envoyer
+  if($('jeton').value.trim()){ const d=segments($('depot').value); if(d.length===2) api('/repos/'+chemin(d.join('/'))).then(r=>{ if(r.status===200&&r.j&&r.j.private===true) dossiersDump(d.join('/'),r.j.default_branch||'main'); }).catch(()=>{}); }
   $('btnVerifier').onclick=async()=>{ ecrire(); etat('Vérification…'); const d=await destination(); etat(d.msg,d.ok?'ok':'bad'); };
   $('btnOublier').onclick=()=>{ $('jeton').value=''; const r=lire(); delete r.jeton; try{ localStorage.setItem(CLE,JSON.stringify(r)); }catch(e){} etat('Jeton effacé de ce téléphone.'); };
 
