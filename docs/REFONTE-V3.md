@@ -116,6 +116,7 @@ docs/                 REFONTE-V3.md, ETAT.md, VEILLE-ANCRAGE.md
 | `oeilLieu` | Hauteur d'œil du lieu : la correction réglée à la main vaut pour l'endroit où elle a été réglée (la v1 : une seule valeur partout, photos comprises) ; sur une photo, hauteur déduite de l'altitude de la photo et du sol du modèle | ajout | `scene/oeil-gps.js` (géoïde retranché) ; le reste est nouveau (photo de Turin du 13/11/2026) |
 | `horizonPhoto` | Horizon de la photo : inclinaison de l'appareil lue dans la convergence des arêtes verticales des bâtiments (la v1 : horizon au milieu de l'image, à rattraper au doigt) ; rien sans bâtiments | ajout | aucun (photo de Turin du 13/11/2026) |
 | `champPhoto` | Champ réel des photos : la focale écrite dans la photo est nominale (Pixel 9 : 71,5° écrits, 63,5° mesurés) ; le champ trouvé par « Caler auto » sur le relief est retenu par appareil et repris pour ses photos suivantes | ajout | aucun (mesures des 13 et 14/11/2026) |
+| `soleilReflet` | « Caler » sur le soleil sous des nuages éclairés : la règle des reflets de la v1 (25/10) écartait le vrai soleil ; un reflet doit être sous l'horizon impliqué par la tache du dessus, et le soleil est le plus gros disque. Même règle pour `soleil2`, `lune`, `recalageContinu` | remplacement | `vision/soleil.js` (même détection) ; règle nouvelle (photo de Morgat, 14/11/2026) |
 
 **Non repris :**
 - WebXR, calage guidé ;

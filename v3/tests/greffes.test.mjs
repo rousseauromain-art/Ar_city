@@ -8,7 +8,8 @@ import { evaluer as evaluerRotation, etatInitial } from '../greffes/rotation.js'
 import { lire as lireWikidata, requete as requeteWikidata } from '../greffes/lieuxWikidata.js';
 import { proposer, ondulationGeoide } from '../greffes/oeil.js';
 import { evaluer as evaluerBoussole, mesureRelative } from '../greffes/boussoleA.js';
-import { positionLune, detecterTaches, candidats, meilleur } from '../greffes/_astre.js';
+import { positionLune, detecterTaches, candidats, meilleur, REFLET_MARGE } from '../greffes/_astre.js';
+import soleilReflet from '../greffes/soleilReflet.js';
 import { LIBELLES } from '../greffes/icones.js';
 import { creerSuivi, axes as axesChamp, GRAND_COTE, textePuce, instantImage } from '../greffes/champAuto.js';
 import { choisir as choisirNettete } from '../greffes/nettete.js';
@@ -25,10 +26,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 23 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 24 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -450,4 +451,34 @@ test('champPhoto : Pixel 9, 24 mm — 71,5° écrits, 63,5° trouvés sur le rel
   assert.equal(apprendreChamp(t2, cle, { ...morgat, champ: 64, t: 5 })[cle].mesures.length, 2, 'même photo : remplacée');
   let n = {}; for (let i = 0; i < 12; i++) n = apprendreChamp(n, cle, { ...morgat, photo: 'p' + i, t: i }); assert.equal(n[cle].mesures.length, 8);
   assert.equal(apprendreChamp(t, 'Autre appareil · 28 mm', { champ: 60, depart: 65, exif: 65, cout: 0.2, photo: 'y', t: 6 })[cle].rapport, t[cle].rapport, 'un autre appareil ne change pas celui-ci');
+});
+
+// ---- soleilReflet (et outil partagé _astre.js) : un reflet est sous l'horizon ; le soleil est le plus gros disque ----
+/** Taches posées à une direction donnée (cap, hauteur) dans une image de `cw` px de large, comme les relève la v1. Pose : cap 251, inclinaison 0. */
+const geo = { W: 915, H: 412, cw: 480, fh: 915 / 2 / Math.tan(35.75 * D), pose: { heading: 251, pitch: 0, roll: 0 } };
+function tacheA(az, el, aire, seuil = 150) {
+  const k = geo.cw / geo.W, cx = (geo.W / 2 + geo.fh * Math.tan((az - geo.pose.heading) * D)) * k, cy = (geo.H / 2 - geo.fh * Math.tan((el - geo.pose.pitch) * D)) * k, r = Math.max(1, Math.sqrt(aire / Math.PI));
+  return { thr: seuil, a: aire, cx, cy, x0: Math.round(cx - r), x1: Math.round(cx + r), y0: Math.round(cy - r), y1: Math.round(cy + r), compact: true };
+}
+const caler = (taches, soleil) => soleilReflet.caler(taches, { cw: geo.cw, W: geo.W, H: geo.H, fh: geo.fh, pose: geo.pose, soleil, large: false });
+test('soleilReflet : Morgat (taches relevées sur la photo) — le vrai soleil, sous des nuages éclairés, n’est plus écarté comme reflet ; les petits éclats de nuage non plus retenus', () => {
+  const soleil = { az: 272.67, el: 12.38 };
+  const T = [tacheA(274.6, 12.37, 488), tacheA(274.6, 12.5, 353, 240), tacheA(271.9, 12.62, 7), tacheA(272.3, 13.8, 11, 215), tacheA(272.2, 15.53, 5), tacheA(274.8, 15.1, 3),
+    tacheA(276.8, 16.1, 6), tacheA(273.5, 17.28, 3), tacheA(280, 17.6, 3), tacheA(272.3, 10.35, 5)];
+  const r = caler(T, soleil); assert.ok(r.ok);
+  assert.ok(Math.abs(r.dh - (272.67 - 274.6)) < 0.05 && Math.abs(r.dp - (12.38 - 12.37)) < 0.05, `cap ${r.dh.toFixed(2)}°, horizon ${r.dp.toFixed(2)}° (attendu −1,9° et 0°)`);
+});
+test('soleilReflet : Ibiza (le cas de la règle du 25/10) — même réponse que la v1 ; un reflet sur l’eau, même plus gros que le soleil, reste écarté', () => {
+  // soleil calculé à 1,05° ; taches relevées sur la photo : le disque (2,6°) sous une guirlande lumineuse (8,2°), son cœur seul au seuil 240, un reflet à 1,43°
+  const soleil = { az: 267.11, el: 1.05 }, T = [tacheA(269.3, 8.2, 20), tacheA(269.3, 2.56, 318), tacheA(269.2, 2.55, 257, 185), tacheA(269.2, 2.5, 181, 215), tacheA(269.4, 2.61, 66, 240), tacheA(269.2, 1.43, 7, 240)];
+  for (const t of T) t.x0 -= 1, t.x1 += 1; // même colonne
+  const r = caler(T, soleil); assert.ok(r.ok, r.msg);
+  assert.ok(Math.abs(r.dh - (267.11 - 269.4)) < 0.15 && Math.abs(r.dp - (1.05 - 2.61)) < 0.1, `cap ${r.dh.toFixed(2)}°, horizon ${r.dp.toFixed(2)}° (la v1 : −2,29° et −1,56°)`);
+  const eau = caler([tacheA(260, 10, 150), tacheA(260, -10.2, 600)], { az: 260, el: 10 }); assert.ok(eau.ok); assert.ok(Math.abs(eau.dp) < 0.05, 'le reflet, plus gros, est écarté');
+  assert.equal(caler([], soleil).ok, false); assert.ok(REFLET_MARGE > 0 && REFLET_MARGE < 1);
+});
+test('_astre : meilleur — le soleil (gros) contre un éclat proche ; la lune garde la règle de la v1 (le plus proche)', () => {
+  const c = [{ az: 274.6, el: 12.4, aire: 488, dist: 1.9 }, { az: 271.9, el: 12.6, aire: 7, dist: 0.8 }];
+  assert.equal(meilleur(c, false, { gros: true }).aire, 488); assert.equal(meilleur(c, false).aire, 7);
+  assert.equal(meilleur([{ az: 0, el: 0, aire: 5, dist: 50 }], false, { gros: true }), null);
 });

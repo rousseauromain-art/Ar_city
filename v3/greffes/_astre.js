@@ -1,4 +1,4 @@
-// Outils partagés par les greffes soleil2 et lune (pas une greffe : aucun interrupteur) : détection d'un disque brillant dans l'image (recopié de v2/src/vision/soleil.js,
+// Outils partagés par les greffes soleil2, lune, recalageContinu et soleilReflet (pas une greffe : aucun interrupteur) : détection d'un disque brillant dans l'image (recopié de v2/src/vision/soleil.js,
 // lui-même repris de `sunAlign` de la v1), position de la lune (v2/src/noyau/astro.js). Aucune dépendance à la v2.
 const RAD=Math.PI/180;
 export const wrap=a=>((a+540)%360)-180;
@@ -20,22 +20,31 @@ export function detecterTaches({d,cw,ch},seuilsBleu=SEUILS_BLEU,rougeMin=ROUGE_M
   }
   return toutes;
 }
+/** Reflet (eau, sable mouillé) : une tache sous une autre, dans la même colonne, n'en est le reflet que si elle est sous l'horizon que l'autre
+ *  implique si elle est l'astre (l'astre est à `astre.el` au-dessus de l'horizon, son reflet en dessous), à REFLET_MARGE près, et si l'autre n'est
+ *  pas bien plus petite (au moins PART_AIRE_MIN de son aire : un éclat de nuage, une ampoule ne sont pas la source d'un reflet). La règle reprise
+ *  de la v1 (« une tache claire au-dessus : c'est un reflet ») écartait le vrai soleil sous des nuages éclairés (Morgat, photo du 24/08). */
+export const REFLET_MARGE=0.5;
+/** Le soleil : le disque le plus gros. Les éclats de nuage plus petits que PART_AIRE_MIN du plus gros ne sont pas retenus. */
+export const PART_AIRE_MIN=0.25;
 /** Candidats (compacts, hors reflets, sans doublon), position dans la scène, roulis compensé. */
 export function candidats(taches,{cw,W,H,fh,pose,astre,large}){
-  const k=cw/W, cr=Math.cos(pose.roll*RAD), sr=Math.sin(pose.roll*RAD), tolColonne=Math.tan(1.5*RAD)*fh*k;
-  const reflet=o=>taches.some(q=>q!==o&&q.y1<o.y0-1&&Math.abs(q.cx-o.cx)<tolColonne+Math.max(2,(q.x1-q.x0)/2));
+  const k=cw/W, cr=Math.cos(pose.roll*RAD), sr=Math.sin(pose.roll*RAD), tolColonne=Math.tan(1.5*RAD)*fh*k, vu=new Map();
+  const scene=o=>{ let s=vu.get(o); if(!s){ const X=o.cx/k-W/2, Y=o.cy/k-H/2, dxs=X*cr+Y*sr, dys=-X*sr+Y*cr; s={az:pose.heading+Math.atan(dxs/fh)/RAD,el:pose.pitch-Math.atan(dys/fh)/RAD}; vu.set(o,s); } return s; };
+  const reflet=o=>taches.some(q=>q!==o&&q.y1<o.y0-1&&Math.abs(q.cx-o.cx)<tolColonne+Math.max(2,(q.x1-q.x0)/2)&&q.aire>=PART_AIRE_MIN*o.aire&&scene(o).el<=scene(q).el-astre.el+REFLET_MARGE);
   const out=[];
   for(const o of taches){
     if(!o.compacte||reflet(o)) continue;
-    const X=o.cx/k-W/2, Y=o.cy/k-H/2, dxs=X*cr+Y*sr, dys=-X*sr+Y*cr;
-    const az=pose.heading+Math.atan(dxs/fh)/RAD, el=pose.pitch-Math.atan(dys/fh)/RAD;
+    const {az,el}=scene(o);
     if(out.some(c=>Math.hypot(wrap(c.az-az),c.el-el)<0.6)) continue;
     out.push({az,el,aire:o.aire,seuil:o.seuil,dist:Math.hypot((large?0.15:1)*wrap(az-astre.az),el-astre.el)});
   }
   return out;
 }
-/** Le disque le plus proche de l'astre calculé (dans 37,5°, sans limite en mode large). */
-export const meilleur=(c,large)=>c.filter(o=>large||o.dist<25*1.5).sort((x,y)=>x.dist-y.dist)[0]||null;
+/** Le disque le plus proche de l'astre calculé (dans 37,5°, sans limite en mode large) ; `gros` (le soleil) : parmi les disques d'au moins
+ *  PART_AIRE_MIN de l'aire du plus gros. */
+export const meilleur=(c,large,{gros=false}={})=>{ const f=c.filter(o=>large||o.dist<25*1.5); if(!f.length) return null;
+  const amax=Math.max(...f.map(o=>o.aire)); return (gros?f.filter(o=>o.aire>=PART_AIRE_MIN*amax):f).sort((x,y)=>x.dist-y.dist)[0]||null; };
 
 /** Position de la lune (topocentrique, parallaxe et réfraction comprises, ~0,3°) : v2/src/noyau/astro.js. */
 export function positionLune(tMs,latDeg,lonDeg){
@@ -66,7 +75,7 @@ export function chercherDisque(c,astre,{large=false,nom='soleil'}={}){
   if(astre.el<-1) return {ok:false,msg:nom+' couché'+(nom==='lune'?'e':'')};
   if(!large&&(Math.abs(wrap(astre.az-P.heading))>demi+25||Math.abs(astre.el-P.pitch)>vdemi+25)) return {ok:false,msg:nom+' hors du champ'};
   const fr=c.grabFrameRGB(480); if(!fr) return {ok:false,msg:'image illisible'};
-  const ts=detecterTaches(fr), cs=candidats(ts,{cw:fr.cw,W,H,fh,pose:P,astre,large}), b=meilleur(cs,large);
+  const ts=detecterTaches(fr), cs=candidats(ts,{cw:fr.cw,W,H,fh,pose:P,astre,large}), b=meilleur(cs,large,{gros:nom==='soleil'});
   if(!b) return {ok:false,msg:nom==='lune'?'pas de disque lunaire net sur l’image (nuages, lune trop pâle ?)':'pas de disque solaire net'};
   return {ok:true,az:b.az,el:b.el,n:cs.length};
 }

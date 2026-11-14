@@ -4825,6 +4825,7 @@ function sunAlign(){
       while(st.length){ const q=st.pop(), x=q%cw, y=(q/cw)|0; a++; sx+=x; sy+=y; if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y;
         for(const nb of [q-1,q+1,q-cw,q+cw]) if(nb>=0&&nb<cw*ch&&!seen[nb]&&mask[nb]&&Math.abs(nb%cw-x)<=1){ seen[nb]=1; st.push(nb); } }
       const bw=x1-x0+1, bh=y1-y0+1; all.push({thr,a,cx:sx/a,cy:sy/a,x0,x1,y0,y1,compact:a>=3&&a<=cw*ch*0.02&&Math.max(bw,bh)<=2.5*Math.min(bw,bh)&&a>=0.45*bw*bh}); } }
+  if(G.actif('soleilReflet')) return G.soleilReflet.caler(all,{cw,W,H,fh,pose:P,soleil:sp,large:wide}); // greffe soleilReflet : un reflet est sous l'horizon ; le plus gros disque
   // reflet : une tache claire (quel que soit le seuil) se trouve au-dessus, dans la meme colonne (a 1,5° pres)
   const colTol=Math.tan(1.5*D)*fh*k, isRefl=o=>all.some(q=>q!==o&&q.y1<o.y0-1&&Math.abs(q.cx-o.cx)<colTol+Math.max(2,(q.x1-q.x0)/2));
   const cands=[]; for(const o of all){ if(!o.compact||isRefl(o)) continue;
