@@ -2,7 +2,7 @@
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
 const {ouvrir,capteurs,videoSynthetique,photoExif}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','nommer'];
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','champPhoto','nommer'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';
@@ -444,6 +444,30 @@ for(const g of MODES('horizonPhoto')) test(`horizonPhoto (${nom(g)}) : sur une p
     // photo sans bâtiments : rien ne change
     await page.evaluate(()=>document.getElementById('photoChip').click()); await app.waitFor('!photoMode');
     await rejouerPhoto(page,app); await page.waitForTimeout(700); expect(await app.ev('S.pitchOff')).toBe(0); expect(await page.evaluate(()=>window.G.horizonPhoto.statut())).toContain('laissé tel quel');
+    expect(app.errors).toEqual([]);
+  }
+});
+
+for(const g of MODES('champPhoto')) test(`champPhoto (${nom(g)}) : le champ trouvé par un calage précis sur le relief est retenu pour l'appareil et repris à la photo suivante ; butée, imprécision, autre objectif : rien ; « oublier » efface ; éteinte, le champ écrit dans la photo`,async({page})=>{
+  test.setTimeout(90000);
+  const b64=await (async()=>{ await page.goto('/v3/villes-horizon.html?g=aucune'); return page.evaluate(()=>{ const c=document.createElement('canvas'); c.width=400; c.height=300; const x=c.getContext('2d'); x.fillStyle='#7aa'; x.fillRect(0,0,400,300); return c.toDataURL('image/jpeg').split(',')[1]; }); })();
+  const photo=(o)=>({name:'p.jpg',mimeType:'image/jpeg',buffer:photoExif(Buffer.from(b64,'base64'),{...POS,make:'Google',model:'Pixel 9',f35:24,...o})});
+  const ouvrirPhoto=async(app,o)=>{ await page.setInputFiles('#photoFile',photo(o)); await app.waitFor(`photoMode&&photoMode.date==='${o.date}'`); await page.waitForTimeout(150); return app.ev('S.camFov'); };
+  for(const greffes of [g,[]]){
+    const app=await ouvrir(page,{pos:POS,greffes});
+    expect(await ouvrirPhoto(app,{date:'2026:08:24 19:54:54'})).toBe(71.5); // appareil pas encore appris : le champ écrit dans la photo (image 4:3, 24 mm)
+    if(!greffes.length){ await expect(page.locator('#g3ChampPhoto')).toHaveCount(0); continue; }
+    await expect(page.locator('#g3ChampPhoto')).toContainText('celui écrit dans la photo');
+    const cale=(cam,depart,cout)=>page.evaluate(([a,b,c])=>window.G.champPhoto.cale(a,b,c),[cam,depart,cout]), table=()=>page.evaluate(()=>window.G.champPhoto.etat().table);
+    await cale(58.5,71.5,0.21); await cale(63.5,71.5,0.56); expect(await table()).toEqual({}); // champ en butée, calage imprécis
+    await cale(63.5,71.5,0.21); const t=await table(); expect(Object.keys(t)).toEqual(['Google Pixel 9 · 24 mm']); expect(Math.abs(t['Google Pixel 9 · 24 mm'].rapport-1.165)).toBeLessThan(0.005);
+    await expect(page.locator('#g3ChampPhoto')).toContainText('Google Pixel 9 · 24 mm → focale × 1,17 (1 photo calée)');
+    expect(await ouvrirPhoto(app,{date:'2026:10:22 12:42:00'})).toBe(63.5); await expect(page.locator('#note')).toContainText('Champ 63,5° : celui appris pour cet appareil (la photo indiquait 71,5°)');
+    expect(await ouvrirPhoto(app,{date:'2026:10:25 12:22:30',f35:12})).toBe(110.5); // autre objectif du même téléphone : pas appris
+    expect(await ouvrirPhoto(app,{date:'2026:10:26 10:00:00',model:'Pixel 8'})).toBe(71.5); // autre appareil
+    await page.reload(); await page.waitForFunction(()=>!!window.__vh&&!!window.G); await page.evaluate(()=>window.G.pret()); // la table est gardée d'une visite à l'autre
+    expect(Object.keys(await table())).toEqual(['Google Pixel 9 · 24 mm']);
+    await page.evaluate(()=>document.getElementById('g3ChampPhotoOubli').click()); expect(await table()).toEqual({}); expect(await page.evaluate(()=>localStorage.getItem('vh3_champPhoto'))).toBe('{}');
     expect(app.errors).toEqual([]);
   }
 });

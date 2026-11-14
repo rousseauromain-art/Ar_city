@@ -4888,6 +4888,7 @@ async function runAutoAlign0(){
     if(R.flat){ const lm=landmarkAlign(); if(lm.ok){ S.pitchOff+=R.dp; noteCalib(); saveSettings(); const f=v=>(v>=0?'+':'')+v.toFixed(1)+'°';
         const m=`horizon ${f(R.dp)} · cap calé sur ${lm.names.slice(0,3).join(', ')} ${f(lm.corr)}`; logNet('Calage',true,m); return m; } }
     S.headOff+=R.dh; S.pitchOff+=R.dp; noteCalib(); const camCh=R.cam!==cam0; if(camCh){ S.camFov=R.cam; $('fov').value=S.camFov; showFov(); } saveSettings();
+    G.actif('champPhoto')&&G.champPhoto.cale(R.cam,cam0,R.cost); // greffe champPhoto : champ réel des photos de cet appareil
     const f=v=>(v>=0?'+':'')+v.toFixed(1)+'°';
     logNet('Calage',true,`${R.n} colonnes (${CL.dropped} au premier plan écartées), relief ${R.relief.toFixed(1)}°, cap ${f(R.dh)}, horizon ${f(R.dp)}, champ ${S.camFov}° (${R.cam!==cam0?'ajusté':'fixe'}), ecart median ${R.cost.toFixed(2)}°`);
     if(R.flat) return `horizon calé (${f(R.dp)}) · cap inchangé : pas assez de relief visible`;

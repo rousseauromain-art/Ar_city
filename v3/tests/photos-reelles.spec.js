@@ -49,3 +49,23 @@ for(const [id,attendu] of [['turin-san-carlo',[7,10.5]],['saint-malo-rempart',nu
     else { expect(e.applique).toBe(false); expect(incl).toBe(0); }
     await o.ctx.close(); expect(o.erreurs).toEqual([]);
   });
+
+// Champ réel des photos du Pixel 9 (24 mm) : 71,5° d'après la photo ; « Caler auto » sur le relief de Morgat trouve 63 à 64° (réglages à la main de
+// Romain sur Turin : 58,5 à 60° ; caméra en direct : environ 62°). La greffe champPhoto le retient ; la photo de Turin, ouverte ensuite, part de ce
+// champ, et la greffe horizonPhoto en déduit un appareil levé d'environ 9° : l'horizon passe alors à hauteur des têtes des passants.
+test('Morgat puis Turin : le champ appris sur le relief de Morgat (≈ 63,5°) est repris pour Turin, dont l’horizon suit (greffes champPhoto et horizonPhoto)',async({browser})=>{
+  test.setTimeout(300000);
+  const path=require('path'), {PHOTOS_DIR}=require('../../tests/commun/scenes-reelles');
+  const {parId,reglages}=await scenes(), sc=parId['morgat-plage']; ignorerSiAbsent(test,sc); ignorerSiAbsent(test,parId['turin-san-carlo']);
+  const o=await ouvrirSceneReelle(browser,sc,{url:V3,greffes:['champPhoto','horizonPhoto'],reglages});
+  expect(await o.app.ev('S.camFov')).toBe(71.5); expect(await o.page.evaluate(()=>window.G.champPhoto.etat().table)).toEqual({});
+  await o.app.ev('window.__fini=0; autoAlign().then(()=>{window.__fini=1}); true'); await o.page.waitForFunction(()=>window.__fini,null,{timeout:120000});
+  const champ=await o.app.ev('S.camFov'), t=await o.page.evaluate(()=>window.G.champPhoto.etat().table), cle='Google Pixel 9 · 24 mm';
+  console.log('Morgat · champPhoto :',await o.page.evaluate(()=>window.G.champPhoto.statut()));
+  expect(champ).toBeGreaterThanOrEqual(62.5); expect(champ).toBeLessThanOrEqual(64.5); expect(Object.keys(t)).toEqual([cle]); expect(t[cle].rapport).toBeGreaterThan(1.13); expect(t[cle].rapport).toBeLessThan(1.2);
+  await o.page.setInputFiles('#photoFile',path.join(PHOTOS_DIR,parId['turin-san-carlo'].photo)); await o.app.waitFor('photoMode&&Math.abs(pos.lat-45.068)<0.01');
+  await o.app.waitFor('S.pitchOff>8'); // l'horizon posé par horizonPhoto suit le champ corrigé
+  const turin=await o.app.ev('({champ:S.camFov,incl:S.pitchOff})'); console.log('Turin · champ',turin.champ,'· horizon',turin.incl,'·',await o.page.evaluate(()=>window.G.horizonPhoto.statut()));
+  expect(turin.champ).toBe(champ); expect(turin.incl).toBeGreaterThan(8.5); expect(turin.incl).toBeLessThan(10);
+  await o.ctx.close(); expect(o.erreurs).toEqual([]);
+});

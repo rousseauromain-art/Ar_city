@@ -121,6 +121,8 @@ const mc=cs=>{ let sa=0, sd=0; for(const q of cs){ sa+=q.a*q.a; sd+=q.a*q.d; } r
  * cherché ; ajustement robuste (un bloc de premier plan, un nuage qui bouge sont écartés) ; `f0` : focale de départ (le modèle en dépend peu).
  * @returns {{ok:boolean,raison:string,f:number,champ:number,n:number,rotation:number,rms:number,part:number,retard:number}}
  */
+export const FIGEES_MAX=0.2;
+const F_MIN=GRAND_COTE/2/Math.tan(CHAMP_MAX/2*RAD), F_MAX=GRAND_COTE/2/Math.tan(CHAMP_MIN/2*RAD), FIGE='l’image ne suit pas la rotation (reflet, vitre, image figée ?)';
 export function estimer(paires,hist,f0=GRAND_COTE/2/Math.tan(32.5*RAD)){
   const R={ok:false,raison:'',f:NaN,champ:NaN,n:0,rotation:0,rms:NaN,part:0,retard:0,precision:1};
   const comps=tau=>{ const cs=[]; paires.forEach((p,i)=>{ const A0=axesA(hist,p.t0-tau), A1=axesA(hist,p.t1-tau), g=A0&&A1&&modele(A0,A1); if(!g) return;
@@ -129,20 +131,32 @@ export function estimer(paires,hist,f0=GRAND_COTE/2/Math.tan(32.5*RAD)){
   const poser=(cs,f)=>{ for(const c of cs){ c.a=c.g.a(f,c.q.cx,c.q.cy,c.q.n); c.dc=c.d/(1+c.w2/(3*f*f)); } };
   const mcc=cs=>{ let sa=0, sd=0; for(const c of cs){ sa+=c.a*c.a; sd+=c.a*c.dc; } return sa>0?sd/sa:NaN; };
   const garder=(cs,f)=>cs.filter(c=>Math.abs(c.dc-f*c.a)<=Math.max(1,0.06*Math.abs(f*c.a)));
-  const ajuster=cs=>{ let f=f0, g=cs; for(let k=0;k<5;k++){ poser(cs,f); const f1=mcc(k?g:cs); if(!(f1>0)) return null; f=f1; poser(cs,f); g=garder(cs,f); if(g.length<4) return null; const f2=mcc(g); if(!(f2>0)) return null; f=f2; } return {f,g}; };
-  let best=null;
-  for(const tau of RETARDS_MS){ const cs=comps(tau); if(cs.length<6) continue; const r=ajuster(cs); if(!r) continue;
-    let cout=0; for(const c of r.g) cout+=(c.dc-r.f*c.a)**2; cout=cout/r.g.length+2*(1-r.g.length/cs.length); // le coût se lit sur les mesures concordantes, et pénalise celles qu'on écarte
-    if(!best||cout<best.cout) best={tau,cs,f:r.f,g:r.g,cout}; }
-  if(!best){ R.raison='pas assez de mesures'; return R; }
+  // Départ de l'ajustement : la focale sur laquelle le plus de mesures s'accordent (histogramme des focales que chaque mesure donnerait seule,
+  // pondéré par le déplacement attendu). Un bloc à moitié couvert par un reflet donne une focale quelconque, entre zéro et la vraie : ces
+  // mesures-là ne s'accordent sur rien, celles du paysage s'accordent entre elles. Une moyenne de tout, elle, partait entre les deux.
+  const depart=cs=>{ poser(cs,f0); const NB=48, lo=Math.log(0.8*F_MIN), pas=(Math.log(1.25*F_MAX)-lo)/NB, H=new Float64Array(NB);
+    for(const c of cs){ if(Math.abs(f0*c.a)<3) continue; const fi=c.dc/c.a; if(!(fi>0)) continue; const k=Math.floor((Math.log(fi)-lo)/pas); if(k>=0&&k<NB) H[k]+=c.a*c.a; }
+    let bk=-1, bv=0; for(let k=0;k<NB;k++){ const v=H[k]+0.5*((k?H[k-1]:0)+(k<NB-1?H[k+1]:0)); if(v>bv){ bv=v; bk=k; } }
+    return bk<0?NaN:Math.exp(lo+(bk+0.5)*pas); };
+  const ajuster=cs=>{ let f=depart(cs), g=cs; if(!(f>0)) return null; for(let k=0;k<5;k++){ poser(cs,f); g=garder(cs,f); if(g.length<4) return null; const f2=mcc(g); if(!(f2>0)) return null; f=f2; } return {f,g}; };
+  // Une mesure qu'aucun champ plausible n'explique est écartée AVANT l'ajustement : contenu resté immobile dans l'image alors que le téléphone
+  // tourne (reflet ou voile du soleil, vitre, cadre collé à l'objectif, image figée) ou parti à l'envers. Sans cela, quelques mesures immobiles
+  // tiraient la première estimation vers un champ absurde (« ≈ 152° », Vercors, 13/11/2026) et les bonnes mesures étaient écartées à leur place.
+  const plausibles=cs=>{ poser(cs,f0); return cs.filter(c=>{ const u=0.8*F_MIN*c.a, v=1.25*F_MAX*c.a; return c.dc>=Math.min(u,v)-1.5&&c.dc<=Math.max(u,v)+1.5; }); };
+  let best=null, vues=0;
+  for(const tau of RETARDS_MS){ const tous=comps(tau), cs=plausibles(tous); vues=Math.max(vues,tous.length); if(cs.length<6) continue; const r=ajuster(cs); if(!r) continue;
+    let cout=0; for(const c of r.g) cout+=(c.dc-r.f*c.a)**2; cout=cout/r.g.length+2*(1-r.g.length/tous.length); // le coût se lit sur les mesures concordantes, et pénalise celles qu'on écarte
+    if(!best||cout<best.cout) best={tau,cs,tous:tous.length,f:r.f,g:r.g,cout}; }
+  if(!best){ R.raison=vues>=6?FIGE:'pas assez de mesures'; return R; }
   const f=best.f, garde=best.g, idx=new Set(garde.map(c=>c.i)); let rot=0, rms=0, signal=0; const vus=new Set();
   for(const c of garde){ if(!vus.has(c.i)){ vus.add(c.i); rot+=Math.atan(c.rot)/RAD; } rms+=(c.dc-f*c.a)**2; signal+=(f*c.a)**2; }
   rms=Math.sqrt(rms/Math.max(1,garde.length));
   // précision de la focale : écart des mesures rapporté à tout le déplacement mesuré (un contour seul mesure peu à chaque fois, mais mesure)
   const precision=signal>0?Math.max(rms,0.3)/Math.sqrt(signal):1, f1=mcc(garde.filter(c=>c.i%2===0)), f2=mcc(garde.filter(c=>c.i%2===1));
-  Object.assign(R,{f,champ:2*Math.atan(GRAND_COTE/2/f)/RAD,n:idx.size,rotation:rot,rms,part:garde.length/best.cs.length,retard:best.tau,precision});
+  Object.assign(R,{f,champ:2*Math.atan(GRAND_COTE/2/f)/RAD,n:idx.size,rotation:rot,rms,part:garde.length/best.cs.length,figees:1-best.cs.length/best.tous,retard:best.tau,precision});
   if(idx.size<PAIRES_MIN) R.raison=`${idx.size}/${PAIRES_MIN} mesures`;
   else if(rot<ROTATION_MIN_DEG) R.raison=`${Math.round(rot)}°/${ROTATION_MIN_DEG}° de rotation`;
+  else if(R.figees>FIGEES_MAX) R.raison=FIGE; // trop de mesures immobiles : les autres risquent d'être faussées par le même reflet (jusqu'à 4 % d'erreur en simulation)
   else if(precision>PRECISION_MAX) R.raison='image peu détaillée : il faut tourner davantage';
   else if(R.part<PART_MIN) R.raison='mesures trop dispersées (premier plan trop proche ?)';
   else if(rms>RMS_MAX_PX) R.raison='mesures trop bruitées';
@@ -199,8 +213,8 @@ function appliquer(champ){ c.S.camFov=champ; const e=c.$('fov'); if(e) e.value=c
 /** Ce que la puce dit : avancement de la mesure, ce qui manque, puis le résultat (10 s). Pure. */
 export function textePuce({actif,mesure,etat,finT=0,maintenant=0}){
   if(actif&&!mesure){ const p=Math.round(100*avancement(etat)), d=etat.dernier;
-    const quoi=d==='en attente d’une rotation'?'tournez-vous lentement':d==='image sans détail'?'image sans détail (brouillard, nuit ?)':d==='rotation trop rapide'?'moins vite':d&&d!=='mesure en cours'?d:/tourner davantage|dispersées|bruitées|plausibles/.test(etat.raison||'')?etat.raison:'';
-    return `champ : mesure ${p} %${etat.paires>=4&&etat.champ?` (≈ ${Math.round(etat.champ)}°)`:''}${quoi?' · '+quoi:''}`; }
+    const quoi=d==='en attente d’une rotation'?'tournez-vous lentement':d==='image sans détail'?'image sans détail (brouillard, nuit ?)':d==='rotation trop rapide'?'moins vite':d&&d!=='mesure en cours'?d:/tourner davantage|dispersées|bruitées|plausibles|ne suit pas/.test(etat.raison||'')?etat.raison:'';
+    return `champ : mesure ${p} %${etat.paires>=4&&etat.champ>=CHAMP_MIN&&etat.champ<=CHAMP_MAX?` (≈ ${Math.round(etat.champ)}°)`:''}${quoi?' · '+quoi:''}`; }
   if(mesure&&maintenant-finT<10000) return `champ ${mesure.champ}° mesuré`;
   return '';
 }
