@@ -1577,6 +1577,7 @@ function applyOcclusion(log){
     if(c.demT!==terrain.at){ const e=elevAt(terrain.bands,c.lat,c.lon,c.dist); c.dem=e===e?e:null; c.demT=terrain.at; }
     const r=assessPlace(terrain,c,c.ht??HT[c.kind]??12,tol,peakTol); // c.ht : hauteur reelle d'un monument (Tour Eiffel : 330 m, pas 10)
     c.aG=r.aG; c.aP=r.aP; c.mask=r.mask; c.hidden=r.hidden; c.low=false;
+    if(c.zone) c.hidden=false; // greffe zones : un nom de zone (gorge, massif…) n'est pas un point caché par le relief
     if(c.hidden&&G.actif('toits')&&G.toits.visible(c,r)) c.hidden=false; // greffe toits : un lieu habité n'est pas un point au sol
     if(c.src==='osm'&&!c.hidden&&c.dist>NEAR_KM&&r.aP-r.mask<TOWER_CLEAR){ c.hidden=true; c.low=true; } // tour sous / a peine au-dessus de la crete : transparente
     if(c.dist>S.radius) continue; // hors rayon : calcule quand meme (rayon modifiable) mais pas compte
@@ -2099,6 +2100,7 @@ function applyMonuments(list,how,errs,fromCache,R,minLinks){
     if(!m||!isFinite(m.lat)||!isFinite(m.lon)) continue;
     let cl=_clMemo.get(m); if(!cl){ cl=wdClassify(m); _clMemo.set(m,cl); }
     const links=m.links||0;
+    if(!cl.cat&&G.actif('zones')) G.zones.noter(m); // greffe zones : gorges, crêtes, massifs, forêts… déjà chargés par Wikidata, écartés des monuments
     if(!cl.cat){ nExcl++; if(excl.length<600) excl.push({name:m.name,links,types:m.types||'',why:cl.why}); continue; }
     // 25/10/2026 ("si la requete donne tous les elements, on les affiche ; loin, on les regroupe") : plus de seuil de notoriete apres la
     // requete pour les monuments (avant : >= 3 langues, 8 pour un simple batiment) — ce qui est trop petit ou trop loin pour etre vu passe en

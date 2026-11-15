@@ -36,6 +36,7 @@
     {id:'gpsRapide',type:'ajout',etat:'non testé',titre:'GPS : démarrage rapide',phrase:'Au démarrage, la dernière position connue du système (jusqu’à 10 min) est acceptée tout de suite et marquée « ancienne » ; elle est remplacée par le premier vrai point. Une puce signale un GPS qui tarde (relief peut-être celui du lieu précédent).'},
     {id:'anfrRelief',type:'ajout',etat:'non testé',titre:'Pylônes ANFR sur le relief',phrase:'Les pylônes ANFR sont posés à leur sommet sur le relief (plus sur la ligne d’horizon) ; un pylône relié à un mât d’OpenStreetMap (moins de 80 m, hauteurs d’accord) n’est dessiné qu’une fois, au mât.'},
     {id:'presDe',type:'ajout',etat:'non testé',titre:'« Près de… » en direct',phrase:'Une puce « Près de <lieu habité visible le plus proche> », comme la légende de la capture, mise à jour pendant que vous marchez.'},
+    {id:'zones',type:'ajout',etat:'non testé',titre:'Noms de zones',phrase:'Gorges, crêtes, massifs, forêts, grottes, vallées déjà chargés par Wikidata (écartés jusqu’ici des monuments) sont écrits comme les sommets, sans être masqués par le relief.'},
     {id:'nommer',type:'ajout',etat:'non testé',titre:'Nommer le relief touché',phrase:'Toucher une montagne, une crête ou un plateau : son nom (sommet, col, lieu-dit… d’OpenStreetMap), sa distance et son altitude ; une épingle reste une minute.'},
   ];
   const IDS=LISTE.map(g=>g.id), CLE='vh3_greffes', CLE_TOMBES='vh3_tombes';
