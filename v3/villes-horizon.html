@@ -3231,7 +3231,8 @@ function draw(ts){
   { const eqItems=[]; if(S.layers.monuments&&S.layers.equip!==false) for(const c of list){ if(c.kind!=='monument'||c.cat!=='equip'||c.far||(useRelief&&c.hidden)||!passFilter(c,fq)) continue; eqItems.push({...c,_src:c,name:monName(c),icon:c.type}); }
     // bande sous l'horizon, etagee sur 2 rangees (le plus proche en premier) ; icones regroupees par type quand elles se touchent
     if(eqItems.length) infra.push({list:eqItems,max:99,color:{line:'rgba(120,205,232,.85)',text:'#78CDE8',icon:'#78CDE8'},hits:monHits,key:'eq',groupBy:'icon',rows:2,iconDy:17,sizeK:.72,beside:true}); }
-  if(S.telecom&&telecomSites.length) infra.push({list:telecomSites,max:S.telecomMax,color:{line:'rgba(232,90,90,.85)',text:'#E85A5A',icon:'#E85A5A'},hits:telecomHits,key:'tel'});
+  if(G.actif('anfrRelief')&&telecomSites.length) G.anfrRelief.relier(telecomSites,monumentSites); // greffe anfrRelief : supports ANFR reliés aux mâts d'OpenStreetMap
+  if(S.telecom&&telecomSites.length) infra.push({list:telecomSites,max:S.telecomMax,color:{line:'rgba(232,90,90,.85)',text:'#E85A5A',icon:'#E85A5A'},hits:telecomHits,key:'tel',...(G.actif('anfrRelief')?{anchorTop:bldTopAng}:{})}); // greffe anfrRelief : posés à leur sommet sur le relief
   if(S.buildings&&buildingSites.length) infra.push({list:S.beyond?buildingSites:buildingSites.filter(b=>b.ess!==false),anchorTop:bldTopAng,max:S.buildingsMax,color:{line:'rgba(169,139,255,.85)',text:'#A98BFF',icon:'#A98BFF'},hits:null,key:'bld'});
   for(const L of userLayers) if(L.on&&L.shown&&L.shown.length) infra.push({list:L.shown,max:L.max,color:{line:hexA(L.color,.85),text:L.color,icon:L.color},hits:telecomHits,key:'usr:'+L.id});
   telecomHits.length=0; monHits.length=0; infraStats={labeled:0,iconOnly:0,deck:lowDeck?'bas':'haut'};
