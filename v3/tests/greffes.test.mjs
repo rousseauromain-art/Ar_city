@@ -507,6 +507,7 @@ test('toits : Choranche (caché de 0,36°) visible, Presles (caché de plus) res
   assert.ok(!toits.visible({ kind: 'village' }, { aP: -2.5, mask: -1.4 }));
   assert.ok(!toits.visible({ kind: 'peak' }, { aP: 4.3, mask: 4.7 }));
   assert.ok(!toits.visible({ kind: 'village' }, null));
+});
 test('etiquettes : les sommets visibles passent devant les villages ; monuments en tête, fantômes derrière', () => {
   const L = [{ name: 'V', kind: 'village' }, { name: 'M', kind: 'monument' }, { name: 'P', kind: 'peak' }, { name: 'Pf', kind: 'peak', far: true }, { name: 'Ph', kind: 'peak', hidden: true }, { name: 'P2', kind: 'peak' }];
   assert.deepEqual(etiquettes.ordonner(L).map((c) => c.name), ['M', 'P', 'P2', 'V', 'Pf', 'Ph']);
