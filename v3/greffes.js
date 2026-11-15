@@ -32,6 +32,7 @@
     {id:'soleilReflet',type:'remplacement',etat:'non testé',titre:'Soleil sous les nuages',phrase:'« Caler » sur le soleil : une tache claire n’est prise pour un reflet que si elle est sous l’horizon, et le plus gros disque est préféré aux petits éclats de nuage (à Morgat, le vrai soleil était écarté comme « reflet » et l’horizon faussé de 4 à 5°).'},
     {id:'etiquettes',type:'ajout',etat:'non testé',titre:'Noms : de la place, de la tenue',phrase:'Un nom de lieu qui ne tient pas incliné s’écrit à plat à côté du point (au-dessus, sinon dessous) ; un nom affiché reste 2 s même sans place ; sommets et cols en vert.'},
     {id:'toits',type:'ajout',etat:'non testé',titre:'Villages : toits comptés',phrase:'Un lieu habité n’est plus jugé caché par le relief pour une crête devant lui de moins de 0,5° au-dessus de ses toits (Choranche, vu de Pont-en-Royans).'},
+    {id:'lieuxRapides',type:'ajout',etat:'non testé',titre:'Lieux : publiés dès la première réponse',phrase:'Les lieux s’affichent dès qu’une source répond (OpenFreeMap : 1 s) au lieu d’attendre la plus lente ; Overpass n’est attendu que 8 s, puis relancé quand il répond.'},
     {id:'nommer',type:'ajout',etat:'non testé',titre:'Nommer le relief touché',phrase:'Toucher une montagne, une crête ou un plateau : son nom (sommet, col, lieu-dit… d’OpenStreetMap), sa distance et son altitude ; une épingle reste une minute.'},
   ];
   const IDS=LISTE.map(g=>g.id), CLE='vh3_greffes', CLE_TOMBES='vh3_tombes';
