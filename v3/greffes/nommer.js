@@ -76,7 +76,8 @@ const altitude=v=>{ if(v==null) return null; const m=/-?\d[\d\s]*(?:[.,]\d+)?/.e
  * Réponse Overpass + sommets déjà chargés → noms classés. `V` : résultat de viser ; `locaux` : [{name,lat,lon,ele}] (sommets de la page). Pure.
  * @returns {{noms:{name,type,ele,lat,lon,d,ou,score,wikipedia,osm}[], autour:{name,type}[]}}
  */
-export function lireNoms(j,V,locaux=[]){
+export const PORTEE_VOISINS_KM=15;
+export function lireNoms(j,V,locaux=[],voisins=[]){
   const R=rayonKm(V.d), vus=new Map(), autour=[], vusA=new Set();
   const ajouter=(o,bonus)=>{ const dP=distKm(o,V), dC=distKm(o,V.crete), d=Math.min(dP,dC); if(d>R*1.15) return;
     let score=d/R-bonus; if(o.type==='sommet'&&o.ele!=null&&V.crete.alt!=null&&Math.abs(o.ele-V.crete.alt)<80) score-=0.1; // un sommet à l'altitude de la crête visée
@@ -84,6 +85,11 @@ export function lireNoms(j,V,locaux=[]){
     const [g,p]=score<deja.score?[moi,deja]:[deja,moi], fiche=g.osm?g:p.osm?p:g; // même nom vu deux fois : le mieux placé ; orthographe et liens de la fiche OpenStreetMap
     vus.set(cle,{...g,name:fiche.name,ele:fiche.ele??g.ele??p.ele??null,wikipedia:g.wikipedia||p.wikipedia||null,osm:g.osm||p.osm||null}); };
   for(const s of locaux) if(s&&s.name&&isFinite(s.lat)&&isFinite(s.lon)) ajouter({name:s.name,type:'sommet',ele:s.ele??null,lat:s.lat,lon:s.lon},0.6);
+  // lieux, monuments, lieux-dits déjà chargés : le plus proche du point touché, même à plusieurs kilomètres (jusqu'à PORTEE_VOISINS_KM) ; au-delà du rayon de recherche, après les noms trouvés dans le rayon
+  for(const s of voisins){ if(!s||!s.name||!isFinite(s.lat)||!isFinite(s.lon)) continue;
+    const dP=distKm(s,V), dC=distKm(s,V.crete), d=Math.min(dP,dC); if(d>PORTEE_VOISINS_KM) continue;
+    const cle=norm(s.name); if(d<=R*1.15){ ajouter({name:s.name,type:s.type||'lieu',ele:s.ele??null,lat:s.lat,lon:s.lon},s.bonus||0); continue; }
+    const moi={name:s.name,type:s.type||'lieu',ele:s.ele??null,lat:s.lat,lon:s.lon,d,ou:dC<dP?'crête':'point',score:1+d/PORTEE_VOISINS_KM}, deja=vus.get(cle); if(!deja||moi.score<deja.score) vus.set(cle,moi); }
   for(const e of (j&&j.elements)||[]){
     const t=e.tags||{}, name=t['name:fr']||t.name; if(!name) continue; const [type,bonus]=nature(t);
     if(e.type==='area'){ const cle=type+'|'+norm(name); if(!vusA.has(cle)){ vusA.add(cle); autour.push({name,type}); } continue; }
@@ -102,7 +108,7 @@ const altTxt=a=>a!=null?`${Math.round(a).toLocaleString('fr-FR')} m`:'altitude i
 /** Corps de la fiche. `N` : résultat de lireNoms ; `enCours` : OpenStreetMap n'a pas encore répondu ; `erreur` : OpenStreetMap injoignable. */
 export function ficheHtml(V,N,{enCours=false,erreur=''}={}){
   const R=rayonKm(V.d), m=N&&N.noms[0], autres=N?N.noms.slice(1,9):[], memeCrete=Math.abs(V.crete.d-V.d)<0.05;
-  const tete=m?`<div class="dbgline" style="font-size:18px;font-weight:700;color:#F2C14E">${esc(m.name)}</div><div class="dbgline">${esc(m.type)}${m.ele!=null?' · '+altTxt(m.ele):''} · à ${km(V.d)} km d’ici · direction ${Math.round(V.brg)}°</div>`
+  const tete=m?`<div class="dbgline" style="font-size:18px;font-weight:700;color:#F2C14E">${esc(m.name)}</div><div class="dbgline">${esc(m.type)}${m.ele!=null?' · '+altTxt(m.ele):''} · à ${km(V.d)} km d’ici · direction ${Math.round(V.brg)}°${m.d>0.5?` · à ${km(m.d)} km ${m.ou==='crête'?'de la crête de ce versant':'du point touché'}`:''}</div>`
     :`<div class="dbgline" style="font-size:18px;font-weight:700;color:#F2C14E">Relief à ${km(V.d)} km</div><div class="dbgline">${altTxt(V.alt)} · direction ${Math.round(V.brg)}°</div>`;
   const rech=enCours?'<div class="dbgline">Recherche du nom dans OpenStreetMap…</div>':erreur?`<div class="dbgline" style="color:#E08787">OpenStreetMap injoignable (${esc(erreur)}) : noms des sommets déjà chargés seulement.</div>`
     :!m?`<div class="dbgline">Rien de nommé dans OpenStreetMap à moins de ${km(R)} km de ce point (les plateaux et les massifs y sont peu nommés).</div>`:'';
@@ -116,6 +122,14 @@ export function ficheHtml(V,N,{enCours=false,erreur=''}={}){
 }
 /** Sommets déjà chargés par la page (v1 et greffe montagne), visibles ou non. */
 const locaux=()=>c.farPeaks.concat(c.cities.filter(x=>x.kind==='peak'||x.kind==='cape'));
+/** Lieux habités, monuments et lieux-dits de l'ANFR déjà chargés par la page (pas de requête). */
+const voisins=()=>{
+  const v=[], nature={city:'ville',town:'ville',village:'village',hamlet:'hameau',isolated_dwelling:'hameau'};
+  for(const x of c.cities) if(nature[x.kind]) v.push({name:x.name,type:nature[x.kind],ele:x.ele,lat:x.lat,lon:x.lon});
+  for(const m of c.monumentSites||[]) if(m.name&&m.cat!=='equip') v.push({name:m.name,type:'monument',lat:m.lat,lon:m.lon});
+  const vus=new Set(); for(const t of c.telecomSites||[]){ if(!t.name||vus.has(t.name)) continue; vus.add(t.name); v.push({name:t.name,type:'lieu-dit (ANFR)',lat:t.lat,lon:t.lon}); }
+  return v;
+};
 async function chercher(V){
   const R=rayonKm(V.d), centres=distKm(V,V.crete)>R/2?[V,V.crete]:[V], q=requete(centres,R), cle=`nom/${V.lat.toFixed(3)},${V.lon.toFixed(3)},${V.crete.lat.toFixed(3)},${V.crete.lon.toFixed(3)}`;
   const r=await c.dcFetch('nom',cle,{ttl:TTL_MS,prune:['nom/',80],load:()=>c.overpassQuery(q,25000,j=>j)});
@@ -127,19 +141,30 @@ async function toucher(px,py){
   const P=c.pose(), fh=(c.W/2)/Math.tan(c.vFov()/2*RAD), cx=c.W/2, cy=c.H/2, dx=px-cx, dy=py-cy, r=P.roll*RAD;
   let lx=cx+dx*Math.cos(r)+dy*Math.sin(r), ly=cy-dx*Math.sin(r)+dy*Math.cos(r); // repère compensé du roulis, comme le rendu et le calage au doigt
   if(window.G&&window.G.actif('projection')) [lx,ly]=window.G.projection.inverse(lx,ly); // greffe projection allumée : le point touché est ramené dans le repère de la v1
+  const pe=ecranEpingle({heading:P.heading,pitch:P.pitch,fh,W:c.W,H:c.H}); // un toucher sur l'épingle la retire (même repère que le dessin)
+  if(pe&&Math.hypot(lx-pe[0],ly-pe[1])<30&&Date.now()-epingle.t<=EPINGLE_MS){ retirer(); etat.dernier='épingle retirée'; return null; }
   const V=viser(T,c.relief,(P.heading+Math.atan((lx-cx)/fh)/RAD+360)%360,P.pitch-Math.atan((ly-cy)/fh)/RAD);
   if(!V||V.ciel||V.proche){ etat.dernier=!V?'relief indisponible':V.ciel?'ciel':'sol à vos pieds'; if(V&&V.ciel) c.note('C’est le ciel : touchez le relief, ou juste au-dessus de sa silhouette',3500); return V; }
   const moi=++demande; etat.touchers++; etat.erreur=''; etat.dernier=`relief à ${km(V.d)} km, ${altTxt(V.alt)}`;
-  const tout=locaux(), N0=lireNoms(null,V,tout), nomme=N=>{ const m=N.noms[0]; epingle={brg:V.brg,angle:V.angle,t:Date.now(),texte:(m?m.name+(m.ele!=null?` ${Math.round(m.ele)} m`:''):`relief ${altTxt(V.alt)}`)+` · ${km(V.d)} km`}; };
+  const tout=locaux(), N0=lireNoms(null,V,tout,voisins()), nomme=N=>{ const m=N.noms[0]; epingle={brg:V.brg,angle:V.angle,t:Date.now(),texte:(m?m.name+(m.ele!=null?` ${Math.round(m.ele)} m`:''):`relief ${altTxt(V.alt)}`)+` · ${km(V.d)} km`}; };
   nomme(N0); c.fiche('Relief touché',ficheHtml(V,N0,{enCours:true}));
   const maj=(N,err)=>{ if(moi!==demande) return; nomme(N); const el=document.getElementById('g3NomCorps'); if(el) el.outerHTML=ficheHtml(V,N,{erreur:err}); };
-  try{ const N=lireNoms(await chercher(V),V,tout); etat.dernier+=N.noms[0]?` → ${N.noms[0].name} (${N.noms[0].type})`:' → rien de nommé'; maj(N,''); }
+  try{ const N=lireNoms(await chercher(V),V,tout,voisins()); etat.dernier+=N.noms[0]?` → ${N.noms[0].name} (${N.noms[0].type})`:' → rien de nommé'; maj(N,''); }
   catch(e){ etat.erreur=c.friendlyErr(e); maj(N0,etat.erreur); }
   return V;
 }
 /** Point d'entrée de draw (dans la scène redressée du roulis) : épingle nommée sur le dernier point touché, une minute. */
+/** La fiche « Relief touché » est-elle ouverte ? L'épingle disparaît avec elle. */
+const ficheOuverte=()=>{ const d=document.getElementById('dbg'), t=document.getElementById('dbgTitle'); return !!d&&d.classList.contains('open')&&!!t&&t.textContent==='Relief touché'; };
+/** Retire l'épingle ; vrai s'il y en avait une. */
+function retirer(){ const e=!!epingle; epingle=null; demande++; return e; }
+/** Position écran de l'épingle (px) ou null : même calcul que le dessin. */
+function ecranEpingle({heading,pitch,fh,W,H}){
+  if(!epingle) return null; const dB=((epingle.brg-heading+540)%360)-180; if(Math.abs(dB)>80) return null;
+  return [W/2+fh*Math.tan(dB*RAD),H/2+fh*Math.tan((pitch-epingle.angle)*RAD)];
+}
 function dessiner(x,{heading,pitch,fh,W,H,FM}){
-  if(!epingle||Date.now()-epingle.t>EPINGLE_MS) return;
+  if(!epingle) return; if(Date.now()-epingle.t>EPINGLE_MS||!ficheOuverte()){ epingle=null; return; }
   const dB=((epingle.brg-heading+540)%360)-180; if(Math.abs(dB)>80) return;
   const px=W/2+fh*Math.tan(dB*RAD), py=H/2+fh*Math.tan((pitch-epingle.angle)*RAD); if(px<-20||px>W+20||py<-20||py>H+20) return;
   x.save(); x.lineJoin='round';
@@ -149,7 +174,7 @@ function dessiner(x,{heading,pitch,fh,W,H,FM}){
 }
 export default {
   init(ctx){ c=ctx; },
-  toucher, dessiner, viser, requete, lireNoms, nature, rayonKm, ficheHtml,
+  toucher, dessiner, retirer, voisins, ficheOuverte, viser, requete, lireNoms, nature, rayonKm, ficheHtml,
   etat:()=>({...etat,epingle:epingle&&{...epingle}}),
   statut:()=>`nommer : ${etat.touchers} relief(s) touché(s) · dernier : ${etat.dernier}${etat.erreur?' · OpenStreetMap : '+etat.erreur:''}`,
 };
