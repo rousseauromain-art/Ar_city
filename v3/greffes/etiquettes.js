@@ -37,7 +37,8 @@ export default {
     return false;
   },
   /** Mode montagne : les sommets et cols visibles passent devant les autres lieux (ordre conservé dans chaque groupe) ; les monuments gardent leur priorité, les fantômes restent derrière. */
-  ordonner(liste){ const ok=c=>c.kind==='peak'&&!c.far&&!c.hidden; return liste.filter(c=>c.kind==='monument').concat(liste.filter(ok),liste.filter(c=>c.kind!=='monument'&&!ok(c))); },
+  ordonner(liste){ const ok=c=>c.kind==='peak'&&!c.far&&!c.hidden&&!c.zone, rang=c=>c.zone?1:0; // les zones (greffe zones : gorges, massifs, forêts…) passent en dernier : elles ne prennent que la place qui reste
+    const reste=liste.filter(c=>c.kind!=='monument'&&!ok(c)); return liste.filter(c=>c.kind==='monument').concat(liste.filter(ok),reste.filter(c=>!rang(c)),reste.filter(rang)); },
   /** Pour les tests : oublie les places retenues. */
   oublier(){ mem.clear(); },
 };

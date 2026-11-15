@@ -12,6 +12,7 @@ import { positionLune, detecterTaches, candidats, meilleur, REFLET_MARGE } from 
 import soleilReflet from '../greffes/soleilReflet.js';
 import etiquettes from '../greffes/etiquettes.js';
 import toits from '../greffes/toits.js';
+import { zoneDe } from '../greffes/zones.js';
 import { message as messageGps, TARDE_MS } from '../greffes/gpsRapide.js';
 import { relier as relierPoints } from '../greffes/anfrRelief.js';
 import { libelle as presLibelle } from '../greffes/presDe.js';
@@ -31,10 +32,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 28 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 29 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'gpsRapide', 'anfrRelief', 'presDe', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'gpsRapide', 'anfrRelief', 'presDe', 'zones', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -557,4 +558,17 @@ test('nommer (lot 6) : ce qui est déjà chargé nomme le point touché tout de 
 test('presDe : « Près de » / « Près d\' » devant une voyelle ou un h, comme la légende de la capture ; rien sans lieu', () => {
   assert.equal(presLibelle('Pont-en-Royans'), 'Près de Pont-en-Royans'); assert.equal(presLibelle('Auberives-en-Royans'), "Près d'Auberives-en-Royans");
   assert.equal(presLibelle('Église'), "Près d'Église"); assert.equal(presLibelle('Hauteville'), "Près d'Hauteville"); assert.equal(presLibelle(''), ''); assert.equal(presLibelle(null), '');
+});
+
+test('zones : gorge, crête, massif, forêt, grotte, col retenus (genre peak pour la montagne, rock sinon) ; commune, pont, ligne sans coordonnées écartés', () => {
+  const m = (name, types, extra = {}) => ({ qid: 'Q1', name, lat: 45, lon: 5, types, ...extra });
+  assert.deepEqual([zoneDe(m('gorges de la Bourne', 'région naturelle')).kind, zoneDe(m('Rochers de Presles', 'crête')).kind, zoneDe(m('massif du Vercors', 'massif|chaîne de montagnes')).kind], ['peak', 'peak', 'peak']);
+  assert.equal(zoneDe(m('forêt domaniale des Coulmes', 'forêt')).kind, 'rock'); assert.equal(zoneDe(m('grotte de Gournier', 'grotte')).kind, 'rock'); assert.equal(zoneDe(m('col de Chalimont', 'col de montagne')).kind, 'peak');
+  assert.equal(zoneDe(m('Choranche', 'commune de France')), null); assert.equal(zoneDe(m('pont de Trellins', 'pont|col')), null); assert.equal(zoneDe(m('Pont-en-Royans', 'gorge')), null);
+  assert.equal(zoneDe(m('Q123', 'gorge')), null); assert.equal(zoneDe(m('x', 'gorge', { lat: NaN })), null); assert.equal(zoneDe(null), null);
+  const z = zoneDe(m('gorges de la Bourne', 'région naturelle')); assert.equal(z.zone, true); assert.equal(z.farPeak, true); assert.equal(z.ele, null);
+});
+test('etiquettes : les zones (greffe zones) passent en dernier, après les villages', () => {
+  const L = [{ name: 'Z', kind: 'peak', zone: true }, { name: 'V', kind: 'village' }, { name: 'P', kind: 'peak' }, { name: 'M', kind: 'monument' }, { name: 'Z2', kind: 'rock', zone: true }];
+  assert.deepEqual(etiquettes.ordonner(L).map((c) => c.name), ['M', 'P', 'V', 'Z', 'Z2']);
 });
