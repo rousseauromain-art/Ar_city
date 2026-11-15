@@ -19,5 +19,8 @@ for(const id of ['pont-est','pont-ouest','pont-photo-plaine','pont-photo-gorges'
     expect(r.n).toBeGreaterThan(2000);   // 64 lieux avant le lot 0 : la fusion plantait sur le sommet « 1526 »
     const nn=r.noms.map(norme), manque=sc.attendus.filter(a=>!nn.some(x=>x===norme(a)||x.includes(norme(a))));
     console.log(`${id} · attendus absents des sources : ${manque.join(', ')||'aucun'}`);
+    // ce qui est réellement ÉCRIT à l'écran (et non seulement présent dans les sources) : état de départ du lot 2, pas encore une exigence
+    await o.app.frame(); const textes=await o.app.frame(), ecrits=sc.attendus.filter(a=>textes.some(t=>norme(String(t.text)).includes(norme(a))));
+    console.log(`${id} · attendus ÉCRITS à l'écran : ${ecrits.length}/${sc.attendus.length} (${ecrits.join(', ')||'aucun'}) ; ${textes.length} textes`);
     await o.ctx.close(); expect(o.erreurs).toEqual([]);
   });
