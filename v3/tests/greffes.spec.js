@@ -2,7 +2,7 @@
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
 const {ouvrir,capteurs,videoSynthetique,photoExif}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','champPhoto','soleilReflet','etiquettes','toits','nommer'];
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','champPhoto','soleilReflet','etiquettes','toits','lieuxRapides','nommer'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';
@@ -483,5 +483,21 @@ for(const g of MODES('soleilReflet')) test(`soleilReflet (${nom(g)}) : « Caler 
     if(greffes.length){ expect(Math.abs(r.h)).toBeLessThan(0.5); expect(Math.abs(r.p)).toBeLessThan(0.5); expect(await page.evaluate(()=>window.G.soleilReflet.statut())).toContain('dernier soleil vu'); }
     else expect(r.p).toBeLessThan(-2); // la v1 : le nuage, 3° plus haut, pris pour le soleil
     expect(app.errors).toEqual([]);
+  }
+});
+
+// lieuxRapides : Overpass lent (12 s), OpenFreeMap répond tout de suite. Avec la greffe, les lieux sont publiés dès la réponse d'OpenFreeMap et le chargement s'achève après 8 s au plus ;
+// sans elle (la v1), rien n'est publié et « chargement » dure jusqu'à Overpass.
+for(const g of MODES('lieuxRapides')) test(`lieuxRapides (${nom(g)}) : Overpass lent, les lieux d'OpenFreeMap sont publiés tout de suite, attente bornée à 8 s ; éteinte : la v1 attend`,async({browser})=>{
+  test.setTimeout(60000);
+  const beforeStart="overpassQuery=()=>new Promise(r=>setTimeout(()=>r({elements:[]}),12000)); loadFromOpenFreeMap=async()=>[{name:'Pleurtuit',lat:48.5833,lon:-2.0500,kind:'town',pop:14000,ele:null}]; true";
+  for(const greffes of [g,[]]){
+    const ctx=await browser.newContext(), page=await ctx.newPage(), app=await ouvrir(page,{pos:POS,greffes,beforeStart});
+    await page.waitForTimeout(3000);
+    const t3=await app.ev("({noms:cities.map(c=>c.name),loading,source})");
+    if(greffes.length){ expect(t3.noms).toContain('Pleurtuit'); expect(t3.loading).toBe(true); expect(t3.source).toContain('OpenFreeMap');
+      await app.waitFor('!loading',9000); const f=await app.ev("({noms:cities.map(c=>c.name),loading})"); expect(f.noms).toContain('Pleurtuit'); }  // fini à 8 s : bien avant Overpass (12 s)
+    else { expect(t3.noms).not.toContain('Pleurtuit'); expect(t3.loading).toBe(true); }
+    expect(app.errors).toEqual([]); await ctx.close();
   }
 });
