@@ -13,6 +13,8 @@ import soleilReflet from '../greffes/soleilReflet.js';
 import etiquettes from '../greffes/etiquettes.js';
 import toits from '../greffes/toits.js';
 import { message as messageGps, TARDE_MS } from '../greffes/gpsRapide.js';
+import { relier as relierPoints } from '../greffes/anfrRelief.js';
+import { libelle as presLibelle } from '../greffes/presDe.js';
 import { LIBELLES } from '../greffes/icones.js';
 import { creerSuivi, axes as axesChamp, GRAND_COTE, textePuce, instantImage } from '../greffes/champAuto.js';
 import { choisir as choisirNettete } from '../greffes/nettete.js';
@@ -22,7 +24,7 @@ import { aretes, aplomb } from '../greffes/horizonPhoto.js';
 import { rue } from './aide/ville-synthetique.mjs';
 import { lieuProche, noter, deciderPhoto, distanceM as distanceLieuM, RAYON_LIEU_M, SEUIL_PHOTO_M } from '../greffes/oeilLieu.js';
 import { associer as associerHauteur, statue as statueHauteur } from '../greffes/hauteurs.js';
-import { viser, lireNoms, requete as requeteNoms, nature, rayonKm, ficheHtml } from '../greffes/nommer.js';
+import { viser, lireNoms, requete as requeteNoms, nature, rayonKm, ficheHtml, PORTEE_VOISINS_KM } from '../greffes/nommer.js';
 
 const D = Math.PI / 180;
 const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url), 'utf8');
@@ -32,7 +34,7 @@ const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = 
 test('registre : 28 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'gpsRapide', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'gpsRapide', 'anfrRelief', 'presDe', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -521,4 +523,38 @@ test('gpsRapide : la puce dit « position ancienne » avant le premier point, se
   assert.match(messageGps({ now, ancienne: null, dernier: now - 5 * 60000, precision: 35 }), /dernier point il y a 5 min \(±35 m\) — le relief peut être celui du lieu précédent/);
   assert.equal(messageGps({ now, ancienne: null, dernier: now - TARDE_MS, precision: 12 }), null);
   assert.equal(messageGps({ now, ancienne: null, dernier: 0, precision: null }), null);
+});
+// ---- anfrRelief : relier deux listes de points (données simulées : aucun équipement réel) ----
+test('anfrRelief : règle 1 (même numéro), règle 2 (le plus proche à moins de 80 m, un pour un, hauteurs d\'accord), règle 3 (sinon seuls)', () => {
+  const au = (m, n = 0, e = 0) => ({ lat: 45 + n / 111320, lon: 5 + e / (111320 * Math.cos(45 * D)) });
+  // règle 1 : le numéro prime sur la distance
+  let r = relierPoints([{ ...au(0, 0, 0), ref: 'X1' }], [{ ...au(0, 0, 60) }, { ...au(0, 0, 200), ref: 'X1' }]);
+  assert.deepEqual(r.map((p) => [p.a, p.b, p.regle]), [[0, 1, 'numero']]);
+  // règle 2 : au plus près, 80 m ; au-delà, pas de lien
+  r = relierPoints([au(0, 0, 0)], [au(0, 0, 70)]); assert.equal(r.length, 1); assert.equal(r[0].regle, 'proximite'); assert.ok(Math.abs(r[0].d - 70) < 1);
+  assert.equal(relierPoints([au(0, 0, 0)], [au(0, 0, 95)]).length, 0, 'au-delà de 80 m : seuls');
+  // un support pour un mât : deux supports proches d'un seul mât → le plus proche l'emporte, l'autre reste seul
+  r = relierPoints([au(0, 0, 40), au(0, 0, 10)], [au(0, 0, 0)]); assert.deepEqual(r.map((p) => [p.a, p.b]), [[1, 0]]);
+  // toits voisins : deux supports à 20 et 30 m d'un mât de 25 m ; les hauteurs départagent (10 m d'accord)
+  r = relierPoints([{ ...au(0, 0, 20), height_m: 60 }, { ...au(0, 0, 30), height_m: 24 }], [{ ...au(0, 0, 0), height_m: 25 }]); assert.deepEqual(r.map((p) => [p.a, p.b]), [[1, 0]]);
+  // hauteurs inconnues d'un côté : le lien se fait sur la position seule
+  assert.equal(relierPoints([{ ...au(0, 0, 20), height_m: 40 }], [au(0, 0, 0)]).length, 1);
+  // règle 3 : listes vides ou sans coordonnées
+  assert.deepEqual(relierPoints([], [au(0, 0, 0)]), []); assert.deepEqual(relierPoints([{ lat: NaN, lon: 0 }], [au(0, 0, 0)]), []);
+});
+
+test('nommer (lot 6) : ce qui est déjà chargé nomme le point touché tout de suite, même à plusieurs kilomètres, avec sa distance ; passé 15 km, rien', () => {
+  const T = reliefSynthetique(profilTest), V = viser(T, K, 90, Math.atan2(300, 5000) / D), au = (p, kmE, kmN = 0) => ({ lat: p.lat + kmN / 111.32, lon: p.lon + kmE / (111.32 * Math.cos(45 * D)) });
+  const voisins = [{ name: 'Hameau Proche', type: 'hameau', ...au(V, 0.2) }, { name: 'Village Lointain', type: 'village', ...au(V, 7) }, { name: 'La Plaine de Besançon', type: 'lieu-dit (ANFR)', ...au(V, 0, 4) },
+    { name: 'Tour Moderne', type: 'monument', ...au(V, 0, -9) }, { name: 'Ville Hors Portée', type: 'ville', ...au(V, 40) }, { name: '', type: 'village', ...au(V, 1) }];
+  const N = lireNoms(null, V, [], voisins);
+  assert.deepEqual(N.noms.map((o) => o.name), ['Hameau Proche', 'La Plaine de Besançon', 'Village Lointain', 'Tour Moderne']); // dans le rayon d'abord, puis du plus près au plus loin
+  assert.ok(Math.abs(N.noms[2].d - 6) < 0.4 && N.noms[2].type === 'village' && N.noms[2].ou === 'crête', 'distance du village lointain (la crête, à 6 km, est plus près que le point touché)');
+  assert.equal(PORTEE_VOISINS_KM, 15);
+  const sommet = lireNoms(null, V, [{ name: 'Grand Sommet', lat: V.crete.lat, lon: V.crete.lon, ele: 1600 }], voisins); assert.equal(sommet.noms[0].name, 'Grand Sommet'); // un sommet reste devant
+  assert.match(ficheHtml(V, N), /Hameau Proche/); assert.match(ficheHtml(V, lireNoms(null, V, [], [voisins[1]])), /à 6(,\d)? km de la crête de ce versant/);
+});
+test('presDe : « Près de » / « Près d\' » devant une voyelle ou un h, comme la légende de la capture ; rien sans lieu', () => {
+  assert.equal(presLibelle('Pont-en-Royans'), 'Près de Pont-en-Royans'); assert.equal(presLibelle('Auberives-en-Royans'), "Près d'Auberives-en-Royans");
+  assert.equal(presLibelle('Église'), "Près d'Église"); assert.equal(presLibelle('Hauteville'), "Près d'Hauteville"); assert.equal(presLibelle(''), ''); assert.equal(presLibelle(null), '');
 });

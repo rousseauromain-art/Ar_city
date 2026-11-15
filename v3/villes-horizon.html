@@ -3231,7 +3231,8 @@ function draw(ts){
   { const eqItems=[]; if(S.layers.monuments&&S.layers.equip!==false) for(const c of list){ if(c.kind!=='monument'||c.cat!=='equip'||c.far||(useRelief&&c.hidden)||!passFilter(c,fq)) continue; eqItems.push({...c,_src:c,name:monName(c),icon:c.type}); }
     // bande sous l'horizon, etagee sur 2 rangees (le plus proche en premier) ; icones regroupees par type quand elles se touchent
     if(eqItems.length) infra.push({list:eqItems,max:99,color:{line:'rgba(120,205,232,.85)',text:'#78CDE8',icon:'#78CDE8'},hits:monHits,key:'eq',groupBy:'icon',rows:2,iconDy:17,sizeK:.72,beside:true}); }
-  if(S.telecom&&telecomSites.length) infra.push({list:telecomSites,max:S.telecomMax,color:{line:'rgba(232,90,90,.85)',text:'#E85A5A',icon:'#E85A5A'},hits:telecomHits,key:'tel'});
+  if(G.actif('anfrRelief')&&telecomSites.length) G.anfrRelief.relier(telecomSites,monumentSites); // greffe anfrRelief : supports ANFR reliés aux mâts d'OpenStreetMap
+  if(S.telecom&&telecomSites.length) infra.push({list:telecomSites,max:S.telecomMax,color:{line:'rgba(232,90,90,.85)',text:'#E85A5A',icon:'#E85A5A'},hits:telecomHits,key:'tel',...(G.actif('anfrRelief')?{anchorTop:bldTopAng}:{})}); // greffe anfrRelief : posés à leur sommet sur le relief
   if(S.buildings&&buildingSites.length) infra.push({list:S.beyond?buildingSites:buildingSites.filter(b=>b.ess!==false),anchorTop:bldTopAng,max:S.buildingsMax,color:{line:'rgba(169,139,255,.85)',text:'#A98BFF',icon:'#A98BFF'},hits:null,key:'bld'});
   for(const L of userLayers) if(L.on&&L.shown&&L.shown.length) infra.push({list:L.shown,max:L.max,color:{line:hexA(L.color,.85),text:L.color,icon:L.color},hits:telecomHits,key:'usr:'+L.id});
   telecomHits.length=0; monHits.length=0; infraStats={labeled:0,iconOnly:0,deck:lowDeck?'bas':'haut'};
@@ -5231,11 +5232,11 @@ $('go').onclick=async()=>{
   resize(); requestAnimationFrame(draw);
 };
 // v3 : les greffes allumées reçoivent l'accès aux variables du script (lecture seule, sauf les réglages S) ; panneau « Greffes v2 » des Réglages
-G.lier({S,publierLieux:(got,src)=>{ cities=got; source=src; recompute(); },chargement:()=>loading,recharger:()=>loadCities(true),D,$,wrap,note,pose,vFov,vFovFor,showFov,sunNow,sunTime,saveSettings,noteCalib,calRecord,logNet,fetchT,grabFrameRGB,camReady,photoPeaks,landmarksForCal,monName,distBrg,friendlyErr,
+G.lier({S,lieuProche:()=>visibleCities().filter(c=>SETTLE.has(c.kind)&&!c.far).reduce((a,c)=>(!a||c.dist<a.dist)?c:a,null),publierLieux:(got,src)=>{ cities=got; source=src; recompute(); },chargement:()=>loading,recharger:()=>loadCities(true),D,$,wrap,note,pose,vFov,vFovFor,showFov,sunNow,sunTime,saveSettings,noteCalib,calRecord,logNet,fetchT,grabFrameRGB,camReady,photoPeaks,landmarksForCal,monName,distBrg,friendlyErr,
   AC:{WIN:AC_WIN,VTOL:AC_VTOL,AGREE:AC_AGREE}, bumpCities:()=>{ citiesVer++; }, onNewPos, overpassQuery:(...a)=>overpassQuery(...a), dcFetch:(...a)=>dcFetch(...a), setFarPeaks:l=>{ farPeaks=l; recompute(); },
   relatif:(R,reinit)=>{ if(reinit){ gyroK=null; magBins.fill(null); svRel=srRel=null; } if(!R) return; const k=0.18, sm=(p,n)=>p?p.map((q,i)=>q+(n[i]-q)*k):n; // greffe capteurRelatif : mesure relative (quaternion), comme onOrient
     svRel=sm(svRel,R.v); srRel=sm(srRel,R.r); relT=Date.now(); sv=svAbs||svRel; sr=svAbs?srAbs:srRel; sensor=true; gyroLearn(); },
-  get W(){ return W; }, get H(){ return H; }, get pos(){ return pos; }, get acc(){ return acc; }, get terrain(){ return terrain; }, get photoMode(){ return photoMode; }, get sensor(){ return sensor; }, get farPeaks(){ return farPeaks; }, get cities(){ return cities; }, axisStatus,
+  get W(){ return W; }, get H(){ return H; }, get pos(){ return pos; }, get acc(){ return acc; }, get terrain(){ return terrain; }, get photoMode(){ return photoMode; }, get sensor(){ return sensor; }, get farPeaks(){ return farPeaks; }, get monumentSites(){ return monumentSites; }, get telecomSites(){ return telecomSites; }, get cities(){ return cities; }, axisStatus,
   get obsGround(){ return obsGround; }, get obsGroundSrc(){ return obsGroundSrc; }, get obsElev(){ return obsElev; }, get terrainBusy(){ return terrainBusy; },
   relief:{TDIST,BSTEP,NB,REFF}, fiche:(titre,html)=>{ $('dbgBody').innerHTML=html; $('dbgTitle').textContent=titre; $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null; } }); // greffe nommer : relief de la v1, fiche
 G.monterPanneau($('sheet'));
