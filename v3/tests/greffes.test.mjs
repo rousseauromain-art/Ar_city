@@ -22,7 +22,7 @@ import { aretes, aplomb } from '../greffes/horizonPhoto.js';
 import { rue } from './aide/ville-synthetique.mjs';
 import { lieuProche, noter, deciderPhoto, distanceM as distanceLieuM, RAYON_LIEU_M, SEUIL_PHOTO_M } from '../greffes/oeilLieu.js';
 import { associer as associerHauteur, statue as statueHauteur } from '../greffes/hauteurs.js';
-import { viser, lireNoms, requete as requeteNoms, nature, rayonKm, ficheHtml } from '../greffes/nommer.js';
+import { viser, lireNoms, requete as requeteNoms, nature, rayonKm, ficheHtml, PORTEE_VOISINS_KM } from '../greffes/nommer.js';
 
 const D = Math.PI / 180;
 const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url), 'utf8');
@@ -512,6 +512,18 @@ test('toits : Choranche (caché de 0,36°) visible, Presles (caché de plus) res
 test('etiquettes : les sommets visibles passent devant les villages ; monuments en tête, fantômes derrière', () => {
   const L = [{ name: 'V', kind: 'village' }, { name: 'M', kind: 'monument' }, { name: 'P', kind: 'peak' }, { name: 'Pf', kind: 'peak', far: true }, { name: 'Ph', kind: 'peak', hidden: true }, { name: 'P2', kind: 'peak' }];
   assert.deepEqual(etiquettes.ordonner(L).map((c) => c.name), ['M', 'P', 'P2', 'V', 'Pf', 'Ph']);
+});
+
+test('nommer (lot 6) : ce qui est déjà chargé nomme le point touché tout de suite, même à plusieurs kilomètres, avec sa distance ; passé 15 km, rien', () => {
+  const T = reliefSynthetique(profilTest), V = viser(T, K, 90, Math.atan2(300, 5000) / D), au = (p, kmE, kmN = 0) => ({ lat: p.lat + kmN / 111.32, lon: p.lon + kmE / (111.32 * Math.cos(45 * D)) });
+  const voisins = [{ name: 'Hameau Proche', type: 'hameau', ...au(V, 0.2) }, { name: 'Village Lointain', type: 'village', ...au(V, 7) }, { name: 'La Plaine de Besançon', type: 'lieu-dit (ANFR)', ...au(V, 0, 4) },
+    { name: 'Tour Moderne', type: 'monument', ...au(V, 0, -9) }, { name: 'Ville Hors Portée', type: 'ville', ...au(V, 40) }, { name: '', type: 'village', ...au(V, 1) }];
+  const N = lireNoms(null, V, [], voisins);
+  assert.deepEqual(N.noms.map((o) => o.name), ['Hameau Proche', 'La Plaine de Besançon', 'Village Lointain', 'Tour Moderne']); // dans le rayon d'abord, puis du plus près au plus loin
+  assert.ok(Math.abs(N.noms[2].d - 6) < 0.4 && N.noms[2].type === 'village' && N.noms[2].ou === 'crête', 'distance du village lointain (la crête, à 6 km, est plus près que le point touché)');
+  assert.equal(PORTEE_VOISINS_KM, 15);
+  const sommet = lireNoms(null, V, [{ name: 'Grand Sommet', lat: V.crete.lat, lon: V.crete.lon, ele: 1600 }], voisins); assert.equal(sommet.noms[0].name, 'Grand Sommet'); // un sommet reste devant
+  assert.match(ficheHtml(V, N), /Hameau Proche/); assert.match(ficheHtml(V, lireNoms(null, V, [], [voisins[1]])), /à 6(,\d)? km de la crête de ce versant/);
 });
 test('presDe : « Près de » / « Près d\' » devant une voyelle ou un h, comme la légende de la capture ; rien sans lieu', () => {
   assert.equal(presLibelle('Pont-en-Royans'), 'Près de Pont-en-Royans'); assert.equal(presLibelle('Auberives-en-Royans'), "Près d'Auberives-en-Royans");

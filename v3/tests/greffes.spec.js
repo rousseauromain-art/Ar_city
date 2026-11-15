@@ -317,10 +317,18 @@ for(const g of MODES('nommer')) test(`nommer (${nom(g)}) : toucher le relief ouv
     await expect(corps).toContainText('Mont Essai'); await expect(corps).toContainText(/sommet · 300 m · à 1,7 km d’ici · direction 90°/);
     await expect(corps).toContainText(/Point touché.*relief à 1,7 km, (29\d|30\d) m/); await expect(corps).toContainText('Le Pré Haut — lieu-dit'); await expect(corps).toContainText('Saint-Essai (commune)');
     await expect(corps.locator('a',{hasText:'Wikipédia'})).toHaveAttribute('href','https://fr.wikipedia.org/wiki/Mont_Essai');
+    expect((await app.frame()).map(o=>o.text)).toContain('Mont Essai 300 m · 1,7 km'); // fiche ouverte : l'épingle est là
     await page.click('#dbgClose');
+    expect((await app.frame()).map(o=>o.text)).not.toContain('Mont Essai 300 m · 1,7 km'); await app.frame(); // lot 6 : la fermeture de la fiche retire l'épingle
+    await page.mouse.click(v.width/2,v.height/2); await expect(page.locator('#dbgTitle')).toHaveText('Relief touché'); // nouveau toucher : nouvelle épingle
     expect((await app.frame()).map(o=>o.text)).toContain('Mont Essai 300 m · 1,7 km');
+    await page.click('#dbgClose'); await app.frame();
+    await page.mouse.click(v.width/2,v.height/2); await expect(page.locator('#dbgTitle')).toHaveText('Relief touché'); await app.frame(); // épingle et fiche rouvertes
+    const pe=await app.ev("window.G.nommer.etat().epingle&&1"); expect(pe).toBe(1);
+    await page.evaluate(()=>{ document.getElementById('dbg').classList.remove('open'); }); // fiche fermée par un autre moyen : l'épingle est retirée au prochain dessin
+    await app.frame(); await app.frame(); expect(await app.ev("window.G.nommer.etat().epingle")).toBeNull();
     await page.mouse.click(v.width/2,v.height*0.2); await expect(page.locator('#note')).toContainText('C’est le ciel'); // bien au-dessus de la silhouette
-    await app.ev("$('btnDbg').onclick(); true"); await expect(page.locator('#dbgBody')).toContainText(/nommer : 1 relief\(s\) touché\(s\) · dernier : ciel/);
+    await app.ev("$('btnDbg').onclick(); true"); await expect(page.locator('#dbgBody')).toContainText(/nommer : 3 relief\(s\) touché\(s\) · dernier : ciel/);
     expect(app.errors).toEqual([]);
   }
 });
