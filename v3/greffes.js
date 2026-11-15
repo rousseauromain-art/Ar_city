@@ -54,6 +54,33 @@
   const tombes=lire(CLE_TOMBES)||{}; let sale=false;
   const ecrireTombes=()=>{ if(sale){ sale=false; ecrire(CLE_TOMBES,tombes); } };
   setInterval(ecrireTombes,15000); addEventListener('pagehide',ecrireTombes); document.addEventListener('visibilitychange',()=>{ if(document.hidden) ecrireTombes(); });
+  // ---- journal du contexte (lot 11) : pour l'export de debug (debug/debug-cache.html › contexte) ----
+  // À chaque démarrage et à chaque changement d'interrupteur : date, version, greffes allumées, réglages utiles. Les lignes du journal réseau y sont ajoutées
+  // toutes les 15 s (200 au plus). Borné ; aucune donnée d'un calque personnel (seuls les interrupteurs des calques sont gardés).
+  const CLE_JOURNAL='vh3_journal', MAX_LIGNES=60, MAX_RESEAU=200;
+  const journal=(()=>{ const j=lire(CLE_JOURNAL); return j&&Array.isArray(j.lignes)?{lignes:j.lignes,reseau:Array.isArray(j.reseau)?j.reseau:[]}:{lignes:[],reseau:[]}; })();
+  let dernierReseau=0;
+  function reglagesUtiles(){
+    const S=ctx&&ctx.S; if(!S) return null;
+    const L=S.layers||{}, P=S.poi||{};
+    return {radius:S.radius,hamlets:S.hamlets,photoVis:S.photoVis,relief:S.relief,beyond:S.beyond,obsHeight:S.obsHeight,camFov:S.camFov,headOff:S.headOff,pitchOff:S.pitchOff,
+      telecom:S.telecom,buildings:S.buildings,calques:Object.fromEntries(Object.entries(L).filter(([,v])=>typeof v==='boolean')),reperes:Object.fromEntries(Object.entries(P).filter(([,v])=>typeof v==='boolean'))};
+  }
+  function noterContexte(type,greffes){
+    journal.lignes.push({t:new Date().toISOString(),type,page:VERSION,greffes:greffes||allumees.slice(),reglages:reglagesUtiles(),
+      ecran:(typeof innerWidth==='number'?innerWidth+'x'+innerHeight:null),statut:(document.getElementById('status')||{}).textContent||''});
+    if(journal.lignes.length>MAX_LIGNES) journal.lignes.splice(0,journal.lignes.length-MAX_LIGNES);
+    ecrire(CLE_JOURNAL,journal);
+  }
+  function noterReseau(){
+    const nl=ctx&&ctx.netLog; if(!nl||!nl.length) return;
+    const neuves=nl.filter(e=>e.t>dernierReseau).reverse(); if(!neuves.length) return;
+    dernierReseau=Math.max(...neuves.map(e=>e.t));
+    for(const e of neuves) journal.reseau.push({t:new Date(e.t).toISOString(),kind:e.kind,ok:e.ok,detail:String(e.detail||'').slice(0,300)});
+    if(journal.reseau.length>MAX_RESEAU) journal.reseau.splice(0,journal.reseau.length-MAX_RESEAU);
+    ecrire(CLE_JOURNAL,journal);
+  }
+  setInterval(noterReseau,15000); addEventListener('pagehide',noterReseau);
   const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
   const G={
@@ -66,12 +93,14 @@
     /** Promesse : toutes les greffes allumées sont chargées et démarrées (tests). */
     pret:()=>Promise.all(chargements).then(()=>allumees.filter(id=>inits[id])),
     /** Le script principal donne accès à ses variables (getters) : appelé une fois, à la fin de son initialisation. */
-    lier(c){ ctx=c; for(const id of allumees) demarrer(id); },
+    lier(c){ ctx=c; for(const id of allumees) demarrer(id); noterContexte('demarrage'); },
     /** Pierre tombale : un passage dans un bloc suspect. */
     tombe(id){ const t=tombes[id]||(tombes[id]={n:0,t:0}); t.n++; t.t=Date.now(); sale=true; },
     tombes:()=>JSON.parse(JSON.stringify(tombes)),
+    /** Journal du contexte (lignes de démarrage et d'interrupteur, lignes du journal réseau). */
+    journal:()=>JSON.parse(JSON.stringify(journal)),
     /** Interrupteurs mémorisés (panneau) ; recharge la page pour les appliquer. */
-    choisir(id,on){ const m=lire(CLE)||{}; m[id]=!!on; ecrire(CLE,m);
+    choisir(id,on){ const m=lire(CLE)||{}; m[id]=!!on; ecrire(CLE,m); noterReseau(); noterContexte('interrupteur : '+id+(on?' allumé':' éteint'),IDS.filter(g=>m[g]===true));
       const u=new URL(location.href); u.searchParams.delete('g'); location.replace(u.href); },
     /** Section du Diagnostic : greffes allumées, erreurs de chargement, pierres tombales. */
     diagnosticHtml(){
