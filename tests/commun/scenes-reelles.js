@@ -6,9 +6,14 @@ const {readExports,seedCaches}=require('./cache.js');
 const {reliefUrls}=require('./relief-urls.js');
 
 const PHOTOS_DIR=process.env.PHOTOS_DIR||'/home/user/ar_city-photos';
-const fichiersExport=()=>fs.existsSync(PHOTOS_DIR)?fs.readdirSync(PHOTOS_DIR).filter(f=>/^villes-horizon-.*\.json$/.test(f)).map(f=>path.join(PHOTOS_DIR,f)):[];
+// exports à la racine et dans les sous-dossiers Dump_* (un dossier par sortie) ; les exports vides (2 octets) et le rapport de l'outil v2 sont ignorés
+const fichiersExport=()=>{
+  if(!fs.existsSync(PHOTOS_DIR)) return [];
+  const dossiers=[PHOTOS_DIR,...fs.readdirSync(PHOTOS_DIR,{withFileTypes:true}).filter(d=>d.isDirectory()&&/^Dump_/.test(d.name)).map(d=>path.join(PHOTOS_DIR,d.name))];
+  return dossiers.flatMap(d=>fs.readdirSync(d).filter(f=>/^villes-horizon-(cache|relief|donnees).*\.json$/.test(f)).map(f=>path.join(d,f)).filter(f=>fs.statSync(f).size>100));
+};
 let memo=null;
-const exportsCache=()=>memo||(memo=readExports(fichiersExport()));
+const exportsCache=()=>memo||(memo=readExports(fichiersExport(),{ignorerIncomplets:true}));
 /** Les caches et la photo de la scène sont-ils disponibles ? */
 const disponible=sc=>fichiersExport().length>0&&(!sc.photo||fs.existsSync(path.join(PHOTOS_DIR,sc.photo)));
 

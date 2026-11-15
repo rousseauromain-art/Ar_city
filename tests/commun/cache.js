@@ -29,10 +29,10 @@ async function seedCaches(page,dump,{batch=40,noms=NAMES}={}){
   return dump.entries.length;
 }
 // dossier ou liste de fichiers contenant un ou plusieurs exports (paquets regroupes par date d'export) : toutes les entrees, sans doublon de cle
-function readExports(files){
+function readExports(files,{ignorerIncomplets=false}={}){
   const by=new Map(); for(const f of files){ const d=readDump(f); (by.get(d.at)||by.set(d.at,[]).get(d.at)).push(d); }
   const seen=new Map(), metas=[];
-  for(const [at,ds] of by){ if(ds.length!==(ds[0].parts||1)) throw new Error(`export ${at} incomplet : ${ds.length} fichier(s) sur ${ds[0].parts}`);
+  for(const [at,ds] of by){ if(ds.length!==(ds[0].parts||1)){ if(ignorerIncomplets) continue; throw new Error(`export ${at} incomplet : ${ds.length} fichier(s) sur ${ds[0].parts}`); }
     metas.push({at,pos:ds[0].pos,parts:ds.length}); for(const d of ds) for(const e of d.entries) seen.set(e.c+':'+e.k,e); }
   return {format:'vh-cache-1',exports:metas,entries:[...seen.values()]};
 }
