@@ -3386,7 +3386,7 @@ function draw(ts){
     const gH=mon?monGH(c):0; // hauteur de l'icone du monument
     const size=mon?(c.cat==='equip'?13:(c.links||0)>=MON_STAR_LINKS?17:15):c.kind==='city'?18:c.kind==='town'?16:c.kind==='village'?14:poi?13:12;
     const alpha=(SETTLE.has(c.kind)?(c.kind==='city'||c.kind==='town'?1:.8):mon?1:.9)*(ghost?.5:1);
-    const tint=mon?(c.cat==='equip'?'120,205,232':'242,193,78'):poi?'224,165,38':'243,233,210';
+    const tint=(!mon&&G.actif('etiquettes')&&G.etiquettes.vert(c))||(mon?(c.cat==='equip'?'120,205,232':'242,193,78'):poi?'224,165,38':'243,233,210'); // greffe etiquettes : montagne en vert
     ctx.font=`700 ${size}px ${FD}`;
     const lab=mon?monName(c):c.name;
     const nw=ctx.measureText(lab).width;
@@ -3403,11 +3403,13 @@ function draw(ts){
     const TR=mon&&G.actif('tailleReelle')?G.tailleReelle.ancre(ay,size):null; // greffe tailleReelle : sommet hors de l'écran → nom à plat au bord haut
     const ps=TR?null:placeSlanted({x,base,off:mon?gH/2+4:10,lift:mon?gH*0.5:18,len:totalLen,padTop,padBot,side:sgn,own:c,memKey:c.name+'|'+c.kind});
     let got=!!ps; if(ps){ lx=ps.lx; ly=ps.ly; sgn=ps.side; }
+    if(ps&&!mon&&G.actif('etiquettes')) G.etiquettes.noter(c,x,ay,lx,ly,sgn); // greffe etiquettes : mémorise la place du nom
     // monument sans place pour un nom incline (frequent en paysage : pose a son sommet reel, il
     // part deja haut) : repli sur un nom HORIZONTAL a cote de son icone, plus compact en hauteur
     let flat=null;
     if(!got&&mon){ flat=TR?G.tailleReelle.poser(placeFlat,{x,y0:TR.y,halfW:gH/2,w:nw+(dtxt?dw+7:0),size,own:c,dir:1}):placeFlat({x,y0:ay-gH-2,halfW:gH/2,w:nw+(dtxt?dw+7:0),size,own:c,dir:-1}); if(!flat&&!TR&&G.actif('tailleReelle')) flat=G.tailleReelle.poser(placeFlat,{x,y0:G.tailleReelle.sous(ay,size),halfW:gH/2,w:nw+(dtxt?dw+7:0),size,own:c,dir:1}); if(flat) got=true; }
     // un monument garde toujours son icone, meme sans place pour son nom
+    if(!got&&!mon&&G.actif('etiquettes')&&G.etiquettes.poser({ctx,placeFlat,c,x,ay,lab,dtxt,nw,dw,size,tint,alpha,ghost,ANG_LBL,FD,FM})){ if(ghost) ghostCount++; else shownCount++; continue; } // greffe etiquettes : repli à plat, tenue 2 s
     if(!got&&!mon){ dNoRoom++; continue; }
     if(mon&&!got) dNoRoom++;
     if(got){ if(ghost) ghostCount++; else shownCount++; }

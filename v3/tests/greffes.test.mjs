@@ -10,6 +10,7 @@ import { proposer, ondulationGeoide } from '../greffes/oeil.js';
 import { evaluer as evaluerBoussole, mesureRelative } from '../greffes/boussoleA.js';
 import { positionLune, detecterTaches, candidats, meilleur, REFLET_MARGE } from '../greffes/_astre.js';
 import soleilReflet from '../greffes/soleilReflet.js';
+import etiquettes from '../greffes/etiquettes.js';
 import { LIBELLES } from '../greffes/icones.js';
 import { creerSuivi, axes as axesChamp, GRAND_COTE, textePuce, instantImage } from '../greffes/champAuto.js';
 import { choisir as choisirNettete } from '../greffes/nettete.js';
@@ -26,10 +27,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 24 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 25 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -481,4 +482,22 @@ test('_astre : meilleur — le soleil (gros) contre un éclat proche ; la lune g
   const c = [{ az: 274.6, el: 12.4, aire: 488, dist: 1.9 }, { az: 271.9, el: 12.6, aire: 7, dist: 0.8 }];
   assert.equal(meilleur(c, false, { gros: true }).aire, 488); assert.equal(meilleur(c, false).aire, 7);
   assert.equal(meilleur([{ az: 0, el: 0, aire: 5, dist: 50 }], false, { gros: true }), null);
+});
+
+// ---- etiquettes : montagne en vert, repli à plat, tenue de 2 s ----
+test('etiquettes : sommets et cols en vert #6EE08F, les autres lieux laissés à la v1', () => {
+  assert.equal(etiquettes.vert({ kind: 'peak' }), '110,224,143'); assert.equal(110 * 65536 + 224 * 256 + 143, 0x6EE08F);
+  assert.equal(etiquettes.vert({ kind: 'village' }), null);
+});
+test('etiquettes : repli à plat au-dessus, sinon dessous ; tenue après la perte de place, puis plus rien', () => {
+  const appels = [], ctx = new Proxy({}, { get: (_, k) => k === 'measureText' ? () => ({ width: 10 }) : () => {}, set: () => true });
+  let libre = 'haut'; const placeFlat = o => { appels.push(o.dir); return (libre === 'haut' && o.dir === -1) || (libre === 'bas' && o.dir === 1) ? { x: o.x + 8, y: o.y, side: 1, w: o.w } : null; };
+  const c = { name: 'Le Grand Serre', kind: 'peak' }, o = { ctx, placeFlat, c, x: 100, ay: 50, lab: c.name, dtxt: '', nw: 60, dw: 0, size: 12, tint: '110,224,143', alpha: 1, ghost: false, ANG_LBL: 0.78, FD: 'x', FM: 'x' };
+  etiquettes.oublier();
+  assert.ok(etiquettes.poser(o)); assert.deepEqual(appels, [-1]);                    // au-dessus
+  libre = 'bas'; appels.length = 0; assert.ok(etiquettes.poser(o)); assert.deepEqual(appels, [-1, 1]); // dessous
+  libre = 'rien'; assert.ok(etiquettes.poser(o), 'tenue : place retenue il y a moins de 2 s');
+  const t0 = performance.now; performance.now = () => t0.call(performance) + etiquettes.TENUE_MS + 500;
+  try { assert.equal(etiquettes.poser(o), false, 'après 2 s sans place : le nom disparaît'); } finally { performance.now = t0; }
+  etiquettes.oublier(); assert.equal(etiquettes.poser(o), false);
 });
