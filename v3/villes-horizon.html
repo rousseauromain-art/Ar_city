@@ -3249,6 +3249,7 @@ function draw(ts){
   const isGhost=c=>!!c.far||(useRelief&&!!c.hidden);
   const layerOk=c=>showPlaces||c.kind==='monument';
   let order=(S.beyond?list.filter(c=>!isGhost(c)).concat(list.filter(isGhost)):list.filter(c=>!isGhost(c))).filter(layerOk).filter(c=>c.cat!=='equip'); // les equipements ont leur bande (drawInfra)
+  if(G.actif('etiquettes')) order=G.etiquettes.ordonner(order); // greffe etiquettes : sommets et cols d'abord
   const ANG_LBL=45*D, cAL=Math.cos(ANG_LBL), sAL=Math.sin(ANG_LBL);
   // PLACEMENT D'ETIQUETTE INCLINEE, GENERIQUE (23/10/2026 : lieux, monuments, avions, bateaux — un seul code) :
   // nom incline a 45° en eventail partant d'une ancre (x, base), test de chevauchement EXACT sur la bande inclinee contre
