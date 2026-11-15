@@ -501,3 +501,7 @@ test('etiquettes : repli à plat au-dessus, sinon dessous ; tenue après la pert
   try { assert.equal(etiquettes.poser(o), false, 'après 2 s sans place : le nom disparaît'); } finally { performance.now = t0; }
   etiquettes.oublier(); assert.equal(etiquettes.poser(o), false);
 });
+test('etiquettes : les sommets visibles passent devant les villages ; monuments en tête, fantômes derrière', () => {
+  const L = [{ name: 'V', kind: 'village' }, { name: 'M', kind: 'monument' }, { name: 'P', kind: 'peak' }, { name: 'Pf', kind: 'peak', far: true }, { name: 'Ph', kind: 'peak', hidden: true }, { name: 'P2', kind: 'peak' }];
+  assert.deepEqual(etiquettes.ordonner(L).map((c) => c.name), ['M', 'P', 'P2', 'V', 'Pf', 'Ph']);
+});
