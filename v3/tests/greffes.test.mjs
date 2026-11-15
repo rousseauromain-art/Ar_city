@@ -12,6 +12,7 @@ import { positionLune, detecterTaches, candidats, meilleur, REFLET_MARGE } from 
 import soleilReflet from '../greffes/soleilReflet.js';
 import etiquettes from '../greffes/etiquettes.js';
 import toits from '../greffes/toits.js';
+import { relier as relierPoints } from '../greffes/anfrRelief.js';
 import { LIBELLES } from '../greffes/icones.js';
 import { creerSuivi, axes as axesChamp, GRAND_COTE, textePuce, instantImage } from '../greffes/champAuto.js';
 import { choisir as choisirNettete } from '../greffes/nettete.js';
@@ -28,10 +29,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 27 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 28 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'anfrRelief', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -511,4 +512,22 @@ test('toits : Choranche (caché de 0,36°) visible, Presles (caché de plus) res
 test('etiquettes : les sommets visibles passent devant les villages ; monuments en tête, fantômes derrière', () => {
   const L = [{ name: 'V', kind: 'village' }, { name: 'M', kind: 'monument' }, { name: 'P', kind: 'peak' }, { name: 'Pf', kind: 'peak', far: true }, { name: 'Ph', kind: 'peak', hidden: true }, { name: 'P2', kind: 'peak' }];
   assert.deepEqual(etiquettes.ordonner(L).map((c) => c.name), ['M', 'P', 'P2', 'V', 'Pf', 'Ph']);
+});
+// ---- anfrRelief : relier deux listes de points (données simulées : aucun équipement réel) ----
+test('anfrRelief : règle 1 (même numéro), règle 2 (le plus proche à moins de 80 m, un pour un, hauteurs d\'accord), règle 3 (sinon seuls)', () => {
+  const au = (m, n = 0, e = 0) => ({ lat: 45 + n / 111320, lon: 5 + e / (111320 * Math.cos(45 * D)) });
+  // règle 1 : le numéro prime sur la distance
+  let r = relierPoints([{ ...au(0, 0, 0), ref: 'X1' }], [{ ...au(0, 0, 60) }, { ...au(0, 0, 200), ref: 'X1' }]);
+  assert.deepEqual(r.map((p) => [p.a, p.b, p.regle]), [[0, 1, 'numero']]);
+  // règle 2 : au plus près, 80 m ; au-delà, pas de lien
+  r = relierPoints([au(0, 0, 0)], [au(0, 0, 70)]); assert.equal(r.length, 1); assert.equal(r[0].regle, 'proximite'); assert.ok(Math.abs(r[0].d - 70) < 1);
+  assert.equal(relierPoints([au(0, 0, 0)], [au(0, 0, 95)]).length, 0, 'au-delà de 80 m : seuls');
+  // un support pour un mât : deux supports proches d'un seul mât → le plus proche l'emporte, l'autre reste seul
+  r = relierPoints([au(0, 0, 40), au(0, 0, 10)], [au(0, 0, 0)]); assert.deepEqual(r.map((p) => [p.a, p.b]), [[1, 0]]);
+  // toits voisins : deux supports à 20 et 30 m d'un mât de 25 m ; les hauteurs départagent (10 m d'accord)
+  r = relierPoints([{ ...au(0, 0, 20), height_m: 60 }, { ...au(0, 0, 30), height_m: 24 }], [{ ...au(0, 0, 0), height_m: 25 }]); assert.deepEqual(r.map((p) => [p.a, p.b]), [[1, 0]]);
+  // hauteurs inconnues d'un côté : le lien se fait sur la position seule
+  assert.equal(relierPoints([{ ...au(0, 0, 20), height_m: 40 }], [au(0, 0, 0)]).length, 1);
+  // règle 3 : listes vides ou sans coordonnées
+  assert.deepEqual(relierPoints([], [au(0, 0, 0)]), []); assert.deepEqual(relierPoints([{ lat: NaN, lon: 0 }], [au(0, 0, 0)]), []);
 });

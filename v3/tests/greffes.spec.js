@@ -2,7 +2,7 @@
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
 const {ouvrir,capteurs,videoSynthetique,photoExif}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','champPhoto','soleilReflet','etiquettes','toits','lieuxRapides','nommer'];
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','champPhoto','soleilReflet','etiquettes','toits','lieuxRapides','anfrRelief','nommer'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';
@@ -499,5 +499,22 @@ for(const g of MODES('lieuxRapides')) test(`lieuxRapides (${nom(g)}) : Overpass 
       await app.waitFor('!loading',9000); const f=await app.ev("({noms:cities.map(c=>c.name),loading})"); expect(f.noms).toContain('Pleurtuit'); }  // fini à 8 s : bien avant Overpass (12 s)
     else { expect(t3.noms).not.toContain('Pleurtuit'); expect(t3.loading).toBe(true); }
     expect(app.errors).toEqual([]); await ctx.close();
+  }
+});
+
+// anfrRelief : un support ANFR est posé à son sommet sur le relief (le sol sous lui est lu : _g) et, relié à un mât d'OpenStreetMap à moins de 80 m, n'est plus dessiné seul (dupMon) ; éteinte : la v1
+for(const g of MODES('anfrRelief')) test(`anfrRelief (${nom(g)}) : pylône ANFR posé sur le relief et relié au mât voisin ; éteinte : sur l'horizon, sans lien`,async({page})=>{
+  const {offset}=require('../../tests/commun/app'), p1=offset(POS,2,90), p2=offset(POS,3,90);
+  for(const greffes of [g,[]]){
+    const app=await ouvrir(page,{pos:POS,greffes,terrain:{features:[{lat:p1.lat,lon:p1.lon,r:600,h:200}]}});
+    await app.waitFor('terrain&&!terrain.refining',60000); await capteurs(app,{cap:90,incl:0});
+    await app.ev('S.telecom=true; true');
+    await app.ev(`telecomSites=[{name:'Pylône',icon:'pylone',kind:'telecom',place:'La Colline',lat:${p1.lat},lon:${p1.lon},sup_id:1,height_m:30,ops:[],operators:''},{name:'Pylône',icon:'pylone',kind:'telecom',place:'Seul',lat:${p2.lat},lon:${p2.lon},sup_id:2,height_m:20,ops:[],operators:''}];
+      monumentSites=([{kind:'monument',cat:'monument',type:'tour',src:'osm',name:'Mât TDF · Essai (30 m)',lat:${p1.lat+0.0003/111.32*111.32},lon:${p1.lon},ht:30,htOsm:30,dist:2,brg:90}]); recompute(); true`);
+    await app.frame(); await app.frame();
+    const r=await app.ev("telecomSites.map(t=>({dup:t.dupMon===true,sol:t._g!==undefined&&t._g!==null,lien:t.lienMat||null}))");
+    if(greffes.length){ expect(r[0]).toEqual({dup:true,sol:expect.anything(),lien:expect.stringContaining('30 m')}); expect(r[1].dup||r[1].sol).toBe(true); } // l'autre : relié (si un monument dérivé de lui existe) ou posé sur le relief (le sol sous lui est lu)
+    else expect(r.every(t=>!t.dup&&!t.sol&&!t.lien)).toBe(true);
+    expect(app.errors).toEqual([]);
   }
 });
