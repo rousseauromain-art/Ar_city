@@ -803,7 +803,7 @@ async function handleGeoapify(req, env, allowed) {
 
   const seen = new Set(), got = [];
   for (const f of (j.features || [])) {
-    const p = f.properties || {}; const name = p.name; if (!name) continue;
+    const p = f.properties || {}; const name = p.name == null ? '' : String(p.name); if (!name) continue;
     const lt = p.lat, ln = p.lon; if (lt == null || ln == null) continue;
     let placeKind = null;
     for (const c of (p.categories || [])) if (GEOAPIFY_KIND_BY_CAT[c]) { placeKind = GEOAPIFY_KIND_BY_CAT[c]; break; }
@@ -873,7 +873,7 @@ async function handleGeonames(req, env, allowed) {
 
   const seen = new Set(), got = [];
   for (const g of (j.geonames || [])) {
-    const name = g.name || g.toponymName; if (!name) continue;
+    const rawName = g.name || g.toponymName; const name = rawName == null ? '' : String(rawName); if (!name) continue;
     const lt = parseFloat(g.lat), ln = parseFloat(g.lng); if (!isFinite(lt) || !isFinite(ln)) continue;
     const key = name + '@' + lt.toFixed(4) + ',' + ln.toFixed(4);
     if (seen.has(key)) continue; seen.add(key);
