@@ -2,6 +2,8 @@
 
 Lu au début de chaque session. **La spécification en vigueur est `docs/REFONTE-V3.md`** : elle prime sur `v2/REFONTE.md` et sur l'historique. Tenir ce fichier à jour à chaque décision importante.
 
+**Travail en cours : `docs/PLAN-2026-11-15.md`** (constats de la sortie de Pont-en-Royans, lots dans l'ordre, questions à Romain). Commencer par le lot 0 : un nom de lieu numérique fait planter le chargement des lieux.
+
 ## Le projet
 Réalité augmentée dans le navigateur, comme une table d'orientation : par-dessus la caméra, noms des lieux et monuments, relief, bateaux (AIS), avions, équipements télécom.
 - **v3 = la version active** : `v3/villes-horizon.html`, copie de la v1 (j) + greffes venues de la v2, chacune derrière un interrupteur **éteint par défaut**.
