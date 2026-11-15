@@ -36,6 +36,8 @@ export default {
     if(m&&maintenant()-m.t<=TENUE_MS){ dessiner(ctx,o,m.mode,x+m.dx,ay+m.dy,m.sgn); return true; }
     return false;
   },
+  /** Mode montagne : les sommets et cols visibles passent devant les autres lieux (ordre conservé dans chaque groupe) ; les monuments gardent leur priorité, les fantômes restent derrière. */
+  ordonner(liste){ const ok=c=>c.kind==='peak'&&!c.far&&!c.hidden; return liste.filter(c=>c.kind==='monument').concat(liste.filter(ok),liste.filter(c=>c.kind!=='monument'&&!ok(c))); },
   /** Pour les tests : oublie les places retenues. */
   oublier(){ mem.clear(); },
 };
