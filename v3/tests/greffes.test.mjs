@@ -12,6 +12,7 @@ import { positionLune, detecterTaches, candidats, meilleur, REFLET_MARGE } from 
 import soleilReflet from '../greffes/soleilReflet.js';
 import etiquettes from '../greffes/etiquettes.js';
 import toits from '../greffes/toits.js';
+import { libelle as presLibelle } from '../greffes/presDe.js';
 import { LIBELLES } from '../greffes/icones.js';
 import { creerSuivi, axes as axesChamp, GRAND_COTE, textePuce, instantImage } from '../greffes/champAuto.js';
 import { choisir as choisirNettete } from '../greffes/nettete.js';
@@ -28,10 +29,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 27 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 28 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'presDe', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -523,4 +524,8 @@ test('nommer (lot 6) : ce qui est déjà chargé nomme le point touché tout de 
   assert.equal(PORTEE_VOISINS_KM, 15);
   const sommet = lireNoms(null, V, [{ name: 'Grand Sommet', lat: V.crete.lat, lon: V.crete.lon, ele: 1600 }], voisins); assert.equal(sommet.noms[0].name, 'Grand Sommet'); // un sommet reste devant
   assert.match(ficheHtml(V, N), /Hameau Proche/); assert.match(ficheHtml(V, lireNoms(null, V, [], [voisins[1]])), /à 6(,\d)? km de la crête de ce versant/);
+});
+test('presDe : « Près de » / « Près d\' » devant une voyelle ou un h, comme la légende de la capture ; rien sans lieu', () => {
+  assert.equal(presLibelle('Pont-en-Royans'), 'Près de Pont-en-Royans'); assert.equal(presLibelle('Auberives-en-Royans'), "Près d'Auberives-en-Royans");
+  assert.equal(presLibelle('Église'), "Près d'Église"); assert.equal(presLibelle('Hauteville'), "Près d'Hauteville"); assert.equal(presLibelle(''), ''); assert.equal(presLibelle(null), '');
 });

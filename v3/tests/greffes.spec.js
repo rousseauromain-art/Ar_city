@@ -2,7 +2,7 @@
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
 const {ouvrir,capteurs,videoSynthetique,photoExif}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','champPhoto','soleilReflet','etiquettes','toits','lieuxRapides','nommer'];
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','champPhoto','soleilReflet','etiquettes','toits','lieuxRapides','presDe','nommer'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';
@@ -506,6 +506,23 @@ for(const g of MODES('lieuxRapides')) test(`lieuxRapides (${nom(g)}) : Overpass 
     if(greffes.length){ expect(t3.noms).toContain('Pleurtuit'); expect(t3.loading).toBe(true); expect(t3.source).toContain('OpenFreeMap');
       await app.waitFor('!loading',9000); const f=await app.ev("({noms:cities.map(c=>c.name),loading})"); expect(f.noms).toContain('Pleurtuit'); }  // fini à 8 s : bien avant Overpass (12 s)
     else { expect(t3.noms).not.toContain('Pleurtuit'); expect(t3.loading).toBe(true); }
+    expect(app.errors).toEqual([]); await ctx.close();
+  }
+});
+
+// presDe : la puce « Près de … » suit le lieu habité visible le plus proche ; éteinte : aucune puce.
+for(const g of MODES('presDe')) test(`presDe (${nom(g)}) : « Près de Pont-en-Royans », puis « Près d'Auberives » quand on s'en approche ; éteinte : aucune puce`,async({browser})=>{
+  for(const greffes of [g,[]]){
+    const ctx=await browser.newContext(), page=await ctx.newPage(), app=await ouvrir(page,{pos:POS,greffes});
+    await app.waitFor('terrain&&!terrain.refining');
+    const poser=n=>app.ev(`(()=>{ const L=[${n.map(([nom,dn,de,k])=>`{name:${JSON.stringify(nom)},lat:pos.lat+${dn}/111.32,lon:pos.lon+${de}/78.5,kind:'${k}'}`).join(',')}]; cities=L; recompute(); citiesVer++; return true; })()`);
+    await poser([['Pont-en-Royans',1,0,'village'],['Saint-Nazaire',5,0,'village']]);
+    if(greffes.length){
+      await app.waitFor("document.getElementById('g3Pres')&&document.getElementById('g3Pres').textContent==='Près de Pont-en-Royans'",8000);
+      await poser([['Auberives',0.3,0,'village'],['Pont-en-Royans',1,0,'village']]);
+      await app.waitFor("document.getElementById('g3Pres').textContent==='Près d\\'Auberives'",8000);
+      await poser([]); await app.waitFor("document.getElementById('g3Pres').hidden",8000);
+    } else expect(await app.ev("!document.getElementById('g3Pres')")).toBe(true);
     expect(app.errors).toEqual([]); await ctx.close();
   }
 });
