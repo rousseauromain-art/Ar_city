@@ -453,7 +453,7 @@ const POI={
   heritage:  {label:'Chateaux, forts, menhirs, moulins', max:15, q:['nwr["historic"~"^(castle|fort|ruins|monument|memorial|standing_stone|archaeological_site)$"]','nwr["man_made"="windmill"]']},
   beach:     {label:'Plages',                         max:12, q:['nwr["natural"="beach"]']}
 };
-const norm=t=>t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+const norm=t=>String(t==null?'':t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const passFilter=(c,fq)=>!fq||norm(c.name).includes(fq);
 const fmtKm=km=>km==null?'':(km<10?km.toFixed(1):Math.round(km))+' km';
 // distance d'edition (Levenshtein) : sert uniquement au repli flou de la recherche par nom
@@ -1124,7 +1124,7 @@ async function loadCities(force){
 
   const lists=[], used=[];
   let anyStale=false;
-  settled.forEach((res,i)=>{ if(res.status==='fulfilled'){ lists.push(res.value.data); const st=res.value.from==='stale'; if(st) anyStale=true; used.push(srcNames[i]+(st?'(mémoire)':'')); } });
+  settled.forEach((res,i)=>{ if(res.status==='fulfilled'){ lists.push(res.value.data.filter(it=>it&&it.name!=null&&it.name!=='')); const st=res.value.from==='stale'; if(st) anyStale=true; used.push(srcNames[i]+(st?'(mémoire)':'')); } });
   if(lists.length){
     let got=mergeByNameProximity(lists,1.5);
     if(!S.hamlets) got=got.filter(c=>c.kind!=='hamlet'&&c.kind!=='isolated_dwelling'); // filtre uniforme, quelle que soit la source d'origine

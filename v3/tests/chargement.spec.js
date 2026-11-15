@@ -122,3 +122,12 @@ test('le script de v1/villes-horizon.html est syntaxiquement valide (même sans 
   expect(errors).toEqual([]);
   expect(await page.evaluate(()=>!!document.getElementById('go')&&typeof window.APP_CONFIG)).toBe('object'); // le script a bien tourne jusqu'au bout
 });
+
+test('v3 : un lieu au nom numérique (Geoapify : sommet « 1526 ») ne bloque pas la fusion des lieux',async({page})=>{
+  const app=await openApp(page,{pos:{lat:48.6493,lon:-2.0257},url:'/v3/villes-horizon.html',greffes:[]});
+  await app.waitFor('terrain&&!terrain.refining');
+  const r=await app.ev("(()=>{ const m=mergeByNameProximity([[{name:1526,lat:44.8694,lon:5.4657,kind:'peak'}],[{name:'Foo',lat:44.9,lon:5.4,kind:'town'},{name:null,lat:44.9,lon:5.4,kind:'town'}]],1.5); return m.map(x=>String(x.name)); })()");
+  expect(r).toEqual(['1526','Foo','null'].slice(0,r.length)); expect(r).toContain('1526');
+  expect(await app.ev("norm(1526)")).toBe('1526');
+  expect(app.errors).toEqual([]);
+});
