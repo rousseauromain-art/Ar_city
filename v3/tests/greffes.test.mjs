@@ -12,6 +12,7 @@ import { positionLune, detecterTaches, candidats, meilleur, REFLET_MARGE } from 
 import soleilReflet from '../greffes/soleilReflet.js';
 import etiquettes from '../greffes/etiquettes.js';
 import toits from '../greffes/toits.js';
+import { message as messageGps, TARDE_MS } from '../greffes/gpsRapide.js';
 import { LIBELLES } from '../greffes/icones.js';
 import { creerSuivi, axes as axesChamp, GRAND_COTE, textePuce, instantImage } from '../greffes/champAuto.js';
 import { choisir as choisirNettete } from '../greffes/nettete.js';
@@ -28,10 +29,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 27 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 28 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'gpsRapide', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -511,4 +512,13 @@ test('toits : Choranche (caché de 0,36°) visible, Presles (caché de plus) res
 test('etiquettes : les sommets visibles passent devant les villages ; monuments en tête, fantômes derrière', () => {
   const L = [{ name: 'V', kind: 'village' }, { name: 'M', kind: 'monument' }, { name: 'P', kind: 'peak' }, { name: 'Pf', kind: 'peak', far: true }, { name: 'Ph', kind: 'peak', hidden: true }, { name: 'P2', kind: 'peak' }];
   assert.deepEqual(etiquettes.ordonner(L).map((c) => c.name), ['M', 'P', 'P2', 'V', 'Pf', 'Ph']);
+});
+test('gpsRapide : la puce dit « position ancienne » avant le premier point, se tait quand le GPS suit, signale un GPS qui tarde', () => {
+  const now = 1e9;
+  assert.match(messageGps({ now, ancienne: 240000, dernier: 0, precision: null }), /Position ancienne \(il y a 4 min\) — en attente du GPS/);
+  assert.match(messageGps({ now, ancienne: 20000, dernier: 0, precision: null }), /il y a 20 s/);
+  assert.equal(messageGps({ now, ancienne: null, dernier: now - 5000, precision: 12 }), null);
+  assert.match(messageGps({ now, ancienne: null, dernier: now - 5 * 60000, precision: 35 }), /dernier point il y a 5 min \(±35 m\) — le relief peut être celui du lieu précédent/);
+  assert.equal(messageGps({ now, ancienne: null, dernier: now - TARDE_MS, precision: 12 }), null);
+  assert.equal(messageGps({ now, ancienne: null, dernier: 0, precision: null }), null);
 });

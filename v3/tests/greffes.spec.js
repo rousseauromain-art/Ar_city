@@ -2,7 +2,7 @@
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
 const {ouvrir,capteurs,videoSynthetique,photoExif}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','champPhoto','soleilReflet','etiquettes','toits','lieuxRapides','nommer'];
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','champPhoto','soleilReflet','etiquettes','toits','lieuxRapides','gpsRapide','nommer'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';
@@ -498,6 +498,27 @@ for(const g of MODES('lieuxRapides')) test(`lieuxRapides (${nom(g)}) : Overpass 
     if(greffes.length){ expect(t3.noms).toContain('Pleurtuit'); expect(t3.loading).toBe(true); expect(t3.source).toContain('OpenFreeMap');
       await app.waitFor('!loading',9000); const f=await app.ev("({noms:cities.map(c=>c.name),loading})"); expect(f.noms).toContain('Pleurtuit'); }  // fini à 8 s : bien avant Overpass (12 s)
     else { expect(t3.noms).not.toContain('Pleurtuit'); expect(t3.loading).toBe(true); }
+    expect(app.errors).toEqual([]); await ctx.close();
+  }
+});
+
+// gpsRapide : le système a une position de 4 min (réseau), le premier vrai point arrive après 5 s. Avec la greffe : la page démarre tout de suite sur la position ancienne (puce), puis sur le vrai point ; sans : rien avant le vrai point.
+for(const g of MODES('gpsRapide')) test(`gpsRapide (${nom(g)}) : démarrage sur la dernière position connue, puce « ancienne », remplacée par le premier vrai point ; éteinte : en attente du GPS`,async({browser})=>{
+  test.setTimeout(60000);
+  const {offset}=require('../../tests/commun/app'), vieux=offset(POS,3,90), frais=POS;
+  const beforeStart=`(()=>{ const g={ getCurrentPosition(ok){ setTimeout(()=>ok({coords:{latitude:${vieux.lat},longitude:${vieux.lon},accuracy:800},timestamp:Date.now()-240000}),50); },
+      watchPosition(ok){ setTimeout(()=>ok({coords:{latitude:${frais.lat},longitude:${frais.lon},accuracy:8},timestamp:Date.now()}),5000); return 1; }, clearWatch(){} };
+    Object.defineProperty(navigator,'geolocation',{value:g,configurable:true}); })(); true`;
+  for(const greffes of [g,[]]){
+    const ctx=await browser.newContext(), page=await ctx.newPage(), app=await ouvrir(page,{pos:POS,greffes,beforeStart,start:false});
+    await app.ev("pos=null; true"); await page.click('#go'); await page.waitForTimeout(1500);
+    const t1=await app.ev("pos&&{lat:pos.lat,lon:pos.lon}");
+    if(greffes.length){ expect(Math.abs(t1.lon-vieux.lon)).toBeLessThan(1e-6);
+      await expect(page.locator('#g3Gps')).toContainText(/Position ancienne \(il y a [34] min\)/); }
+    else expect(t1).toBeNull();
+    await page.waitForTimeout(5000);
+    const t2=await app.ev("pos&&{lat:pos.lat,lon:pos.lon}"); expect(Math.abs(t2.lon-frais.lon)).toBeLessThan(1e-6); // le vrai point remplace
+    if(greffes.length) await expect(page.locator('#g3Gps')).toBeHidden(); else expect(await app.ev("!document.getElementById('g3Gps')")).toBe(true);
     expect(app.errors).toEqual([]); await ctx.close();
   }
 });

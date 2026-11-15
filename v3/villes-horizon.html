@@ -5221,6 +5221,7 @@ $('go').onclick=async()=>{
   if(!modePhoto) await startCamera();
   if(navigator.geolocation){
     if(S.simOn&&parseLatLon(S.simPos)) applySimPos();
+    if(G.actif('gpsRapide')) G.gpsRapide.demarrer(); // greffe gpsRapide : démarre sur une position ancienne du système, et dit quand le GPS tarde
     navigator.geolocation.watchPosition(p=>{ lastGps=[p.coords.latitude,p.coords.longitude,p.coords.accuracy]; if(photoMode||(S.simOn&&parseLatLon(S.simPos))) return; if(G.actif('plaque')&&G.plaque.garder(p.coords.latitude,p.coords.longitude,p.coords.accuracy)) return; /* greffe plaque : position corrigée */ onNewPos(p.coords.latitude,p.coords.longitude,p.coords.accuracy); },
       err=>{ setStatus('GPS refusé : '+err.message); }, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
   } else setStatus('GPS indisponible');
