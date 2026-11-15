@@ -5231,11 +5231,11 @@ $('go').onclick=async()=>{
   resize(); requestAnimationFrame(draw);
 };
 // v3 : les greffes allumées reçoivent l'accès aux variables du script (lecture seule, sauf les réglages S) ; panneau « Greffes v2 » des Réglages
-G.lier({S,publierLieux:(got,src)=>{ cities=got; source=src; recompute(); },chargement:()=>loading,recharger:()=>loadCities(true),D,$,wrap,note,pose,vFov,vFovFor,showFov,sunNow,sunTime,saveSettings,noteCalib,calRecord,logNet,fetchT,grabFrameRGB,camReady,photoPeaks,landmarksForCal,monName,distBrg,friendlyErr,
+G.lier({S,lieuProche:()=>visibleCities().filter(c=>SETTLE.has(c.kind)&&!c.far).reduce((a,c)=>(!a||c.dist<a.dist)?c:a,null),publierLieux:(got,src)=>{ cities=got; source=src; recompute(); },chargement:()=>loading,recharger:()=>loadCities(true),D,$,wrap,note,pose,vFov,vFovFor,showFov,sunNow,sunTime,saveSettings,noteCalib,calRecord,logNet,fetchT,grabFrameRGB,camReady,photoPeaks,landmarksForCal,monName,distBrg,friendlyErr,
   AC:{WIN:AC_WIN,VTOL:AC_VTOL,AGREE:AC_AGREE}, bumpCities:()=>{ citiesVer++; }, onNewPos, overpassQuery:(...a)=>overpassQuery(...a), dcFetch:(...a)=>dcFetch(...a), setFarPeaks:l=>{ farPeaks=l; recompute(); },
   relatif:(R,reinit)=>{ if(reinit){ gyroK=null; magBins.fill(null); svRel=srRel=null; } if(!R) return; const k=0.18, sm=(p,n)=>p?p.map((q,i)=>q+(n[i]-q)*k):n; // greffe capteurRelatif : mesure relative (quaternion), comme onOrient
     svRel=sm(svRel,R.v); srRel=sm(srRel,R.r); relT=Date.now(); sv=svAbs||svRel; sr=svAbs?srAbs:srRel; sensor=true; gyroLearn(); },
-  get W(){ return W; }, get H(){ return H; }, get pos(){ return pos; }, get acc(){ return acc; }, get terrain(){ return terrain; }, get photoMode(){ return photoMode; }, get sensor(){ return sensor; }, get farPeaks(){ return farPeaks; }, get cities(){ return cities; }, axisStatus,
+  get W(){ return W; }, get H(){ return H; }, get pos(){ return pos; }, get acc(){ return acc; }, get terrain(){ return terrain; }, get photoMode(){ return photoMode; }, get sensor(){ return sensor; }, get farPeaks(){ return farPeaks; }, get monumentSites(){ return monumentSites; }, get telecomSites(){ return telecomSites; }, get cities(){ return cities; }, axisStatus,
   get obsGround(){ return obsGround; }, get obsGroundSrc(){ return obsGroundSrc; }, get obsElev(){ return obsElev; }, get terrainBusy(){ return terrainBusy; },
   relief:{TDIST,BSTEP,NB,REFF}, fiche:(titre,html)=>{ $('dbgBody').innerHTML=html; $('dbgTitle').textContent=titre; $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null; } }); // greffe nommer : relief de la v1, fiche
 G.monterPanneau($('sheet'));

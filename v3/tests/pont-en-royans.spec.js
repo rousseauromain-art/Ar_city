@@ -12,7 +12,7 @@ for(const id of ['pont-est','pont-ouest','pont-photo-plaine','pont-photo-gorges'
     test.setTimeout(300000);
     const m=await charger(), sc=m.SCENES_PONT.find(s=>s.id===id); ignorerSiAbsent(test,sc);
     const t0=Date.now();
-    const o=await ouvrirSceneReelle(browser,sc,{url:V3,greffes:[...m.GREFFES_TEL,'etiquettes','toits','anfrRelief'],reglages:m.REGLAGES_TEL});
+    const o=await ouvrirSceneReelle(browser,sc,{url:V3,greffes:[...m.GREFFES_TEL,'etiquettes','toits','presDe','anfrRelief'],reglages:m.REGLAGES_TEL});
     const r=await o.app.ev("({n:cities.length,source,loading,noms:cities.map(c=>String(c.name)).concat(farPeaks.map(c=>String(c.name)))})");
     console.log(`${id} : ${r.n} lieux (${r.source}) en ${Math.round((Date.now()-t0)/1000)} s`);
     expect(r.loading).toBe(false);
@@ -33,6 +33,8 @@ for(const id of ['pont-est','pont-ouest','pont-photo-plaine','pont-photo-gorges'
       console.log('pont-ouest · supports ANFR à moins de 1,2 km :',JSON.stringify(l));
       expect(l.length).toBeGreaterThan(0); for(const t of l){ expect(t.dup).toBe(true); expect(t.lien).toMatch(/Mât TDF · Pont-en-Royans/); }
       const noms=(await o.app.frame()).map(t=>String(t.text)); expect(noms.filter(t=>/^Mât TDF · Pont-en-Royans/.test(t)).length).toBe(1); }
+    if(id==='pont-ouest'||id==='pont-est'){ // lot 5 : la puce « Près de … » (lieu habité visible le plus proche : Pont-en-Royans, 0,4 km)
+      await o.page.evaluate(()=>window.G.presDe.maj()); expect(await o.page.evaluate(()=>window.G.presDe.texte())).toBe('Près de Pont-en-Royans'); }
     if(id==='pont-ouest') expect((await o.app.ev('placeStats.shown'))).toBeGreaterThanOrEqual(8);
     await o.ctx.close(); expect(o.erreurs).toEqual([]);
   });
