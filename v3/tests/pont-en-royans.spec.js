@@ -12,7 +12,7 @@ for(const id of ['pont-est','pont-ouest','pont-photo-plaine','pont-photo-gorges'
     test.setTimeout(300000);
     const m=await charger(), sc=m.SCENES_PONT.find(s=>s.id===id); ignorerSiAbsent(test,sc);
     const t0=Date.now();
-    const o=await ouvrirSceneReelle(browser,sc,{url:V3,greffes:[...m.GREFFES_TEL,'etiquettes'],reglages:m.REGLAGES_TEL});
+    const o=await ouvrirSceneReelle(browser,sc,{url:V3,greffes:[...m.GREFFES_TEL,'etiquettes','toits'],reglages:m.REGLAGES_TEL});
     const r=await o.app.ev("({n:cities.length,source,loading,noms:cities.map(c=>String(c.name)).concat(farPeaks.map(c=>String(c.name)))})");
     console.log(`${id} : ${r.n} lieux (${r.source}) en ${Math.round((Date.now()-t0)/1000)} s`);
     expect(r.loading).toBe(false);
@@ -24,6 +24,10 @@ for(const id of ['pont-est','pont-ouest','pont-photo-plaine','pont-photo-gorges'
     console.log(`${id} · attendus ÉCRITS à l'écran : ${ecrits.length}/${sc.attendus.length} (${ecrits.join(', ')||'aucun'}) ; ${textes.length} textes`);
     // exigences du lot 2 (greffe etiquettes) : à l'est les trois noms de montagne et de hameau du plan ; à l'ouest au moins 8 noms écrits
     if(id==='pont-est') for(const n of ['Le Grand Serre','crête de Chalimont','Choranche-les-Bains']) expect(ecrits,'écrit : '+n).toContain(n);
+    if(id==='pont-est'){ // lot 3 : Choranche (caché de 0,36° par la v1) visible, Presles (réellement caché) reste caché
+      const v=await o.app.ev("Object.fromEntries(['Choranche','Presles','Rencurel','Châtelus'].map(n=>{ const c=cities.find(x=>x.name===n); return [n,c?c.hidden:null]; }))");
+      console.log('pont-est · cachés par le relief :',JSON.stringify(v));
+      expect(v.Choranche).toBe(false); expect(v.Presles).toBe(true); }
     if(id==='pont-ouest') expect((await o.app.ev('placeStats.shown'))).toBeGreaterThanOrEqual(8);
     await o.ctx.close(); expect(o.erreurs).toEqual([]);
   });

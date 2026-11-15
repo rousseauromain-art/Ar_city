@@ -1576,6 +1576,7 @@ function applyOcclusion(log){
     if(c.demT!==terrain.at){ const e=elevAt(terrain.bands,c.lat,c.lon,c.dist); c.dem=e===e?e:null; c.demT=terrain.at; }
     const r=assessPlace(terrain,c,c.ht??HT[c.kind]??12,tol,peakTol); // c.ht : hauteur reelle d'un monument (Tour Eiffel : 330 m, pas 10)
     c.aG=r.aG; c.aP=r.aP; c.mask=r.mask; c.hidden=r.hidden; c.low=false;
+    if(c.hidden&&G.actif('toits')&&G.toits.visible(c,r)) c.hidden=false; // greffe toits : un lieu habité n'est pas un point au sol
     if(c.src==='osm'&&!c.hidden&&c.dist>NEAR_KM&&r.aP-r.mask<TOWER_CLEAR){ c.hidden=true; c.low=true; } // tour sous / a peine au-dessus de la crete : transparente
     if(c.dist>S.radius) continue; // hors rayon : calcule quand meme (rayon modifiable) mais pas compte
     checked++; if(r.hidden) hidden++; if(r.unknown) unknown++;
