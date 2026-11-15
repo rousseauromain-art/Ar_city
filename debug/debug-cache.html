@@ -40,6 +40,10 @@ input{width:100%;min-height:48px;margin:0 0 10px;padding:10px 14px;border-radius
   <p>Lieux, monuments, tours, pylônes, sommets lointains de toutes les zones visitées (sans la mémoire des bateaux et avions ni les empreintes de bâtiments).</p>
   <button id="btnDon">Exporter les données</button>
 
+  <h2>3 · Contexte de la v3</h2>
+  <p>Un petit fichier : greffes allumées, réglages (rayon, calques, « Visibilité d'après la photo », hauteur d'œil, champ, cap et horizon corrigés), journal des démarrages et du réseau, carnet de calage, pierres tombales. Aucune donnée de calque personnel.</p>
+  <button id="btnCtx">Exporter le contexte</button>
+
   <div id="msg" role="status"></div>
 </main>
 <script>
@@ -138,6 +142,17 @@ $('btnCoord').onclick=()=>{ const m=/(-?\d{1,2}(?:[.,]\d+)?)\s*[,; ]\s*(-?\d{1,3
 $('btnDon').onclick=async()=>{ const b=$('btnDon'); b.disabled=true;
   try{ msg('Lecture des données…'); const e=await donnees(); if(!e.length){ msg('Aucune donnée mémorisée.'); return; } const r=await telecharger('donnees',e,null); fin(r,e.length,'jeu(x) de données'); }
   catch(err){ msg('Export impossible : '+(err&&err.message||err)); } finally{ b.disabled=false; } };
+// ---- contexte de la v3 : ce que la v3 garde dans le stockage local de l'appareil (même origine) ----
+const lireLS=k=>{ try{ const v=localStorage.getItem(k); return v==null?null:JSON.parse(v); }catch(e){ return null; } };
+function contexte(){
+  const calib=lireLS('vh-calib')||[];
+  return {format:'vh-contexte-1',at:new Date().toISOString(),url:location.origin+location.pathname.replace(/debug\/[^/]*$/,''),
+    reglages:lireLS('vh3_settings'),greffes:lireLS('vh3_greffes'),tombes:lireLS('vh3_tombes'),journal:lireLS('vh3_journal'),carnet:Array.isArray(calib)?calib.slice(-100):[]};
+}
+$('btnCtx').onclick=()=>{ try{ const c=contexte(), blob=new Blob([JSON.stringify(c)],{type:'application/json'}), a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='villes-horizon-contexte.json'; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },4000);
+    msg(`Fichier créé : villes-horizon-contexte.json — ${(blob.size/1024).toFixed(1)} Ko, ${(c.journal&&c.journal.lignes||[]).length} ligne(s) de journal, ${(c.carnet||[]).length} mesure(s) de calage.`); }
+  catch(err){ msg('Export impossible : '+(err&&err.message||err)); } };
 if(!window.caches){ $('stat').textContent='Cache API indisponible : ouvrez la page en https.'; }
 else afficher().catch(e=>{ $('stat').textContent='Lecture du cache impossible : '+(e&&e.message||e); });
 })();

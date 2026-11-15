@@ -68,4 +68,18 @@ async function ouvrirSceneReelle(browser,sc,opts={}){
   const cap0=await app.ev('S.headOff');
   return {app,page,ctx,pos,erreurs,cap0};
 }
-module.exports={PHOTOS_DIR,ouvrirSceneReelle,disponible,ignorerSiAbsent,attendreStable};
+/**
+ * Contexte d'une sortie (fichier villes-horizon-contexte.json de debug/debug-cache.html) : greffes allumées et réglages de la dernière ligne du journal,
+ * à passer à ouvrirSceneReelle ({greffes, reglages}). null si le fichier est absent ou illisible.
+ * @param {string} fichier chemin du fichier, ou d'un dossier qui le contient
+ */
+function lireContexte(fichier){
+  try{
+    const f=fs.existsSync(fichier)&&fs.statSync(fichier).isDirectory()?path.join(fichier,'villes-horizon-contexte.json'):fichier;
+    const c=JSON.parse(fs.readFileSync(f,'utf8')), l=c.journal&&c.journal.lignes&&c.journal.lignes[c.journal.lignes.length-1];
+    if(c.format!=='vh-contexte-1'||!l) return null;
+    const r=l.reglages||{}, {calques,reperes,...autres}=r;
+    return {greffes:l.greffes||[],reglages:{...autres,...(calques?{layers:calques}:{}),...(reperes?{poi:reperes}:{})},page:l.page,t:l.t};
+  }catch(e){ return null; }
+}
+module.exports={lireContexte,PHOTOS_DIR,ouvrirSceneReelle,disponible,ignorerSiAbsent,attendreStable};
