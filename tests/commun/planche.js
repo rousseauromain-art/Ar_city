@@ -62,7 +62,7 @@ async function monter(browser,{avantPng,apresPng,titre,legAvant,legApres,sortie}
     </div></div></body></html>`);
   await page.evaluate(()=>new Promise(res=>{ const im=[...document.images]; let n=im.length; im.forEach(i=>{ const f=()=>{ if(!--n) res(); }; i.complete?f():(i.onload=f,i.onerror=f); }); }));
   await page.evaluate(()=>{ const ia=document.getElementById('ia'); if(ia.naturalWidth>ia.naturalHeight*1.4) document.getElementById('row').style.flexDirection='column'; });
-  await page.locator('#m').screenshot({path:sortie});
+  await page.locator('#m').screenshot({path:sortie,type:'jpeg',quality:82}); // JPEG : une planche de 12 scènes ≈ 6 Mo au lieu de 32
   await ctx.close();
 }
 

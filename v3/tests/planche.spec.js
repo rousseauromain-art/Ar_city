@@ -32,13 +32,13 @@ test.describe('planche de rendus',()=>{
     const rApres=await faire(APRES,base+'.apres.png');
     const titre=`${sc.lieu||cle} — ${sc.ecran.width}×${sc.ecran.height}`;
     await monter(browser,{avantPng:base+'.avant.png',apresPng:base+'.apres.png',titre,
-      legAvant:leg(AVANT),legApres:leg(APRES),sortie:base+'.png'});
+      legAvant:leg(AVANT),legApres:leg(APRES),sortie:base+'.jpg'});
     fs.rmSync(base+'.avant.png'); fs.rmSync(base+'.apres.png'); // seul le montage est déposé
-    fs.writeFileSync(base+'.json',JSON.stringify({titre,image:`${num}-${cle}.png`,legAvant:leg(AVANT),legApres:leg(APRES),
+    fs.writeFileSync(base+'.json',JSON.stringify({titre,image:`${num}-${cle}.jpg`,legAvant:leg(AVANT),legApres:leg(APRES),
       resumeAvant:resume(rAvant.infractions),resumeApres:resume(rApres.infractions),
       totalAvant:total(rAvant.infractions),totalApres:total(rApres.infractions),
       infractionsApres:rApres.infractions},null,1));
     console.log(`${cle} · avant : ${resume(rAvant.infractions)} · après : ${resume(rApres.infractions)}`);
-    expect(fs.existsSync(base+'.png')).toBe(true);
+    expect(fs.existsSync(base+'.jpg')).toBe(true);
   });
 });
