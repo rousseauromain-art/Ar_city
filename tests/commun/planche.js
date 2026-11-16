@@ -34,11 +34,13 @@ async function scenesPlanche(){
 async function capturer(o,fichierPng){
   const r=await o.page.evaluate(()=>window.__vh.frameOps(false,true));
   const rects=await o.page.evaluate(()=>{
-    const out=[];
+    // rectangles ramenés dans le repère du canevas (les textes y sont) : la greffe photo le place au cadre de la photo, et le grossit en Explorer
+    const out=[], ov=document.getElementById('ov').getBoundingClientRect();
+    const W=window.__vh.ev('W'), H=window.__vh.ev('H'), sx=W/ov.width, sy=H/ov.height;
     for(const el of document.querySelectorAll('#tools button,#bar button,.chip')){
       const b=el.getBoundingClientRect(), st=getComputedStyle(el);
       if(b.width>0&&b.height>0&&st.visibility!=='hidden'&&st.display!=='none'&&!el.hidden)
-        out.push({left:b.left,right:b.right,top:b.top,bottom:b.bottom,id:el.id||el.textContent.trim().slice(0,20)});
+        out.push({left:(b.left-ov.left)*sx,right:(b.right-ov.left)*sx,top:(b.top-ov.top)*sy,bottom:(b.bottom-ov.top)*sy,id:el.id||el.textContent.trim().slice(0,20)});
     }
     return out;
   });
