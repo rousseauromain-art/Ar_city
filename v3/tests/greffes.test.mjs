@@ -32,10 +32,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 32 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 33 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'gpsRapide', 'anfrRelief', 'presDe', 'zones', 'visibilite', 'calques', 'toucher', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'gpsRapide', 'anfrRelief', 'presDe', 'zones', 'visibilite', 'calques', 'toucher', 'placement', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -618,4 +618,16 @@ test('toucher : fiche d’un nom — nature, altitude, distance, direction, calq
   assert.match(h, /Le Grand Serre/); assert.match(h, /sommet · 1\s?297 m · à 6,0 km · direction 72° \(ENE\)/); assert.match(h, /calque « Montagne »/); assert.match(h, /visible d’ici/);
   assert.match(h, /openstreetmap\.org\/\?mlat=45\.07000&mlon=5\.42000/); assert.match(t.ficheHtml({ ...g, hidden: true }), /caché par le relief/);
   assert.match(t.ficheHtml({ name: '<b>', kind: 'village', dist: 1 }), /&lt;b&gt;/);
+});
+
+// ---- placement : voies bornées, lignes du repli, essais espacés ----
+test('placement : voies et lignes sous un quart de l’écran, montagne tout près du point, essais ratés espacés sauf si la vue bouge', async () => {
+  const P = await import('../greffes/placement.js');
+  assert.equal(P.voies(412), 8); assert.equal(P.voies(331), 6); assert.equal(P.voies(100), 3, 'au moins trois voies');
+  assert.equal(P.lignes(true, 12, 800), 2); assert.equal(P.lignes(false, 12, 412), 5);
+  assert.equal(P.reessayer(null, 0, 0, 0), true);
+  const e = { t: 1000, h: 72, p: 0 };
+  assert.equal(P.reessayer(e, 1100, 72.1, 0), false, 'vue immobile, 100 ms : pas de nouvel essai');
+  assert.equal(P.reessayer(e, 1250, 72, 0), true, 'au plus cinq fois par seconde');
+  assert.equal(P.reessayer(e, 1100, 72.5, 0), true, 'la vue a bougé de 0,5°'); assert.equal(P.reessayer({ t: 0, h: 359.9, p: 0 }, 100, 0.05, 0), false, 'passage par le nord');
 });

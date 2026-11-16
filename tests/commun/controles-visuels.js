@@ -24,13 +24,17 @@ function sousLesBoutons(textes,rects){
  * @param {object[]} ops événements frameOps().ops @param {number} max longueur maximale en px
  * @returns {{de:[number,number],a:[number,number],longueur:number}[]}
  */
-function traitsTropLongs(ops,max){
+function traitsTropLongs(ops,max,textes){
   const out=[];
+  // un trait de rappel relie un NOM à son point : seuls comptent les traits dont un bout touche (à 14 px près) un texte écrit
+  // (les fils des pylônes et équipements sous l'horizon relient une icône, pas un nom)
+  const boites=(textes||[]).filter(t=>String(t.text).trim().length>1).map(t=>{ const P=textPoly(t), xs=P.map(p=>p[0]), ys=P.map(p=>p[1]); return [Math.min(...xs)-14,Math.max(...xs)+14,Math.min(...ys)-14,Math.max(...ys)+14]; });
+  const touche=(x,y)=>!textes||boites.some(b=>x>=b[0]&&x<=b[1]&&y>=b[2]&&y<=b[3]);
   for(const e of ops||[]){
     if(e.t!=='trait'||e.largeur>1.5||(e.tirets&&e.tirets.length)||!Array.isArray(e.chemin)||e.chemin.length!==2) continue; // tirets : ligne d'horizon, fils des fantômes
     const [a,b]=e.chemin; if(a[0]!=='M'||b[0]!=='L') continue;
     const longueur=Math.hypot(b[1]-a[1],b[2]-a[2]);
-    if(longueur>max) out.push({de:[a[1],a[2]],a:[b[1],b[2]],longueur:Math.round(longueur)});
+    if(longueur>max&&(touche(a[1],a[2])||touche(b[1],b[2]))) out.push({de:[a[1],a[2]],a:[b[1],b[2]],longueur:Math.round(longueur),couleur:e.couleur});
   }
   return out;
 }
@@ -54,7 +58,7 @@ function controler(donnees,{traitMax}={}){
   return {
     recouvrements:recouvrements(donnees.textes||[]),
     sousLesBoutons:sousLesBoutons(donnees.textes||[],donnees.rects||[]),
-    traitsTropLongs:traitsTropLongs(donnees.ops||[],max),
+    traitsTropLongs:traitsTropLongs(donnees.ops||[],max,donnees.textes||[]),
     cachesEcrits:cachesEcrits(donnees.textes||[],donnees.nomsCaches||[],!!donnees.toutVoir,donnees.nomsVisibles||[]),
   };
 }
@@ -69,4 +73,8 @@ function resume(r){
   if(r.cachesEcrits.length) p.push(`${r.cachesEcrits.length} nom(s) caché(s) écrit(s)`);
   return p.length?p.join(', '):'aucune infraction';
 }
-module.exports={recouvrements,sousLesBoutons,traitsTropLongs,cachesEcrits,controler,total,resume,textPoly,polysOverlap};
+/** Couleurs des traits des calques d'équipements de la v1 (pylônes, repères hauts, équipements urbains) : leurs fils relient une icône à son étiquette de calque. */
+const COULEURS_CALQUES=/^rgba?\((232, ?90, ?90|169, ?139, ?255|120, ?205, ?232)/;
+/** Couleur du fil d'un monument (v1) : il part du pied de la silhouette et la traverse jusqu'au nom. */
+const COULEUR_MONUMENT=/^rgba?\(242, ?193, ?78/;
+module.exports={COULEURS_CALQUES,COULEUR_MONUMENT,recouvrements,sousLesBoutons,traitsTropLongs,cachesEcrits,controler,total,resume,textPoly,polysOverlap};
