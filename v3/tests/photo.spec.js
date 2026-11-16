@@ -1,6 +1,6 @@
 // Greffe « photo » (plan du 16/11, lot R5) sur les photos de Pont-en-Royans (dépôt privé ; ignoré sans lui, sauf PARITE_OBLIGATOIRE=1) :
 // photo entière, calage à l'ouverture (gorges calée seule, plaine à moins de 3° du réglage de Romain, 24 mm : rien ne bouge), calage et
-// rotation repris à la réouverture, Explorer (un nom reste sur son point quand on grossit ou qu'on se déplace), toucher d'un nom et glisser
+// rotation repris à la réouverture, Se déplacer (un nom reste sur son point quand on grossit ou qu'on se déplace), toucher d'un nom et glisser
 // dans le cadre décalé, et en direct le calage verrouillé.
 const {test,expect}=require('@playwright/test');
 const {ouvrirSceneReelle,ignorerSiAbsent,PHOTOS_DIR}=require('../../tests/commun/scenes-reelles');
@@ -81,7 +81,7 @@ test('photo : rotation à deux doigts (±15°), retenue avec le calage ; la phot
   await o.ctx.close(); expect(o.erreurs).toEqual([]);
 });
 
-test('photo : Explorer — un nom reste sur son point de la photo quand on grossit et qu’on se déplace ; double toucher = photo entière ; Caler : glisser et toucher un nom dans le cadre décalé',async({browser})=>{
+test('photo : Se déplacer — un nom reste sur son point de la photo quand on grossit et qu’on se déplace ; double toucher = photo entière ; Caler : glisser et toucher un nom dans le cadre décalé',async({browser})=>{
   test.setTimeout(300000);
   const o=await ouvrir(browser,'pont-photo-gorges'), page=o.page;
   // Caler : toucher un nom (coordonnées d'écran = canevas + décalage du cadre) ouvre SA fiche
@@ -96,8 +96,8 @@ test('photo : Explorer — un nom reste sur son point de la photo quand on gross
   const s0=await etat(o), f=await o.app.ev('(W/2)/Math.tan(vFov()/2*D)');
   await page.mouse.move(cadre.x+200,cadre.y+250); await page.mouse.down(); await page.mouse.move(cadre.x+170,cadre.y+250,{steps:3}); await page.mouse.move(cadre.x+140,cadre.y+250,{steps:3}); await page.mouse.up();
   const s1=await etat(o); expect(Math.abs(ecart(s1.h,s0.h)-Math.atan(60/f)*180/Math.PI)).toBeLessThan(0.05);
-  // Explorer
-  await page.click('#g3Mode'); expect(await o.app.ev("G.photo.mode()")).toBe('explorer');
+  // Se déplacer
+  await page.click('#g3Mode'); expect(await o.app.ev("G.photo.mode()")).toBe('deplacer');
   await page.waitForTimeout(600);
   // un nom écrit maintenant (le glisser a déplacé la vue), vers le milieu de la photo
   const avant=(await o.app.frame()).filter(x=>String(x.text).length>3&&!/km|m$/.test(x.text)).sort((a,b)=>{ const d=x=>{ const Q=textPoly(x); return Math.hypot(Q[0][0]-cadre.w/2,Q[0][1]-cadre.h/2); }; return d(a)-d(b); })[0];
@@ -110,7 +110,7 @@ test('photo : Explorer — un nom reste sur son point de la photo quand on gross
   await page.mouse.move(400,200); await page.mouse.down(); await page.mouse.move(340,170,{steps:5}); await page.mouse.up(); // se déplacer
   await page.waitForTimeout(600);
   const v=await o.app.ev('G.photo.vue()'); console.log('vue',JSON.stringify(v)); expect(v.z).toBeGreaterThan(1.5);
-  const s2=await etat(o); expect(ecart(s2.h,s1.h)).toBeLessThan(0.001); expect(s2.cam).toBe(s1.cam); // le calage ne bouge pas en Explorer
+  const s2=await etat(o); expect(ecart(s2.h,s1.h)).toBeLessThan(0.001); expect(s2.cam).toBe(s1.cam); // le calage ne bouge pas en mode Se déplacer
   const apres=(await o.app.frame()).find(x=>x.text===nom); expect(apres).toBeTruthy();
   const p1=await versPhoto(...centre(apres)), im=await o.app.ev('({w:photoMode.w,h:photoMode.h})');
   console.log('point du nom sur la photo',p0,p1);
