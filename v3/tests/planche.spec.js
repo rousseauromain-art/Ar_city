@@ -26,6 +26,7 @@ test.describe('planche de rendus',()=>{
   for(let i=0;i<12;i++) test(`scène ${i+1}`,async({browser})=>{
     test.setTimeout(420000);
     const {cle,sc,reglages}=scenes[i]; ignorerSiAbsent(test,sc);
+    if(process.env.PLANCHE_SCENES&&!process.env.PLANCHE_SCENES.split(',').map(Number).includes(i+1)) test.skip(true,'scène non demandée (PLANCHE_SCENES)');
     const num=String(i+1).padStart(2,'0'), base=path.join(DIR,`${num}-${cle}`);
     const faire=async(greffes,png)=>{
       const o=await ouvrirSceneReelle(browser,sc,{url:V3,greffes,reglages:{...reglages,...REGLAGES}});

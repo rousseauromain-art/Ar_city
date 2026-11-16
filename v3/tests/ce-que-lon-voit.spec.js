@@ -31,3 +31,24 @@ for(const [id,quelReglage] of [['pont-photo-gorges','tel'],['pont-est','tel'],['
     if(infractions.traitsTropLongs.length) console.log(`${id} · traits > H/4 (rapport, exigé au lot R4) :`,JSON.stringify(infractions.traitsTropLongs.slice(0,6)));
     await o.ctx.close(); expect(o.erreurs).toEqual([]);
   });
+
+// Lot R4 (greffe placement) : avec les greffes du téléphone et R1 à R3, plus aucun recouvrement, rien sous les boutons ni les puces, et aucun
+// trait de rappel de NOM de lieu ou de montagne plus long qu'un quart de l'écran. Rapportés sans être exigés : les fils des pylônes et repères
+// hauts de la v1 (lot R8) et le fil d'un monument, qui part du pied de sa silhouette et la traverse.
+const {COULEURS_CALQUES,COULEUR_MONUMENT}=require('../../tests/commun/controles-visuels');
+const {GREFFES_CONTEXTE}=require('../../tests/commun/planche');
+for(const [id,ecran,quelReglage] of [['pont-photo-gorges',{width:809,height:331},'tel'],['pont-photo-24mm',{width:809,height:331},'tel'],['pont-photo-12mm',{width:411,height:753},'tel'],['pont-est',null,'tel'],['saint-malo-rempart',null,'commun'],['turin-san-carlo',null,'commun']])
+  test(`ce que l'on voit (greffe placement) : ${id}${ecran?` ${ecran.width}×${ecran.height}`:''} — aucun recouvrement, rien sous les boutons, traits des noms ≤ H/4`,async({browser})=>{
+    test.setTimeout(300000);
+    const m=await charger(), sc0=m.parId[id]; ignorerSiAbsent(test,sc0); const sc=ecran?{...sc0,ecran}:sc0;
+    const o=await ouvrirSceneReelle(browser,sc,{url:V3,greffes:[...GREFFES_CONTEXTE,'visibilite','calques','toucher','placement'],reglages:m[quelReglage]});
+    await o.page.waitForTimeout(2500);
+    const png=path.join(os.tmpdir(),`cqlv-r4-${id}.png`); const {infractions}=await capturer(o,png); fs.rmSync(png,{force:true});
+    console.log(`${id} · placement · ${resume(infractions)}`);
+    expect(infractions.recouvrements).toEqual([]);
+    expect(infractions.sousLesBoutons).toEqual([]);
+    expect(infractions.traitsTropLongs.filter(t=>!COULEURS_CALQUES.test(String(t.couleur))&&!COULEUR_MONUMENT.test(String(t.couleur)))).toEqual([]);
+    if(infractions.traitsTropLongs.length) console.log(`${id} · fils de calques ou de monuments > H/4 (rapport) :`,JSON.stringify(infractions.traitsTropLongs));
+    expect(infractions.cachesEcrits).toEqual([]);
+    await o.ctx.close(); expect(o.erreurs).toEqual([]);
+  });
