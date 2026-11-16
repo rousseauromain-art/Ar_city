@@ -47,7 +47,7 @@ export default {
     let f=null;
     if(essai&&!P) f=placeFlat({x,y0:ay-6,halfW:4,w,size,own:c,dir:-1})||placeFlat({x,y0:ay+size+8,halfW:4,w,size,own:c,dir:1});
     else if(essai){ // greffe placement : chaque ligne essayée seulement si son trait reste sous un quart de l'écran (montagne : deux lignes au plus)
-      const lim=(o.H||800)*P.QUART, nMax=P.lignes(c.kind==='peak',size,o.H||800);
+      const lim=P.limite(o.H||800), nMax=P.lignes(c.kind==='peak',size,o.H||800);
       for(const [y0,dir] of [[ay-6,-1],[ay+size+8,1]]) for(let k=0;k<nMax&&!f;k++){
         const y=y0+dir*k*(size+6); if(P.longueur(x,ay,x+8,y-size*0.35)>lim) break; // longueur à l'écran (projection comprise)
         f=placeFlat({x,y0:y,halfW:4,w,size,own:c,dir,maxK:1}); } }
@@ -56,7 +56,7 @@ export default {
     const m=mem.get(k);
     if(m&&maintenant()-m.t<=TENUE_MS){
       const lx=x+m.dx, ly=ay+m.dy;
-      if(P&&P.longueur(x,ay,x+m.dx,ay+m.dy)>(o.H||800)*P.QUART) return false; // greffe placement : place retenue trop loin du point (trait borné, à l'écran)
+      if(P&&P.longueur(x,ay,x+m.dx,ay+m.dy)>P.limite(o.H||800)) return false; // greffe placement : place retenue trop loin du point (trait borné, à l'écran)
       if(P&&o.placed&&o.chevauche){ // greffe placement : la tenue réserve sa place ; occupée, le nom n'est pas redessiné
         const poly=polyDe(o,m.mode,lx,ly,m.sgn), xs=poly.map(q=>q[0]), ys=poly.map(q=>q[1]), b=[Math.min(...xs),Math.max(...xs),Math.min(...ys),Math.max(...ys)];
         if(o.placed.some(r=>r[5]!==c&&b[0]<r[1]+3&&b[1]>r[0]-3&&b[2]<r[3]+3&&b[3]>r[2]-3&&o.chevauche(poly,r[4]||[[r[0],r[2]],[r[1],r[2]],[r[1],r[3]],[r[0],r[3]]],3))) return false;

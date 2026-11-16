@@ -4,7 +4,7 @@
 // Réglage : panneau des Réglages (mémorisé sous la clé `vh3_greffes`) ou adresse de la page : ?g=lune,permutation (« tout », « aucune »), qui prime sans rien mémoriser.
 (function(){
   'use strict';
-  const VERSION='2026-11-16 (f) · R5 : greffe photo · R4 : greffe placement · R3 : greffe toucher · R2 : greffe calques · R1 : greffe visibilite · R0 : planche de rendus et contrôles « ce que l’on voit » · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu, montagne, champAuto, nettete, nommer, projection, degage, hauteurs, oeilLieu, horizonPhoto, champPhoto, soleilReflet)';
+  const VERSION='2026-11-16 (g) · R5 : mode « Se déplacer » (ex-Explorer), grossir refait les noms · R5 : greffe photo · R4 : greffe placement · R3 : greffe toucher · R2 : greffe calques · R1 : greffe visibilite · R0 : planche de rendus et contrôles « ce que l’on voit » · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu, montagne, champAuto, nettete, nommer, projection, degage, hauteurs, oeilLieu, horizonPhoto, champPhoto, soleilReflet)';
   // etat : 'non testé' | 'validé' | 'rejeté' (seul Romain le change sur le terrain : docs/ETAT.md)
   const LISTE=[
     {id:'soleil2',type:'remplacement',etat:'non testé',titre:'Soleil (v2)',phrase:'Toucher le soleil : le disque vu dans l’image est retrouvé, même téléphone penché ou boussole fausse de plus de 12°.'},
@@ -41,7 +41,7 @@
     {id:'calques',type:'remplacement',etat:'non testé',titre:'Un calque par nature',phrase:'Calques « Lieux » (habités), « Montagne » (sommets, cols, crêtes, zones, grottes) et « Mer » (phares, plages) ; une grotte, un rocher, un cap vont au calque de leur milieu (bord de l’eau, relief marqué).'},
     {id:'toucher',type:'ajout',etat:'non testé',titre:'Tout nom se touche',phrase:'Toucher un nom de lieu, de sommet ou de zone ouvre sa fiche (nature, altitude, distance, direction, source, carte) ; la puce « Près de » aussi ; « Relief touché » ne répond que hors des noms.'},
     {id:'placement',type:'remplacement',etat:'non testé',titre:'Étiquettes : sans recouvrement, rapides',phrase:'Jamais deux noms l’un sur l’autre, rien sous les boutons, traits de rappel courts (un quart de l’écran) ; altitude et distance en vert pour la montagne ; placement plus rapide en « Tout voir ».'},
-    {id:'photo',type:'remplacement',etat:'non testé',titre:'Mode photo : photo entière, Caler / Explorer',phrase:'La photo s’ouvre entière et calée toute seule (puce « annuler ») ; bouton Caler / Explorer (se déplacer et grossir dans la photo) ; rotation à deux doigts ; le calage de chaque photo est retenu. En direct, le bouton verrouille le calage.'},
+    {id:'photo',type:'remplacement',etat:'non testé',titre:'Mode photo : photo entière, Caler / Se déplacer',phrase:'La photo s’ouvre entière et calée toute seule (puce « annuler ») ; bouton Caler / Se déplacer (se déplacer dans la photo, grossir : les noms sont refaits à l’échelle) ; rotation à deux doigts ; le calage de chaque photo est retenu. En direct, le bouton verrouille le calage.'},
     {id:'nommer',type:'ajout',etat:'non testé',titre:'Nommer le relief touché',phrase:'Toucher une montagne, une crête ou un plateau : son nom (sommet, col, lieu-dit… d’OpenStreetMap), sa distance et son altitude ; une épingle reste une minute.'},
   ];
   const IDS=LISTE.map(g=>g.id), CLE='vh3_greffes', CLE_TOMBES='vh3_tombes';

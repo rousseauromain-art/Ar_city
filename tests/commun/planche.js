@@ -34,20 +34,19 @@ async function scenesPlanche(){
 async function capturer(o,fichierPng){
   const r=await o.page.evaluate(()=>window.__vh.frameOps(false,true));
   const rects=await o.page.evaluate(()=>{
-    // rectangles ramenés dans le repère du canevas (les textes y sont) : la greffe photo le place au cadre de la photo, et le grossit en Explorer
+    // rectangles ramenés dans le repère du canevas, où sont les textes (la greffe photo le place sur la partie vue de la photo : 1 px = 1 px)
     const out=[], ov=document.getElementById('ov').getBoundingClientRect();
-    const W=window.__vh.ev('W'), H=window.__vh.ev('H'), sx=W/ov.width, sy=H/ov.height;
     for(const el of document.querySelectorAll('#tools button,#bar button,.chip')){
       const b=el.getBoundingClientRect(), st=getComputedStyle(el);
       if(b.width>0&&b.height>0&&st.visibility!=='hidden'&&st.display!=='none'&&!el.hidden)
-        out.push({left:(b.left-ov.left)*sx,right:(b.right-ov.left)*sx,top:(b.top-ov.top)*sy,bottom:(b.bottom-ov.top)*sy,id:el.id||el.textContent.trim().slice(0,20)});
+        out.push({left:b.left-ov.left,right:b.right-ov.left,top:b.top-ov.top,bottom:b.bottom-ov.top,id:el.id||el.textContent.trim().slice(0,20)});
     }
     return out;
   });
   const noms=await o.app.ev("(()=>{ const nm=c=>{ if(c.kind!=='monument') return String(c.name); try{ return monName(c); }catch(e){ return String(c.name); } }; const T=cities.concat(farPeaks,monumentSites); return {caches:T.filter(c=>c.hidden).map(nm),visibles:T.filter(c=>!c.hidden&&!c.far).map(nm)}; })()");
-  const etat=await o.app.ev('({toutVoir:!!S.beyond,H,W})');
+  const etat=await o.app.ev('({toutVoir:!!S.beyond,H,W,hEcran:$("ov").getBoundingClientRect().height})');
   await o.page.screenshot({path:fichierPng});
-  const infractions=controler({textes:r.textes,ops:r.ops,rects,nomsCaches:noms.caches,nomsVisibles:noms.visibles,toutVoir:etat.toutVoir,H:etat.H});
+  const infractions=controler({textes:r.textes,ops:r.ops,rects,nomsCaches:noms.caches,nomsVisibles:noms.visibles,toutVoir:etat.toutVoir,H:Math.min(etat.H,etat.hEcran)});
   return {infractions,textes:r.textes.length};
 }
 
