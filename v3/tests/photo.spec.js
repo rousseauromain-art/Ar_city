@@ -99,7 +99,9 @@ test('photo : Explorer — un nom reste sur son point de la photo quand on gross
   // Explorer
   await page.click('#g3Mode'); expect(await o.app.ev("G.photo.mode()")).toBe('explorer');
   await page.waitForTimeout(600);
-  const nom=t.text, avant=(await o.app.frame()).find(x=>x.text===nom); expect(avant).toBeTruthy();
+  // un nom écrit maintenant (le glisser a déplacé la vue), vers le milieu de la photo
+  const avant=(await o.app.frame()).filter(x=>String(x.text).length>3&&!/km|m$/.test(x.text)).sort((a,b)=>{ const d=x=>{ const Q=textPoly(x); return Math.hypot(Q[0][0]-cadre.w/2,Q[0][1]-cadre.h/2); }; return d(a)-d(b); })[0];
+  expect(avant).toBeTruthy(); const nom=avant.text;
   const versPhoto=async(x,y)=>page.evaluate(([x,y])=>{ const ov=document.getElementById('ov').getBoundingClientRect(), im=document.getElementById('photoBg').getBoundingClientRect(), W=window.__vh.ev('W');
     const X=ov.left+x*ov.width/W, Y=ov.top+y*ov.height/window.__vh.ev('H'); return [(X-im.left)/im.width,(Y-im.top)/im.height]; },[x,y]);
   const centre=x=>{ const Q=textPoly(x); return [Q.reduce((a,q)=>a+q[0],0)/4,Q.reduce((a,q)=>a+q[1],0)/4]; };
