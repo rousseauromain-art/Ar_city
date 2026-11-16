@@ -35,7 +35,7 @@ const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = 
 test('registre : 33 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'gpsRapide', 'anfrRelief', 'presDe', 'zones', 'visibilite', 'calques', 'toucher', 'placement', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'gpsRapide', 'anfrRelief', 'presDe', 'zones', 'visibilite', 'calques', 'toucher', 'placement', 'photo', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -630,4 +630,22 @@ test('placement : voies et lignes sous un quart de l’écran, montagne tout pr�
   assert.equal(P.reessayer(e, 1100, 72.1, 0), false, 'vue immobile, 100 ms : pas de nouvel essai');
   assert.equal(P.reessayer(e, 1250, 72, 0), true, 'au plus cinq fois par seconde');
   assert.equal(P.reessayer(e, 1100, 72.5, 0), true, 'la vue a bougé de 0,5°'); assert.equal(P.reessayer({ t: 0, h: 359.9, p: 0 }, 100, 0.05, 0), false, 'passage par le nord');
+});
+
+// ---- photo (lot R5) : cadre de la photo entière, vue d'Explorer, coordonnées du canevas ----
+test('photo : la photo entière tient dans l’écran, centrée ; la vue d’Explorer reste sur la photo ; le point sous les doigts ne bouge pas', async () => {
+  const P = await import('../greffes/photo.js');
+  assert.deepEqual(P.cadreContenu(809, 331, 4080, 3072), { x: 185, y: 0, w: 440, h: 331 }, 'paysage : bandes à gauche et à droite');
+  assert.deepEqual(P.cadreContenu(411, 753, 4080, 3072), { x: 0, y: 222, w: 411, h: 309 }, 'portrait : bandes en haut et en bas');
+  assert.equal(P.cleDe({ name: 'PXL.jpg', size: 12, lastModified: 34 }), 'PXL.jpg|12|34');
+  const cadre = P.cadreContenu(809, 331, 4080, 3072);
+  assert.deepEqual(P.borner({ z: 0.5, tx: 40, ty: 9 }, cadre, 809, 331), { z: 1, tx: 0, ty: 0 }, 'pas plus petit que la photo entière');
+  const v = P.zoomer({ z: 1, tx: 0, ty: 0 }, 300, 100, 3, cadre), u = (x, vv) => (x - cadre.x - vv.tx) / vv.z;
+  assert.ok(Math.abs(u(300, v) - u(300, { z: 1, tx: 0, ty: 0 })) < 1e-9, 'le point de la photo sous les doigts reste sous les doigts');
+  const b = P.borner({ z: 3, tx: 5000, ty: -5000 }, cadre, 809, 331);
+  assert.ok(cadre.x + b.tx <= 0 && cadre.x + b.tx + cadre.w * 3 >= 809 && cadre.y + b.ty <= 0 && cadre.y + b.ty + cadre.h * 3 >= 331, 'la photo grossie couvre l’écran');
+  assert.ok(P.borner({ z: 8.5, tx: 0, ty: 0 }, cadre, 809, 331).z === P.ZOOM_MAX);
+  assert.deepEqual(P.versLocal(185 + 220, 165.5, { left: 185, top: 0, width: 440, height: 331 }, 440, 331), [220, 165.5]);
+  assert.deepEqual(P.versLocal(400, 100, { left: -300, top: -200, width: 1320, height: 993 }, 440, 331), [700 / 3, 100]);
+  assert.equal(P.ecartAngle(170, -170), 20); assert.equal(P.ecartAngle(10, 0), -10);
 });

@@ -667,7 +667,7 @@ window.addEventListener('deviceorientationabsolute',e=>onOrient(e,true));
 window.addEventListener('deviceorientation',e=>onOrient(e,e.absolute===true));
 
 function pose(){
-  if(photoMode) return {heading:((S.headOff%360)+360)%360,pitch:S.pitchOff,roll:0}; // photo : cap absolu tenu dans headOff (sauvegarde ecartee)
+  if(photoMode) return {heading:((S.headOff%360)+360)%360,pitch:S.pitchOff,roll:G.actif('photo')?G.photo.roulis():0}; // greffe photo : rotation de la photo ; photo : cap absolu tenu dans headOff (sauvegarde ecartee)
   if(!sensor) return {heading:(S.headOff+360)%360,pitch:S.pitchOff,roll:0};
   const g=gyroOn(), vv=g?svRel:sv, rr=g?srRel:sr;
   const n=Math.hypot(...vv)||1, v=vv.map(k=>k/n);
@@ -2995,6 +2995,7 @@ function uiObstacles(){tombe('uiObstacles'); const now=Date.now(); if(now-uiObsT
   return uiObs; }
 function resize(){
   dpr=Math.min(window.devicePixelRatio||1,3); W=window.innerWidth; H=window.innerHeight;
+  if(G.actif('photo')) ({w:W,h:H}=G.photo.cadre(W,H)); // greffe photo : en mode photo, la scène prend le cadre de la photo entière
   ov.width=Math.round(W*dpr); ov.height=Math.round(H*dpr);
   safeT=$('safe').getBoundingClientRect().height||0; uiObsT=0;
 }
@@ -3215,6 +3216,7 @@ function draw(ts){
   // zones d'interface a ne jamais recouvrir (colonne d'icones, bandeau d'etat, boutons du bas,
   // panneau des calques) : posees d'emblee comme des etiquettes deja placees
   for(const el of [$('tools'),$('chips'),$('btnSet'),$('shutter'),$('btnBeyond'),$('layers')]){ if(!el) continue; const r=el.getBoundingClientRect(); if(r.width&&r.height) placed.push([r.left,r.right,r.top,r.bottom]); }
+  G.actif('photo')&&G.photo.versCadre(placed); // greffe photo : obstacles de l'écran ramenés dans le cadre de la photo
   // chevauchement d'un rectangle horizontal avec ce qui est deja pose (etiquettes inclinees : test exact)
   const rectHit=(x0,x1,y0,y1,m,own)=>{ let q=null;
     return placed.some(r=>{ if(own&&r[5]===own) return false; if(!(x0<r[1]+m&&x1>r[0]-m&&y0<r[3]+m&&y1>r[2]-m)) return false; if(!r[4]) return true;
@@ -4602,7 +4604,7 @@ function fitHorizon(pts,P,cam0,tab){tombe('fitHorizon');
   // 22/10/2026 : le champ (zoom) n'est cherche que si le relief est marque (>= FIT_CAM_RELIEF, montagnes) et retenu seulement s'il
   // ameliore nettement l'ajustement (>= 15 %) : sur des collines douces, il reste fixe (cf. ci-dessus)
   let cam=cam0;
-  if(relief>=FIT_CAM_RELIEF){ let bc={cost:b.cost};
+  if(relief>=FIT_CAM_RELIEF&&!(G.actif('photo')&&G.photo.champFixe())){ let bc={cost:b.cost}; // greffe photo : champ de la photo laissé tel quel
     for(let cm=Math.max(20,cam0-12);cm<=Math.min(110,cam0+12);cm+=1) for(let dh=b.dh-4;dh<=b.dh+4;dh+=0.25){ const c=cost(dh,cm); if(c.cost<bc.cost) bc={...c,dh,cm}; }
     if(bc.cm!=null){ const c1=bc.cm, d1=bc.dh; for(let cm=c1-1;cm<=c1+1;cm+=0.5) for(let dh=d1-0.3;dh<=d1+0.3;dh+=0.05){ const c=cost(dh,cm); if(c.cost<bc.cost) bc={...c,dh,cm}; } }
     if(bc.cm!=null&&bc.cost<b.cost*0.85){ b={...bc}; cam=bc.cm; } }
@@ -4894,6 +4896,7 @@ async function runAutoAlign0(){
     if(urbanDense()&&hi-lo<3) return viaLandmarks('ville dense : la limite du ciel est faite des toits, pas du relief');
     const fr=grabFrame(320); if(!fr) return 'image caméra illisible';
     const CL=cleanHorizonPts(observeHorizon(fr,P,fh,lo-4,hi+4),P,fh), pts=CL.pts;
+    G.actif('photo')&&G.photo.redresser(pts); // greffe photo : projection exacte pour l'ajustement
     if(pts.length<25) return viaLandmarks(`horizon peu visible (${pts.length} colonnes)`);
     const R=fitHorizon(pts,P,cam0,tab);
     if(R.cost>0.6) return viaLandmarks(`relief incertain (écart ${R.cost.toFixed(2)}°)`);
@@ -4902,7 +4905,7 @@ async function runAutoAlign0(){
     if(R.flat){ const lm=landmarkAlign(); if(lm.ok){ S.pitchOff+=R.dp; noteCalib(); saveSettings(); const f=v=>(v>=0?'+':'')+v.toFixed(1)+'°';
         const m=`horizon ${f(R.dp)} · cap calé sur ${lm.names.slice(0,3).join(', ')} ${f(lm.corr)}`; logNet('Calage',true,m); return m; } }
     S.headOff+=R.dh; S.pitchOff+=R.dp; noteCalib(); const camCh=R.cam!==cam0; if(camCh){ S.camFov=R.cam; $('fov').value=S.camFov; showFov(); } saveSettings();
-    G.actif('champPhoto')&&G.champPhoto.cale(R.cam,cam0,R.cost); // greffe champPhoto : champ réel des photos de cet appareil
+    G.actif('champPhoto')&&!(G.actif('photo')&&G.photo.champFixe())&&G.champPhoto.cale(R.cam,cam0,R.cost); // greffe photo : un champ laissé fixe n'est pas une mesure ; greffe champPhoto : champ réel des photos de cet appareil
     const f=v=>(v>=0?'+':'')+v.toFixed(1)+'°';
     logNet('Calage',true,`${R.n} colonnes (${CL.dropped} au premier plan écartées), relief ${R.relief.toFixed(1)}°, cap ${f(R.dh)}, horizon ${f(R.dp)}, champ ${S.camFov}° (${R.cam!==cam0?'ajusté':'fixe'}), ecart median ${R.cost.toFixed(2)}°`);
     if(R.flat) return `horizon calé (${f(R.dp)}) · cap inchangé : pas assez de relief visible`;
@@ -5109,10 +5112,12 @@ async function enterPhoto(f){
   const msg=`${ex&&ex.lat!=null?'position de la photo':'position simulée'} ${pos0.lat.toFixed(5)}, ${pos0.lon.toFixed(5)} · ${ex&&ex.dir!=null?'direction '+ex.dir.toFixed(0)+'°':'direction absente (0°) : glissez pour tourner'} · ${ex&&ex.f35?'focale '+ex.f35+' mm éq. → champ '+S.camFov+'°':'focale absente : champ inchangé'}${ex&&ex.model?' · '+ex.model:''}`;
   info.textContent=msg+(photoMode.utc?` · prise de vue ${new Date(photoMode.utc).toISOString().slice(0,16).replace('T',' ')} UTC (${photoMode.timeSrc})${photoMode.gpsUtc&&Math.abs(photoMode.gpsUtc-photoMode.utc)>120000?` · attention : dernier point GPS daté ${new Date(photoMode.gpsUtc).toISOString().slice(0,16).replace('T',' ')} UTC`:''}`:' · heure inconnue : pas de calage sur le soleil'); logNet('Photo rejouée',true,info.textContent); $('sheet').classList.remove('open');
   note('Photo rejouée : le symbole ☀ montre la position exacte du soleil à l\'heure de la photo. Glissez pour corriger, « Caler auto » pour tester. Touchez le bandeau 📷 pour quitter.',7000);
+  G.actif('photo')&&G.photo.ouvrir(f); // greffe photo : photo entière, calage retenu ou calage automatique
 }
 function exitPhoto(){tombe('exitPhoto');
   if(!photoMode) return; Object.assign(S,photoMode.backup); const fv=$('fov'); if(fv) fv.value=S.camFov; showFov();
   URL.revokeObjectURL(photoMode.url); photoMode=null; const img=$('photoBg'); img.hidden=true; img.removeAttribute('src'); video.hidden=false; $('photoChip').hidden=true; $('photoInfo').textContent=''; $('btnBench').disabled=true;
+  G.actif('photo')&&G.photo.fermer(); // greffe photo : plein écran
   if(appStarted) startCamera();
   if(S.simOn&&parseLatLon(S.simPos)) applySimPos(); else if(lastGps) onNewPos(...lastGps);
   citiesVer++; logNet('Photo rejouée',true,'mode photo quitté : calage, champ et position rétablis');
@@ -5244,6 +5249,7 @@ G.lier({S,altitude:(lat,lon)=>{ if(!terrain||!pos) return null; const e=elevAt(t
   relatif:(R,reinit)=>{ if(reinit){ gyroK=null; magBins.fill(null); svRel=srRel=null; } if(!R) return; const k=0.18, sm=(p,n)=>p?p.map((q,i)=>q+(n[i]-q)*k):n; // greffe capteurRelatif : mesure relative (quaternion), comme onOrient
     svRel=sm(svRel,R.v); srRel=sm(srRel,R.r); relT=Date.now(); sv=svAbs||svRel; sr=svAbs?srAbs:srRel; sensor=true; gyroLearn(); },
   get W(){ return W; }, get H(){ return H; }, get pos(){ return pos; }, get acc(){ return acc; }, get terrain(){ return terrain; }, get photoMode(){ return photoMode; }, get sensor(){ return sensor; }, get farPeaks(){ return farPeaks; }, get monumentSites(){ return monumentSites; }, get telecomSites(){ return telecomSites; }, get cities(){ return cities; }, axisStatus,
+  runAutoAlign, runAutoAlign0, resize, toucherEcran:(x,y)=>{ if(pointMode){ setPointMode(false); pointCalibrate(x,y); } else showTelecomDetail(x,y); }, // greffe photo
   get obsGround(){ return obsGround; }, get obsGroundSrc(){ return obsGroundSrc; }, get obsElev(){ return obsElev; }, get terrainBusy(){ return terrainBusy; },
   relief:{TDIST,BSTEP,NB,REFF}, fiche:(titre,html)=>{ $('dbgBody').innerHTML=html; $('dbgTitle').textContent=titre; $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null; } }); // greffe nommer : relief de la v1, fiche
 G.monterPanneau($('sheet'));
