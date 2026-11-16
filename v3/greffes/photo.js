@@ -127,9 +127,10 @@ function surMove(e){
       if(geste.rot){ roulis=Math.max(-ROTATION_MAX,Math.min(ROTATION_MAX,geste.r0+da)); c.bumpCities(); c.note(`Rotation ${roulis>=0?'+':''}${roulis.toFixed(1)}°`,1200); return; } }
     const q=local(e.clientX,e.clientY); relayer(e,q[0],q[1]); return; }
   if(!geste) return;
+  if(geste.type==='un'&&Math.hypot(d.x-d.x0,d.y-d.y0)>TAP_PX) geste.moved=true;
   if(!c.photoMode) return; // calage verrouillé en direct : rien ne bouge
   const Wv=innerWidth, Hv=innerHeight;
-  if(geste.type==='un'&&doigts.size===1){ if(Math.hypot(d.x-d.x0,d.y-d.y0)>TAP_PX) geste.moved=true; if(!geste.moved) return;
+  if(geste.type==='un'&&doigts.size===1){ if(!geste.moved) return;
     vue=borner({z:geste.v0.z,tx:geste.v0.tx+d.x-d.x0,ty:geste.v0.ty+d.y-d.y0},cadre,Wv,Hv); poser(); return; }
   if(geste.type==='pince'&&doigts.size>=2){ const [a,b]=[...doigts.values()], k=(Math.hypot(a.x-b.x,a.y-b.y)||1)/geste.d0, cx=(a.x+b.x)/2, cy=(a.y+b.y)/2;
     const v=zoomer(geste.v0,geste.cx,geste.cy,k,cadre); v.tx+=cx-geste.cx; v.ty+=cy-geste.cy; vue=borner(v,cadre,Wv,Hv); poser(); }
@@ -222,10 +223,10 @@ export default {
   },
   /** Point d'entrée d'exitPhoto. */
   fermer(){ if(c.photoMode) return; cle=null; roulis=0; vue={z:1,tx:0,ty:0}; mode='caler'; doigts.clear(); geste=null; const p=c.$('g3Cale'); if(p) p.hidden=true; c.resize(); majBouton(); },
-  /** Point d'entrée de draw : obstacles de l'interface (rectangles [x0,x1,y0,y1] en coordonnées d'écran) ramenés dans le canevas. */
+  /** Point d'entrée de draw : obstacles de l'interface (rectangles [x0,x1,y0,y1] en coordonnées d'écran) ramenés dans le canevas de la photo entière. */
   versCadre(placed){
-    if(!cadreActif) return; const o=ov(), r=o&&o.getBoundingClientRect(); if(!r||!r.width) return;
-    const kx=c.W/r.width, ky=c.H/r.height;
+    if(!cadreActif) return; // cadre de la photo entière, sans la vue d'Explorer : grossir ou se déplacer ne refait pas le placement (le calque suit l'image)
+    const r={left:cadre.x,top:cadre.y,width:cadre.w,height:cadre.h}, kx=c.W/r.width, ky=c.H/r.height;
     for(const p of placed){ p[0]=(p[0]-r.left)*kx; p[1]=(p[1]-r.left)*kx; p[2]=(p[2]-r.top)*ky; p[3]=(p[3]-r.top)*ky; }
   },
   /** Point d'entrée de runAutoAlign0 : points de l'horizon lus sur la photo (repère de la scène), ramenés dans le repère de la v1 quand le dessin
