@@ -15,10 +15,14 @@ let c=null, obs=null, obsT=0, vue={h:0,p:0,t:0};
 const echecs=new Map(); // nom|genre -> {t, h, p} : dernier essai raté du repli à plat
 const rates=new WeakMap(); // lieu -> {t, h, p} : dernière image où il n'a trouvé aucune place
 
+/** Hauteur de ce qui est vu à l'écran : celle de la scène, sauf photo grossie (greffe photo : la scène est plus grande que l'écran, un trait de rappel se borne à l'écran). */
+const hv=H=>{ const G=typeof window!=='undefined'&&window.G; return G&&G.actif&&G.actif('photo')?G.photo.hVisible(H):H; };
 /** Nombre de voies du nom incliné pour que son trait reste sous un quart de la hauteur `H`. Pure. */
-export function voies(H){ return Math.max(3,Math.floor((H*QUART-LEVEE)/LBL_STEP)); }
+export function voies(H){ return Math.max(3,Math.floor((hv(H)*QUART-LEVEE)/LBL_STEP)); }
 /** Lignes du repli à plat : `montagne` → LIGNES_MONTAGNE ; sinon autant qu'il en tient dans un quart de l'écran. Pure. */
-export function lignes(montagne,size,H){ return montagne?LIGNES_MONTAGNE:Math.max(1,Math.floor(H*QUART/(size+6))); }
+export function lignes(montagne,size,H){ return montagne?LIGNES_MONTAGNE:Math.max(1,Math.floor(hv(H)*QUART/(size+6))); }
+/** Longueur la plus grande d'un trait de rappel (px) pour une scène de hauteur `H`. */
+export function limite(H){ return hv(H)*QUART; }
 /** Faut-il réessayer un nom raté ? Pas avant ESSAI_MS, sauf si la vue a bougé de plus de VUE_DEG. Pure. */
 export function reessayer(e,maintenant,h,p){
   if(!e) return true;
@@ -37,7 +41,7 @@ function memoriserLargeurs(){
 
 export default {
   init(ctx){ c=ctx; memoriserLargeurs(); },
-  QUART,reessayer,
+  QUART,reessayer,limite,
   /** Point d'entrée de draw : nombre de voies du nom incliné. */
   voies,
   /** Point d'entrée de draw : obstacles de la v1 (barre du bas) + colonne de boutons et puces visibles (rectangles [x0,x1,y0,y1]). */

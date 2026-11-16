@@ -649,3 +649,24 @@ test('photo : la photo entière tient dans l’écran, centrée ; la vue d’Exp
   assert.deepEqual(P.versLocal(400, 100, { left: -300, top: -200, width: 1320, height: 993 }, 440, 331), [700 / 3, 100]);
   assert.equal(P.ecartAngle(170, -170), 20); assert.equal(P.ecartAngle(10, 0), -10);
 });
+
+test('photo : grossir recalcule la scène — fenêtre vue de la photo agrandie, bornes, limite des traits de rappel à l’écran', async () => {
+  const P = await import('../greffes/photo.js');
+  const cadre = { x: 185, y: 0, w: 440, h: 331 };
+  assert.deepEqual(P.fenetre(cadre, { z: 1, tx: 0, ty: 0 }, 809, 331), { x: 185, y: 0, w: 440, h: 331, vx: 0, vy: 0 }, 'photo entière : le canevas couvre le cadre');
+  const f3 = P.fenetre(cadre, P.borner({ z: 3, tx: -9999, ty: -9999 }, cadre, 809, 331), 809, 331);
+  assert.equal(f3.x, 0); assert.equal(f3.y, 0); assert.equal(f3.w, 809); assert.equal(f3.h, 331); assert.ok(f3.vx > 0 && f3.vy > 0, 'décalé dans la scène agrandie (3 × 440 de large)');
+  const f3b = P.fenetre(cadre, P.borner({ z: 3, tx: 9999, ty: 9999 }, cadre, 809, 331), 809, 331);
+  assert.equal(f3b.vx, 0); assert.equal(f3b.vy, 0); // collée en haut à gauche de la photo
+  // la partie vue ne dépasse jamais la scène agrandie
+  for (const z of [1.5, 2, 4, 8]) { const v = P.borner({ z, tx: -123, ty: -77 }, cadre, 809, 331), f = P.fenetre(cadre, v, 809, 331); assert.ok(f.vx + f.w <= 440 * z + 1e-6 && f.vy + f.h <= 331 * z + 1e-6, `z=${z}`); }
+});
+
+test('photo : « remplir » couvre l’écran sans bande noire, centré', async () => {
+  const P = await import('../greffes/photo.js');
+  for (const [Wv, Hv, w, h] of [[809, 331, 4080, 3072], [411, 753, 4080, 3072], [809, 331, 3072, 4080]]) {
+    const cadre = P.cadreContenu(Wv, Hv, w, h), v = P.remplir(cadre, Wv, Hv), f = P.fenetre(cadre, v, Wv, Hv);
+    assert.ok(Math.abs(f.w - Wv) <= 1 && Math.abs(f.h - Hv) <= 1, `${Wv}×${Hv} : le canevas couvre l’écran`);
+    assert.ok(v.z > 1, 'plus grand que la photo entière');
+  }
+});

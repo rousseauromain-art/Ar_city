@@ -81,7 +81,7 @@ test('photo : rotation à deux doigts (±15°), retenue avec le calage ; la phot
   await o.ctx.close(); expect(o.erreurs).toEqual([]);
 });
 
-test('photo : Se déplacer — un nom reste sur son point de la photo quand on grossit et qu’on se déplace ; double toucher = photo entière ; Caler : glisser et toucher un nom dans le cadre décalé',async({browser})=>{
+test('photo : Se déplacer — grossir refait la scène à l’échelle (des noms apparaissent), calque et image restent l’un sur l’autre ; double toucher = photo entière ; Caler : glisser et toucher un nom dans le cadre décalé',async({browser})=>{
   test.setTimeout(300000);
   const o=await ouvrir(browser,'pont-photo-gorges'), page=o.page;
   // Caler : toucher un nom (coordonnées d'écran = canevas + décalage du cadre) ouvre SA fiche
@@ -99,25 +99,30 @@ test('photo : Se déplacer — un nom reste sur son point de la photo quand on g
   // Se déplacer
   await page.click('#g3Mode'); expect(await o.app.ev("G.photo.mode()")).toBe('deplacer');
   await page.waitForTimeout(600);
-  // un nom écrit maintenant (le glisser a déplacé la vue), vers le milieu de la photo
-  const avant=(await o.app.frame()).filter(x=>String(x.text).length>3&&!/km|m$/.test(x.text)).sort((a,b)=>{ const d=x=>{ const Q=textPoly(x); return Math.hypot(Q[0][0]-cadre.w/2,Q[0][1]-cadre.h/2); }; return d(a)-d(b); })[0];
-  expect(avant).toBeTruthy(); const nom=avant.text;
-  const versPhoto=async(x,y)=>page.evaluate(([x,y])=>{ const ov=document.getElementById('ov').getBoundingClientRect(), im=document.getElementById('photoBg').getBoundingClientRect(), W=window.__vh.ev('W');
-    const X=ov.left+x*ov.width/W, Y=ov.top+y*ov.height/window.__vh.ev('H'); return [(X-im.left)/im.width,(Y-im.top)/im.height]; },[x,y]);
-  const centre=x=>{ const Q=textPoly(x); return [Q.reduce((a,q)=>a+q[0],0)/4,Q.reduce((a,q)=>a+q[1],0)/4]; };
-  const p0=await versPhoto(...centre(avant));
+  const noms=async()=>new Set((await o.app.frame()).map(x=>String(x.text)).filter(x=>x.length>3&&!/ km|\d m$/.test(x)));
+  const avant=await noms(), z0=await o.app.ev('({W,H,f:(W/2)/Math.tan(vFov()/2*D)})');
+  // l'axe de la caméra (milieu de la scène) reste sur le milieu de la photo : calque et image l'un sur l'autre, à tout grossissement
+  const aligne=async()=>page.evaluate(()=>{ const ov=document.getElementById('ov').getBoundingClientRect(), im=document.getElementById('photoBg').getBoundingClientRect(), fe=G.photo.fenetre(), W=window.__vh.ev('W'), H=window.__vh.ev('H');
+    return [ov.left+W/2-fe.vx-(im.left+im.width/2), ov.top+H/2-fe.vy-(im.top+im.height/2)]; });
+  expect((await aligne()).every(d=>Math.abs(d)<1.5)).toBe(true);
   await deuxDoigts(page,[[300,160],[500,170]],[[220,150],[600,180]],8); // écarter : grossir
   await page.mouse.move(400,200); await page.mouse.down(); await page.mouse.move(340,170,{steps:5}); await page.mouse.up(); // se déplacer
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(800);
   const v=await o.app.ev('G.photo.vue()'); console.log('vue',JSON.stringify(v)); expect(v.z).toBeGreaterThan(1.5);
   const s2=await etat(o); expect(ecart(s2.h,s1.h)).toBeLessThan(0.001); expect(s2.cam).toBe(s1.cam); // le calage ne bouge pas en mode Se déplacer
-  const apres=(await o.app.frame()).find(x=>x.text===nom); expect(apres).toBeTruthy();
-  const p1=await versPhoto(...centre(apres)), im=await o.app.ev('({w:photoMode.w,h:photoMode.h})');
-  console.log('point du nom sur la photo',p0,p1);
-  expect(Math.abs(p1[0]-p0[0])*im.w).toBeLessThan(2); expect(Math.abs(p1[1]-p0[1])*im.h).toBeLessThan(2);
+  const z1=await o.app.ev('({W,H,f:(W/2)/Math.tan(vFov()/2*D)})'); console.log('scène',JSON.stringify(z0),'→',JSON.stringify(z1));
+  expect(Math.abs(z1.f/z0.f-v.z)).toBeLessThan(0.02*v.z); expect(Math.abs(z1.W/z0.W-v.z)).toBeLessThan(0.02*v.z); // la scène est celle de la photo agrandie
+  expect((await aligne()).every(d=>Math.abs(d)<1.5)).toBe(true);
+  // les noms sont refaits à cette échelle : il en apparaît qui ne tenaient pas, et tout ce qui est écrit reste dans la partie vue
+  const apres=await noms(), nouveaux=[...apres].filter(x=>!avant.has(x)); console.log('noms avant',avant.size,'après',apres.size,'nouveaux',nouveaux.slice(0,6));
+  expect(nouveaux.length).toBeGreaterThan(0);
+  const fe=await o.app.ev('G.photo.fenetre()'); expect(fe.w).toBeLessThanOrEqual(809+1); expect(fe.h).toBeLessThanOrEqual(331+1);
+  const cv=await page.evaluate(()=>{ const c=document.getElementById('ov'); return [c.width,c.height,c.getBoundingClientRect().width]; }); expect(cv[0]).toBeLessThan(809*3.1);
   // double toucher : photo entière
   await page.touchscreen.tap(400,200); await page.waitForTimeout(80); await page.touchscreen.tap(400,200); await page.waitForTimeout(500);
   expect((await o.app.ev('G.photo.vue()')).z).toBe(1);
+  await page.touchscreen.tap(400,200); await page.waitForTimeout(80); await page.touchscreen.tap(400,200); await page.waitForTimeout(700); // encore : la photo remplit l'écran, sans bande noire
+  const plein=await o.app.ev('G.photo.fenetre()'); expect(await o.app.ev('G.photo.vue().z')).toBeGreaterThan(1.5); expect(plein.w).toBeGreaterThanOrEqual(808); expect(plein.h).toBeGreaterThanOrEqual(330);
   await o.ctx.close(); expect(o.erreurs).toEqual([]);
 });
 
