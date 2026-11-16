@@ -190,7 +190,7 @@ async function caleAuto(pm,force){
     etat={pret:true,auto:bouge?{avant,apres:fin,genre:choix.genre,cout:choix.cout}:null,message:msg,repris:false,essais:essais.map(e=>({genre:e.genre,cout:e.cout,h:e.k.h,p:e.k.p}))};
     pm.utc=utc;
     if(bouge){ c.saveSettings(); c.noteCalib(); retenir(true); c.calRecord('auto ouverture photo',{h:avant.h,p:avant.p},{msg:msg.slice(0,120)}); c.logNet('Calage',true,`photo calée à l’ouverture : ${msg}`); puce('calée automatiquement · <u>annuler</u>'); }
-    else c.note(`Pas de calage automatique : ${msg}. Glissez pour caler à la main.`,6000);
+    else c.note('Photo non calée automatiquement (rien de sûr) : glissez pour caler',3500);
   }finally{ if(pm.utc===null) pm.utc=utc; }
 }
 function puce(html){ const p=c.$('g3Cale'); if(!p) return; p.innerHTML='📷 '+html; p.hidden=false; clearTimeout(puceT); puceT=setTimeout(()=>{ p.hidden=true; },20000); }
@@ -227,7 +227,11 @@ export default {
   versCadre(placed){
     if(!cadreActif) return; // cadre de la photo entière, sans la vue d'Explorer : grossir ou se déplacer ne refait pas le placement (le calque suit l'image)
     const r={left:cadre.x,top:cadre.y,width:cadre.w,height:cadre.h}, kx=c.W/r.width, ky=c.H/r.height;
-    for(const p of placed){ p[0]=(p[0]-r.left)*kx; p[1]=(p[1]-r.left)*kx; p[2]=(p[2]-r.top)*ky; p[3]=(p[3]-r.top)*ky; }
+    const G=typeof window!=='undefined'&&window.G, inv=G&&G.actif('projection')?G.projection.inverse:null;
+    for(const p of placed){ p[0]=(p[0]-r.left)*kx; p[1]=(p[1]-r.left)*kx; p[2]=(p[2]-r.top)*ky; p[3]=(p[3]-r.top)*ky;
+      if(inv){ // la v1 place les noms dans son repère, la projection exacte les déplace ensuite : l'obstacle est ramené dans ce repère (photo entière : jusqu'à 30° du centre en hauteur)
+        const xs=[], ys=[]; for(let i=0;i<=4;i++) for(let j=0;j<=4;j++){ const x=p[0]+(p[1]-p[0])*i/4, y=p[2]+(p[3]-p[2])*j/4;{ const q=inv(x,y); xs.push(q[0]); ys.push(q[1]); } }
+        p[0]=Math.min(...xs); p[1]=Math.max(...xs); p[2]=Math.min(...ys); p[3]=Math.max(...ys); } }
   },
   /** Point d'entrée de runAutoAlign0 : points de l'horizon lus sur la photo (repère de la scène), ramenés dans le repère de la v1 quand le dessin
    *  est en projection exacte : l'ajustement de la v1 devient exact. */
