@@ -39,11 +39,12 @@ function traitsTropLongs(ops,max){
  * Noms écrits alors que leur élément est jugé caché par le relief, hors mode « Tout voir ».
  * @param {string[]} nomsCaches noms des éléments hidden de la page (cities, farPeaks, monuments)
  * @param {boolean} toutVoir S.beyond (mode « Tout voir » : les cachés sont volontairement montrés en fantômes)
+ * @param {string[]} [nomsVisibles] noms des éléments visibles : un homonyme visible (« Le Château », « église Saint-Jean-Baptiste ») n'est pas une infraction
  * @returns {string[]}
  */
-function cachesEcrits(textes,nomsCaches,toutVoir){
+function cachesEcrits(textes,nomsCaches,toutVoir,nomsVisibles=[]){
   if(toutVoir) return [];
-  const caches=new Set(nomsCaches);
+  const vus=new Set(nomsVisibles), caches=new Set(nomsCaches.filter(n=>!vus.has(n)));
   return [...new Set(textes.map(t=>String(t.text)).filter(n=>caches.has(n)))];
 }
 
@@ -54,7 +55,7 @@ function controler(donnees,{traitMax}={}){
     recouvrements:recouvrements(donnees.textes||[]),
     sousLesBoutons:sousLesBoutons(donnees.textes||[],donnees.rects||[]),
     traitsTropLongs:traitsTropLongs(donnees.ops||[],max),
-    cachesEcrits:cachesEcrits(donnees.textes||[],donnees.nomsCaches||[],!!donnees.toutVoir),
+    cachesEcrits:cachesEcrits(donnees.textes||[],donnees.nomsCaches||[],!!donnees.toutVoir,donnees.nomsVisibles||[]),
   };
 }
 /** Nombre total d'infractions d'un résultat de controler(). */

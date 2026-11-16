@@ -2,7 +2,7 @@
 // et le comportement de la v1 quand elle est éteinte. Données simulées (aucun réseau) : ces tests tournent sans le dépôt privé des photos.
 const {test,expect}=require('@playwright/test');
 const {ouvrir,capteurs,videoSynthetique,photoExif}=require('./aide/v3');
-const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','champPhoto','soleilReflet','etiquettes','toits','lieuxRapides','gpsRapide','anfrRelief','presDe','zones','nommer'];
+const IDS=['soleil2','lune','permutation','echelle2','oeil','icones','rotation','lieuxWikidata','boussoleA','tailleReelle','plaque','capteurRelatif','recalageContinu','montagne','champAuto','nettete','projection','degage','hauteurs','oeilLieu','horizonPhoto','champPhoto','soleilReflet','etiquettes','toits','lieuxRapides','gpsRapide','anfrRelief','presDe','zones','visibilite','nommer'];
 const POS={lat:48.6493,lon:-2.0257};
 const MODES=g=>[[g],['tout']]; // seule, puis toutes allumées
 const nom=g=>g[0]==='tout'?'toutes allumées':'seule';

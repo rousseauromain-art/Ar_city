@@ -7,12 +7,14 @@
 // Aucune requête de plus. Les lieux-dits et noms d'Overpass (natural=gorge|ridge|valley…) ne sont pas encore demandés.
 export const CLASSES=/r[ée]gion naturelle|natural region|gorge|d[ée]fil[ée]|canyon|cr[êe]te|ridge|massif|mountain range|cha[iî]ne de montagnes|vall[ée]e|valley|for[êe]t|forest|grotte|cave|plateau|falaise|cliff|karst|\bcol\b|mountain pass/i;
 const MONTAGNE=/r[ée]gion naturelle|natural region|gorge|d[ée]fil[ée]|canyon|cr[êe]te|ridge|massif|mountain range|cha[iî]ne de montagnes|falaise|cliff|\bcol\b|mountain pass|plateau|karst/i;
+// zone ponctuelle (col, pas, grotte, scialet, trou, gouffre, cascade…) : un lieu précis, testé comme un point par la greffe visibilite ; les autres sont étendues
+export const PONCTUEL=/\bcol\b|mountain pass|\bpas\b|grotte|\bcave\b|scialet|\btrou\b|gouffre|\baven\b|cascade|waterfall|r[ée]surgence|antre|\bpot\b/i;
 let c=null; const zones=new Map(); let minuteur=null;
 /** Une ligne Wikidata écartée {qid,name,lat,lon,types} est-elle une zone naturelle ? Renvoie l'objet à ajouter (genre `peak` pour la montagne, `rock` sinon) ou null. Pure. */
 export function zoneDe(m){
   if(!m||!m.name||!isFinite(m.lat)||!isFinite(m.lon)||/^Q\d+$/.test(m.name)) return null;
   const t=String(m.types||''); if(!CLASSES.test(t)||/\bpont\b|\bbridge\b/i.test(t)||/^pont\b/i.test(m.name)) return null; // un pont n'est pas une zone
-  return {name:m.name,lat:m.lat,lon:m.lon,kind:MONTAGNE.test(t)?'peak':'rock',pop:0,ele:null,farPeak:true,zone:true,qid:m.qid||null};
+  return {name:m.name,lat:m.lat,lon:m.lon,kind:MONTAGNE.test(t)?'peak':'rock',pop:0,ele:null,farPeak:true,zone:true,qid:m.qid||null,types:t,nature:PONCTUEL.test(t+' '+m.name)?'point':'etendue'};
 }
 function appliquer(){
   minuteur=null; if(!c||!zones.size) return;
