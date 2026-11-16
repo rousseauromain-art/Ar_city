@@ -15,7 +15,8 @@
     "serve": "node tests/commun/server.js",
     "build": "node v2/construction/construire.mjs",
     "test:regroupe": "node v2/construction/construire.mjs && SITE_DIR=dist PORT=4181 playwright test livraison-v2 relief-direct-v2 batiments-v2 masque-worker",
-    "perf": "node tests/commun/banc.mjs"
+    "perf": "node tests/commun/banc.mjs",
+    "planche": "node tests/commun/planche-cli.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
