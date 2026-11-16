@@ -4,7 +4,7 @@
 // Réglage : panneau des Réglages (mémorisé sous la clé `vh3_greffes`) ou adresse de la page : ?g=lune,permutation (« tout », « aucune »), qui prime sans rien mémoriser.
 (function(){
   'use strict';
-  const VERSION='2026-11-16 (a) · R0 : planche de rendus et contrôles « ce que l’on voit » · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu, montagne, champAuto, nettete, nommer, projection, degage, hauteurs, oeilLieu, horizonPhoto, champPhoto, soleilReflet)';
+  const VERSION='2026-11-16 (b) · R1 : greffe visibilite · R0 : planche de rendus et contrôles « ce que l’on voit » · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu, montagne, champAuto, nettete, nommer, projection, degage, hauteurs, oeilLieu, horizonPhoto, champPhoto, soleilReflet)';
   // etat : 'non testé' | 'validé' | 'rejeté' (seul Romain le change sur le terrain : docs/ETAT.md)
   const LISTE=[
     {id:'soleil2',type:'remplacement',etat:'non testé',titre:'Soleil (v2)',phrase:'Toucher le soleil : le disque vu dans l’image est retrouvé, même téléphone penché ou boussole fausse de plus de 12°.'},
@@ -37,6 +37,7 @@
     {id:'anfrRelief',type:'ajout',etat:'non testé',titre:'Pylônes ANFR sur le relief',phrase:'Les pylônes ANFR sont posés à leur sommet sur le relief (plus sur la ligne d’horizon) ; un pylône relié à un mât d’OpenStreetMap (moins de 80 m, hauteurs d’accord) n’est dessiné qu’une fois, au mât.'},
     {id:'presDe',type:'ajout',etat:'non testé',titre:'« Près de… » en direct',phrase:'Une puce « Près de <lieu habité visible le plus proche> », comme la légende de la capture, mise à jour pendant que vous marchez.'},
     {id:'zones',type:'ajout',etat:'non testé',titre:'Noms de zones',phrase:'Gorges, crêtes, massifs, forêts, grottes, vallées déjà chargés par Wikidata (écartés jusqu’ici des monuments) sont écrits comme les sommets, sans être masqués par le relief.'},
+    {id:'visibilite',type:'remplacement',etat:'non testé',titre:'N’afficher que ce qui se voit',phrase:'Le relief est toujours appliqué aux noms (plus de noms posés sur l’horizon) ; une seule case affine avec la photo, seulement sur un calage sûr ; les zones ponctuelles (cols, grottes) sont testées comme un point.'},
     {id:'nommer',type:'ajout',etat:'non testé',titre:'Nommer le relief touché',phrase:'Toucher une montagne, une crête ou un plateau : son nom (sommet, col, lieu-dit… d’OpenStreetMap), sa distance et son altitude ; une épingle reste une minute.'},
   ];
   const IDS=LISTE.map(g=>g.id), CLE='vh3_greffes', CLE_TOMBES='vh3_tombes';
