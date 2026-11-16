@@ -44,6 +44,7 @@ Décision par greffe (`docs/REFONTE-V3.md` §3, règle 5) : validée → elle de
 
 | Sujet | État | Preuve | Terrain |
 |---|---|---|---|
+| R0 (plan du 16/11) : planche de rendus (`npm run planche`, 12 scènes avant/après dans `Ar_city-photos/rendus/PR-<n>/`), contrôles « ce que l'on voit » (recouvrements, textes sous les boutons, traits de rappel > H/4, cachés écrits hors « Tout voir »), version de la page changée à chaque PR | fait — exigé greffes éteintes (v1) : recouvrements, textes > 2 caractères sous les boutons, cachés écrits ; pastilles et traits : rapportés, exigés au lot R4 | `tests/commun/controles-visuels.js`, `tests/commun/planche.js`, `v3/tests/ce-que-lon-voit.spec.js` (gorges, pont-est, Turin, Morgat, greffes éteintes), `v3/tests/planche.spec.js` (PLANCHE=1 seulement) | — |
 | Tout éteint = v1 (trame de dessin, fiches, interface) | fait | `v3/tests/tout-eteint-v1.spec.js` (scènes réelles du dépôt privé ; interface sans lui) | non testé |
 | Correctif du glisser avec roulis (écran resté en portrait, §5) ; le toucher des noms compensait déjà le roulis dans la v1 | fait | `v3/villes-horizon.html` (pointermove), `v3/tests/roulis.spec.js` (−70° : la v1 déplace l'horizon, la v3 le cap) | non testé |
 | Pierres tombales (99 fonctions suspectes + 3 blocs connus), Diagnostic | fait | `v3/greffes.js:tombe`, `v3/tests/chargement.spec.js` | en cours (2 à 3 semaines d'usage, puis suppression des blocs restés à 0) |

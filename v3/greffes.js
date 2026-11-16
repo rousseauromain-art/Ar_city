@@ -4,7 +4,7 @@
 // Réglage : panneau des Réglages (mémorisé sous la clé `vh3_greffes`) ou adresse de la page : ?g=lune,permutation (« tout », « aucune »), qui prime sans rien mémoriser.
 (function(){
   'use strict';
-  const VERSION='2026-11-14 (a) · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu, montagne, champAuto, nettete, nommer, projection, degage, hauteurs, oeilLieu, horizonPhoto, champPhoto, soleilReflet)';
+  const VERSION='2026-11-16 (a) · R0 : planche de rendus et contrôles « ce que l’on voit » · v3 = v1 (j) + greffes activables (premier lot, + tailleReelle, plaque, capteurRelatif, recalageContinu, montagne, champAuto, nettete, nommer, projection, degage, hauteurs, oeilLieu, horizonPhoto, champPhoto, soleilReflet)';
   // etat : 'non testé' | 'validé' | 'rejeté' (seul Romain le change sur le terrain : docs/ETAT.md)
   const LISTE=[
     {id:'soleil2',type:'remplacement',etat:'non testé',titre:'Soleil (v2)',phrase:'Toucher le soleil : le disque vu dans l’image est retrouvé, même téléphone penché ou boussole fausse de plus de 12°.'},
