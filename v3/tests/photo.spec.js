@@ -100,6 +100,8 @@ test('photo : Se déplacer — grossir refait la scène à l’échelle (des nom
   await page.click('#g3Mode'); expect(await o.app.ev("G.photo.mode()")).toBe('deplacer');
   await page.waitForTimeout(600);
   const noms=async()=>new Set((await o.app.frame()).map(x=>String(x.text)).filter(x=>x.length>3&&!/ km|\d m$/.test(x)));
+  const v0=await o.app.ev('G.photo.vue()'); expect(v0.z).toBeGreaterThan(1.7); // Se déplacer : pleine largeur (809 px pour une photo entière de 440)
+  const fe0=await o.app.ev('G.photo.fenetre()'); expect(fe0.w).toBe(809); expect(fe0.y).toBe(0); expect(fe0.vy).toBe(0); // bord haut de la photo en haut de l'écran
   const avant=await noms(), z0=await o.app.ev('({W,H,f:(W/2)/Math.tan(vFov()/2*D)})');
   // l'axe de la caméra (milieu de la scène) reste sur le milieu de la photo : calque et image l'un sur l'autre, à tout grossissement
   const aligne=async()=>page.evaluate(()=>{ const ov=document.getElementById('ov').getBoundingClientRect(), im=document.getElementById('photoBg').getBoundingClientRect(), fe=G.photo.fenetre(), W=window.__vh.ev('W'), H=window.__vh.ev('H');
@@ -111,7 +113,7 @@ test('photo : Se déplacer — grossir refait la scène à l’échelle (des nom
   const v=await o.app.ev('G.photo.vue()'); console.log('vue',JSON.stringify(v)); expect(v.z).toBeGreaterThan(1.5);
   const s2=await etat(o); expect(ecart(s2.h,s1.h)).toBeLessThan(0.001); expect(s2.cam).toBe(s1.cam); // le calage ne bouge pas en mode Se déplacer
   const z1=await o.app.ev('({W,H,f:(W/2)/Math.tan(vFov()/2*D)})'); console.log('scène',JSON.stringify(z0),'→',JSON.stringify(z1));
-  expect(Math.abs(z1.f/z0.f-v.z)).toBeLessThan(0.02*v.z); expect(Math.abs(z1.W/z0.W-v.z)).toBeLessThan(0.02*v.z); // la scène est celle de la photo agrandie
+  expect(Math.abs(z1.f/z0.f-v.z/v0.z)).toBeLessThan(0.02*v.z/v0.z); expect(Math.abs(z1.W/z0.W-v.z/v0.z)).toBeLessThan(0.02*v.z/v0.z); // la scène est celle de la photo agrandie
   expect((await aligne()).every(d=>Math.abs(d)<1.5)).toBe(true);
   // les noms sont refaits à cette échelle : il en apparaît qui ne tenaient pas, et tout ce qui est écrit reste dans la partie vue
   const apres=await noms(), nouveaux=[...apres].filter(x=>!avant.has(x)); console.log('noms avant',avant.size,'après',apres.size,'nouveaux',nouveaux.slice(0,6));
@@ -135,5 +137,43 @@ test('photo : en direct, le bouton verrouille le calage (glisser ne change plus 
   const h0=await o.app.ev('S.headOff'); await glisser(); expect(await o.app.ev('S.headOff')).toBe(h0);
   await page.click('#g3Mode'); expect(await o.app.ev("G.photo.mode()")).toBe('libre');
   await glisser(); expect(ecart(await o.app.ev('S.headOff'),h0)).toBeGreaterThan(1);
+  await o.ctx.close(); expect(o.erreurs).toEqual([]);
+});
+
+test('photo : un doigt posé pendant un changement de mode ne laisse pas de doigt fantôme dans la v1 (sinon chaque glisser devient un pincement et le champ part à 20° ou 110°)',async({browser})=>{
+  test.setTimeout(300000);
+  const o=await ouvrir(browser,'pont-photo-gorges',PORTRAIT), page=o.page, cdp=await page.context().newCDPSession(page);
+  const cam0=await o.app.ev('S.camFov');
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:100,y:300,id:0}]});
+  await page.evaluate(()=>document.getElementById('g3Mode').click()); // l'autre main change de mode
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await page.evaluate(()=>document.getElementById('g3Mode').click()); // retour à Caler
+  await page.mouse.move(200,300); await page.mouse.down(); await page.mouse.move(120,300,{steps:4}); await page.mouse.up();
+  expect(await o.app.ev('ptrs.size')).toBe(0); expect(await o.app.ev('S.camFov')).toBe(cam0);
+  // même chose à la sortie de la photo
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:100,y:300,id:0}]});
+  await page.evaluate(()=>document.getElementById('photoChip').click()); await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  await o.app.waitFor('!photoMode'); expect(await o.app.ev('ptrs.size')).toBe(0);
+  await o.ctx.close(); expect(o.erreurs).toEqual([]);
+});
+
+test('photo : Se déplacer en pleine largeur — le ciel de la photo des gorges laisse la place à plus de noms de crêtes, et la photo monte et descend en butée sur ses bords',async({browser})=>{
+  test.setTimeout(300000);
+  const o=await ouvrir(browser,'pont-photo-gorges'), page=o.page;
+  const noms=async()=>new Set((await o.app.frame()).map(x=>String(x.text)).filter(x=>x.length>3&&!/ km|\d m$/.test(x)));
+  const entiere=await noms();
+  await page.click('#g3Mode'); // le bandeau d'aide (4,5 s) et la puce « calée automatiquement » (12 s) couvrent d'abord le ciel (l'horloge du banc est figée : on les retire)
+  await page.evaluate(()=>{ document.getElementById('g3Cale').hidden=true; document.getElementById('note').style.display='none'; });
+  await expect.poll(async()=>[...await noms()].filter(x=>!entiere.has(x)).length,{timeout:20000}).toBeGreaterThanOrEqual(3); // des noms de crêtes et de cols qui ne tenaient pas
+  expect((await noms()).has('Bec de Châtelus')).toBe(true);
+  // descendre la photo (doigt vers le bas) : le bord haut arrive en butée, jamais plus
+  await page.mouse.move(600,60); await page.mouse.down(); await page.mouse.move(600,250,{steps:6}); await page.mouse.up(); await page.waitForTimeout(500);
+  let v=await o.app.ev('G.photo.vue()'), fe=await o.app.ev('G.photo.fenetre()'); expect(fe.vy).toBe(0); expect(fe.y).toBe(0);
+  // la monter : le bord bas arrive en butée
+  for(let i=0;i<2;i++){ await page.mouse.move(600,260); await page.mouse.down(); await page.mouse.move(600,20,{steps:6}); await page.mouse.up(); await page.waitForTimeout(300); }
+  v=await o.app.ev('G.photo.vue()'); fe=await o.app.ev('G.photo.fenetre()'); const H=await o.app.ev('H');
+  expect(fe.vy+fe.h).toBeLessThanOrEqual(H+1); expect(fe.vy).toBeGreaterThan(0); expect(Math.round(fe.vy+fe.h)).toBe(Math.round(H));
+  // retour à Caler : photo entière
+  await page.click('#g3Mode'); await page.waitForTimeout(500); expect((await o.app.ev('G.photo.vue()')).z).toBe(1);
   await o.ctx.close(); expect(o.erreurs).toEqual([]);
 });
