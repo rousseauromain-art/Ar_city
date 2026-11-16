@@ -13,7 +13,9 @@ const ACTIF=process.env.PLANCHE==='1';
 const DIR=process.env.PLANCHE_DIR||'';
 const AVANT=greffesDe(process.env.PLANCHE_AVANT||'');
 const APRES=greffesDe(process.env.PLANCHE_APRES||'contexte');
-const REGLAGES=process.env.PLANCHE_REGLAGES?JSON.parse(process.env.PLANCHE_REGLAGES):{}; // réglages communs aux deux rendus (ex. calque « Lieux » décoché)
+const REGLAGES=process.env.PLANCHE_REGLAGES?JSON.parse(process.env.PLANCHE_REGLAGES):{};
+const TOUCHER=process.env.PLANCHE_TOUCHER||''; // geste avant la capture : toucher l'étiquette de ce nom, si elle est écrite (fiche ouverte sur la planche)
+const {textPoly}=require('../../tests/commun/labels'); // réglages communs aux deux rendus (ex. calque « Lieux » décoché)
 const leg=g=>g.length?`${g.length} greffe(s) : ${g.join(', ')}`:'toutes greffes éteintes (v1)';
 
 test.describe('planche de rendus',()=>{
@@ -27,6 +29,8 @@ test.describe('planche de rendus',()=>{
     const num=String(i+1).padStart(2,'0'), base=path.join(DIR,`${num}-${cle}`);
     const faire=async(greffes,png)=>{
       const o=await ouvrirSceneReelle(browser,sc,{url:V3,greffes,reglages:{...reglages,...REGLAGES}});
+      if(TOUCHER){ await o.app.frame(); const t=(await o.app.frame()).find(x=>x.text===TOUCHER);
+        if(t){ const P=textPoly(t); await o.page.mouse.click(P.reduce((a,p)=>a+p[0],0)/4,P.reduce((a,p)=>a+p[1],0)/4); await o.page.waitForTimeout(600); } }
       const r=await capturer(o,png); await o.ctx.close(); return r;
     };
     const rAvant=await faire(AVANT,base+'.avant.png');

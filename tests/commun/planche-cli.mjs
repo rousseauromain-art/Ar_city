@@ -20,7 +20,7 @@ const r=spawnSync('npx',['playwright','test','--project=v3','v3/tests/planche.sp
 if(r.status!==0) process.exit(r.status||1);
 
 const titre=`PR-${pr}`;
-const regl=process.env.PLANCHE_REGLAGES?` Réglages des deux rendus : ${process.env.PLANCHE_REGLAGES}.`:'';
+const regl=(process.env.PLANCHE_REGLAGES?` Réglages des deux rendus : ${process.env.PLANCHE_REGLAGES}.`:'')+(process.env.PLANCHE_TOUCHER?` Geste avant la capture : toucher « ${process.env.PLANCHE_TOUCHER} » quand il est écrit.`:'');
 const description=`Avant : ${avant||'toutes greffes éteintes (v1)'}. Après : ${apres}.${regl} Scènes du banc rejouées sur les photos et le cache du téléphone (réglages du 15/11, « Visibilité d'après la photo » cochée).`;
 assemblerReadme(dir,{titre,description});
 console.log(`\nPlanche écrite dans ${dir}`);

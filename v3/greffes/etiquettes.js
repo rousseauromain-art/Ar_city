@@ -5,6 +5,7 @@
 //  - Couleur : sommets et cols en vert (VERT, choisi par Romain le 15/11), texte cerné de sombre comme les autres noms.
 // Points d'entrée dans draw() : `vert` (couleur), `noter` (place du nom incliné), `poser` (repli à plat, tenue).
 const VERT='110,224,143', TENUE_MS=2000;
+let boite=null; // boîte du dernier nom écrit par la greffe ([x0,x1,y0,y1,poly]) : zone tactile (greffe toucher)
 const mem=new Map(); // nom|genre -> {t, mode:'inc'|'plat', dx, dy, sgn}
 const maintenant=()=>(typeof performance!=='undefined'?performance.now():Date.now());
 const cle=c=>c.name+'|'+c.kind;
@@ -19,6 +20,10 @@ function dessiner(ctx,o,m,lx,ly,sgn){
   ctx.strokeText(lab,0,0); ctx.fillStyle=`rgba(${tint},${alpha})`; ctx.fillText(lab,0,0);
   if(dtxt){ ctx.font=`500 11px ${FM}`; const dx=m==='inc'?sgn*(nw+7):nw+7; ctx.lineWidth=3; ctx.strokeText(dtxt,dx,0); ctx.fillStyle=`rgba(224,165,38,${ghost?.5:1})`; ctx.fillText(dtxt,dx,0); }
   ctx.restore();
+  // boîte du texte écrit (nom + altitude/distance) dans le repère de la scène, pour la zone tactile (greffe toucher)
+  const L=nw+(dtxt?7+ctx.measureText(dtxt).width:0), a=m==='inc'?-sgn*ANG_LBL:0, s0=m==='inc'?sgn:1, ca=Math.cos(a), sa=Math.sin(a);
+  const pt=(px,py)=>[lx+px*ca-py*sa,ly+px*sa+py*ca], poly=[pt(0,-size),pt(s0*L,-size),pt(s0*L,3),pt(0,3)];
+  const xs=poly.map(q=>q[0]), ys=poly.map(q=>q[1]); boite=[Math.min(...xs),Math.max(...xs),Math.min(...ys),Math.max(...ys),poly];
 }
 export default {
   init(){},
@@ -39,6 +44,8 @@ export default {
   /** Mode montagne : les sommets et cols visibles passent devant les autres lieux (ordre conservé dans chaque groupe) ; les monuments gardent leur priorité, les fantômes restent derrière. */
   ordonner(liste){ const ok=c=>c.kind==='peak'&&!c.far&&!c.hidden&&!c.zone, rang=c=>c.zone?1:0; // les zones (greffe zones : gorges, massifs, forêts…) passent en dernier : elles ne prennent que la place qui reste
     const reste=liste.filter(c=>c.kind!=='monument'&&!ok(c)); return liste.filter(c=>c.kind==='monument').concat(liste.filter(ok),reste.filter(c=>!rang(c)),reste.filter(rang)); },
+  /** Boîte du dernier nom écrit par la greffe (zone tactile de la greffe toucher). */
+  boite:()=>boite,
   /** Pour les tests : oublie les places retenues. */
   oublier(){ mem.clear(); },
 };
