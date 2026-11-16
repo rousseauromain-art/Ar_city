@@ -2,7 +2,7 @@
 
 Lu au début de chaque session. **La spécification en vigueur est `docs/REFONTE-V3.md`** : elle prime sur `v2/REFONTE.md` et sur l'historique. Tenir ce fichier à jour à chaque décision importante.
 
-**Travail en cours : `docs/PLAN-2026-11-16.md`** (retours de Romain après l'exécution du plan du 15/11 : constats K1 à K16 mesurés au banc, lots R0 à R11 dans l'ordre, cinq questions). Commencer par R0 (planche de rendus à chaque PR, version de la page, tests « ce que l'on voit »), puis R1 (n'écrire que ce qui se voit). Le plan précédent, `docs/PLAN-2026-11-15.md`, est exécuté sauf ses lots 1, 8, 10 et 12 (repris en R11).
+**Travail en cours : `docs/PLAN-2026-11-16.md`** (retours de Romain après l'exécution du plan du 15/11 : constats K1 à K16 mesurés au banc, lots R0 à R11 dans l'ordre ; toutes les questions ont leur réponse ; exécution par groupes de lots, §4 du plan). Commencer par R0 (planche de rendus à chaque PR, version de la page, tests « ce que l'on voit »), puis R1 (n'écrire que ce qui se voit). Le plan précédent, `docs/PLAN-2026-11-15.md`, est exécuté sauf ses lots 1, 8, 10 et 12 (repris en R11).
 
 ## Le projet
 Réalité augmentée dans le navigateur, comme une table d'orientation : par-dessus la caméra, noms des lieux et monuments, relief, bateaux (AIS), avions, équipements télécom.
