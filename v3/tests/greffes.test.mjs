@@ -32,10 +32,10 @@ const V1 = readFileSync(new URL('../../v1/villes-horizon.html', import.meta.url)
 /** Extrait une fonction de la v1 par son nom (texte exact de la v1). */
 const fonctionV1 = (nom) => { const i = V1.indexOf(`function ${nom}(`); let k = V1.indexOf('{', V1.indexOf(')', i)), n = 0; for (let j = k; ; j++) { if (V1[j] === '{') n++; else if (V1[j] === '}' && --n === 0) return V1.slice(i, j + 1); } };
 
-test('registre : 30 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
+test('registre : 31 greffes, toutes éteintes par défaut, chacune avec son fichier', () => {
   const reg = readFileSync(new URL('../greffes.js', import.meta.url), 'utf8');
   const ids = [...reg.matchAll(/\{id:'(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'gpsRapide', 'anfrRelief', 'presDe', 'zones', 'visibilite', 'nommer']);
+  assert.deepEqual(ids, ['soleil2', 'lune', 'permutation', 'echelle2', 'oeil', 'icones', 'rotation', 'lieuxWikidata', 'boussoleA', 'tailleReelle', 'plaque', 'capteurRelatif', 'recalageContinu', 'montagne', 'champAuto', 'nettete', 'projection', 'degage', 'hauteurs', 'oeilLieu', 'horizonPhoto', 'champPhoto', 'soleilReflet', 'etiquettes', 'toits', 'lieuxRapides', 'gpsRapide', 'anfrRelief', 'presDe', 'zones', 'visibilite', 'calques', 'nommer']);
   for (const id of ids) assert.ok(readFileSync(new URL(`../greffes/${id}.js`, import.meta.url), 'utf8').includes('export default'), id);
   assert.match(reg, /allumees=IDS\.filter\(id=>m&&m\[id\]===true\)/, 'sans mémoire, aucune greffe allumée');
   for (const f of ids) for (const m of readFileSync(new URL(`../greffes/${f}.js`, import.meta.url), 'utf8').matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)) assert.match(m[1], /^\.\/[\w-]+\.js$/, `${f} n'importe que des fichiers de v3/greffes/ (rien de la v2) : ${m[1]}`);
@@ -587,4 +587,23 @@ test('visibilite : écart médian silhouette/relief, anneau de points, zone ponc
   assert.equal(v.zoneCachee(col, { hidden: true }, partout), true, 'col caché : caché même si les alentours se voient');
   assert.equal(v.zoneCachee(gorge, { hidden: true }, partout), false, 'gorge : une partie se voit');
   assert.equal(v.zoneCachee(gorge, { hidden: true }, nulle), true); assert.equal(v.zoneCachee(gorge, { hidden: false }, nulle), false);
+});
+
+// ---- calques : type d'abord, milieu pour les ambigus (relief simulé : mer à 0 m) ----
+test('calques : habité → Lieux, sommet → Montagne, phare → Mer ; grotte au bord de l’eau → Mer, en montagne → Montagne, en plaine → Lieux', async () => {
+  const k = await import('../greffes/calques.js');
+  assert.equal(k.calqueDuType({ kind: 'village' }), 'lieux'); assert.equal(k.calqueDuType({ kind: 'peak', name: 'Le Grand Serre' }), 'montagne');
+  assert.equal(k.calqueDuType({ kind: 'lighthouse' }), 'mer'); assert.equal(k.calqueDuType({ kind: 'monument' }), 'monuments');
+  assert.equal(k.calqueDuType({ kind: 'peak', zone: true, name: 'col Vert', types: 'col de montagne' }), 'montagne');
+  assert.equal(k.calqueDuType({ kind: 'rock', zone: true, name: 'grotte X', types: 'grotte' }), null);
+  assert.equal(k.calqueDuType({ kind: 'peak', name: 'Rocher Noël' }), null, 'un rocher rangé « peak » par OpenFreeMap reste ambigu');
+  const g = { kind: 'rock', zone: true, name: 'grotte X', types: 'grotte', lat: 45, lon: 5 };
+  const cote = (la, lo) => (lo > 5.003 ? 0 : 12);                        // la mer à 230 m à l'est, sol à 12 m
+  const falaise = (la, lo) => 900 + (lo - 5) * 2000;                     // sol à 900 m
+  const vallon = (la, lo) => 400 + Math.abs(la - 45) * 111.32 * 200;      // 400 m de dénivelé en 2 km
+  const plaine = () => 80;
+  assert.equal(k.calqueDe(g, cote), 'mer'); assert.equal(k.calqueDe(g, falaise), 'montagne'); assert.equal(k.calqueDe(g, vallon), 'montagne'); assert.equal(k.calqueDe(g, plaine), 'lieux');
+  assert.equal(k.calqueDe(g, null), 'montagne', 'relief absent : une grotte reste de la montagne');
+  assert.equal(k.calqueDe({ kind: 'cape', name: 'Cap X', lat: 45, lon: 5 }, null), 'mer');
+  const haut = (la, lo) => (lo > 5.003 ? 0 : 60); assert.equal(k.milieu(45, 5, haut), 'lieux', 'sol à 60 m : pas au bord de l’eau (seuil 50 m)');
 });

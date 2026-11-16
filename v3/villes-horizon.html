@@ -3251,7 +3251,7 @@ function draw(ts){
   // qu'il occupait a l'image precedente ; il n'en change que si elle est prise.
   const showPlaces=S.layers.places;
   const isGhost=c=>!!c.far||(useRelief&&!!c.hidden);
-  const layerOk=c=>showPlaces||c.kind==='monument';
+  const layerOk=c=>G.actif('calques')?G.calques.affiche(c):(showPlaces||c.kind==='monument'); // greffe calques : un calque par nature (Lieux, Montagne, Mer)
   let order=(S.beyond?list.filter(c=>!isGhost(c)).concat(list.filter(isGhost)):list.filter(c=>!isGhost(c))).filter(layerOk).filter(c=>c.cat!=='equip'); // les equipements ont leur bande (drawInfra)
   if(G.actif('etiquettes')) order=G.etiquettes.ordonner(order); // greffe etiquettes : sommets et cols d'abord
   const ANG_LBL=45*D, cAL=Math.cos(ANG_LBL), sAL=Math.sin(ANG_LBL);
@@ -3781,7 +3781,7 @@ function draw(ts){
   // statut
   // bandeau en langage courant : le nombre de lieux, puis UNIQUEMENT ce qui ne va pas (le detail
   // technique — source, etat du relief, precision GPS — est dans le panneau Diagnostic)
-  const shown=list.filter(c=>!isGhost(c)&&passFilter(c,fq)&&(S.layers.places||c.kind==='monument')).length;
+  const shown=list.filter(c=>!isGhost(c)&&passFilter(c,fq)&&(G.actif('calques')?G.calques.affiche(c):(S.layers.places||c.kind==='monument'))).length; // greffe calques
   lastShown=shown;
   const issues=[];
   if(!pos) issues.push('GPS en attente'); else if(acc>50) issues.push(`GPS imprécis (±${Math.round(acc)} m)`);
@@ -5234,7 +5234,7 @@ $('go').onclick=async()=>{
   resize(); requestAnimationFrame(draw);
 };
 // v3 : les greffes allumées reçoivent l'accès aux variables du script (lecture seule, sauf les réglages S) ; panneau « Greffes v2 » des Réglages
-G.lier({S,skylineElevAt,voirPoint:(lat,lon)=>{ if(!terrain||!pos) return null; const r=distBrg(pos,{lat,lon}), p={lat,lon,dist:r.dist,brg:r.brg,kind:'hamlet'}, e=elevAt(terrain.bands,lat,lon,r.dist); p.dem=e===e?e:null; return !assessPlace(terrain,p,12,0.18,0.28).hidden; },netLog,lieuProche:()=>visibleCities().filter(c=>SETTLE.has(c.kind)&&!c.far).reduce((a,c)=>(!a||c.dist<a.dist)?c:a,null),publierLieux:(got,src)=>{ cities=got; source=src; recompute(); },chargement:()=>loading,recharger:()=>loadCities(true),D,$,wrap,note,pose,vFov,vFovFor,showFov,sunNow,sunTime,saveSettings,noteCalib,calRecord,logNet,fetchT,grabFrameRGB,camReady,photoPeaks,landmarksForCal,monName,distBrg,friendlyErr,
+G.lier({S,altitude:(lat,lon)=>{ if(!terrain||!pos) return null; const e=elevAt(terrain.bands,lat,lon,distBrg(pos,{lat,lon}).dist); return e===e?e:null; },skylineElevAt,voirPoint:(lat,lon)=>{ if(!terrain||!pos) return null; const r=distBrg(pos,{lat,lon}), p={lat,lon,dist:r.dist,brg:r.brg,kind:'hamlet'}, e=elevAt(terrain.bands,lat,lon,r.dist); p.dem=e===e?e:null; return !assessPlace(terrain,p,12,0.18,0.28).hidden; },netLog,lieuProche:()=>visibleCities().filter(c=>SETTLE.has(c.kind)&&!c.far).reduce((a,c)=>(!a||c.dist<a.dist)?c:a,null),publierLieux:(got,src)=>{ cities=got; source=src; recompute(); },chargement:()=>loading,recharger:()=>loadCities(true),D,$,wrap,note,pose,vFov,vFovFor,showFov,sunNow,sunTime,saveSettings,noteCalib,calRecord,logNet,fetchT,grabFrameRGB,camReady,photoPeaks,landmarksForCal,monName,distBrg,friendlyErr,
   AC:{WIN:AC_WIN,VTOL:AC_VTOL,AGREE:AC_AGREE}, bumpCities:()=>{ citiesVer++; }, onNewPos, overpassQuery:(...a)=>overpassQuery(...a), dcFetch:(...a)=>dcFetch(...a), setFarPeaks:l=>{ farPeaks=l; recompute(); },
   relatif:(R,reinit)=>{ if(reinit){ gyroK=null; magBins.fill(null); svRel=srRel=null; } if(!R) return; const k=0.18, sm=(p,n)=>p?p.map((q,i)=>q+(n[i]-q)*k):n; // greffe capteurRelatif : mesure relative (quaternion), comme onOrient
     svRel=sm(svRel,R.v); srRel=sm(srRel,R.r); relT=Date.now(); sv=svAbs||svRel; sr=svAbs?srAbs:srRel; sensor=true; gyroLearn(); },
