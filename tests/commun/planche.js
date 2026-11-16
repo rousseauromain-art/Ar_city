@@ -42,10 +42,10 @@ async function capturer(o,fichierPng){
     }
     return out;
   });
-  const nomsCaches=await o.app.ev("(()=>{ const L=cities.concat(farPeaks).filter(c=>c.hidden).map(c=>String(c.name)); const M=monumentSites.filter(c=>c.hidden).map(c=>{ try{ return monName(c); }catch(e){ return String(c.name); } }); return L.concat(M); })()");
+  const noms=await o.app.ev("(()=>{ const nm=c=>{ if(c.kind!=='monument') return String(c.name); try{ return monName(c); }catch(e){ return String(c.name); } }; const T=cities.concat(farPeaks,monumentSites); return {caches:T.filter(c=>c.hidden).map(nm),visibles:T.filter(c=>!c.hidden&&!c.far).map(nm)}; })()");
   const etat=await o.app.ev('({toutVoir:!!S.beyond,H,W})');
   await o.page.screenshot({path:fichierPng});
-  const infractions=controler({textes:r.textes,ops:r.ops,rects,nomsCaches,toutVoir:etat.toutVoir,H:etat.H});
+  const infractions=controler({textes:r.textes,ops:r.ops,rects,nomsCaches:noms.caches,nomsVisibles:noms.visibles,toutVoir:etat.toutVoir,H:etat.H});
   return {infractions,textes:r.textes.length};
 }
 
