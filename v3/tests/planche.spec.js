@@ -13,6 +13,7 @@ const ACTIF=process.env.PLANCHE==='1';
 const DIR=process.env.PLANCHE_DIR||'';
 const AVANT=greffesDe(process.env.PLANCHE_AVANT||'');
 const APRES=greffesDe(process.env.PLANCHE_APRES||'contexte');
+const REGLAGES=process.env.PLANCHE_REGLAGES?JSON.parse(process.env.PLANCHE_REGLAGES):{}; // réglages communs aux deux rendus (ex. calque « Lieux » décoché)
 const leg=g=>g.length?`${g.length} greffe(s) : ${g.join(', ')}`:'toutes greffes éteintes (v1)';
 
 test.describe('planche de rendus',()=>{
@@ -25,7 +26,7 @@ test.describe('planche de rendus',()=>{
     const {cle,sc,reglages}=scenes[i]; ignorerSiAbsent(test,sc);
     const num=String(i+1).padStart(2,'0'), base=path.join(DIR,`${num}-${cle}`);
     const faire=async(greffes,png)=>{
-      const o=await ouvrirSceneReelle(browser,sc,{url:V3,greffes,reglages});
+      const o=await ouvrirSceneReelle(browser,sc,{url:V3,greffes,reglages:{...reglages,...REGLAGES}});
       const r=await capturer(o,png); await o.ctx.close(); return r;
     };
     const rAvant=await faire(AVANT,base+'.avant.png');
