@@ -60,7 +60,7 @@ async function ouvrirSceneReelle(browser,sc,opts={}){
   await page.waitForFunction(()=>document.getElementById('start').style.display==='none');
   if(sc.photo){ await page.setInputFiles('#photoFile',path.join(PHOTOS_DIR,sc.photo)); await app.waitFor('photoMode&&pos'); } else await app.waitFor('pos');
   await attendreStable(app);
-  if(sc.photo) await app.waitFor("!G.actif('photo')||G.photo.etat().pret",60000); // greffe photo : calage automatique de l'ouverture terminé
+  if(sc.photo) await app.waitFor("typeof G==='undefined'||!G.actif('photo')||G.photo.etat().pret",60000); // greffe photo : calage automatique de l'ouverture terminé
   // horloge de test figée : terrain.at ne change pas entre les deux publications du relief et la v1 garderait l'altitude des lieux lue dans le
   // relief lointain (c.demT) ; en conditions réelles elles sont relues. On le reproduit.
   await app.ev('for(const c of cities.concat(farPeaks,monumentSites)) c.demT=0; applyOcclusion(false); true');

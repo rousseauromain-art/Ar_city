@@ -52,7 +52,7 @@ for(const [id,ecran] of [['pont-photo-plaine',PAYSAGE],['pont-photo-24mm',PORTRA
     console.log(id,JSON.stringify({h:s.h,p:s.p,msg:s.e.message,essais:s.e.essais}));
     if(id==='pont-photo-plaine') expect(ecart(s.h,279.4)).toBeLessThan(3);
     else if(s.e.auto) expect(ecart(s.h,226.4)).toBeLessThan(2);
-    else { expect(s.h).toBe(s.dir0); expect(await o.page.isVisible('#g3Cale')).toBe(false); }
+    else { expect(s.h).toBe(s.dir0); expect(await o.page.textContent('#g3Cale')).toContain('pas calée'); }
     // avec le champ mesuré des photos du Pixel 9 (≈ 69,5°, K9 ; le champ par défaut des photos est le lot R7) : même exigence
     const r=await o.app.ev("(async()=>{ S.headOff=photoMode.dir0; S.pitchOff=0; S.camFov=69.5; await G.photo.recaler(); return {h:S.headOff,e:G.photo.etat()}; })()");
     console.log(id,'69,5°',JSON.stringify({h:r.h,msg:r.e.message}));

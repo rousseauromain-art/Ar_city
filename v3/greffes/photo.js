@@ -172,6 +172,7 @@ export function lireEssai(msg){
  *  23°) ; il reste au bouton « Caler ». Un échec ne change rien. */
 async function caleAuto(pm,force){
   etat={pret:false,auto:null,message:'calage automatique en cours',repris:false};
+  await attendre(60); // les autres greffes de l'ouverture d'abord (horizonPhoto règle l'horizon d'après les bâtiments) : le calage part de là
   const t0=Date.now(); while(Date.now()-t0<30000&&c.photoMode===pm&&(!c.terrain||c.terrainBusy||c.terrain.refining)) await attendre(150); // relief complet : le relief lointain seul donne un autre calage
   if(c.photoMode!==pm){ etat={...etat,pret:true,message:'photo quittée'}; return; }
   if(utilisateur&&!force){ etat={...etat,pret:true,message:'calé à la main pendant le chargement du relief : pas de calage automatique'}; return; }
@@ -181,6 +182,7 @@ async function caleAuto(pm,force){
     const essayer=async(h,p)=>{ c.S.headOff=h; c.S.pitchOff=p; let msg=''; try{ msg=await c.runAutoAlign0(); }catch(e){ msg='échec : '+(e&&e.message||e); }
       const r={...lireEssai(msg),msg,k:calageActuel()}; essais.push(r); return r; };
     for(const d of DEPARTS){ if(c.photoMode!==pm) break; await essayer(avant.h,avant.p+d); }
+    if(c.photoMode!==pm){ etat={...etat,pret:true,message:'photo quittée'}; return; } // une autre photo est ouverte : on n'y touche pas
     const reliefs=essais.filter(e=>e.genre==='relief').sort((a,b)=>a.cout-b.cout), meilleur=reliefs.find(e=>appuis(e,reliefs)>=APPUIS_MIN);
     let choix=meilleur||(reliefs.length?null:essais.find(e=>e.genre==='reperes')||(essais[0]&&essais[0].genre==='horizon'?essais[0]:null));
     if(choix&&choix.genre==='relief'){ const r=await essayer(choix.k.h,choix.k.p); if(r.genre==='relief'&&r.cout<=choix.cout+0.02) choix=r; } // affinage depuis le meilleur
@@ -190,10 +192,10 @@ async function caleAuto(pm,force){
     etat={pret:true,auto:bouge?{avant,apres:fin,genre:choix.genre,cout:choix.cout}:null,message:msg,repris:false,essais:essais.map(e=>({genre:e.genre,cout:e.cout,h:e.k.h,p:e.k.p}))};
     pm.utc=utc;
     if(bouge){ c.saveSettings(); c.noteCalib(); retenir(true); c.calRecord('auto ouverture photo',{h:avant.h,p:avant.p},{msg:msg.slice(0,120)}); c.logNet('Calage',true,`photo calée à l’ouverture : ${msg}`); puce('calée automatiquement · <u>annuler</u>'); }
-    else c.note('Photo non calée automatiquement (rien de sûr) : glissez pour caler',3500);
+    else puce('pas calée automatiquement (rien de sûr)',5000); // une puce, pas le message : celui des autres greffes de l'ouverture reste lisible
   }finally{ if(pm.utc===null) pm.utc=utc; }
 }
-function puce(html){ const p=c.$('g3Cale'); if(!p) return; p.innerHTML='📷 '+html; p.hidden=false; clearTimeout(puceT); puceT=setTimeout(()=>{ p.hidden=true; },20000); }
+function puce(html,ms=20000){ const p=c.$('g3Cale'); if(!p) return; p.innerHTML='📷 '+html; p.hidden=false; clearTimeout(puceT); puceT=setTimeout(()=>{ p.hidden=true; },ms); }
 function annuler(){
   const p=c.$('g3Cale'); if(p) p.hidden=true; if(!etat.auto||!c.photoMode) return;
   appliquer(etat.auto.avant); c.saveSettings(); retenir(true); c.note('Calage automatique annulé',3000); etat={...etat,auto:null,message:'annulé'};
