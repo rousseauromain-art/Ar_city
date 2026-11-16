@@ -38,6 +38,10 @@ export function zoomer(v,cx,cy,k,cadre){
 }
 /** Vue qui fait remplir l'écran Wv×Hv à la photo (plus de bandes noires), centrée. Pure. */
 export function remplir(cadre,Wv,Hv){ const k=Math.max(Wv/cadre.w,Hv/cadre.h); return borner(zoomer({z:1,tx:0,ty:0},Wv/2,Hv/2,k,cadre),cadre,Wv,Hv); }
+/** Vue « pleine largeur » : la photo remplit la largeur de l'écran, son bord haut en haut (le ciel d'abord) ; on la fait ensuite monter ou descendre, elle s'arrête
+ *  à ses bords (butée). Si la photo remplit déjà la largeur (écran en portrait), c'est la photo entière. Pure. */
+export function pleineLargeur(cadre,Wv,Hv){ const z=Math.max(1,Wv/cadre.w); if(z<=1.0005) return {z:1,tx:0,ty:0};
+  return borner({z,tx:(Wv-cadre.w*z)/2-cadre.x,ty:-cadre.y},cadre,Wv,Hv); }
 /** Point d'écran → coordonnées du canevas (W×H), d'après le rectangle affiché du canevas `r` (getBoundingClientRect). Pure. */
 export function versLocal(x,y,r,W,H){ return r&&r.width>0&&r.height>0?[(x-r.left)*W/r.width,(y-r.top)*H/r.height]:[x,y]; }
 /** Angle (°) du segment de a à b, et écart signé entre deux angles (−180…180). Pures. */
@@ -94,13 +98,14 @@ function majBouton(){
   b.innerHTML=ICONE[k]+`<span class="g3ModeT">${photo?(mode==='caler'?'Caler':'Déplacer'):(verrou?'Verrouillé':'Libre')}</span>`;
   b.classList.toggle('on',photo?mode==='deplacer':verrou);
   const t=photo?(mode==='caler'?'Mode Caler : glisser = cap et horizon, pincer = champ, tourner à deux doigts = rotation. Toucher : passer en Se déplacer'
-    :'Mode Se déplacer : glisser = se déplacer dans la photo, pincer = grossir, toucher deux fois = photo entière ou plein écran. Toucher : revenir à Caler')
+    :'Mode Se déplacer : glisser = se déplacer dans la photo, pincer = grossir, toucher deux fois = photo entière ↔ pleine largeur. Toucher : revenir à Caler')
     :(verrou?'Calage verrouillé : glisser et pincer ne le changent plus. Toucher : déverrouiller':'Toucher : verrouiller le calage');
   b.title=t; b.setAttribute('aria-label',t); b.setAttribute('aria-pressed',String(photo?mode==='deplacer':verrou));
 }
 function basculer(){
-  if(c.photoMode){ mode=mode==='caler'?'deplacer':'caler';
-    c.note(mode==='deplacer'?'Se déplacer : glisser pour se déplacer dans la photo, pincer pour grossir, toucher deux fois : photo entière ou plein écran':'Caler : glisser = cap et horizon, pincer = champ, tourner à deux doigts = rotation (±15°)',4500); }
+  lacher();
+  if(c.photoMode){ mode=mode==='caler'?'deplacer':'caler'; vue=mode==='deplacer'?pleineLargeur(cadre,innerWidth,innerHeight):{z:1,tx:0,ty:0}; majVue(); // Se déplacer : pleine largeur, le ciel d'abord ; Caler : la photo entière
+    c.note(mode==='deplacer'?'Se déplacer : photo en pleine largeur, glisser pour la faire monter ou descendre, pincer pour grossir, toucher deux fois : photo entière ↔ pleine largeur':'Caler : glisser = cap et horizon, pincer = champ, tourner à deux doigts = rotation (±15°)',4500); }
   else { verrou=!verrou; c.note(verrou?'Calage verrouillé : glisser et pincer ne le changent plus':'Calage déverrouillé',3000); }
   majBouton();
 }
@@ -122,11 +127,22 @@ function relayer(e,x,y){
     button:e.button,buttons:e.buttons,width:e.width,height:e.height,pressure:e.pressure,bubbles:true,cancelable:true,composed:true});
   ev.__g3photo=true; ov().dispatchEvent(ev);
 }
+/** Retire de la v1 les doigts que la greffe lui a transmis (changement de mode, photo quittée, autre photo) : sans cela, la v1 garde un doigt fantôme,
+ *  lit chaque glisser comme un pincement et pousse le champ de la caméra à 20° ou à 110°. */
+function lacher(){
+  for(const [id,d] of doigts) if(d.rel){ const q=local(d.x,d.y);
+    try{ ov().dispatchEvent(Object.assign(new PointerEvent('pointercancel',{pointerId:id,pointerType:d.type||'touch',isPrimary:true,clientX:q[0],clientY:q[1],bubbles:true,cancelable:true,composed:true}),{__g3photo:true})); }catch(e){}
+    d.rel=false; d.ignore=true; }
+  geste=null;
+}
+/** Double toucher : photo entière ↔ pleine largeur (écran en portrait, où la photo remplit déjà la largeur : entière ↔ plein écran). */
+function basculerVue(){ const Wv=innerWidth, Hv=innerHeight, pl=pleineLargeur(cadre,Wv,Hv), cible=pl.z>1.05?pl:remplir(cadre,Wv,Hv);
+  return vue.z>cible.z*0.98?{z:1,tx:0,ty:0}:cible; }
 function toucherIci(x,y){ const q=local(x,y); c.toucherEcran(q[0],q[1]); }
 function surDown(e){
   if(e.__g3photo||!gestesIci()||!cibleScene(e.target)) return;
-  e.stopPropagation(); doigts.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,t:Date.now()});
-  if(c.photoMode&&mode==='caler'){ utilisateur=true;
+  e.stopPropagation(); const rel=!!c.photoMode&&mode==='caler'; doigts.set(e.pointerId,{x:e.clientX,y:e.clientY,x0:e.clientX,y0:e.clientY,t:Date.now(),rel,type:e.pointerType});
+  if(rel){ utilisateur=true;
     if(doigts.size===2){ const [a,b]=[...doigts.values()]; geste={type:'deux',a0:angleDe(a,b),d0:Math.hypot(a.x-b.x,a.y-b.y)||1,r0:roulis,rot:false}; }
     const q=local(e.clientX,e.clientY); relayer(e,q[0],q[1]); return; }
   // Se déplacer (photo) ou calage verrouillé (direct) : la greffe garde le geste
@@ -136,7 +152,8 @@ function surDown(e){
 function surMove(e){
   if(e.__g3photo||!doigts.has(e.pointerId)) return;
   e.stopPropagation(); const d=doigts.get(e.pointerId); d.x=e.clientX; d.y=e.clientY;
-  if(c.photoMode&&mode==='caler'){
+  if(d.ignore) return;
+  if(d.rel){
     if(geste&&geste.type==='deux'&&doigts.size>=2){ const [a,b]=[...doigts.values()], da=ecartAngle(geste.a0,angleDe(a,b)), k=(Math.hypot(a.x-b.x,a.y-b.y)||1)/geste.d0;
       if(!geste.rot&&Math.abs(da)>=SEUIL_ROTATION&&Math.abs(k-1)<SEUIL_PINCE) geste.rot=true; // tourner sans écarter : rotation, le champ ne bouge plus
       if(geste.rot){ roulis=Math.max(-ROTATION_MAX,Math.min(ROTATION_MAX,geste.r0+da)); c.bumpCities(); c.note(`Rotation ${roulis>=0?'+':''}${roulis.toFixed(1)}°`,1200); return; } }
@@ -153,14 +170,15 @@ function surMove(e){
 function surUp(e){
   if(e.__g3photo||!doigts.has(e.pointerId)) return;
   e.stopPropagation(); const d=doigts.get(e.pointerId); doigts.delete(e.pointerId);
-  if(c.photoMode&&mode==='caler'){
+  if(d.ignore){ if(!doigts.size) geste=null; return; }
+  if(d.rel){
     const rot=geste&&geste.rot, q=local(e.clientX,e.clientY); relayer(e,q[0],q[1]); // fin d'un geste à deux doigts : la v1 n'y voit ni toucher ni glisser
     if(!doigts.size){ geste=null; if(rot) c.saveSettings(); } return; }
   if(e.type==='pointercancel'){ if(!doigts.size) geste=null; return; }
   const tap=geste&&geste.type==='un'&&!geste.moved&&Date.now()-d.t<TAP_MS; if(!doigts.size) geste=null;
   if(!tap) return;
   if(c.photoMode&&tapPrec&&Date.now()-tapPrec.t<DOUBLE_MS&&Math.hypot(e.clientX-tapPrec.x,e.clientY-tapPrec.y)<30){ // double toucher : photo entière, ou photo qui remplit l'écran
-    clearTimeout(tapT); tapPrec=null; vue=vue.z>1.001?{z:1,tx:0,ty:0}:remplir(cadre,innerWidth,innerHeight); majVue(); return; }
+    clearTimeout(tapT); tapPrec=null; vue=basculerVue(); majVue(); return; }
   if(!c.photoMode){ toucherIci(e.clientX,e.clientY); return; }
   const x=e.clientX, y=e.clientY; tapPrec={t:Date.now(),x,y}; clearTimeout(tapT); tapT=setTimeout(()=>{ tapPrec=null; toucherIci(x,y); },DOUBLE_MS);
 }
@@ -210,7 +228,7 @@ async function caleAuto(pm,force){
     else puce('pas calée automatiquement (rien de sûr)',5000); // une puce, pas le message : celui des autres greffes de l'ouverture reste lisible
   }finally{ if(pm.utc===null) pm.utc=utc; }
 }
-function puce(html,ms=20000){ const p=c.$('g3Cale'); if(!p) return; p.innerHTML='📷 '+html; p.hidden=false; clearTimeout(puceT); puceT=setTimeout(()=>{ p.hidden=true; },ms); }
+function puce(html,ms=12000){ const p=c.$('g3Cale'); if(!p) return; p.innerHTML='📷 '+html; p.hidden=false; clearTimeout(puceT); puceT=setTimeout(()=>{ p.hidden=true; },ms); }
 function annuler(){
   const p=c.$('g3Cale'); if(p) p.hidden=true; if(!etat.auto||!c.photoMode) return;
   appliquer(etat.auto.avant); c.saveSettings(); retenir(true); c.note('Calage automatique annulé',3000); etat={...etat,auto:null,message:'annulé'};
@@ -220,7 +238,7 @@ export default {
   init(ctx){ c=ctx; monter(); setTimeout(monter,0);
     addEventListener('pointerdown',surDown,true); addEventListener('pointermove',surMove,true); addEventListener('pointerup',surUp,true); addEventListener('pointercancel',surUp,true);
     setInterval(()=>{ if(c.photoMode&&cle&&utilisateur&&!doigts.size) retenir(false); },700); },
-  cadreContenu,cleDe,borner,zoomer,remplir,versLocal,fenetre,angleDe,ecartAngle,
+  cadreContenu,cleDe,borner,zoomer,remplir,pleineLargeur,versLocal,fenetre,angleDe,ecartAngle,
   /** Point d'entrée de resize : en mode photo, la scène prend le cadre de la photo entière. → {w,h} */
   cadre(Wv,Hv){
     const pm=c.photoMode; if(!pm||!pm.w||!pm.h){ if(cadreActif){ cadreActif=false; poser(); } return {w:Wv,h:Hv}; }
@@ -237,7 +255,7 @@ export default {
   roulis:()=>c&&c.photoMode?roulis:0,
   /** Point d'entrée d'enterPhoto : photo ouverte (fichier `f`). Calage retenu repris, sinon « Caler » lancé tout seul. */
   ouvrir(f){
-    const pm=c.photoMode; if(!pm) return; cle=cleDe(f); vue={z:1,tx:0,ty:0}; roulis=0; mode='caler'; utilisateur=false; dernier=null; doigts.clear(); geste=null;
+    const pm=c.photoMode; if(!pm) return; cle=cleDe(f); vue={z:1,tx:0,ty:0}; roulis=0; mode='caler'; utilisateur=false; dernier=null; lacher(); doigts.clear();
     const p=c.$('g3Cale'); if(p) p.hidden=true;
     c.resize(); majBouton();
     const m=cle&&lireMemoire()[cle];
@@ -246,16 +264,15 @@ export default {
     caleAuto(pm);
   },
   /** Point d'entrée d'exitPhoto. */
-  fermer(){ if(c.photoMode) return; cle=null; roulis=0; vue={z:1,tx:0,ty:0}; cadreActif=false; mode='caler'; doigts.clear(); geste=null; const p=c.$('g3Cale'); if(p) p.hidden=true; c.resize(); majBouton(); },
+  fermer(){ if(c.photoMode) return; cle=null; roulis=0; vue={z:1,tx:0,ty:0}; cadreActif=false; mode='caler'; lacher(); doigts.clear(); const p=c.$('g3Cale'); if(p) p.hidden=true; c.resize(); majBouton(); },
   /** Point d'entrée de draw : obstacles de l'interface (rectangles [x0,x1,y0,y1] en coordonnées d'écran) ramenés dans le canevas de la photo entière. */
-  versCadre(placed){
-    if(!cadreActif) return;
-    const G=typeof window!=='undefined'&&window.G, inv=G&&G.actif('projection')?G.projection.inverse:null;
-    for(const p of placed){ p[0]+=fen.vx-fen.x; p[1]+=fen.vx-fen.x; p[2]+=fen.vy-fen.y; p[3]+=fen.vy-fen.y;
-      if(inv){ // la v1 place les noms dans son repère, la projection exacte les déplace ensuite : l'obstacle est ramené dans ce repère (photo entière : jusqu'à 30° du centre en hauteur)
-        const xs=[], ys=[]; for(let i=0;i<=4;i++) for(let j=0;j<=4;j++){ const x=p[0]+(p[1]-p[0])*i/4, y=p[2]+(p[3]-p[2])*j/4;{ const q=inv(x,y); xs.push(q[0]); ys.push(q[1]); } }
-        p[0]=Math.min(...xs); p[1]=Math.max(...xs); p[2]=Math.min(...ys); p[3]=Math.max(...ys); } }
+  versCadre(placed,depuis=0){
+    if(!cadreActif) return; // seulement ce que la v1 a ajouté elle-même (conteneurs de l'interface) : les boutons et puces de la greffe placement sont déjà ramenés
+    for(let i=depuis;i<placed.length;i++){ const p=placed[i]; p[0]+=fen.vx-fen.x; p[1]+=fen.vx-fen.x; p[2]+=fen.vy-fen.y; p[3]+=fen.vy-fen.y; }
   },
+  /** Point d'écran → coordonnées de la scène (rectangles d'obstacles de la greffe placement). */
+  scene:(x,y)=>cadreActif?[x-fen.x+fen.vx,y-fen.y+fen.vy]:[x,y],
+
   /** Point d'entrée de runAutoAlign0 : points de l'horizon lus sur la photo (repère de la scène), ramenés dans le repère de la v1 quand le dessin
    *  est en projection exacte : l'ajustement de la v1 devient exact. */
   redresser(pts){

@@ -3213,10 +3213,11 @@ function draw(ts){
   const PLURAL={'Tour':'tours','Clocher':'clochers',"Château d'eau":"châteaux d'eau",'Cheminée':'cheminées','Mât':'mâts','Immeuble':'immeubles','Pylône':'pylônes','Toit-terrasse':'toits-terrasses','Antenne':'antennes'};
   const fkm=d=>d<10?d.toFixed(1):String(Math.round(d));
   const useRelief=S.relief&&!!terrain, placed=(G.actif('placement')?G.placement.obstacles(uiObstacles()):uiObstacles()).map(r=>r.slice()), topLimit=safeT+24+14, maxLanes=G.actif('placement')?G.placement.voies(H):60; // greffe placement : boutons et puces, traits bornés // boutons du bas : aucun nom dessous (tous calques)
+  const nObs=placed.length; // greffes placement et photo : les obstacles au-dessus sont déjà dans le repère des noms
   // zones d'interface a ne jamais recouvrir (colonne d'icones, bandeau d'etat, boutons du bas,
   // panneau des calques) : posees d'emblee comme des etiquettes deja placees
   for(const el of [$('tools'),$('chips'),$('btnSet'),$('shutter'),$('btnBeyond'),$('layers')]){ if(!el) continue; const r=el.getBoundingClientRect(); if(r.width&&r.height) placed.push([r.left,r.right,r.top,r.bottom]); }
-  G.actif('photo')&&G.photo.versCadre(placed); // greffe photo : obstacles de l'écran ramenés dans le cadre de la photo
+  G.actif('photo')&&G.photo.versCadre(placed,G.actif('placement')?nObs:0); // greffe photo : conteneurs de l'écran ramenés dans la scène
   // chevauchement d'un rectangle horizontal avec ce qui est deja pose (etiquettes inclinees : test exact)
   const rectHit=(x0,x1,y0,y1,m,own)=>{ let q=null;
     return placed.some(r=>{ if(own&&r[5]===own) return false; if(!(x0<r[1]+m&&x1>r[0]-m&&y0<r[3]+m&&y1>r[2]-m)) return false; if(!r[4]) return true;

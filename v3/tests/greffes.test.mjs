@@ -623,8 +623,9 @@ test('toucher : fiche d’un nom — nature, altitude, distance, direction, calq
 // ---- placement : voies bornées, lignes du repli, essais espacés ----
 test('placement : voies et lignes sous un quart de l’écran, montagne tout près du point, essais ratés espacés sauf si la vue bouge', async () => {
   const P = await import('../greffes/placement.js');
-  assert.equal(P.voies(412), 8); assert.equal(P.voies(331), 6); assert.equal(P.voies(100), 3, 'au moins trois voies');
-  assert.equal(P.lignes(true, 12, 800), 2); assert.equal(P.lignes(false, 12, 412), 5);
+  assert.equal(P.voies(1000), 23); assert.equal(P.voies(753), 17); assert.equal(P.voies(331), 12, 'paysage : plancher de 140 px, pas 83'); assert.equal(P.voies(100), 12, 'au moins 140 px');
+  assert.equal(P.limite(331), 140); assert.equal(P.limite(753), 188.25);
+  assert.equal(P.lignes(true, 12, 800), 4); assert.equal(P.lignes(false, 12, 412), 7);
   assert.equal(P.reessayer(null, 0, 0, 0), true);
   const e = { t: 1000, h: 72, p: 0 };
   assert.equal(P.reessayer(e, 1100, 72.1, 0), false, 'vue immobile, 100 ms : pas de nouvel essai');
@@ -669,4 +670,11 @@ test('photo : « remplir » couvre l’écran sans bande noire, centré', async 
     assert.ok(Math.abs(f.w - Wv) <= 1 && Math.abs(f.h - Hv) <= 1, `${Wv}×${Hv} : le canevas couvre l’écran`);
     assert.ok(v.z > 1, 'plus grand que la photo entière');
   }
+});
+
+test('photo : pleine largeur — la photo remplit la largeur, bord haut en haut ; en portrait elle est déjà entière', async () => {
+  const P = await import('../greffes/photo.js');
+  const paysage = P.cadreContenu(809, 331, 4080, 3072), v = P.pleineLargeur(paysage, 809, 331), f = P.fenetre(paysage, v, 809, 331);
+  assert.ok(Math.abs(v.z - 809 / 440) < 1e-9); assert.equal(f.w, 809); assert.equal(f.y, 0); assert.equal(f.vy, 0, 'bord haut en haut');
+  assert.equal(P.pleineLargeur(P.cadreContenu(411, 753, 4080, 3072), 411, 753).z, 1);
 });

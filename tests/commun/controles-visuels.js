@@ -54,7 +54,7 @@ function cachesEcrits(textes,nomsCaches,toutVoir,nomsVisibles=[]){
 
 /** Les quatre contrôles d'un coup. `donnees` : {textes, ops, rects, nomsCaches, toutVoir, H}. */
 function controler(donnees,{traitMax}={}){
-  const H=donnees.H||0, max=traitMax!=null?traitMax:(H?H/4:1e9);
+  const H=donnees.H||0, max=traitMax!=null?traitMax:(H?Math.max(H/4,140):1e9); // un quart de l'écran, au moins 140 px (greffe placement)
   return {
     recouvrements:recouvrements(donnees.textes||[]),
     sousLesBoutons:sousLesBoutons(donnees.textes||[],donnees.rects||[]),
