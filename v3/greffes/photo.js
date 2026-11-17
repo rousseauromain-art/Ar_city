@@ -77,10 +77,18 @@ export function fenetre(cadre,v,Wv,Hv){
 const ov=()=>c.$('ov'), img=()=>c.photoMode?c.$('photoBg'):c.$('cam'); // l'image grossie : la photo, ou la caméra en direct
 function poser(){
   const i=img(), o=ov();
-  if(!cadreActif){ for(const el of [c.$('photoBg'),c.$('cam'),o]) if(el) for(const p of ['left','top','right','bottom','width','height','transform','transformOrigin']) el.style[p]=''; return; }
+  if(!cadreActif){ bandes(); for(const el of [c.$('photoBg'),c.$('cam'),o]) if(el) for(const p of ['left','top','right','bottom','width','height','transform','transformOrigin']) el.style[p]=''; return; }
   if(i){ const s=i.style; s.left=cadre.x+'px'; s.top=cadre.y+'px'; s.right='auto'; s.bottom='auto'; s.width=cadre.w+'px'; s.height=cadre.h+'px'; s.transformOrigin='0 0';
     s.transform=vue.z===1&&!vue.tx&&!vue.ty?'':`translate(${vue.tx}px,${vue.ty}px) scale(${vue.z})`; }
+  bandes();
   if(o){ const s=o.style; s.left=fen.x+'px'; s.top=fen.y+'px'; s.right='auto'; s.bottom='auto'; s.width=fen.w+'px'; s.height=fen.h+'px'; s.transform=''; }
+}
+/** Bandes noires sur les côtés (photo entière moins large que l'écran) : les puces (Près de, œil, rayon, photo…) passent dans la bande de gauche,
+ *  l'image et les noms gardent toute leur place. Sans bande assez large (BANDE_MIN px), elles restent où elles sont. */
+export const BANDE_MIN=110;
+function bandes(){
+  const d=document.documentElement, g=cadreActif&&c.photoMode?fen.x:0, oui=g>=BANDE_MIN;
+  document.body.classList.toggle('g3Bandes',oui); d.style.setProperty('--g3BandeG',(oui?g:0)+'px');
 }
 /** Point d'écran → coordonnées de la scène (celles de la v1, agrandies par la vue). */
 function local(x,y){ return cadreActif?[x-fen.x+fen.vx,y-fen.y+fen.vy]:[x,y]; }
@@ -114,6 +122,7 @@ function basculer(){
 function monter(){
   const tools=c.$('tools'); if(!tools||c.$('g3Mode')) return;
   const st=document.createElement('style'); st.textContent='#g3Mode{position:relative}#g3Mode .g3ModeT{position:absolute;left:0;right:0;bottom:-1px;font:600 7.5px/1 var(--mono);letter-spacing:0;text-align:center;pointer-events:none}'
+    +'body.g3Bandes #chips{max-width:calc(var(--g3BandeG) - 20px)!important}body.g3Bandes #chips .chiprow{flex-wrap:wrap}body.g3Bandes #chips .chip{max-width:calc(var(--g3BandeG) - 20px)}'
     +'#g3Mode.on{color:#FFD23F}#g3Cale{pointer-events:auto;cursor:pointer;color:#8FE3A0;border:1px solid rgba(143,227,160,.5);white-space:normal}';
   document.head.appendChild(st);
   const b=document.createElement('button'); b.id='g3Mode'; b.type='button'; b.onclick=basculer; tools.appendChild(b); majBouton();
@@ -272,6 +281,8 @@ export default {
     x.font=`500 11px ${K.FM}`; x.fillStyle='rgba(224,165,38,.95)'; x.fillText(fit(ligne,W-24),12,pres?H+38:H+29);
     K.montrer(cv); return true;
   },
+  /** Point d'entrée de resize : marge du haut (barre d'état) pour le ruban de cap et les noms, seulement si la scène touche le haut de l'écran. */
+  margeHaut:t=>cadreActif&&fen.y>0?Math.max(0,t-fen.y):t,
   /** Point d'entrée de pose : rotation de la photo (°). */
   roulis:()=>c?roulis:0,
   /** Point d'entrée d'enterPhoto : photo ouverte (fichier `f`). Calage retenu repris, sinon « Caler » lancé tout seul. */

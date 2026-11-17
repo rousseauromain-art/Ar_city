@@ -2998,6 +2998,7 @@ function resize(){
   if(G.actif('photo')) ({w:W,h:H}=G.photo.cadre(W,H)); // greffe photo : en mode photo, la scène prend le cadre de la photo entière
   if(!(G.actif('photo')&&G.photo.canevas(ov,dpr))){ ov.width=Math.round(W*dpr); ov.height=Math.round(H*dpr); } // greffe photo : le canevas ne couvre que la partie de la photo vue à l'écran
   safeT=$('safe').getBoundingClientRect().height||0; uiObsT=0;
+  if(G.actif('photo')) safeT=G.photo.margeHaut(safeT); // greffe photo : le ruban de cap n'a pas la marge du haut de l'écran quand la photo ne touche pas ce bord
 }
 window.addEventListener('resize',()=>setTimeout(resize,80));
 
