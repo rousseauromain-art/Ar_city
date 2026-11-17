@@ -255,6 +255,23 @@ export default {
   decaler(ctx){ if(cadreActif&&(fen.vx||fen.vy)) ctx.translate(-fen.vx,-fen.vy); },
   /** Hauteur vue à l'écran (traits de rappel, voies : bornés à l'écran, pas à la scène agrandie). */
   hVisible:H=>cadreActif?Math.min(H,fen.h):H,
+  /** Point d'entrée du déclencheur : capture de ce qui est vu (partie de la photo ou de l'image grossie, et le calque), bandeau de légende dessous.
+   *  Faux hors cadre (la v1 fait sa capture). */
+  capturer(){
+    if(!cadreActif) return false;
+    const K=c.capture, W=fen.w, H=fen.h, BAND=48, dpr=Math.min(window.devicePixelRatio||1,3), cv=document.createElement('canvas');
+    cv.width=Math.round(W*dpr); cv.height=Math.round((H+BAND)*dpr); const x=cv.getContext('2d'); x.scale(dpr,dpr);
+    const cs=K.src(); x.fillStyle='#000'; x.fillRect(0,0,W,H);
+    if(cs.w&&cs.h){ const s=Math.max(c.W/cs.w,c.H/cs.h), dw=cs.w*s, dh=cs.h*s; // la scène : l'image entière à l'échelle de la vue
+      x.save(); x.beginPath(); x.rect(0,0,W,H); x.clip(); x.drawImage(cs.el,(c.W-dw)/2-fen.vx,(c.H-dh)/2-fen.vy,dw,dh); x.restore(); }
+    x.drawImage(ov(),0,0,W,H);
+    const {pres,ligne}=K.legende(); x.fillStyle='#0E1A2B'; x.fillRect(0,H,W,BAND);
+    const fit=(t,max)=>{ if(x.measureText(t).width<=max) return t; while(t.length>4&&x.measureText(t+'…').width>max) t=t.slice(0,-1); return t+'…'; };
+    x.textAlign='left'; x.textBaseline='alphabetic';
+    if(pres){ x.font=`700 15px ${K.FD}`; x.fillStyle='#F3E9D2'; x.fillText(fit(pres,W-24),12,H+20); }
+    x.font=`500 11px ${K.FM}`; x.fillStyle='rgba(224,165,38,.95)'; x.fillText(fit(ligne,W-24),12,pres?H+38:H+29);
+    K.montrer(cv); return true;
+  },
   /** Point d'entrée de pose : rotation de la photo (°). */
   roulis:()=>c?roulis:0,
   /** Point d'entrée d'enterPhoto : photo ouverte (fichier `f`). Calage retenu repris, sinon « Caler » lancé tout seul. */
