@@ -668,13 +668,13 @@ window.addEventListener('deviceorientation',e=>onOrient(e,e.absolute===true));
 
 function pose(){
   if(photoMode) return {heading:((S.headOff%360)+360)%360,pitch:S.pitchOff,roll:G.actif('photo')?G.photo.roulis():0}; // greffe photo : rotation de la photo ; photo : cap absolu tenu dans headOff (sauvegarde ecartee)
-  if(!sensor) return {heading:(S.headOff+360)%360,pitch:S.pitchOff,roll:0};
+  if(!sensor) return {heading:(S.headOff+360)%360,pitch:S.pitchOff,roll:G.actif('photo')?G.photo.roulis():0}; // greffe photo : rotation à deux doigts, aussi en direct
   const g=gyroOn(), vv=g?svRel:sv, rr=g?srRel:sr;
   const n=Math.hypot(...vv)||1, v=vv.map(k=>k/n);
   const heading=(Math.atan2(v[0],v[1])/D+(g?gyroK:0)+S.headOff+720)%360;
   const pitch=Math.asin(Math.max(-1,Math.min(1,v[2])))/D+S.pitchOff;
   const nr=Math.hypot(...rr)||1;
-  const roll=Math.asin(Math.max(-1,Math.min(1,rr[2]/nr)))/D;
+  const roll=Math.asin(Math.max(-1,Math.min(1,rr[2]/nr)))/D+(G.actif('photo')?G.photo.roulis():0); // greffe photo : rotation à deux doigts, aussi en direct
   return {heading,pitch,roll};
 }
 

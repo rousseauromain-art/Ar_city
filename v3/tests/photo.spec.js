@@ -128,14 +128,14 @@ test('photo : Se déplacer — grossir refait la scène à l’échelle (des nom
   await o.ctx.close(); expect(o.erreurs).toEqual([]);
 });
 
-test('photo : en direct, le bouton verrouille le calage (glisser ne change plus le cap)',async({browser})=>{
+test('photo : en direct, les mêmes modes — Se déplacer : glisser ne change pas le cap ; Caler : il le change',async({browser})=>{
   test.setTimeout(300000);
   const m=await charger(), sc=m.sc('pont-est'); ignorerSiAbsent(test,sc);
   const o=await ouvrirSceneReelle(browser,sc,{url:V3,greffes:GREFFES,reglages:m.reglages}), page=o.page;
   const glisser=async()=>{ await page.mouse.move(400,250); await page.mouse.down(); await page.mouse.move(330,250,{steps:5}); await page.mouse.up(); await page.waitForTimeout(200); };
-  await page.click('#g3Mode'); expect(await o.app.ev("G.photo.mode()")).toBe('verrou');
+  await page.click('#g3Mode'); expect(await o.app.ev("G.photo.mode()")).toBe('deplacer');
   const h0=await o.app.ev('S.headOff'); await glisser(); expect(await o.app.ev('S.headOff')).toBe(h0);
-  await page.click('#g3Mode'); expect(await o.app.ev("G.photo.mode()")).toBe('libre');
+  await page.click('#g3Mode'); expect(await o.app.ev("G.photo.mode()")).toBe('caler');
   await glisser(); expect(ecart(await o.app.ev('S.headOff'),h0)).toBeGreaterThan(1);
   await o.ctx.close(); expect(o.erreurs).toEqual([]);
 });
