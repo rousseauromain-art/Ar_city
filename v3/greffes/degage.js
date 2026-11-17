@@ -4,20 +4,34 @@
 //  - Le bouton ÉCRAN passe en plein écran (comme la v1) ET masque les puces, la colonne de boutons et la barre du bas : il ne reste que l'image, le
 //    tracé et les noms, qui peuvent occuper le bas de l'écran (les boutons n'y sont plus des obstacles). Un petit bouton, en haut à droite, ramène tout.
 //    Quitter le plein écran par le geste « retour » du téléphone ramène tout aussi.
+//  - Dans cet écran dégagé, un appui long (0,6 s sans bouger) montre les boutons et les puces sans quitter le plein écran ; ils repartent 5 s après le
+//    dernier toucher.
 //  - En photo rejouée, le bandeau (deux lignes sur toute la largeur) est replié en une petite puce « 📷 photo » ; un toucher le déplie, un autre le replie.
 // Aucun point d'entrée dans le code de la v1 : la greffe écoute le bouton ÉCRAN et pose des règles d'affichage.
-let c=null, degage=false, deplie=false;
-function regler(v){ degage=!!v; document.body.classList.toggle('g3Degage',degage); }
+let c=null, degage=false, deplie=false, appui=null, montreT=null;
+export const APPUI_MS=600, MONTRE_MS=5000, APPUI_PX=10;
+/** Plein écran : un appui long (0,6 s sans bouger) sur l'image montre les boutons et les puces ; ils repartent 5 s après le dernier toucher. */
+function montrer(){ document.body.classList.add('g3Montre'); clearTimeout(montreT); montreT=setTimeout(()=>document.body.classList.remove('g3Montre'),MONTRE_MS); }
+function surAppui(e){
+  if(!degage) return;
+  if(document.body.classList.contains('g3Montre')){ montrer(); return; } // un toucher pendant qu'ils sont visibles les garde
+  const x=e.clientX, y=e.clientY; clearTimeout(appui&&appui.t);
+  appui={x,y,t:setTimeout(()=>{ appui=null; montrer(); },APPUI_MS)};
+}
+function surBouge(e){ if(appui&&Math.hypot(e.clientX-appui.x,e.clientY-appui.y)>APPUI_PX){ clearTimeout(appui.t); appui=null; } }
+function surLeve(){ if(appui){ clearTimeout(appui.t); appui=null; } }
+function regler(v){ degage=!!v; document.body.classList.toggle('g3Degage',degage); if(!degage) document.body.classList.remove('g3Montre'); }
 function majPhoto(){ const p=c.$('g3Photo'); if(!p) return; p.hidden=!c.photoMode; p.textContent=deplie?'📷 photo · replier':'📷 photo · détails'; document.body.classList.toggle('g3PhotoDeplie',deplie&&!!c.photoMode); }
 export default {
   init(ctx){
     c=ctx;
     const st=document.createElement('style'); st.id='g3DegageSt';
-    st.textContent='body.g3Degage #chips,body.g3Degage #tools,body.g3Degage #bar,body.g3Degage #layers{display:none!important}'
+    st.textContent='body.g3Degage:not(.g3Montre) #chips,body.g3Degage:not(.g3Montre) #tools,body.g3Degage:not(.g3Montre) #bar,body.g3Degage:not(.g3Montre) #layers{display:none!important}'
       +'#g3Retour{display:none;position:absolute;top:calc(var(--safe-t) + 34px);right:calc(12px + var(--safe-r));z-index:4;width:44px;height:44px;align-items:center;justify-content:center;border-radius:4px;background:rgba(14,26,43,.5);color:var(--cream);font:700 20px/1 system-ui,sans-serif}'
       +'body.g3Degage #g3Retour{display:flex}'
       +'body.g3D #photoChip{display:none!important}body.g3D.g3PhotoDeplie #photoChip{display:block!important}#g3Photo{pointer-events:auto;cursor:pointer}';
     document.head.appendChild(st); document.body.classList.add('g3D');
+    addEventListener('pointerdown',surAppui,true); addEventListener('pointermove',surBouge,true); addEventListener('pointerup',surLeve,true); addEventListener('pointercancel',surLeve,true);
     const fs=c.$('btnFs');
     if(fs){ fs.addEventListener('click',()=>regler(!degage)); // le plein écran de la v1 se fait par son propre onclick
       const r=Object.assign(document.createElement('button'),{id:'g3Retour',type:'button',textContent:'⤡'}); r.setAttribute('aria-label','Retrouver les boutons');
