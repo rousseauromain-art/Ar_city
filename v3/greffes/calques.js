@@ -34,10 +34,12 @@ export function milieu(lat,lon,alt){
   for(const km of [RAYON_RELIEF_KM/2,RAYON_RELIEF_KM]) for(const [la,lo] of anneau(lat,lon,km)){ const a=alt(la,lo); if(a==null) continue; if(a<mn) mn=a; if(a>mx) mx=a; }
   return mx-mn>=DENIVELE_M?'montagne':'lieux';
 }
+/** Sites naturels parmi les monuments (Wikipédia) : grottes, gorges, rochers, arches, falaises, cascades, voies et secteurs d'escalade. */
+export const NATUREL=/\b(grottes?|gouffres?|avens?|gorges?|rochers?|roches?|arches?|porte du diable|falaises?|cascades?|cirques?|aiguilles?|dents?|voies?|secteurs?|canyons?|défilés?|cave|cliff|waterfall|rock)\b/i;
 /** Type sans ambiguïté : calque direct, ou null si l'élément est ambigu (son milieu décide). Pure. */
 export function calqueDuType(e){
   if(!e) return 'lieux';
-  if(e.kind==='monument') return 'monuments';
+  if(e.kind==='monument') return NATUREL.test(String(e.name||'')+' '+String(e.type||'')+' '+String(e.types||''))?'montagne':'monuments'; // un site naturel venu de Wikipédia va avec la montagne
   if(HABITE.has(e.kind)) return 'lieux';
   if(MER.has(e.kind)) return 'mer';
   const texte=String(e.types||'')+' '+String(e.name||'');
@@ -82,7 +84,7 @@ export default {
   /** Point d'entrée de layerOk : l'élément est-il dans un calque allumé ? */
   affiche(e){
     const L=c.S.layers||{}, k=this.calque(e);
-    return k==='monuments'?true:k==='lieux'?L.places!==false:k==='montagne'?L.montagne!==false:L.mer!==false;
+    return k==='monuments'?L.monuments!==false:k==='lieux'?L.places!==false:k==='montagne'?L.montagne!==false:L.mer!==false;
   },
   statut(){ const L=(c&&c.S.layers)||{}; return `calques : Lieux ${L.places!==false?'oui':'non'} · Montagne ${L.montagne!==false?'oui':'non'} · Mer ${L.mer!==false?'oui':'non'}`; },
 };

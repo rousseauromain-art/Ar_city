@@ -668,13 +668,13 @@ window.addEventListener('deviceorientation',e=>onOrient(e,e.absolute===true));
 
 function pose(){
   if(photoMode) return {heading:((S.headOff%360)+360)%360,pitch:S.pitchOff,roll:G.actif('photo')?G.photo.roulis():0}; // greffe photo : rotation de la photo ; photo : cap absolu tenu dans headOff (sauvegarde ecartee)
-  if(!sensor) return {heading:(S.headOff+360)%360,pitch:S.pitchOff,roll:0};
+  if(!sensor) return {heading:(S.headOff+360)%360,pitch:S.pitchOff,roll:G.actif('photo')?G.photo.roulis():0}; // greffe photo : rotation à deux doigts, aussi en direct
   const g=gyroOn(), vv=g?svRel:sv, rr=g?srRel:sr;
   const n=Math.hypot(...vv)||1, v=vv.map(k=>k/n);
   const heading=(Math.atan2(v[0],v[1])/D+(g?gyroK:0)+S.headOff+720)%360;
   const pitch=Math.asin(Math.max(-1,Math.min(1,v[2])))/D+S.pitchOff;
   const nr=Math.hypot(...rr)||1;
-  const roll=Math.asin(Math.max(-1,Math.min(1,rr[2]/nr)))/D;
+  const roll=Math.asin(Math.max(-1,Math.min(1,rr[2]/nr)))/D+(G.actif('photo')?G.photo.roulis():0); // greffe photo : rotation à deux doigts, aussi en direct
   return {heading,pitch,roll};
 }
 
@@ -2998,6 +2998,7 @@ function resize(){
   if(G.actif('photo')) ({w:W,h:H}=G.photo.cadre(W,H)); // greffe photo : en mode photo, la scène prend le cadre de la photo entière
   if(!(G.actif('photo')&&G.photo.canevas(ov,dpr))){ ov.width=Math.round(W*dpr); ov.height=Math.round(H*dpr); } // greffe photo : le canevas ne couvre que la partie de la photo vue à l'écran
   safeT=$('safe').getBoundingClientRect().height||0; uiObsT=0;
+  if(G.actif('photo')) safeT=G.photo.margeHaut(safeT); // greffe photo : le ruban de cap n'a pas la marge du haut de l'écran quand la photo ne touche pas ce bord
 }
 window.addEventListener('resize',()=>setTimeout(resize,80));
 
@@ -5158,6 +5159,7 @@ $('btnFold').addEventListener('click',()=>{ S.chipsFold=!S.chipsFold; document.q
 // ---------- photo ----------
 $('shutter').onclick=()=>{
   const fl=$('flash'); fl.style.opacity=.9; setTimeout(()=>fl.style.opacity=0,60);
+  if(G.actif('photo')&&G.photo.capturer()) return; // greffe photo : photo ou image grossie, la capture reprend la partie vue, calque compris
   // légende dans une bande SOUS l'image (retour du 28/09/2026 : posee sur la photo, elle masquait
   // la scene et certains noms, ex. "Platja del riu de Santa Eularia")
   const BAND=48;
@@ -5250,6 +5252,9 @@ G.lier({S,altitude:(lat,lon)=>{ if(!terrain||!pos) return null; const e=elevAt(t
   relatif:(R,reinit)=>{ if(reinit){ gyroK=null; magBins.fill(null); svRel=srRel=null; } if(!R) return; const k=0.18, sm=(p,n)=>p?p.map((q,i)=>q+(n[i]-q)*k):n; // greffe capteurRelatif : mesure relative (quaternion), comme onOrient
     svRel=sm(svRel,R.v); srRel=sm(srRel,R.r); relT=Date.now(); sv=svAbs||svRel; sr=svAbs?srAbs:srRel; sensor=true; gyroLearn(); },
   get W(){ return W; }, get H(){ return H; }, get pos(){ return pos; }, get acc(){ return acc; }, get terrain(){ return terrain; }, get photoMode(){ return photoMode; }, get sensor(){ return sensor; }, get farPeaks(){ return farPeaks; }, get monumentSites(){ return monumentSites; }, get telecomSites(){ return telecomSites; }, get cities(){ return cities; }, axisStatus,
+  capture:{ src:()=>camSrc(), FD, FM, legende:()=>{ const near=visibleCities().filter(c=>SETTLE.has(c.kind)&&!c.far).reduce((a,c)=>(!a||c.dist<a.dist)?c:a,null), {heading}=pose();
+      return {pres:near?(/^[aeiouyhàâäéèêëîïôöûüAEIOUYHÀÂÄÉÈÊËÎÏÔÖÛÜ]/.test(near.name)?"Près d'":'Près de ')+near.name:'', ligne:`${new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})} · cap ${Math.round(heading)}° · Villes à l'horizon`}; },
+    montrer:cv=>cv.toBlob(b=>{ shotBlob=b; if(shotURL) URL.revokeObjectURL(shotURL); shotURL=URL.createObjectURL(b); $('shotImg').src=shotURL; $('shot').classList.add('open'); },'image/jpeg',.92) }, // greffe photo : capture
   runAutoAlign, runAutoAlign0, resize, toucherEcran:(x,y)=>{ if(pointMode){ setPointMode(false); pointCalibrate(x,y); } else showTelecomDetail(x,y); }, // greffe photo
   get obsGround(){ return obsGround; }, get obsGroundSrc(){ return obsGroundSrc; }, get obsElev(){ return obsElev; }, get terrainBusy(){ return terrainBusy; },
   relief:{TDIST,BSTEP,NB,REFF}, fiche:(titre,html)=>{ $('dbgBody').innerHTML=html; $('dbgTitle').textContent=titre; $('dbg').classList.add('open'); dbgOpen=false; clearInterval(dbgTimer); dbgTimer=null; } }); // greffe nommer : relief de la v1, fiche
