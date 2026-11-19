@@ -10,7 +10,7 @@
 //    robuste (un bloc de premier plan, un nuage qui bouge sont écartés) sur au moins 10 paires et 60° de rotation cumulée, deux moitiés
 //    qui concordent à 4 % ; la mesure s'affine ensuite jusqu'à 40 paires.
 // Une puce « champ » montre l'avancement (ou ce qui manque : pas de rotation, image sans détail…) puis le résultat. La mesure est gardée par
-// caméra (`vh3_champAuto`) et appliquée au réglage « Champ de la caméra » ; une fois mesuré, le pincement à deux doigts ne le change plus
+// caméra (`vh3_champAuto`) et appliquée au réglage « Champ de la caméra » ; le pincement à deux doigts reste libre (19/11)
 // (curseur des Réglages pour le changer, bouton « Remesurer »). À faire dehors, par temps clair, face à un paysage lointain.
 // Points d'entrée : pincement (pointermove) ; le reste est une minuterie de la greffe.
 const RAD=Math.PI/180;
@@ -282,7 +282,7 @@ export default {
     const f=c.$('fov'), row=f&&f.closest('.row');
     if(row&&!c.$('g3ChampRow')){ const d=document.createElement('div'); d.className='row'; d.id='g3ChampRow';
       d.innerHTML='<label>Champ mesuré (greffe champAuto)</label><span class="val" id="g3ChampV">—</span><button type="button" id="g3ChampBtn" style="grid-column:1/-1;padding:9px;border-radius:10px;font:600 14px system-ui,sans-serif">Remesurer</button>'
-        +'<span class="hint">Le champ est mesuré en comparant le gyroscope et le déplacement de l’image quand vous tournez (dehors, par temps clair, face à un paysage lointain, un quart de tour lent). La puce « champ », sur l’image, montre l’avancement. Une fois mesuré, le pincement à deux doigts ne le change plus ; le curseur ci-dessus reste possible.</span>';
+        +'<span class="hint">Le champ est mesuré en comparant le gyroscope et le déplacement de l’image quand vous tournez (dehors, par temps clair, face à un paysage lointain, un quart de tour lent). La puce « champ », sur l’image, montre l’avancement. Le pincement règle toujours le champ ; le curseur ci-dessus reste possible.</span>';
       row.after(d);
       d.querySelector('button').onclick=()=>{ if(actif&&!mesure){ actif=false; majLigne(); return; } if(mesure&&c.S.camFov!==mesure.champ){ appliquer(mesure.champ); c.note(`Champ repris : ${mesure.champ}° (mesuré)`,4000); return; } demarrer(true); };
       if(f) f.addEventListener('input',()=>setTimeout(majLigne,0));
@@ -292,8 +292,7 @@ export default {
     setInterval(veille,1000);
   },
   /** Point d'entrée du pincement : vrai quand le champ est mesuré (le pincement ne le change plus). */
-  verrou(){ if(!mesure||c.photoMode) return false; // photo rejouée : le champ est celui de la photo, le pincement l'ajuste comme dans la v1
-    const t=Date.now(); if(t-noteT>3000){ noteT=t; c.note(`Champ mesuré automatiquement (${mesure.champ}°) : le pincement ne le change plus — curseur dans Réglages › Calage et capteurs`,4000); } return true; },
+  verrou(){ return false; }, // le pincement règle toujours le champ (demande de Romain du 19/11 : aligner les bâtiments sur la vue réelle) ; le bouton « Reprendre la mesure » remet le champ mesuré
   preparer, grossier, bloc, blocs, axes, axesA, modele, estimer, creerSuivi, avancement, textePuce, instantImage,
   /** Tests : accès au suivi en cours. */
   suivi:()=>suivi, conclure, demarrer:()=>demarrer(true),

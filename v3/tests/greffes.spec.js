@@ -262,7 +262,7 @@ async function pincer(page,de,a){
 }
 // l'estimation elle-même (gyroscope + image) est prouvée dans greffes.test.mjs sur une caméra simulée ; ici : ce que la page en fait
 const mesureFaite='(()=>{ window.G.champAuto.suivi().etat=()=>({ok:true,champ:68.3,n:15,rms:0.41,retard:90,rotation:104,paires:15,dernier:""}); window.G.champAuto.conclure(); return true; })()';
-for(const g of MODES('champAuto')) test(`champAuto (${nom(g)}) : le champ mesuré est appliqué, gardé pour cette caméra, le pincement ne le change plus ; déréglé, un bouton le reprend`,async({page})=>{
+for(const g of MODES('champAuto')) test(`champAuto (${nom(g)}) : le champ mesuré est appliqué, gardé pour cette caméra, le pincement le règle toujours ; déréglé, un bouton le reprend`,async({page})=>{
   let app=await ouvrir(page,{pos:POS,greffes:g,settings:{camFov:44}});
   await page.waitForFunction(()=>window.G.champAuto.etat().camera);
   await pincer(page,120,200); const avant=await app.ev('S.camFov'); expect(avant).toBeLessThan(44); // pas encore mesuré : le pincement règle le champ, comme la v1
@@ -271,8 +271,8 @@ for(const g of MODES('champAuto')) test(`champAuto (${nom(g)}) : le champ mesur�
   expect(await app.ev('S.camFov')).toBe(68.5); expect(await page.locator('#fov').inputValue()).toBe('68.5');
   await expect(page.locator('#note')).toContainText(`Champ de la caméra mesuré : 68.5° (il était réglé à ${avant}°)`);
   const garde=await page.evaluate(()=>JSON.parse(localStorage.getItem('vh3_champAuto'))), cam=Object.keys(garde); expect(cam.length).toBe(1); expect(garde[cam[0]]).toMatchObject({champ:68.5,n:15});
-  await pincer(page,120,200); expect(await app.ev('S.camFov')).toBe(68.5); await expect(page.locator('#note')).toContainText('le pincement ne le change plus');
   await expect(page.locator('#g3ChampV')).toHaveText('68.5°');
+  await pincer(page,120,200); expect(await app.ev('S.camFov')).toBeLessThan(68.5); // le pincement règle toujours le champ (19/11)
   await app.ev("$('btnDbg').onclick(); true"); await expect(page.locator('#dbgBody')).toContainText('champAuto : champ mesuré 68.5° (15 mesures, 104° de rotation');
   expect(app.errors).toEqual([]);
   // page rouverte avec un champ déréglé : la mesure de cette caméra est retrouvée, signalée, reprise d'un bouton
